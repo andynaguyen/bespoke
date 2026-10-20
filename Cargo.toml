@@ -10,6 +10,10 @@ default-run = "bespoke"
 [profile.dev]
 incremental = true
 
+# Keep application debug info enabled while omitting it for dependencies.
+[profile.dev.package."*"]
+debug = 0
+
 [[bin]]
 name = "bespoke"
 path = "src/main.rs"

@@ -1,0 +1,38 @@
+{
+  "commit": "c6b831d35531370b68d6c895050649f4abd5acaf",
+  "manifest_sha256": "25ea0d127046088eac43afffe0f4304ce10a46df7082d6a7ca6516f05402266d",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--bin",
+    "bespoke",
+    "--timings",
+    "--message-format=json-render-diagnostics"
+  ],
+  "target": "/Users/karat-01/.t3/worktrees/bespoke/t3-ed4f3543/target/hillclimb/build-zrt1t_g0",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/karat-01/.t3/worktrees/bespoke/t3-ed4f3543/target/hillclimb/build-zrt1t_g0",
+    "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+  },
+  "samples": {
+    "clean": {
+      "seconds": 56.31620608270168,
+      "exit_code": 0,
+      "compiled_artifacts": 838,
+      "valid": true,
+      "binary_bytes": 192874120,
+      "cli_smoke_passed": true
+    },
+    "source-touch": {
+      "seconds": 3.3264709999784827,
+      "exit_code": 0,
+      "compiled_artifacts": 1,
+      "valid": true,
+      "binary_bytes": 192874184,
+      "cli_smoke_passed": true
+    }
+  }
+}
