@@ -33,5 +33,6 @@ objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSPasteboardItem
 objc2-core-foundation = "0.3"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSData", "NSString"] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
+raw-window-handle = "0.6"
 metal = "0.29.0"
 screencapturekit = { version = "=11.0.0", features = ["macos_15_0"] }

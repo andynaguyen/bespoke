@@ -9,7 +9,7 @@ use objc2::msg_send;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2_app_kit::{
-    NSApplication, NSColor, NSStatusWindowLevel, NSWindow, NSWindowButton,
+    NSApplication, NSColor, NSStatusWindowLevel, NSView, NSWindow, NSWindowButton,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_foundation::MainThreadMarker;
@@ -190,18 +190,20 @@ pub(super) fn open_overlay(
 /// The picker: borderless at status level + 1 over the whole screen at `frame` (global points,
 /// menu bar included), taking clicks. Returns its window number, to leave out of the recording.
 pub(super) fn configure_picker_window(
-    _window: &mut Window,
+    window: &mut Window,
     frame: [f64; 4],
     _cx: &mut App,
 ) -> Option<u32> {
-    let ns_win = find_picker_ns_window()?;
+    let ns_win = ns_window(window)?;
     ns_win.setStyleMask(NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel);
     configure_floating_window(&ns_win, 1);
     move_window_to_screen(&ns_win, frame);
     // Keys come later (`focus_picker_soon`): AppKit calls back into GPUI as a window becomes
     // key, and GPUI is still opening this one.
     ns_win.orderFrontRegardless();
-    let num = ns_win.windowNumber().max(0) as u32;
+    let number = ns_win.windowNumber();
+    PICKER_WINDOW.store(number, std::sync::atomic::Ordering::Release);
+    let num = number.max(0) as u32;
     (num > 0).then_some(num)
 }
 
@@ -221,19 +223,31 @@ pub(super) fn install_status_bar() -> Option<flume::Receiver<MenuAction>> {
     Some(crate::host::menu_receiver())
 }
 
+/// The window number of the last picker `configure_picker_window` set up (0: none).
+static PICKER_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+/// The AppKit window behind a GPUI window.
+fn ns_window(window: &Window) -> Option<Retained<NSWindow>> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let handle = HasWindowHandle::window_handle(window).ok()?;
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return None;
+    };
+    // SAFETY: GPUI hands out its live content view; it outlives this call.
+    let view: &NSView = unsafe { handle.ns_view.cast::<NSView>().as_ref() };
+    view.window()
+}
+
+/// The open picker, by the window number `configure_picker_window` saved. Bespoke's main window
+/// shares the app and stays in its window list while hidden, so matching windows by size would
+/// restyle it as a full-screen picker.
 fn find_picker_ns_window() -> Option<Retained<NSWindow>> {
-    let mtm = MainThreadMarker::new()?;
-    let app = NSApplication::sharedApplication(mtm);
-    for win in app.windows() {
-        if win.ignoresMouseEvents() {
-            continue;
-        }
-        let size = win.frame().size;
-        if size.width >= 600.0 && size.height >= 200.0 && (size.width - 1120.0).abs() > 8.0 {
-            return Some(win);
-        }
+    let number = PICKER_WINDOW.load(std::sync::atomic::Ordering::Acquire);
+    if number <= 0 {
+        return None;
     }
-    None
+    let mtm = MainThreadMarker::new()?;
+    NSApplication::sharedApplication(mtm).windowWithWindowNumber(number)
 }
 
 fn sync_full_size_content_view(ns_window: &NSWindow) {

@@ -7265,6 +7265,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-quartz-core",
  "png 0.18.1",
+ "raw-window-handle",
  "screencapturekit 11.0.0",
  "serde",
  "serde_json",
