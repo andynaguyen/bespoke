@@ -1,0 +1,14 @@
+{
+  "fmt": {
+    "exit_code": 0
+  },
+  "clippy": {
+    "exit_code": 0
+  },
+  "tests": {
+    "exit_code": 0,
+    "passed": 344,
+    "failed": 0,
+    "ignored": 0
+  }
+}

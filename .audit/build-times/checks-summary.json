@@ -1,0 +1,20 @@
+{
+  "e1": {
+    "cargo_fmt_check": 0,
+    "cargo_clippy_locked_offline": 0,
+    "cargo_test_locked_offline": 0,
+    "tests_passed": 344,
+    "tests_failed": 0,
+    "tests_ignored": 0,
+    "clippy_warning_count": 12
+  },
+  "e7": {
+    "cargo_fmt_check": 0,
+    "cargo_clippy_locked_offline": 0,
+    "cargo_test_locked_offline": 0,
+    "tests_passed": 344,
+    "tests_failed": 0,
+    "tests_ignored": 0
+  },
+  "note": "Exit statuses were recorded by the command runner. Test counts are retained from raw local logs; raw text is ignored to avoid committing repeated compiler output."
+}

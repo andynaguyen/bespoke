@@ -16,6 +16,10 @@ debug = "line-tables-only"
 [profile.dev.package."*"]
 debug = 0
 
+# Keep full debugger support for the locally maintained shortcut library.
+[profile.dev.package.handy-keys]
+debug = 2
+
 [[bin]]
 name = "bespoke"
 path = "src/main.rs"
