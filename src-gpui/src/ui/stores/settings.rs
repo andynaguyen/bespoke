@@ -25,8 +25,6 @@ pub struct SettingsStore {
     /// Outputs, with "Default" first. Empty until first refreshed.
     pub output_devices: Vec<AudioDevice>,
     pub custom_sounds: CustomSounds,
-    /// `HANDY_DISABLE_UPDATER` forces update checks off.
-    pub update_checks_locked: bool,
     /// Cached `/models` results per post-processing provider.
     pub post_process_models: HashMap<String, Vec<String>>,
 }
@@ -94,7 +92,6 @@ impl SettingsStore {
             audio_devices: Vec::new(),
             output_devices: Vec::new(),
             custom_sounds: crate::commands::audio::check_custom_sounds(app.clone()),
-            update_checks_locked: settings::update_checks_forced_disabled(),
             post_process_models: HashMap::new(),
             app,
         }

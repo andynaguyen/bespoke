@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Ustawienia...",
-    "checkUpdates": "Sprawdź aktualizacje...",
     "copyLastTranscript": "Kopiuj ostatnią transkrypcję",
     "unloadModel": "Zwolnij model",
     "model": "Model",
@@ -537,11 +536,6 @@
         "lineCount": "Wierszy: {{count}}",
         "empty": "Oczekiwanie na logi… Wpisy pojawią się tutaj, gdy aplikacja je wygeneruje."
       },
-      "updateChecks": {
-        "label": "Sprawdzaj aktualizacje",
-        "description": "Automatycznie sprawdzaj nowe wersje Handy",
-        "lockedDescription": "Wyłączone przez konfigurację systemową (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Motyw dźwiękowy",
         "description": "Wybierz motyw dźwiękowy dla informacji o rozpoczęciu i zakończeniu nagrywania"
@@ -665,21 +659,6 @@
         "description": "Pokazuj informacje o wydaniu po aktualizacjach Handy"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Sprawdzanie aktualizacji...",
-    "updateAvailableShort": "Dostępna aktualizacja",
-    "upToDate": "Aktualne",
-    "updateCheckingDisabled": "Sprawdzanie aktualizacji wyłączone",
-    "downloading": "Pobieranie... {{progress}}%",
-    "installing": "Instalowanie...",
-    "preparing": "Przygotowywanie...",
-    "checkForUpdates": "Sprawdź aktualizacje",
-    "portableUpdateTitle": "Wymagana ręczna aktualizacja",
-    "portableUpdateMessage": "Instalacji przenośnych nie można aktualizować automatycznie. Pobierz poniżej instalator dla swojego systemu, uruchom go i zainstaluj w tym samym folderze — Twój folder Data/ (ustawienia, modele, nagrania) pozostaje na miejscu.",
-    "portableUpdateButton": "Pobierz instalator",
-    "portableUpdateBrowseMessage": "Instalacji przenośnych nie można aktualizować automatycznie. Pobierz najnowszą wersję dla swojego systemu z GitHub Releases i zainstaluj ją w tym samym folderze — Twój folder Data/ (ustawienia, modele, nagrania) pozostaje na miejscu.",
-    "portableUpdateBrowseButton": "Otwórz GitHub Releases"
   },
   "common": {
     "loading": "Wczytywanie...",

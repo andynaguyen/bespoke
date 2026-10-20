@@ -5,7 +5,6 @@
 mod banners;
 mod model_selector;
 mod sidebar;
-mod update_checker;
 
 use gpui::{
     div, point, prelude::*, px, rems, AnyView, App, Context, Entity, FocusHandle, Focusable,
@@ -29,7 +28,6 @@ pub use banners::SECURE_INPUT_HELP_URL;
 use banners::{AccessibilityBanner, SecureInputWarning};
 use model_selector::ModelSelector;
 pub use sidebar::logo;
-use update_checker::UpdateChecker;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Section {
@@ -92,7 +90,6 @@ pub struct MainWindow {
     scroll: ScrollHandle,
     focus: FocusHandle,
     model_selector: Entity<ModelSelector>,
-    update_checker: Entity<UpdateChecker>,
     accessibility_banner: Entity<AccessibilityBanner>,
     secure_input_warning: Entity<SecureInputWarning>,
     whats_new: Entity<WhatsNewGate>,
@@ -140,7 +137,6 @@ impl MainWindow {
             scroll: ScrollHandle::new(),
             focus,
             model_selector: cx.new(ModelSelector::new),
-            update_checker: cx.new(UpdateChecker::new),
             accessibility_banner: cx.new(|_| AccessibilityBanner::new()),
             secure_input_warning: cx.new(SecureInputWarning::new),
             whats_new: cx.new(|cx| WhatsNewGate::new(window, cx)),

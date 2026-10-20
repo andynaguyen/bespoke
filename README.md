@@ -243,41 +243,6 @@ Without these tools, Handy falls back to enigo which may have limited compatibil
 - Enable **"Audio Feedback"** (also in Advanced) if you still want audible confirmation of recording state
 - Users who upgrade from older versions or import settings from other platforms may need to manually apply this change
 
-## Verify Release Signatures
-
-Handy release artifacts are signed with Tauri's updater signature format. The public key is stored in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json) under `plugins.updater.pubkey`.
-
-To verify a release manually, set `ARTIFACT` to the filename you downloaded, save the `pubkey` value from `src-tauri/tauri.conf.json` to `handy.pub.b64`, then decode the public key and matching `.sig` file from base64 and verify the artifact with `minisign`:
-
-```bash
-# Replace with the file you downloaded
-ARTIFACT="Handy_0.8.1_amd64.AppImage"
-
-python3 - "$ARTIFACT" <<'PY'
-import base64, pathlib, sys
-
-artifact = sys.argv[1]
-
-pub = pathlib.Path("handy.pub.b64").read_text().strip()
-pathlib.Path("handy.pub").write_bytes(base64.b64decode(pub))
-
-sig = pathlib.Path(f"{artifact}.sig").read_text().strip()
-pathlib.Path(f"{artifact}.minisig").write_bytes(base64.b64decode(sig))
-PY
-
-minisign -Vm "$ARTIFACT" \
-  -p handy.pub \
-  -x "$ARTIFACT.minisig"
-```
-
-On success, `minisign` prints:
-
-```text
-Signature and comment signature verified
-```
-
-Do not use `gpg` for these `.sig` files.
-
 ## Troubleshooting
 
 ### Previous Clipboard Content Is Pasted Instead of the Transcription

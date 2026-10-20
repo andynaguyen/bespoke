@@ -1131,31 +1131,6 @@ pub fn log_level(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-pub fn update_checks(s: &AppSettings, cx: &App) -> AnyElement {
-    let locked = store(cx).update_checks_locked;
-    ToggleSwitchRow::new(
-        "update_checks_enabled",
-        t("settings.debug.updateChecks.label"),
-        if locked {
-            t("settings.debug.updateChecks.lockedDescription")
-        } else {
-            t("settings.debug.updateChecks.description")
-        },
-        !locked && s.update_checks_enabled,
-    )
-    .disabled(locked)
-    .updating(store(cx).is_updating("update_checks_enabled"))
-    .on_change(|v, _, cx| {
-        set(
-            cx,
-            "update_checks_enabled",
-            move |s| s.update_checks_enabled = v,
-            move |app| shortcut::change_update_checks_setting(app, v),
-        )
-    })
-    .into_any_element()
-}
-
 pub fn sound_theme(s: &AppSettings, cx: &App) -> AnyElement {
     let p = palette(cx);
     let custom = store(cx).custom_sounds;

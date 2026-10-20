@@ -532,7 +532,6 @@ impl Render for DebugPage {
                             ),
                     ),
             )
-            .child(rows::update_checks(&s, cx))
             .child(rows::sound_theme(&s, cx))
             .child(rows::word_correction_threshold(&s))
             .child(rows::paste_delay(&s))

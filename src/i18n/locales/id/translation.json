@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Pengaturan...",
-    "checkUpdates": "Periksa Pembaruan...",
     "copyLastTranscript": "Salin Transkripsi Terakhir",
     "unloadModel": "Keluarkan Model dari Memori",
     "model": "Model",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} baris",
         "empty": "Menunggu log… Entri akan muncul di sini saat aplikasi menghasilkannya."
       },
-      "updateChecks": {
-        "label": "Periksa Pembaruan",
-        "description": "Periksa versi baru Handy secara otomatis",
-        "lockedDescription": "Dinonaktifkan oleh konfigurasi sistem (HANDY_DISABLE_UPDATER)"
-      },
       "whatsNewPreview": {
         "title": "Pratinjau Yang Baru",
         "description": "Buka catatan rilis terbaru yang disertakan tanpa menandainya sebagai telah dilihat",
@@ -661,21 +655,6 @@
         "description": "Lokasi Handy menyimpan datanya"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Memeriksa pembaruan...",
-    "updateAvailableShort": "Pembaruan tersedia",
-    "upToDate": "Sudah versi terbaru",
-    "updateCheckingDisabled": "Pemeriksaan Pembaruan Dinonaktifkan",
-    "downloading": "Mengunduh... {{progress}}%",
-    "installing": "Menginstal...",
-    "preparing": "Menyiapkan...",
-    "checkForUpdates": "Periksa pembaruan",
-    "portableUpdateTitle": "Pembaruan manual diperlukan",
-    "portableUpdateMessage": "Instalasi portabel tidak dapat diperbarui secara otomatis. Unduh penginstal untuk sistem Anda di bawah ini, jalankan, lalu instal ke folder yang sama — folder Data/ Anda (pengaturan, model, rekaman) tetap dipertahankan.",
-    "portableUpdateButton": "Unduh penginstal",
-    "portableUpdateBrowseMessage": "Instalasi portabel tidak dapat diperbarui secara otomatis. Unduh versi terbaru untuk sistem Anda dari GitHub Releases dan instal ke folder yang sama — folder Data/ Anda (pengaturan, model, rekaman) tetap dipertahankan.",
-    "portableUpdateBrowseButton": "Buka GitHub Releases"
   },
   "whatsNew": {
     "title": "Baru di Handy v{{version}}"

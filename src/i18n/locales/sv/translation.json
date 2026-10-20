@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Inställningar...",
-    "checkUpdates": "Sök efter uppdateringar...",
     "copyLastTranscript": "Kopiera senaste transkriptionen",
     "unloadModel": "Avlasta modell",
     "model": "Modell",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} rader",
         "empty": "Väntar på loggar… Poster visas här när appen skickar dem."
       },
-      "updateChecks": {
-        "label": "Sök efter uppdateringar",
-        "description": "Sök automatiskt efter nya versioner av Handy",
-        "lockedDescription": "Inaktiverad av systemkonfiguration (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Ljudtema",
         "description": "Välj ett ljudtema för återkoppling vid start och stopp av inspelning"
@@ -661,21 +655,6 @@
         "description": "Visa versionsinformation efter Handy-uppdateringar"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Söker efter uppdateringar...",
-    "updateAvailableShort": "Uppdatering tillgänglig",
-    "upToDate": "Uppdaterad",
-    "updateCheckingDisabled": "Uppdateringskontroll inaktiverad",
-    "downloading": "Laddar ner... {{progress}}%",
-    "installing": "Installerar...",
-    "preparing": "Förbereder...",
-    "checkForUpdates": "Sök efter uppdateringar",
-    "portableUpdateTitle": "Manuell uppdatering krävs",
-    "portableUpdateMessage": "Portabla installationer kan inte uppdateras automatiskt. Ladda ner installeraren för ditt system nedan, kör den och installera i samma mapp — din Data/-mapp (inställningar, modeller, inspelningar) behålls.",
-    "portableUpdateButton": "Ladda ner installeraren",
-    "portableUpdateBrowseMessage": "Portabla installationer kan inte uppdateras automatiskt. Ladda ner den senaste versionen för ditt system från GitHub Releases och installera den i samma mapp — din Data/-mapp (inställningar, modeller, inspelningar) behålls.",
-    "portableUpdateBrowseButton": "Öppna GitHub Releases"
   },
   "common": {
     "loading": "Laddar...",

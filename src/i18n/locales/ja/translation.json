@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "設定…",
-    "checkUpdates": "アップデートを確認…",
     "copyLastTranscript": "最新の文字起こしをコピー",
     "unloadModel": "モデルをアンロード",
     "model": "モデル",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}}行",
         "empty": "ログを待機中… アプリが出力すると、ここにエントリが表示されます。"
       },
-      "updateChecks": {
-        "label": "アップデートを確認",
-        "description": "Handy の新しいバージョンを自動的にチェック",
-        "lockedDescription": "システム設定により無効化されています (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "サウンドテーマ",
         "description": "録音開始・停止フィードバックのサウンドテーマを選択"
@@ -661,21 +655,6 @@
         "description": "Handy のアップデート後にリリースノートを表示"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "アップデートを確認中…",
-    "updateAvailableShort": "アップデートあり",
-    "upToDate": "最新です",
-    "updateCheckingDisabled": "アップデート確認無効",
-    "downloading": "ダウンロード中… {{progress}}%",
-    "installing": "インストール中…",
-    "preparing": "準備中…",
-    "checkForUpdates": "アップデートを確認",
-    "portableUpdateTitle": "手動での更新が必要です",
-    "portableUpdateMessage": "ポータブル版は自動的に更新できません。下のボタンからお使いのシステム向けのインストーラーをダウンロードし、実行して同じフォルダーにインストールしてください。Data フォルダー(設定、モデル、録音)はそのまま残ります。",
-    "portableUpdateButton": "インストーラーをダウンロード",
-    "portableUpdateBrowseMessage": "ポータブル版は自動的に更新できません。GitHub Releases からお使いのシステム向けの最新版をダウンロードし、同じフォルダーにインストールしてください。Data フォルダー(設定、モデル、録音)はそのまま残ります。",
-    "portableUpdateBrowseButton": "GitHub Releases を開く"
   },
   "common": {
     "loading": "読み込み中…",

@@ -13,10 +13,9 @@ BUILT_APP="src-tauri/target/release/bundle/macos/$APP_NAME.app"
 INSTALLED_APP="/Applications/$APP_NAME.app"
 
 if [[ "${1:-}" != "--no-build" ]]; then
-  # Only the .app bundle; updater artifacts need the release signing key.
   APPLE_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:-Handy Local Signing}" \
     CMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    bun run tauri build --bundles app -c '{"bundle":{"createUpdaterArtifacts":false}}'
+    bun run tauri build --bundles app
 fi
 
 if [[ ! -d "$BUILT_APP" ]]; then

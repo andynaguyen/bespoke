@@ -108,18 +108,8 @@ pub fn render(
                         .child(main.model_selector.clone())
                         .child(
                             div()
-                                .flex()
-                                .row_dir()
-                                .flex_wrap()
-                                .items_center()
-                                .gap_x(rems(0.375))
-                                .whitespace_nowrap()
-                                .child(main.update_checker.clone())
-                                .child(
-                                    div()
-                                        .text_color(p.text.a(0.4))
-                                        .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
-                                ),
+                                .text_color(p.text.a(0.4))
+                                .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
                         ),
                 ),
         )

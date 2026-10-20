@@ -698,28 +698,6 @@ pub fn change_autostart_setting(app: AppHandle, enabled: bool) -> Result<(), Str
     Ok(())
 }
 
-pub fn change_update_checks_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
-    if settings::update_checks_forced_disabled() {
-        return Err(
-            "Update checks are disabled by system configuration (HANDY_DISABLE_UPDATER)".into(),
-        );
-    }
-
-    let mut settings = settings::get_settings(&app);
-    settings.update_checks_enabled = enabled;
-    settings::write_settings(&app, settings);
-
-    let _ = app.emit(
-        "settings-changed",
-        serde_json::json!({
-            "setting": "update_checks_enabled",
-            "value": enabled
-        }),
-    );
-
-    Ok(())
-}
-
 pub fn change_show_whats_new_on_update_setting(
     app: AppHandle,
     enabled: bool,

@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Configuración...",
-    "checkUpdates": "Buscar actualizaciones...",
     "copyLastTranscript": "Copiar la última transcripción",
     "unloadModel": "Descargar modelo",
     "model": "Modelo",
@@ -535,11 +534,6 @@
         "lineCount": "{{count}} líneas",
         "empty": "Esperando registros… Las entradas aparecerán aquí a medida que la aplicación las emita."
       },
-      "updateChecks": {
-        "label": "Buscar actualizaciones",
-        "description": "Buscar automáticamente nuevas versiones de Handy",
-        "lockedDescription": "Deshabilitado por la configuración del sistema (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Tema de sonido",
         "description": "Elige un tema de sonido para la retroalimentación de inicio y parada de grabación"
@@ -663,21 +657,6 @@
         "description": "Mostrar notas de la versión después de las actualizaciones de Handy"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Buscando actualizaciones...",
-    "updateAvailableShort": "Actualización disponible",
-    "upToDate": "Actualizado",
-    "updateCheckingDisabled": "Búsqueda de actualizaciones deshabilitada",
-    "downloading": "Descargando... {{progress}}%",
-    "installing": "Instalando...",
-    "preparing": "Preparando...",
-    "checkForUpdates": "Buscar actualizaciones",
-    "portableUpdateTitle": "Actualización manual necesaria",
-    "portableUpdateMessage": "Las instalaciones portátiles no se pueden actualizar automáticamente. Descarga abajo el instalador para tu sistema, ejecútalo e instálalo en la misma carpeta: tu carpeta Data/ (ajustes, modelos, grabaciones) se conserva.",
-    "portableUpdateButton": "Descargar instalador",
-    "portableUpdateBrowseMessage": "Las instalaciones portátiles no se pueden actualizar automáticamente. Descarga la versión más reciente para tu sistema desde GitHub Releases e instálala en la misma carpeta: tu carpeta Data/ (ajustes, modelos, grabaciones) se conserva.",
-    "portableUpdateBrowseButton": "Abrir GitHub Releases"
   },
   "common": {
     "loading": "Cargando...",

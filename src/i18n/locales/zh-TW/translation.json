@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "設定...",
-    "checkUpdates": "檢查更新...",
     "copyLastTranscript": "複製最新轉錄",
     "unloadModel": "卸載模型",
     "model": "模型",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} 行",
         "empty": "正在等待日誌…… 應用程式產生日誌時會顯示於此。"
       },
-      "updateChecks": {
-        "label": "檢查更新",
-        "description": "自動檢查 Handy 的新版本",
-        "lockedDescription": "已被系統設定停用 (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "聲音主題",
         "description": "選擇錄製開始和停止回饋的聲音主題"
@@ -661,21 +655,6 @@
         "description": "Handy 更新後顯示版本資訊"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "檢查更新中...",
-    "updateAvailableShort": "有可用更新",
-    "upToDate": "已是最新版本",
-    "updateCheckingDisabled": "更新檢查已停用",
-    "downloading": "下載中... {{progress}}%",
-    "installing": "安裝中...",
-    "preparing": "準備中...",
-    "checkForUpdates": "檢查更新",
-    "portableUpdateTitle": "需要手動更新",
-    "portableUpdateMessage": "可攜式安裝無法自動更新。請透過下方按鈕下載適用於你的系統的安裝程式，執行後安裝到相同資料夾，你的 Data/ 資料夾（設定、模型、錄音）會保留在原處。",
-    "portableUpdateButton": "下載安裝程式",
-    "portableUpdateBrowseMessage": "可攜式安裝無法自動更新。請從 GitHub Releases 下載適用於你的系統的最新版本，並安裝到相同資料夾，你的 Data/ 資料夾（設定、模型、錄音）會保留在原處。",
-    "portableUpdateBrowseButton": "開啟 GitHub Releases"
   },
   "common": {
     "loading": "載入中...",

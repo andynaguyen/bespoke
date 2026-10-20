@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Nastavení...",
-    "checkUpdates": "Zkontrolovat aktualizace...",
     "copyLastTranscript": "Zkopírovat poslední přepis",
     "unloadModel": "Uvolnit model",
     "model": "Model",
@@ -537,11 +536,6 @@
         "lineCount": "Řádků: {{count}}",
         "empty": "Čekání na logy… Záznamy se zde zobrazí, jakmile je aplikace vygeneruje."
       },
-      "updateChecks": {
-        "label": "Kontrolovat aktualizace",
-        "description": "Automaticky kontrolovat nové verze Handy",
-        "lockedDescription": "Zakázáno systémovou konfigurací (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Zvukový motiv",
         "description": "Vyberte zvukový motiv pro odezvu při startu a ukončení nahrávání"
@@ -665,21 +659,6 @@
         "description": "Zobrazovat poznámky k vydání po aktualizacích Handy"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Kontroluji aktualizace...",
-    "updateAvailableShort": "Dostupná aktualizace",
-    "upToDate": "Vše aktuální",
-    "updateCheckingDisabled": "Kontrola aktualizací vypnuta",
-    "downloading": "Stahování... {{progress}}%",
-    "installing": "Instalace...",
-    "preparing": "Příprava...",
-    "checkForUpdates": "Zkontrolovat aktualizace",
-    "portableUpdateTitle": "Vyžadována ruční aktualizace",
-    "portableUpdateMessage": "Přenosné instalace nelze aktualizovat automaticky. Níže stáhněte instalátor pro svůj systém, spusťte jej a nainstalujte do stejné složky — vaše složka Data/ (nastavení, modely, nahrávky) zůstane na místě.",
-    "portableUpdateButton": "Stáhnout instalátor",
-    "portableUpdateBrowseMessage": "Přenosné instalace nelze aktualizovat automaticky. Stáhněte nejnovější verzi pro svůj systém z GitHub Releases a nainstalujte ji do stejné složky — vaše složka Data/ (nastavení, modely, nahrávky) zůstane na místě.",
-    "portableUpdateBrowseButton": "Otevřít GitHub Releases"
   },
   "common": {
     "loading": "Načítání...",

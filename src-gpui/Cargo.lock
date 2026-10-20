@@ -3538,7 +3538,6 @@ dependencies = [
  "arboard",
  "async-channel 2.5.0",
  "auto-launch",
- "base64",
  "block2",
  "chrono",
  "clap",
@@ -3561,7 +3560,6 @@ dependencies = [
  "isolang",
  "libc",
  "log",
- "minisign-verify",
  "natural",
  "objc2",
  "objc2-app-kit",
@@ -3581,7 +3579,6 @@ dependencies = [
  "rusqlite",
  "rusqlite_migration",
  "rustfft",
- "semver",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -4834,12 +4831,6 @@ name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
-name = "minisign-verify"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e856fdd13623a2f5f2f54676a4ee49502a96a80ef4a62bcedd23d52427c44d43"
 
 [[package]]
 name = "miniz_oxide"

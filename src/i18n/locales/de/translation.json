@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Einstellungen...",
-    "checkUpdates": "Nach Updates suchen...",
     "copyLastTranscript": "Letzte Transkription kopieren",
     "unloadModel": "Modell entladen",
     "model": "Modell",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} Zeilen",
         "empty": "Warte auf Logs … Einträge erscheinen hier, sobald die App sie ausgibt."
       },
-      "updateChecks": {
-        "label": "Nach Updates suchen",
-        "description": "Automatisch nach neuen Versionen von Handy suchen",
-        "lockedDescription": "Durch Systemkonfiguration deaktiviert (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Sound-Thema",
         "description": "Sound-Thema für Aufnahme-Start und -Stop-Feedback auswählen"
@@ -661,21 +655,6 @@
         "description": "Versionshinweise nach Handy-Updates anzeigen"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Suche nach Updates...",
-    "updateAvailableShort": "Update verfügbar",
-    "upToDate": "Aktuell",
-    "updateCheckingDisabled": "Update-Prüfung deaktiviert",
-    "downloading": "Wird heruntergeladen... {{progress}}%",
-    "installing": "Wird installiert...",
-    "preparing": "Wird vorbereitet...",
-    "checkForUpdates": "Nach Updates suchen",
-    "portableUpdateTitle": "Manuelles Update erforderlich",
-    "portableUpdateMessage": "Portable Installationen können nicht automatisch aktualisiert werden. Lade unten den Installer für dein System herunter, führe ihn aus und installiere in denselben Ordner — dein Data/-Ordner (Einstellungen, Modelle, Aufnahmen) bleibt erhalten.",
-    "portableUpdateButton": "Installer herunterladen",
-    "portableUpdateBrowseMessage": "Portable Installationen können nicht automatisch aktualisiert werden. Lade die neueste Version für dein System von GitHub Releases herunter und installiere sie in denselben Ordner — dein Data/-Ordner (Einstellungen, Modelle, Aufnahmen) bleibt erhalten.",
-    "portableUpdateBrowseButton": "GitHub Releases öffnen"
   },
   "common": {
     "loading": "Wird geladen...",

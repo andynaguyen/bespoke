@@ -105,10 +105,6 @@
             };
 
             postPatch = ''
-              ${pkgs.jq}/bin/jq '.bundle.createUpdaterArtifacts = false' \
-                src-tauri/tauri.conf.json > $TMPDIR/tauri.conf.json
-              cp $TMPDIR/tauri.conf.json src-tauri/tauri.conf.json
-
               # Strip postinstall hook — it runs check-nix-deps.ts which is only
               # needed during local development, not inside the Nix sandbox.
               ${pkgs.jq}/bin/jq 'del(.scripts.postinstall)' \
@@ -169,10 +165,6 @@
               gappsWrapperArgs+=(
                 --set WEBKIT_DISABLE_DMABUF_RENDERER 1
                 --set ALSA_PLUGIN_DIR "${combinedAlsaPlugins}"
-                # Self-update can't work against an immutable /nix/store install
-                # (downloadAndInstall would try to overwrite the store path), so
-                # the Nix-built package always disables the updater.
-                --set HANDY_DISABLE_UPDATER 1
               )
             '';
 

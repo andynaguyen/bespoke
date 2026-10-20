@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Indstillinger...",
-    "checkUpdates": "Tjek for opdateringer...",
     "copyLastTranscript": "Kopiér seneste transskription",
     "unloadModel": "Frigør model",
     "model": "Model",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} linjer",
         "empty": "Venter på logs… Poster vises her, når appen udsender dem."
       },
-      "updateChecks": {
-        "label": "Tjek for opdateringer",
-        "description": "Tjek automatisk for nye versioner af Handy",
-        "lockedDescription": "Deaktiveret af systemkonfiguration (HANDY_DISABLE_UPDATER)"
-      },
       "whatsNewPreview": {
         "title": "Forhåndsvisning af nyheder",
         "description": "Åbn de seneste medfølgende udgivelsesnoter uden at markere dem som set",
@@ -661,21 +655,6 @@
         "description": "Placering, hvor Handy gemmer sine data"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Tjekker for opdateringer...",
-    "updateAvailableShort": "Opdatering tilgængelig",
-    "upToDate": "Opdateret",
-    "updateCheckingDisabled": "Tjek for opdateringer deaktiveret",
-    "downloading": "Downloader... {{progress}}%",
-    "installing": "Installerer...",
-    "preparing": "Forbereder...",
-    "checkForUpdates": "Tjek for opdateringer",
-    "portableUpdateTitle": "Manuel opdatering påkrævet",
-    "portableUpdateMessage": "Flytbare installationer kan ikke opdateres automatisk. Download installeren til dit system nedenfor, kør den, og installer i den samme mappe — din Data/-mappe (indstillinger, modeller, optagelser) bliver bevaret.",
-    "portableUpdateButton": "Download installer",
-    "portableUpdateBrowseMessage": "Flytbare installationer kan ikke opdateres automatisk. Download den nyeste version til dit system fra GitHub Releases, og installer den i den samme mappe — din Data/-mappe (indstillinger, modeller, optagelser) bliver bevaret.",
-    "portableUpdateBrowseButton": "Åbn GitHub Releases"
   },
   "whatsNew": {
     "title": "Nyt i Handy v{{version}}"

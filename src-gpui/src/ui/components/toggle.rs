@@ -25,7 +25,6 @@ struct SwitchMemory {
 pub struct ToggleSwitch {
     id: ElementId,
     checked: bool,
-    disabled: bool,
     updating: bool,
     on_change: Option<ChangeHandler>,
 }
@@ -35,15 +34,9 @@ impl ToggleSwitch {
         Self {
             id: id.into(),
             checked,
-            disabled: false,
             updating: false,
             on_change: None,
         }
-    }
-
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
     }
 
     /// Shows a spinner over the switch and blocks input while a write runs.
@@ -74,7 +67,7 @@ impl RenderOnce for ToggleSwitch {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = palette(cx);
         let checked = self.checked;
-        let blocked = self.disabled || self.updating;
+        let blocked = self.updating;
         let (off_track, on_track) = (p.mid_gray.a(0.3), p.accent);
         let (off_knob, on_knob) = (gpui::white(), p.accent_contrast);
 
@@ -114,8 +107,7 @@ impl RenderOnce for ToggleSwitch {
             .w(rems(2.5))
             .h(rems(1.5))
             .flex_shrink_0()
-            .rounded_full()
-            .when(self.disabled, |el| el.opacity(0.5));
+            .rounded_full();
         let track = if changes == 0 {
             paint(track, if checked { 1. } else { 0. }).into_any_element()
         } else {
@@ -173,7 +165,6 @@ pub struct ToggleSwitchRow {
     toggle: ToggleSwitch,
     title: SharedString,
     description: Option<SharedString>,
-    disabled: bool,
 }
 
 impl ToggleSwitchRow {
@@ -187,14 +178,7 @@ impl ToggleSwitchRow {
             toggle: ToggleSwitch::new(id, checked),
             title: title.into(),
             description: Some(description.into()),
-            disabled: false,
         }
-    }
-
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self.toggle = self.toggle.disabled(disabled);
-        self
     }
 
     pub fn updating(mut self, updating: bool) -> Self {

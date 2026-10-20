@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import HandyTextLogo from "./icons/HandyTextLogo";
 import ModelSelector from "./model-selector";
-import UpdateChecker from "./update-checker";
 import { useSettings } from "../hooks/useSettings";
 import { getVersion } from "@tauri-apps/api/app";
 import {
@@ -155,11 +154,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {renderItems(true)}
         <div className="flex flex-col gap-1.5 px-3 pt-3 text-xs text-text/60">
           <ModelSelector />
-          <div className="flex flex-wrap items-center gap-x-1.5 whitespace-nowrap">
-            <UpdateChecker />
-            {/* eslint-disable-next-line i18next/no-literal-string */}
-            {version && <span className="text-text/40">v{version}</span>}
-          </div>
+          {/* eslint-disable-next-line i18next/no-literal-string */}
+          {version && <span className="text-text/40">v{version}</span>}
         </div>
       </div>
     </nav>

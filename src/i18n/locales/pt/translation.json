@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Configurações...",
-    "checkUpdates": "Verificar Atualizações...",
     "copyLastTranscript": "Copiar última transcrição",
     "unloadModel": "Descarregar modelo",
     "model": "Modelo",
@@ -535,11 +534,6 @@
         "lineCount": "{{count}} linhas",
         "empty": "Aguardando logs… As entradas aparecem aqui à medida que o app as emite."
       },
-      "updateChecks": {
-        "label": "Verificar Atualizações",
-        "description": "Verificar automaticamente novas versões do Handy",
-        "lockedDescription": "Desativado pela configuração do sistema (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Tema de Som",
         "description": "Escolha um tema de som para feedback de início e parada de gravação"
@@ -663,21 +657,6 @@
         "description": "Mostrar notas de versão após atualizações do Handy"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Verificando atualizações...",
-    "updateAvailableShort": "Atualização disponível",
-    "upToDate": "Atualizado",
-    "updateCheckingDisabled": "Verificação de Atualização Desabilitada",
-    "downloading": "Baixando... {{progress}}%",
-    "installing": "Instalando...",
-    "preparing": "Preparando...",
-    "checkForUpdates": "Verificar atualizações",
-    "portableUpdateTitle": "Atualização manual necessária",
-    "portableUpdateMessage": "Instalações portáteis não podem ser atualizadas automaticamente. Baixe abaixo o instalador para o seu sistema, execute-o e instale na mesma pasta — a sua pasta Data/ (configurações, modelos, gravações) é mantida.",
-    "portableUpdateButton": "Baixar instalador",
-    "portableUpdateBrowseMessage": "Instalações portáteis não podem ser atualizadas automaticamente. Baixe a versão mais recente para o seu sistema no GitHub Releases e instale-a na mesma pasta — a sua pasta Data/ (configurações, modelos, gravações) é mantida.",
-    "portableUpdateBrowseButton": "Abrir GitHub Releases"
   },
   "common": {
     "loading": "Carregando...",

@@ -9,7 +9,6 @@ use crate::i18n;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayStrings {
     pub settings: String,
-    pub check_updates: String,
     pub copy_last_transcript: String,
     pub unload_model: String,
     pub model: String,
@@ -33,7 +32,6 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
     };
     TrayStrings {
         settings: get("settings"),
-        check_updates: get("checkUpdates"),
         copy_last_transcript: get("copyLastTranscript"),
         unload_model: get("unloadModel"),
         model: get("model"),

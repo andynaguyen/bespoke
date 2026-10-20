@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Cài đặt...",
-    "checkUpdates": "Kiểm tra cập nhật...",
     "copyLastTranscript": "Sao chép bản chép lời mới nhất",
     "unloadModel": "Dỡ mô hình",
     "model": "Mô hình",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} dòng",
         "empty": "Đang chờ nhật ký… Các mục sẽ xuất hiện ở đây khi ứng dụng phát ra."
       },
-      "updateChecks": {
-        "label": "Kiểm tra cập nhật",
-        "description": "Tự động kiểm tra phiên bản mới của Handy",
-        "lockedDescription": "Đã bị vô hiệu hóa bởi cấu hình hệ thống (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Chủ đề âm thanh",
         "description": "Chọn chủ đề âm thanh cho phản hồi bắt đầu và kết thúc ghi âm"
@@ -661,21 +655,6 @@
         "description": "Hiển thị ghi chú phát hành sau khi Handy cập nhật"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Đang kiểm tra cập nhật...",
-    "updateAvailableShort": "Có bản cập nhật",
-    "upToDate": "Đã cập nhật",
-    "updateCheckingDisabled": "Đã tắt kiểm tra cập nhật",
-    "downloading": "Đang tải... {{progress}}%",
-    "installing": "Đang cài đặt...",
-    "preparing": "Đang chuẩn bị...",
-    "checkForUpdates": "Kiểm tra cập nhật",
-    "portableUpdateTitle": "Cần cập nhật thủ công",
-    "portableUpdateMessage": "Bản cài đặt di động không thể cập nhật tự động. Hãy tải trình cài đặt phù hợp với hệ thống của bạn bên dưới, chạy nó và cài vào cùng thư mục — thư mục Data/ (cài đặt, mô hình, bản ghi) của bạn được giữ nguyên.",
-    "portableUpdateButton": "Tải trình cài đặt",
-    "portableUpdateBrowseMessage": "Bản cài đặt di động không thể cập nhật tự động. Hãy tải phiên bản mới nhất phù hợp với hệ thống của bạn từ GitHub Releases và cài vào cùng thư mục — thư mục Data/ (cài đặt, mô hình, bản ghi) của bạn được giữ nguyên.",
-    "portableUpdateBrowseButton": "Mở GitHub Releases"
   },
   "common": {
     "loading": "Đang tải...",

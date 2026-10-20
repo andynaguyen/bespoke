@@ -30,7 +30,6 @@ On macOS, if cmake fails on an old policy version, prefix the command with `CMAK
 | `tauri::AppHandle`, managed state, events, paths, `tauri-plugin-store` | `app_handle.rs` |
 | `lib.rs` setup | `startup.rs`, `main.rs` |
 | `tauri-plugin-single-instance` | `single_instance.rs` (Unix socket, loopback TCP on Windows) |
-| `tauri-plugin-updater` | `updater.rs` (same `latest.json` manifest and minisign key) |
 | `tauri-plugin-global-shortcut` | `shortcut/hotkey_impl.rs` (the setting value stays `"tauri"`) |
 | `tauri-plugin-autostart`, clipboard, opener | `autostart.rs`, `system_clipboard.rs`, the `open` crate |
 | `App.tsx`, sidebar, footer, banners | `ui/shell/` |
@@ -76,4 +75,4 @@ Pages are sidebar sections, `settings:<tab>`, `customize:<tab>`, `onboarding:acc
 - **Overlay window lifetime.** The overlay window opens on each show and closes 300ms after hiding, instead of staying alive hidden. Its pop-in fades without the 0.92 scale, because GPUI cannot scale an element.
 - **Right-to-left languages.** Rows, margins and the toggle knob mirror. Text inputs keep left-aligned text, the slider and the recording seek bar stay left to right, and long wrapped Arabic or Hebrew lines can clip at the left edge (GPUI's bidi line wrapping).
 - **Shortcut recorder on Windows and Linux.** Key names come from the logical key, while React read the physical key code, so numpad keys and non-US layouts can store different names.
-- **Packaging.** Installers, signing and update artifacts are not set up. The updater installs from the existing Tauri release manifest.
+- **Packaging.** Installers and signing are not set up.

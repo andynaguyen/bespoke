@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "सेटिंग...",
-    "checkUpdates": "अपडेट जांचें...",
     "copyLastTranscript": "पिछला ट्रांसक्रिप्ट कॉपी करें",
     "unloadModel": "मॉडल अनलोड करें",
     "model": "मॉडल",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} लाइनें",
         "empty": "लॉग का इंतज़ार है… ऐप से लॉग आते ही एंट्री यहां दिखेंगी."
       },
-      "updateChecks": {
-        "label": "अपडेट जांचें",
-        "description": "Handy के नए वर्शन की अपने आप जांच करें",
-        "lockedDescription": "सिस्टम कॉन्फ़िगरेशन द्वारा अक्षम (HANDY_DISABLE_UPDATER)"
-      },
       "whatsNewPreview": {
         "title": "'नया क्या है' की झलक देखें",
         "description": "बंडल की गई सबसे नई रिलीज़ नोट को 'देखा गया' मार्क किए बिना खोलें",
@@ -661,21 +655,6 @@
         "description": "वह जगह जहां Handy अपना डेटा सेव करता है"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "अपडेट जांचे जा रहे हैं...",
-    "updateAvailableShort": "अपडेट उपलब्ध है",
-    "upToDate": "अप-टू-डेट",
-    "updateCheckingDisabled": "अपडेट जांच बंद है",
-    "downloading": "डाउनलोड हो रहा है... {{progress}}%",
-    "installing": "इंस्टॉल हो रहा है...",
-    "preparing": "तैयारी हो रही है...",
-    "checkForUpdates": "अपडेट जांचें",
-    "portableUpdateTitle": "मैन्युअल अपडेट ज़रूरी है",
-    "portableUpdateMessage": "पोर्टेबल इंस्टॉल अपने आप अपडेट नहीं हो सकते. नीचे से अपने सिस्टम के लिए इंस्टॉलर डाउनलोड करें, उसे चलाएँ और उसी फ़ोल्डर में इंस्टॉल करें — आपका Data/ फ़ोल्डर (सेटिंग, मॉडल, रिकॉर्डिंग) जहाँ है वहीं बना रहता है.",
-    "portableUpdateButton": "इंस्टॉलर डाउनलोड करें",
-    "portableUpdateBrowseMessage": "पोर्टेबल इंस्टॉल अपने आप अपडेट नहीं हो सकते. GitHub Releases से अपने सिस्टम के लिए नया वर्शन डाउनलोड करें और उसे उसी फ़ोल्डर में इंस्टॉल करें — आपका Data/ फ़ोल्डर (सेटिंग, मॉडल, रिकॉर्डिंग) जहाँ है वहीं बना रहता है.",
-    "portableUpdateBrowseButton": "GitHub Releases खोलें"
   },
   "whatsNew": {
     "title": "Handy v{{version}} में नया क्या है"

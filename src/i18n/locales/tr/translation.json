@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Ayarlar...",
-    "checkUpdates": "Güncellemeleri Kontrol Et...",
     "copyLastTranscript": "Son Transkripti Kopyala",
     "unloadModel": "Modeli Boşalt",
     "model": "Model",
@@ -533,11 +532,6 @@
         "lineCount": "{{count}} satır",
         "empty": "Loglar bekleniyor… Uygulama logları ürettikçe girişler burada görünür."
       },
-      "updateChecks": {
-        "label": "Güncellemeleri Kontrol Et",
-        "description": "Handy için yeni sürümleri otomatik olarak kontrol eder",
-        "lockedDescription": "Sistem yapılandırması tarafından devre dışı bırakıldı (HANDY_DISABLE_UPDATER)"
-      },
       "soundTheme": {
         "label": "Ses Teması",
         "description": "Kayıt başlangıç ve bitişi için sesli geri bildirim temasını seçin"
@@ -661,21 +655,6 @@
         "description": "Handy güncellemelerinden sonra sürüm notlarını göster"
       }
     }
-  },
-  "footer": {
-    "checkingUpdates": "Güncellemeler kontrol ediliyor...",
-    "updateAvailableShort": "Güncelleme mevcut",
-    "upToDate": "Güncel",
-    "updateCheckingDisabled": "Güncelleme Kontrolü Devre Dışı",
-    "downloading": "İndiriliyor... %{{progress}}",
-    "installing": "Yükleniyor...",
-    "preparing": "Hazırlanıyor...",
-    "checkForUpdates": "Güncellemeleri kontrol et",
-    "portableUpdateTitle": "Manuel güncelleme gerekli",
-    "portableUpdateMessage": "Taşınabilir kurulumlar otomatik olarak güncellenemez. Aşağıdan sisteminize uygun yükleyiciyi indirin, çalıştırın ve aynı klasöre kurun — Data/ klasörünüz (ayarlar, modeller, kayıtlar) yerinde kalır.",
-    "portableUpdateButton": "Yükleyiciyi indir",
-    "portableUpdateBrowseMessage": "Taşınabilir kurulumlar otomatik olarak güncellenemez. Sisteminize uygun en son sürümü GitHub Releases’ten indirin ve aynı klasöre kurun — Data/ klasörünüz (ayarlar, modeller, kayıtlar) yerinde kalır.",
-    "portableUpdateBrowseButton": "GitHub Releases’i aç"
   },
   "common": {
     "loading": "Yükleniyor...",

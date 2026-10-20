@@ -94,7 +94,6 @@ struct MenuInputs {
     /// `(id, name)` of downloaded models, sorted by name.
     downloaded_models: Vec<(String, String)>,
     locale: String,
-    update_checks_enabled: bool,
 }
 
 /// Complete description of what the tray should look like.
@@ -362,7 +361,6 @@ fn compute_desired(app: &AppHandle, icon_state: TrayIconState) -> TrayDesired {
             selected_model: settings.selected_model,
             downloaded_models,
             locale: settings.app_language,
-            update_checks_enabled: settings.update_checks_enabled,
         },
     }
 }
@@ -498,9 +496,7 @@ fn version_label() -> String {
 }
 
 /// Builds the tray menu and tooltip for the given inputs. Pure with respect
-/// to app state: everything it depends on is in `inputs`, plus the
-/// process-constant `HANDY_DISABLE_UPDATER` env flag behind
-/// `update_checks_forced_disabled()`, which cannot change during a run.
+/// to app state: everything it depends on is in `inputs`.
 fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Error> {
     let strings = get_tray_translations(Some(inputs.locale.clone()));
 
@@ -540,12 +536,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         true,
         accelerator(settings_accelerator),
     );
-    let check_updates_i = MenuItem::with_id(
-        "check_updates",
-        &strings.check_updates,
-        inputs.update_checks_enabled,
-        None,
-    );
     let copy_last_transcript_i = MenuItem::with_id(
         "copy_last_transcript",
         &strings.copy_last_transcript,
@@ -565,7 +555,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             &copy_last_transcript_i,
             &separator(),
             &settings_i,
-            &check_updates_i,
             &separator(),
             &quit_i,
         ])?
@@ -602,21 +591,10 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             &unload_model_i,
             &separator(),
             &settings_i,
-            &check_updates_i,
             &separator(),
             &quit_i,
         ])?
     };
-
-    // When update checks are forced off (e.g. HANDY_DISABLE_UPDATER, set by
-    // the Nix package), the item is dropped from the menu rather than shown
-    // disabled — it can never do anything in that case, and a disabled item
-    // still shifts every entry below it by one position. A manually-disabled
-    // toggle in Debug Settings keeps the old greyed-out behavior via the
-    // enabled flag.
-    if settings::update_checks_forced_disabled() {
-        menu.remove(&check_updates_i)?;
-    }
 
     // Both layouts start with [version, separator, ...]; slot the warning in
     // right below the version line so it's the first actionable thing seen.
@@ -744,13 +722,6 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
             // explanation lives in the settings banner.
             crate::ui::show_main_window(cx);
         }
-        "check_updates" => {
-            let settings = settings::get_settings(app);
-            if settings::update_checks_effectively_enabled(&settings) {
-                crate::ui::show_main_window(cx);
-                let _ = app.emit("check-for-updates", ());
-            }
-        }
         "copy_last_transcript" => copy_last_transcript(app),
         "unload_model" => {
             let transcription_manager = app.state::<Arc<TranscriptionManager>>();
@@ -841,7 +812,6 @@ mod tests {
             selected_model: "small".to_string(),
             downloaded_models: vec![("small".to_string(), "Small".to_string())],
             locale: "en".to_string(),
-            update_checks_enabled: true,
         }
     }
 
