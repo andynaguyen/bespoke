@@ -12,10 +12,12 @@ cargo test
 
 If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. GPUI uses the `runtime_shaders` feature, so the build does not need Xcode's Metal compiler.
 
-Development builds retain full debug information for Bespoke and omit it for
-dependencies to reduce compilation time. Dependency source stepping and local
-variable inspection require removing the `profile.dev.package."*"` override in
-`Cargo.toml`.
+Development builds retain source lines for Bespoke backtraces and omit dependency
+debug information to reduce compilation time. Use
+`CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a
+debugger. Dependency backtraces lose file and line information, and dependency
+source stepping and local-variable inspection require removing the
+`profile.dev.package."*"` override in `Cargo.toml`.
 
 To measure a clean development build and a subsequent source-touch rebuild:
 

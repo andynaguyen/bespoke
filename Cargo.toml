@@ -9,8 +9,10 @@ default-run = "bespoke"
 
 [profile.dev]
 incremental = true
+# Preserve source lines in app backtraces without generating local-variable metadata.
+debug = "line-tables-only"
 
-# Keep application debug info enabled while omitting it for dependencies.
+# Omit dependency debug info to reduce clean compilation time.
 [profile.dev.package."*"]
 debug = 0
 

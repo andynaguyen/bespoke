@@ -42,3 +42,20 @@ Remaining hypotheses: an upstream handy-keys release that narrows the objc2 feat
 The retained change omits debug information only from development dependencies. Bespoke keeps full debug information. Developers inspecting dependency local variables or stepping through dependency sources can remove the package debug override, as documented in README.md. The release profile and Cargo.lock are unchanged.
 
 Final verification: `cargo fmt --check`, `cargo clippy --locked --offline`, Python byte compilation and `git diff --check` pass. Clippy retains the existing 12 source warnings. The 344-test run validates the retained application configuration. Redundant experiment build directories were removed; `confirm-final-2` retains its binary and artifacts.
+
+## Resumed run
+
+The user requested exhaustion of remaining cheap hypotheses after the Opus 5.5 review. The original 50% reduction predicate and no dependency patches, no used feature removal, no new dubious tooling constraints remain. Earlier stop is superseded. PROFILE remains main, Luna xhigh with priority service.
+
+The harness now records tracked dirty-tree status, source/config diffs, full Cargo.toml and the effective job count from Cargo timings. CLI smoke success is required before marking a sample valid. Timed commands are unchanged. New raw text outputs remain local and ignored; result JSON and this log preserve conclusions. Existing historical evidence remains available.
+
+First refreshed current-best run: 56.222s clean and 3.383s source-touch, 838 compiled artifacts. XProtect was consuming CPU during the run, so a second baseline is required and the earlier 52.171s median is not used alone to accept candidates. Evidence: `build-times/resume-best-1/`.
+
+Queue: app line-table debug info, app no debug info, dependency line-table info, root incremental/codegen settings, supported linking settings and grounded first-party changes. Each candidate is measured alone against the retained configuration. An independent read-only worker is checking which choices are distinct from Cargo defaults and identifying other low-cost options.
+
+Resumed baseline repeat: 51.425s clean, 3.143s source-touch. Background-load drift is too large to use the first refreshed value alone. Candidate acceptance uses adjacent runs and repeats for apparent gains. Previous 6% screening threshold remains, and smaller apparent gains require repeated paired evidence rather than accepting a single noisy sample.
+
+| Timestamp | Experiment | Hypothesis | Change | Before | After | Delta | Evidence | Decision and reason | Commit SHA |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-20 | Resumed baseline | Reestablish current-best timing | E1 unchanged | Earlier 52.171s | 56.222s, 51.425s | Background drift | `build-times/resume-best-1/`, `build-times/resume-best-2/` | Original baseline not redefined. These are current-best E1 control runs | d5f3157 |
+| 2026-10-20 | E7 | Root full debug metadata costs time at the final Rust compile step | Root dev debug=line-tables-only | Controls 51.425s and 52.218s, median 51.821s | 48.955s and 49.764s, median 49.359s | -2.462s, -4.75% | `build-times/e7-*/`, `build-times/resume-best-2/` | Keep after checks. Both paired gains are about 4.7%, controls and candidates each vary by only about 1.6%. Root compile tail drops from 10.05s to 7.43s. App backtrace lines retained, local-variable debugging requires documented opt-in. fmt, clippy and all 344 tests pass | This commit, E7 |
