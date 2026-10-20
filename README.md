@@ -20,7 +20,7 @@ debugger. Dependency backtraces lose file and line information, and dependency
 source stepping and local-variable inspection require removing the
 `profile.dev.package."*"` override in `Cargo.toml`.
 
-To measure a clean development build and a subsequent source-touch rebuild:
+To measure a clean development build and a rebuild after touching `src/startup.rs`:
 
 ```bash
 cargo fetch --locked

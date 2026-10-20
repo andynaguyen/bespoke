@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure a clean dev build and a source-touch rebuild without shared artifacts."""
+"""Measure a clean dev build and a rebuild after touching the startup module."""
 
 import argparse
 import hashlib
@@ -20,6 +20,10 @@ def main():
     parser.add_argument("--keep-target", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
+    # Keep the same functional module dirty if main becomes a thin entry point.
+    touch_source = root / "src/startup.rs"
+    if not touch_source.is_file():
+        parser.error(f"missing source file: {touch_source}")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     builds = root / "target" / "hillclimb"
@@ -48,6 +52,7 @@ def main():
         ),
         "manifest_sha256": hashlib.sha256((root / "Cargo.toml").read_bytes()).hexdigest(),
         "manifest": (root / "Cargo.toml").read_text(),
+        "source_touch_file": str(touch_source.relative_to(root)),
         "lockfile_sha256": hashlib.sha256((root / "Cargo.lock").read_bytes()).hexdigest(),
         "cargo_config": (
             (root / ".cargo/config.toml").read_text()
@@ -60,14 +65,17 @@ def main():
         "target": str(target),
         "environment": {
             key: value for key, value in env.items()
-            if key.startswith(("CARGO_", "RUST", "CMAKE_", "CC", "CXX", "SDKROOT", "SWIFTC", "MACOSX_"))
+            if key.startswith((
+                "CARGO_", "RUST", "CMAKE_", "CC", "CXX", "SDKROOT", "SWIFTC",
+                "MACOSX_", "TRANSCRIBE_", "DYLD_",
+            ))
         },
         "samples": {},
     }
     try:
         for mode in ("clean", "source-touch"):
             if mode == "source-touch":
-                os.utime(root / "src/main.rs", None)
+                os.utime(touch_source, None)
             start = time.monotonic()
             with (output / f"{mode}.jsonl").open("w") as stdout, (
                 output / f"{mode}.stderr.txt"
