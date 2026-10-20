@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -38,7 +39,15 @@ def main():
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=root, text=True
         ).strip(),
+        "worktree_status": subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"], cwd=root, text=True
+        ),
+        "worktree_diff": subprocess.check_output(
+            ["git", "diff", "HEAD", "--", "Cargo.toml", "Cargo.lock", ".cargo", "build.rs", "src"],
+            cwd=root, text=True,
+        ),
         "manifest_sha256": hashlib.sha256((root / "Cargo.toml").read_bytes()).hexdigest(),
+        "manifest": (root / "Cargo.toml").read_text(),
         "lockfile_sha256": hashlib.sha256((root / "Cargo.lock").read_bytes()).hexdigest(),
         "cargo_config": (
             (root / ".cargo/config.toml").read_text()
@@ -83,11 +92,17 @@ def main():
             )
             sample = {
                 "seconds": elapsed, "exit_code": completed.returncode,
-                "compiled_artifacts": len(compiled), "valid": valid,
+                "compiled_artifacts": len(compiled), "valid": False,
+                "compilation_valid": valid,
             }
+            timing_path = target / "cargo-timings/cargo-timing.html"
+            if timing_path.exists():
+                timing = timing_path.read_text()
+                jobs = re.search(r"\bjobs=(\d+)\b", timing)
+                sample["effective_jobs"] = int(jobs.group(1)) if jobs else None
+                shutil.copy2(timing_path, output / f"{mode}.timing.html")
             result["samples"][mode] = sample
             (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-            print(json.dumps({mode: sample}), flush=True)
             if not valid:
                 raise RuntimeError(f"{mode} did not compile the expected binary. See {output}")
             binary = Path(binaries[0]["executable"])
@@ -100,8 +115,9 @@ def main():
                 raise RuntimeError("The compiled binary failed the CLI smoke check")
             sample["binary_bytes"] = binary.stat().st_size
             sample["cli_smoke_passed"] = True
-            shutil.copy2(target / "cargo-timings/cargo-timing.html", output / f"{mode}.timing.html")
+            sample["valid"] = True
             (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps({mode: sample}), flush=True)
     finally:
         if not args.keep_target:
             shutil.rmtree(target)
