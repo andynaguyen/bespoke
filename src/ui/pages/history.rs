@@ -463,11 +463,14 @@ impl HistoryPage {
                 focus
                     .apply_with(button, handles[name].clone())
                     .cursor_pointer()
-                    .hover(|s| s.bg(p.mid_gray.a(0.15)))
-                    .when(active, |el| el.text_color(p.accent))
+                    // GPUI keeps one hover style per element, so each branch
+                    // sets the whole thing.
+                    .when(active, |el| {
+                        el.text_color(p.accent).hover(|s| s.bg(p.mid_gray.a(0.15)))
+                    })
                     .when(!active, |el| {
                         el.text_color(p.text.a(0.45))
-                            .hover(|s| s.text_color(p.text))
+                            .hover(|s| s.bg(p.mid_gray.a(0.15)).text_color(p.text))
                     })
             };
             button
