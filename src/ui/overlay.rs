@@ -28,7 +28,7 @@ use crate::overlay::MIC_LEVEL_EVENT;
 use crate::settings::OverlayPosition;
 use crate::ui::components::icon;
 use crate::ui::event_bus::event_bus;
-use crate::ui::theme::{palette, Alpha, HandyTheme};
+use crate::ui::theme::{palette, Alpha, BespokeTheme};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OverlayState {
@@ -487,7 +487,7 @@ impl RecordingOverlay {
             cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
                 this.handle_event(event, cx)
             }),
-            cx.observe_global::<HandyTheme>(|_, cx| cx.notify()),
+            cx.observe_global::<BespokeTheme>(|_, cx| cx.notify()),
         ];
         Self {
             visible: false,

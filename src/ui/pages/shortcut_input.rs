@@ -1,6 +1,6 @@
 //! The shortcut recorder row (`ShortcutInput.tsx`).
 //!
-//! macOS, and anyone on the Handy Keys backend, records through the backend
+//! macOS, and anyone on the handy-keys backend, records through the backend
 //! listener (`HandyKeysShortcutInput.tsx`): it reports key events as
 //! `handy-keys-event` and the combo commits when its key is released, or when
 //! every modifier is released for a modifier-only shortcut.
@@ -27,7 +27,6 @@ use crate::ui::components::{
 };
 use crate::ui::event_bus::event_bus;
 use crate::ui::keyboard::format_key_combination;
-use crate::ui::shell::SECURE_INPUT_HELP_URL;
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, shadow, Alpha};
 use crate::ui::toast;
@@ -53,9 +52,9 @@ pub struct ShortcutInput {
     /// Keys shown while recording.
     current: String,
     original: String,
-    /// Last combo that included a main key (Handy Keys).
+    /// Last combo that included a main key (handy-keys).
     keyed: String,
-    /// Last modifier-only combo (Handy Keys).
+    /// Last modifier-only combo (handy-keys).
     modifier_only: String,
     committing: bool,
     capture: WindowCapture,
@@ -189,12 +188,7 @@ impl ShortcutInput {
                             toast::ToastKind::Error,
                             t("secureInput.recorderBlocked"),
                             None,
-                            Some(toast::ToastAction {
-                                label: t("secureInput.learnMore"),
-                                on_click: std::rc::Rc::new(|_, cx| {
-                                    cx.open_url(SECURE_INPUT_HELP_URL)
-                                }),
-                            }),
+                            None,
                             cx,
                         );
                     } else {

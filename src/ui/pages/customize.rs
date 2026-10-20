@@ -946,7 +946,7 @@ mod tests {
 
     #[test]
     fn normalizes_words() {
-        assert_eq!(normalize_word("  <Handy>  app \"x\" "), "Handy app x");
+        assert_eq!(normalize_word("  <Bespoke>  app \"x\" "), "Bespoke app x");
     }
 
     #[test]

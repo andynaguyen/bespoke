@@ -57,7 +57,7 @@ fn main() {
         // Avoid overlay/capture layer crashes (#2049). Set before backend
         // initialization, preserving user overrides.
         if std::env::var_os("VK_LOADER_LAYERS_DISABLE").is_none()
-            && !env_flag_enabled("HANDY_KEEP_VULKAN_IMPLICIT_LAYERS")
+            && !env_flag_enabled("BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS")
         {
             std::env::set_var("VK_LOADER_LAYERS_DISABLE", "~implicit~");
         }
@@ -66,9 +66,9 @@ fn main() {
     // Avoid ggml-metal residency-set teardown assertions when a native engine
     // outlives shutdown (#1902). This must happen before transcribe-cpp
     // initializes its Metal device. Advanced users can restore upstream
-    // residency behavior with HANDY_METAL_RESIDENCY=1.
+    // residency behavior with BESPOKE_METAL_RESIDENCY=1.
     #[cfg(target_os = "macos")]
-    if std::env::var("HANDY_METAL_RESIDENCY").as_deref() == Ok("1") {
+    if std::env::var("BESPOKE_METAL_RESIDENCY").as_deref() == Ok("1") {
         // ggml treats GGML_METAL_NO_RESIDENCY as presence-based, so remove an
         // inherited value as well when explicitly opting back in.
         std::env::remove_var("GGML_METAL_NO_RESIDENCY");
@@ -84,6 +84,13 @@ fn main() {
     // Detect portable mode before anything else
     portable::init();
 
+    // Before logging starts, which would create the new log folder.
+    let migration_notes = if portable::is_portable() {
+        Vec::new()
+    } else {
+        app_handle::migrate_legacy_dirs()
+    };
+
     // The headless path must run as its own instance, not forward to an
     // already-running app.
     let headless_mode =
@@ -93,6 +100,9 @@ fn main() {
     match portable::app_log_dir(&app) {
         Ok(log_dir) => logging::init(log_dir, headless_mode),
         Err(e) => eprintln!("No log directory: {e}"),
+    }
+    for note in migration_notes {
+        log::info!("{note}");
     }
 
     if headless_mode {

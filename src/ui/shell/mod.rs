@@ -24,7 +24,6 @@ use crate::ui::theme::{palette, shadow, Alpha, SERIF_FALLBACKS, SERIF_FONT};
 use crate::ui::toast;
 use crate::ui::whats_new::WhatsNewGate;
 
-pub use banners::SECURE_INPUT_HELP_URL;
 use banners::{AccessibilityBanner, SecureInputWarning};
 use model_selector::ModelSelector;
 pub use sidebar::logo;
@@ -120,7 +119,7 @@ impl MainWindow {
             step
         };
         // A returning user who lost a permission sees the permission step
-        // even when Handy starts hidden.
+        // even when Bespoke starts hidden.
         if is_returning_user && step == OnboardingStep::Accessibility {
             cx.defer(crate::ui::show_main_window);
         }
@@ -586,8 +585,8 @@ impl Render for MainWindow {
         };
 
         div()
-            .id("handy-main")
-            .key_context("HandyMain")
+            .id("bespoke-main")
+            .key_context("BespokeMain")
             .track_focus(&self.focus)
             .size_full()
             .relative()

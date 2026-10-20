@@ -12,7 +12,7 @@ fn runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .thread_name("handy-async")
+            .thread_name("bespoke-async")
             .build()
             .expect("Failed to start the tokio runtime")
     })

@@ -2,7 +2,7 @@
 //! window, for checking the UI against the React app without clicking
 //! through it by hand.
 //!
-//! `HANDY_DEV_SNAPSHOT=/tmp/shots HANDY_DEV_PAGES=history,settings:system`
+//! `BESPOKE_DEV_SNAPSHOT=/tmp/shots BESPOKE_DEV_PAGES=history,settings:system`
 //! opens each page in turn, writes `<dir>/<page>.png`, then quits. Pages are
 //! sidebar sections (`history`, `stats`, `customize`, `models`, `debug`,
 //! `settings`), `settings:<tab>`, or `onboarding:accessibility|model`. A
@@ -10,7 +10,7 @@
 //! and a `#<n>` suffix presses Tab n times with focus rings shown.
 //! `overlay:<kind>` shows the recording overlay with sample data and
 //! captures its window instead (see `ui::overlay::dev_preview`).
-//! `HANDY_DEV_THEME=dark|light` forces the palette and `HANDY_DEV_LANGUAGE=ar`
+//! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
 //! the UI language, without saving either.
 //!
 //! macOS only: it captures the window with `CGWindowListCreateImage`, which
@@ -38,24 +38,24 @@ fn target_window(cx: &App) -> Option<AnyWindowHandle> {
 
 /// Whether a snapshot run was requested.
 pub fn requested() -> bool {
-    std::env::var_os("HANDY_DEV_SNAPSHOT").is_some()
+    std::env::var_os("BESPOKE_DEV_SNAPSHOT").is_some()
 }
 
 pub fn start(cx: &mut App) {
-    let Some(dir) = std::env::var_os("HANDY_DEV_SNAPSHOT").map(PathBuf::from) else {
+    let Some(dir) = std::env::var_os("BESPOKE_DEV_SNAPSHOT").map(PathBuf::from) else {
         return;
     };
-    let pages: Vec<String> = std::env::var("HANDY_DEV_PAGES")
+    let pages: Vec<String> = std::env::var("BESPOKE_DEV_PAGES")
         .unwrap_or_else(|_| "history".into())
         .split(',')
         .map(|p| p.trim().to_string())
         .filter(|p| !p.is_empty())
         .collect();
-    if let Ok(language) = std::env::var("HANDY_DEV_LANGUAGE") {
+    if let Ok(language) = std::env::var("BESPOKE_DEV_LANGUAGE") {
         crate::i18n::set_language(&language);
         cx.refresh_windows();
     }
-    if let Ok(theme) = std::env::var("HANDY_DEV_THEME") {
+    if let Ok(theme) = std::env::var("BESPOKE_DEV_THEME") {
         let setting = match theme.as_str() {
             "dark" => crate::settings::Theme::Dark,
             "light" => crate::settings::Theme::Light,

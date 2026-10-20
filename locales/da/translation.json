@@ -97,7 +97,7 @@
     },
     "permissions": {
       "title": "Tilladelser påkrævet",
-      "description": "Handy har brug for et par tilladelser for at fungere korrekt.",
+      "description": "Bespoke har brug for et par tilladelser for at fungere korrekt.",
       "microphone": {
         "title": "Mikrofonadgang",
         "description": "Påkrævet for at høre din stemme til transskription."
@@ -153,7 +153,7 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Handy-genveje",
+        "title": "Bespoke-genveje",
         "description": "Konfigurer tastaturgenveje til at udløse tale-til-tekst-optagelse",
         "loading": "Indlæser genveje...",
         "none": "Ingen genveje konfigureret",
@@ -217,7 +217,7 @@
       },
       "rescan": {
         "label": "Søg igen",
-        "tooltip": "Søg igen efter modeller, der er tilføjet til modelmappen eller Hugging Face-cachen uden for Handy"
+        "tooltip": "Søg igen efter modeller, der er tilføjet til modelmappen eller Hugging Face-cachen uden for Bespoke"
       },
       "noModelsMatch": "Ingen modeller matcher dette filter."
     },
@@ -282,11 +282,11 @@
       },
       "autostart": {
         "label": "Start ved opstart",
-        "description": "Start Handy automatisk, når du logger ind på din computer."
+        "description": "Start Bespoke automatisk, når du logger ind på din computer."
       },
       "showTrayIcon": {
         "label": "Vis proceslinjeikon",
-        "description": "Vis Handy-ikonet i meddelelsesområdet."
+        "description": "Vis Bespoke-ikonet i meddelelsesområdet."
       },
       "overlay": {
         "style": {
@@ -348,7 +348,7 @@
       },
       "voiceSubmit": {
         "title": "Stemmeindsendelse",
-        "description": "Afslut en diktering med dit nøgleord, og hold en pause. Handy stopper optagelsen, fjerner nøgleordet, indsætter teksten og trykker på indsendelsestasten.",
+        "description": "Afslut en diktering med dit nøgleord, og hold en pause. Bespoke stopper optagelsen, fjerner nøgleordet, indsætter teksten og trykker på indsendelsestasten.",
         "keyword": {
           "title": "Nøgleord til indsendelse",
           "description": "Sig det til sidst. Det tæller kun helt til sidst i det, du dikterer.",
@@ -474,7 +474,7 @@
       },
       "addNew": "Tilføj",
       "searchPlaceholder": "Søg",
-      "empty": "Ingen ord endnu. Tilføj navne, forkortelser og fagudtryk, som Handy tager fejl af.",
+      "empty": "Ingen ord endnu. Tilføj navne, forkortelser og fagudtryk, som Bespoke tager fejl af.",
       "noMatches": "Ingen ord matcher \"{{query}}\"",
       "dialogTitle": "Tilføj til ordbog",
       "placeholder": "Tilføj et ord",
@@ -621,7 +621,7 @@
       },
       "keyboardDiagnostic": {
         "title": "Tastaturdiagnostik",
-        "description": "Kontrollerer, om tastaturhændelser når frem til Handy. Kun antallet af hændelser registreres — aldrig hvilke taster du trykker på.",
+        "description": "Kontrollerer, om tastaturhændelser når frem til Bespoke. Kun antallet af hændelser registreres — aldrig hvilke taster du trykker på.",
         "run": "Kør 10 s diagnostik",
         "running": "Lytter… tryk på din genvej et par gange (f.eks. Option+Space)",
         "secureInputLabel": "Secure Input",
@@ -635,7 +635,7 @@
         "mouse": "Mus",
         "verdictBlocked": "Secure Input blokerer tastehændelser — genveje med en almindelig tast kan ikke fungere, før det er løst.",
         "verdictSuspicious": "Der kom modifikatorhændelser, men ingen tastehændelser — noget undertrykker taster, selvom Secure Input rapporteres som deaktiveret. Rapportér det gerne på GitHub.",
-        "verdictOk": "Tastehændelser når frem til Handy som normalt.",
+        "verdictOk": "Tastehændelser når frem til Bespoke som normalt.",
         "verdictNoEvents": "Ingen hændelser registreret — trykkede du på nogen taster under testen?",
         "failed": "Diagnostik mislykkedes: {{error}}"
       }
@@ -644,20 +644,20 @@
       "title": "Om",
       "version": {
         "title": "Version",
-        "description": "Nuværende version af Handy"
+        "description": "Nuværende version af Bespoke"
       },
       "whatsNewUpdates": {
         "label": "Vis nyheder",
-        "description": "Vis udgivelsesnoter, efter Handy opdateres"
+        "description": "Vis udgivelsesnoter, efter Bespoke opdateres"
       },
       "appDataDirectory": {
         "title": "Appdatamappe",
-        "description": "Placering, hvor Handy gemmer sine data"
+        "description": "Placering, hvor Bespoke gemmer sine data"
       }
     }
   },
   "whatsNew": {
-    "title": "Nyt i Handy v{{version}}"
+    "title": "Nyt i Bespoke v{{version}}"
   },
   "common": {
     "loading": "Indlæser...",
@@ -669,7 +669,7 @@
     "noOptionsFound": "Ingen muligheder fundet"
   },
   "accessibility": {
-    "permissionsDescription": "Handy har brug for tilgængelighedstilladelser for at skrive den transskriberede tekst.",
+    "permissionsDescription": "Bespoke har brug for tilgængelighedstilladelser for at skrive den transskriberede tekst.",
     "openSettings": "Åbn systemindstillinger"
   },
   "errors": {
@@ -692,11 +692,11 @@
   },
   "appLanguage": {
     "title": "Applikationssprog",
-    "description": "Skift sproget for Handy-grænsefladen"
+    "description": "Skift sproget for Bespoke-grænsefladen"
   },
   "theme": {
     "title": "Applikationstema",
-    "description": "Vælg om Handy skal følge dit systemtema eller forblive lyst eller mørkt",
+    "description": "Vælg om Bespoke skal følge dit systemtema eller forblive lyst eller mørkt",
     "options": {
       "system": "System",
       "light": "Lys",
@@ -714,7 +714,6 @@
     "blockedNoCulprit_other": "macOS blokerer midlertidigt {{count}} genveje",
     "recorderBlockedWithCulprit": "{{name}} blokerer muligvis ændringer af genveje",
     "recorderBlockedNoCulprit": "macOS blokerer midlertidigt ændringer af genveje",
-    "learnMore": "Sådan løser du det",
     "recorderBlocked": "Genveje kan ikke optages lige nu — macOS Secure Input blokerer tastehændelser. Løs advarslen om Secure Input først.",
     "dismiss": "Afvis"
   }

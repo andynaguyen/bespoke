@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use gpui::{div, prelude::*, rems, App, Context, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, rems, Context, FontWeight, SharedString, Window};
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_count};
@@ -12,9 +12,6 @@ use crate::secure_input::SecureInputStatus;
 use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
 use crate::ui::event_bus::event_bus;
 use crate::ui::theme::{palette, Alpha};
-
-pub const SECURE_INPUT_HELP_URL: &str =
-    "https://handy.computer/docs/troubleshooting#shortcuts-stopped-working-on-macos-secure-input";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum PermissionState {
@@ -214,33 +211,6 @@ impl Render for SecureInputWarning {
                             .font_weight(FontWeight::MEDIUM)
                             .line_height(rems(1.25))
                             .child(self.message()),
-                    )
-                    .child(
-                        div()
-                            .id("secure-input-learn-more")
-                            .cursor_pointer()
-                            .whitespace_nowrap()
-                            .rounded_sm()
-                            .px_2()
-                            .py(rems(0.375))
-                            .sm_text()
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(p.text)
-                            .hover(|s| s.text_color(p.warning))
-                            .keyboard_focus(cx)
-                            .on_click(|_, _, cx: &mut App| cx.open_url(SECURE_INPUT_HELP_URL))
-                            .child(
-                                div()
-                                    .flex()
-                                    .row_dir()
-                                    .items_center()
-                                    .gap_1()
-                                    .border_b_1()
-                                    .border_color(gpui::transparent_black())
-                                    .line_height(rems(1.))
-                                    .child(t("secureInput.learnMore"))
-                                    .child(icon("external-link").size(rems(0.875))),
-                            ),
                     )
                     .child(
                         div()

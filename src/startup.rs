@@ -27,9 +27,9 @@ pub fn run(
 ) {
     #[cfg(target_os = "windows")]
     log::info!(
-        "Vulkan layer policy: VK_LOADER_LAYERS_DISABLE={:?}, HANDY_KEEP_VULKAN_IMPLICIT_LAYERS={}",
+        "Vulkan layer policy: VK_LOADER_LAYERS_DISABLE={:?}, BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS={}",
         std::env::var_os("VK_LOADER_LAYERS_DISABLE"),
-        utils::env_flag_enabled("HANDY_KEEP_VULKAN_IMPLICIT_LAYERS"),
+        utils::env_flag_enabled("BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS"),
     );
 
     let cli_args = app.state::<CliArgs>().inner().clone();

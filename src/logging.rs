@@ -3,7 +3,7 @@
 //!
 //! - Console honors `RUST_LOG` (default info) and goes to stderr in headless
 //!   mode so stdout carries only results.
-//! - The file `handy.log` lives in the log directory, honors the "Log Level"
+//! - The file `bespoke.log` lives in the log directory, honors the "Log Level"
 //!   setting, and starts over once it passes 500 KB (`KeepOne` rotation).
 //! - While debug mode is on, records at or above the file level are sent to
 //!   the UI as `log://log` events for the live log viewer.
@@ -32,7 +32,7 @@ pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(LevelFilter::Debug as u8);
 pub static LOG_STREAMING: AtomicBool = AtomicBool::new(false);
 
 pub const LOG_EVENT: &str = "log://log";
-const LOG_FILE_NAME: &str = "handy.log";
+const LOG_FILE_NAME: &str = "bespoke.log";
 const MAX_FILE_SIZE: u64 = 500_000;
 
 /// Payload of a `log://log` event. `level` follows tauri-plugin-log's
@@ -115,7 +115,7 @@ impl LogFile {
     }
 }
 
-struct HandyLogger {
+struct BespokeLogger {
     console: env_filter::Filter,
     to_stderr: bool,
     file: Mutex<LogFile>,
@@ -127,7 +127,7 @@ thread_local! {
     static FORWARDING: Cell<bool> = const { Cell::new(false) };
 }
 
-impl Log for HandyLogger {
+impl Log for BespokeLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         self.console.enabled(metadata) || metadata.level() <= file_level()
     }
@@ -187,9 +187,9 @@ impl Log for HandyLogger {
     }
 }
 
-/// Installs the logger. `log_dir` is where `handy.log` goes.
+/// Installs the logger. `log_dir` is where `bespoke.log` goes.
 pub fn init(log_dir: PathBuf, headless: bool) {
-    let logger = HandyLogger {
+    let logger = BespokeLogger {
         console: build_console_filter(),
         to_stderr: headless,
         file: Mutex::new(LogFile {

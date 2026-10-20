@@ -1,17 +1,17 @@
 [package]
-name = "handy"
+name = "bespoke"
 version = "0.9.7"
-description = "Handy"
-authors = ["cjpais"]
+description = "Bespoke"
+authors = ["Andy Nguyen"]
 edition = "2021"
 license = "MIT"
-default-run = "handy"
+default-run = "bespoke"
 
 [profile.dev]
 incremental = true
 
 [[bin]]
-name = "handy"
+name = "bespoke"
 path = "src/main.rs"
 
 [dependencies]

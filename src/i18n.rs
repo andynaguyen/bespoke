@@ -11,7 +11,7 @@ use gpui::SharedString;
 
 include!(concat!(env!("OUT_DIR"), "/locales.rs"));
 
-/// A UI language Handy ships a translation for.
+/// A UI language Bespoke ships a translation for.
 pub struct LanguageInfo {
     pub code: &'static str,
     pub name: &'static str,

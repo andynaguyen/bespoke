@@ -2,7 +2,7 @@
 //! tauri-plugin-clipboard-manager so the paste paths read as before.
 //!
 //! One `arboard::Clipboard` lives for the whole process: on X11 the owning
-//! instance must stay alive for other apps to read what Handy wrote.
+//! instance must stay alive for other apps to read what Bespoke wrote.
 
 use std::borrow::Cow;
 use std::sync::Mutex;

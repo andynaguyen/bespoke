@@ -38,7 +38,7 @@ use shell::MainWindow;
 pub type WindowCallback = std::rc::Rc<dyn Fn(&mut gpui::Window, &mut App)>;
 
 actions!(
-    handy,
+    bespoke,
     [
         Quit,
         HideApp,
@@ -115,13 +115,13 @@ fn set_menus(cx: &mut App) {
     use gpui_component::input;
     cx.set_menus(vec![
         Menu {
-            name: "Handy".into(),
+            name: "Bespoke".into(),
             items: vec![
-                MenuItem::action("Hide Handy", HideApp),
+                MenuItem::action("Hide Bespoke", HideApp),
                 MenuItem::action("Hide Others", HideOtherApps),
                 MenuItem::action("Show All", ShowAllApps),
                 MenuItem::separator(),
-                MenuItem::action("Quit Handy", Quit),
+                MenuItem::action("Quit Bespoke", Quit),
             ],
         },
         Menu {
@@ -175,7 +175,7 @@ pub fn open_main_window(show: bool, cx: &mut App) {
         // edge with the traffic lights drawn over it. The title stays set so
         // Mission Control and the Window menu still show it.
         titlebar: Some(TitlebarOptions {
-            title: Some("Handy".into()),
+            title: Some("Bespoke".into()),
             appears_transparent: cfg!(target_os = "macos"),
             traffic_light_position: None,
         }),

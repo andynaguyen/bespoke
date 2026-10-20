@@ -15,7 +15,7 @@ use crate::ui::theme::{palette, shadow_xl, Alpha};
 type CloseHandler = Rc<dyn Fn(&mut Window, &mut App)>;
 
 /// Key context of an open dialog; Tab is rebound inside it.
-pub const DIALOG_CONTEXT: &str = "HandyDialog";
+pub const DIALOG_CONTEXT: &str = "BespokeDialog";
 
 /// Moves focus to the next or previous tab stop inside `trap`, wrapping
 /// around, the way `Dialog.tsx` keeps Tab inside the dialog.

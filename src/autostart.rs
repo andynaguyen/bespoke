@@ -70,7 +70,7 @@ fn auto_launch() -> Result<auto_launch::AutoLaunch, auto_launch::Error> {
 mod macos {
     use std::path::{Path, PathBuf};
 
-    use crate::app_handle::{AppHandle, APP_NAME};
+    use crate::app_handle::{AppHandle, APP_NAME, LEGACY_APP_NAME};
     use objc2::runtime::AnyClass;
     use objc2_service_management::{SMAppService, SMAppServiceStatus};
 
@@ -120,7 +120,9 @@ mod macos {
         let Some(home) = dirs::home_dir() else {
             return;
         };
-        remove_launch_agent_file(&plugin_launch_agent_path(&home, APP_NAME));
+        for name in [APP_NAME, LEGACY_APP_NAME] {
+            remove_launch_agent_file(&plugin_launch_agent_path(&home, name));
+        }
     }
 
     /// Path of the plist the auto-launch crate writes:
@@ -154,17 +156,17 @@ mod macos {
 
         #[test]
         fn launch_agent_path_matches_auto_launch_crate() {
-            let path = plugin_launch_agent_path(Path::new("/Users/someone"), "Handy");
+            let path = plugin_launch_agent_path(Path::new("/Users/someone"), "Bespoke");
             assert_eq!(
                 path,
-                Path::new("/Users/someone/Library/LaunchAgents/Handy.plist")
+                Path::new("/Users/someone/Library/LaunchAgents/Bespoke.plist")
             );
         }
 
         #[test]
         fn removes_existing_launch_agent() {
             let dir = tempfile::tempdir().unwrap();
-            let plist = dir.path().join("Handy.plist");
+            let plist = dir.path().join("Bespoke.plist");
             std::fs::write(&plist, "<plist/>").unwrap();
 
             remove_launch_agent_file(&plist);
@@ -174,7 +176,7 @@ mod macos {
         #[test]
         fn missing_launch_agent_is_a_no_op() {
             let dir = tempfile::tempdir().unwrap();
-            remove_launch_agent_file(&dir.path().join("Handy.plist"));
+            remove_launch_agent_file(&dir.path().join("Bespoke.plist"));
         }
     }
 }

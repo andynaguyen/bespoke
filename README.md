@@ -1,50 +1,66 @@
-# Handy (GPUI)
+# Bespoke
 
-A port of Handy from Tauri + React to [GPUI](https://www.gpui.rs/), Zed's Rust UI framework. It aims for the same features and the same UI as the Tauri app in `src-tauri/` and `src/`, which stay in the repo for now.
-
-The backend (`managers/`, `audio_toolkit/`, `shortcut/`, `actions.rs`, ...) is a copy of `src-tauri/src` with Tauri removed. The UI under `src/ui/` is a rewrite of the React app, one module per React component or page.
+Bespoke is a speech-to-text dictation app for macOS. It records while you hold or tap a shortcut, transcribes on your machine with a local model, and pastes the text into the app in front. It is written in Rust with [GPUI](https://www.gpui.rs/), Zed's UI framework.
 
 ## Build and run
 
 ```bash
-cd src-gpui
 cargo run                        # debug build
-cargo run -- --start-hidden      # CLI flags match the Tauri app
+cargo run -- --start-hidden      # pass CLI flags after --
 cargo test
 ```
 
-On macOS, if cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. GPUI uses the `runtime_shaders` feature, so the build does not need Xcode's Metal compiler.
+If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. GPUI uses the `runtime_shaders` feature, so the build does not need Xcode's Metal compiler.
 
-`build.rs` embeds files from outside this crate. Edit them in their original place:
+## Install
 
-| Embedded data | Source |
-| --- | --- |
-| Translations | `../src/i18n/locales/*/translation.json` |
-| Release notes and their images | `../src/content/release-notes/*.md`, `../public/release-notes/` |
-| Icons and the logo | `assets/` (Lucide 0.542.0 SVGs in `assets/icons/`) |
+`scripts/install-local.sh` builds a release, bundles `Bespoke.app`, signs it, and installs it to `/Applications`. It signs with the "Bespoke Local Signing" identity. Set `BESPOKE_SIGNING_IDENTITY` to sign with another codesign identity. A stable identity keeps the Accessibility and Microphone grants across reinstalls.
+
+Run `scripts/create-signing-identity.sh` once per Mac to add that self-signed identity to the login keychain. `--no-build` reinstalls the last build.
 
 ## Where things live
 
-| Tauri / React | GPUI |
+| Path | Contents |
 | --- | --- |
-| `tauri::AppHandle`, managed state, events, paths, `tauri-plugin-store` | `app_handle.rs` |
-| `lib.rs` setup | `startup.rs`, `main.rs` |
-| `tauri-plugin-single-instance` | `single_instance.rs` (Unix socket, loopback TCP on Windows) |
-| `tauri-plugin-global-shortcut` | `shortcut/hotkey_impl.rs` (the setting value stays `"tauri"`) |
-| `tauri-plugin-autostart`, clipboard, opener | `autostart.rs`, `system_clipboard.rs`, the `open` crate |
-| `App.tsx`, sidebar, footer, banners | `ui/shell/` |
-| `components/settings/*` pages | `ui/pages/` (`rows.rs` holds the single-setting rows) |
-| `components/ui/*` | `ui/components/` |
-| `components/onboarding/` | `ui/onboarding/`, `ui/model_card.rs` |
-| `src/overlay/RecordingOverlay.tsx` + `overlay.rs` | `ui/overlay.rs` (window, view), `overlay.rs` (backend entry points) |
-| Zustand stores | `ui/stores/` (GPUI entities) |
-| `theme.css`, Tailwind | `ui/theme.rs`, `ui/components/mod.rs` (`Typography`) |
+| `src/main.rs`, `src/startup.rs` | CLI parsing, logging, and app setup |
+| `src/app_handle.rs` | App state, events, data paths, and the settings store |
+| `src/managers/` | Audio recording, model downloads, transcription, and history |
+| `src/audio_toolkit/` | Device enumeration, recording, resampling, and voice activity detection |
+| `src/shortcut/` | Global shortcuts (`handy-keys` and `global-hotkey` backends) |
+| `src/overlay.rs`, `src/ui/overlay.rs` | The recording overlay: backend entry points, then the window and view |
+| `src/tray.rs` | The menu bar icon and menu |
+| `src/ui/shell/` | The main window: sidebar, footer, and banners |
+| `src/ui/pages/` | Sidebar pages, with single-setting rows in `rows.rs` |
+| `src/ui/components/` | Buttons, toggles, sliders, dropdowns, dialogs, and other controls |
+| `src/ui/onboarding/` | First-run permission and model screens |
+| `src/ui/stores/` | Shared UI state as GPUI entities |
 
-Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`; views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Backend async work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
+Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
 
-## Matching the React layout
+## Translations
 
-The UI sets a 15px root size, so GPUI's rem-based helpers (`p_4`, `gap_3`, `rounded_lg`) match the Tailwind classes they replace. These GPUI behaviors differ from the browser:
+UI and tray strings live in `locales/<language>/translation.json`. `build.rs` embeds every locale. English is the source: add new keys to `locales/en/translation.json`.
+
+## Release notes
+
+What's New reads `release-notes/<version>.md`. Put images in `release-notes/images/` and reference them as `/release-notes/images/<file>`. `build.rs` embeds both folders, and either may be missing.
+
+## Dev snapshots
+
+Debug builds can render pages to PNG files without clicking through the app:
+
+```bash
+BESPOKE_DEV_SNAPSHOT=/tmp/shots \
+BESPOKE_DEV_PAGES=history,settings:system,debug@900,onboarding:model,overlay:streaming \
+BESPOKE_DEV_THEME=dark \
+cargo run
+```
+
+Pages are sidebar sections, `settings:<tab>`, `customize:<tab>`, `onboarding:accessibility|model` and `overlay:<state>` (see `ui::overlay::dev_preview`). An `@<px>` suffix scrolls the page first. `#<n>` presses Tab n times with focus rings shown, and focus carries over between pages. `BESPOKE_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. Snapshots work on macOS only, and they keep working with the screen locked.
+
+## GPUI layout notes
+
+The UI sets a 15px root size, so GPUI's rem-based helpers (`p_4`, `gap_3`, `rounded_lg`) follow Tailwind's spacing scale at 15px per rem. GPUI differs from a browser in these ways:
 
 - Block layout does not reliably stretch flex children. Lists and wrappers whose rows must span the full width use `.flex().flex_col()`.
 - Text reports its unwrapped width as its minimum, so a text column in a flex row needs `.flex_1().min_w_0()` to wrap.
@@ -53,26 +69,17 @@ The UI sets a 15px root size, so GPUI's rem-based helpers (`p_4`, `gap_3`, `roun
 - A glyph drawn in a zero-alpha color comes out dark. Hide text by painting it in the background color.
 - AppKit calls that can call back into GPUI (showing, hiding or activating windows, changing the appearance) run on the next main-thread turn through `cx.foreground_executor()`, or GPUI panics on a re-entrant borrow.
 
-## Dev snapshots
-
-Debug builds can render pages to PNG files, which helps compare against the React app without clicking through it:
-
-```bash
-HANDY_DEV_SNAPSHOT=/tmp/shots \
-HANDY_DEV_PAGES=history,settings:system,debug@900,onboarding:model,overlay:streaming \
-HANDY_DEV_THEME=dark \
-cargo run
-```
-
-Pages are sidebar sections, `settings:<tab>`, `customize:<tab>`, `onboarding:accessibility|model` and `overlay:<state>` (see `ui::overlay::dev_preview`). An `@<px>` suffix scrolls the page first, and `#<n>` presses Tab n times with focus rings shown (focus carries over between pages). `HANDY_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. macOS only. The capture keeps working with the screen locked.
-
-## Known differences from the Tauri app
+## Known limitations
 
 - **Platforms.** Only the macOS build has been compiled and run. The Windows and Linux code paths have never been compiled.
-- **Screen readers.** GPUI exposes no accessibility tree, so the React `aria-*` labels have no equivalent. Keyboard use works: Tab moves through controls and stays inside open dialogs, Enter and Space activate, arrow keys move sliders and heatmap days, and Escape closes menus.
-- **Linux windows.** GPUI cannot hide a window and ends the app when the last window closes. Closing the settings window therefore minimizes it, and starting hidden starts minimized.
-- **Overlay placement.** On Wayland the compositor places the overlay, since there is no gtk-layer-shell. On Windows it is centered on the display under the cursor, without the original DPI and text-scale adjustments.
-- **Overlay window lifetime.** The overlay window opens on each show and closes 300ms after hiding, instead of staying alive hidden. Its pop-in fades without the 0.92 scale, because GPUI cannot scale an element.
+- **Screen readers.** GPUI exposes no accessibility tree, so screen readers get no labels. Keyboard use works: Tab moves through controls and stays inside open dialogs, Enter and Space activate, arrow keys move sliders and heatmap days, and Escape closes menus.
+- **Linux windows.** GPUI cannot hide a window and ends the app when the last window closes. Closing the main window therefore minimizes it, and starting hidden starts minimized.
+- **Overlay placement.** On Wayland the compositor places the overlay. On Windows the overlay is centered on the display under the cursor, without DPI or text-scale adjustments.
+- **Overlay window lifetime.** The overlay window opens on each show and closes 300ms after hiding. Its pop-in fades without a scale effect, because GPUI cannot scale an element.
 - **Right-to-left languages.** Rows, margins and the toggle knob mirror. Text inputs keep left-aligned text, the slider and the recording seek bar stay left to right, and long wrapped Arabic or Hebrew lines can clip at the left edge (GPUI's bidi line wrapping).
-- **Shortcut recorder on Windows and Linux.** Key names come from the logical key, while React read the physical key code, so numpad keys and non-US layouts can store different names.
-- **Packaging.** Installers and signing are not set up.
+- **Shortcut recorder on Windows and Linux.** Key names come from the logical key, so numpad keys and non-US layouts can store different names than the physical key.
+- **Packaging.** There are no installers or release signing. `scripts/install-local.sh` builds a locally signed app for this machine.
+
+## License
+
+MIT. Bespoke started as a fork of Handy by CJ Pais; see LICENSE.

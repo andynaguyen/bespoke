@@ -989,8 +989,8 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
         "settings.debug.keyboardImplementation.title",
         "settings.debug.keyboardImplementation.description",
         vec![
-            DropdownOption::new("tauri", "Tauri Global Shortcut"),
-            DropdownOption::new("handy_keys", "Handy Keys"),
+            DropdownOption::new("tauri", "Global Hotkey"),
+            DropdownOption::new("handy_keys", "Keyboard Listener"),
         ],
         selected,
         cx,

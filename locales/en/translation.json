@@ -99,7 +99,7 @@
     },
     "permissions": {
       "title": "Permissions Required",
-      "description": "Handy needs a couple of permissions to work properly.",
+      "description": "Bespoke needs a couple of permissions to work properly.",
       "microphone": {
         "title": "Microphone Access",
         "description": "Required to hear your voice for transcription."
@@ -155,7 +155,7 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Handy Shortcuts",
+        "title": "Bespoke Shortcuts",
         "description": "Configure keyboard or mouse shortcuts to trigger speech-to-text recording",
         "loading": "Loading shortcuts...",
         "none": "No shortcuts configured",
@@ -230,7 +230,7 @@
       },
       "rescan": {
         "label": "Rescan",
-        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Handy"
+        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Bespoke"
       },
       "noModelsMatch": "No models match this filter."
     },
@@ -306,11 +306,11 @@
       },
       "autostart": {
         "label": "Launch on Startup",
-        "description": "Automatically start Handy when you log in to your computer."
+        "description": "Automatically start Bespoke when you log in to your computer."
       },
       "showTrayIcon": {
         "label": "Show Tray Icon",
-        "description": "Display the Handy icon in the system tray."
+        "description": "Display the Bespoke icon in the system tray."
       },
       "overlay": {
         "style": {
@@ -372,7 +372,7 @@
       },
       "voiceSubmit": {
         "title": "Voice Submit",
-        "description": "End a dictation with your keyword, then pause. Handy stops recording, removes the keyword, pastes the text, and presses the submit key.",
+        "description": "End a dictation with your keyword, then pause. Bespoke stops recording, removes the keyword, pastes the text, and presses the submit key.",
         "keyword": {
           "title": "Submit Keyword",
           "description": "Say this last. It only counts at the very end of what you dictate.",
@@ -508,7 +508,7 @@
       },
       "addNew": "Add new",
       "searchPlaceholder": "Search",
-      "empty": "No words yet. Add names, acronyms, and jargon that Handy gets wrong.",
+      "empty": "No words yet. Add names, acronyms, and jargon that Bespoke gets wrong.",
       "noMatches": "No words match \"{{query}}\"",
       "dialogTitle": "Add to dictionary",
       "placeholder": "Add a word",
@@ -531,7 +531,7 @@
     },
     "style": {
       "default": "(default)",
-      "intro": "Handy formats each dictation for the app in front when you start recording. Apps without a rule use Formal.",
+      "intro": "Bespoke formats each dictation for the app in front when you start recording. Apps without a rule use Formal.",
       "styles": {
         "formal": {
           "name": "Formal",
@@ -683,7 +683,7 @@
       },
       "keyboardDiagnostic": {
         "title": "Keyboard Diagnostic",
-        "description": "Checks whether keyboard events reach Handy. Only event counts are recorded — never which keys you press.",
+        "description": "Checks whether keyboard events reach Bespoke. Only event counts are recorded — never which keys you press.",
         "run": "Run 10s diagnostic",
         "running": "Listening… press your shortcut a few times (e.g. Option+Space)",
         "secureInputLabel": "Secure Input",
@@ -697,7 +697,7 @@
         "mouse": "Mouse",
         "verdictBlocked": "Secure Input is blocking key events — keyed shortcuts cannot work until it is resolved.",
         "verdictSuspicious": "Modifier events arrived but no key events — something is suppressing keys even though Secure Input reports disabled. Please report this on GitHub.",
-        "verdictOk": "Key events are reaching Handy normally.",
+        "verdictOk": "Key events are reaching Bespoke normally.",
         "verdictNoEvents": "No events captured — did you press any keys during the test?",
         "failed": "Diagnostic failed: {{error}}"
       }
@@ -706,20 +706,20 @@
       "title": "About",
       "version": {
         "title": "Version",
-        "description": "Current version of Handy"
+        "description": "Current version of Bespoke"
       },
       "whatsNewUpdates": {
         "label": "Show What's New",
-        "description": "Show release notes after Handy updates"
+        "description": "Show release notes after Bespoke updates"
       },
       "appDataDirectory": {
         "title": "App Data Directory",
-        "description": "Location where Handy stores its data"
+        "description": "Location where Bespoke stores its data"
       }
     }
   },
   "whatsNew": {
-    "title": "New in Handy v{{version}}"
+    "title": "New in Bespoke v{{version}}"
   },
   "common": {
     "loading": "Loading...",
@@ -731,7 +731,7 @@
     "noOptionsFound": "No options found"
   },
   "accessibility": {
-    "permissionsDescription": "Handy needs accessibility permissions to type transcribed text.",
+    "permissionsDescription": "Bespoke needs accessibility permissions to type transcribed text.",
     "openSettings": "Open System Settings"
   },
   "errors": {
@@ -754,11 +754,11 @@
   },
   "appLanguage": {
     "title": "Application Language",
-    "description": "Change the language of the Handy interface"
+    "description": "Change the language of the Bespoke interface"
   },
   "theme": {
     "title": "Application Theme",
-    "description": "Choose whether Handy follows your system theme or stays light or dark",
+    "description": "Choose whether Bespoke follows your system theme or stays light or dark",
     "options": {
       "system": "System",
       "light": "Light",
@@ -776,7 +776,6 @@
     "blockedNoCulprit_other": "macOS is temporarily blocking {{count}} shortcuts",
     "recorderBlockedWithCulprit": "{{name}} may be blocking shortcut changes",
     "recorderBlockedNoCulprit": "macOS is temporarily blocking shortcut changes",
-    "learnMore": "How to fix",
     "recorderBlocked": "Can't record shortcuts right now — macOS Secure Input is blocking key events. Resolve the Secure Input warning first.",
     "dismiss": "Dismiss"
   }

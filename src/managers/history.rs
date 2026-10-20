@@ -856,7 +856,7 @@ mod tests {
                 post_process_requested
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
-                format!("handy-{}.wav", timestamp),
+                format!("bespoke-{}.wav", timestamp),
                 timestamp,
                 false,
                 format!("Recording {}", timestamp),
@@ -875,7 +875,7 @@ mod tests {
         assert_eq!(count_words("  ...  "), 0);
         assert_eq!(count_words("Hello, world! It's well-known."), 4);
         assert_eq!(count_words("你好世界"), 4);
-        assert_eq!(count_words("Handy は すごい"), 5);
+        assert_eq!(count_words("Bespoke は すごい"), 5);
     }
 
     #[test]

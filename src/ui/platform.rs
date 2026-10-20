@@ -257,7 +257,7 @@ mod imp {
     }
 
     /// Shows the system prompt that sends the user to the Accessibility
-    /// pane, adding Handy to the list.
+    /// pane, adding Bespoke to the list.
     pub fn request_accessibility() {
         let key = NSString::from_str("AXTrustedCheckOptionPrompt");
         let value = NSNumber::new_bool(true);

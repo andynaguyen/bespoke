@@ -97,7 +97,7 @@
     },
     "permissions": {
       "title": "권한 필요",
-      "description": "Handy가 제대로 작동하려면 몇 가지 권한이 필요합니다.",
+      "description": "Bespoke가 제대로 작동하려면 몇 가지 권한이 필요합니다.",
       "microphone": {
         "title": "마이크 접근",
         "description": "음성 인식을 위해 마이크 접근 권한이 필요합니다."
@@ -153,7 +153,7 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Handy 단축키",
+        "title": "Bespoke 단축키",
         "description": "음성-텍스트 녹음을 시작하는 키보드 단축키를 설정하세요",
         "loading": "단축키 로딩 중...",
         "none": "설정된 단축키 없음",
@@ -247,7 +247,7 @@
       "searchPlaceholder": "이름으로 모델 검색…",
       "rescan": {
         "label": "다시 스캔",
-        "tooltip": "Handy 외부에서 모델 폴더 또는 Hugging Face 캐시에 추가된 모델을 다시 스캔합니다"
+        "tooltip": "Bespoke 외부에서 모델 폴더 또는 Hugging Face 캐시에 추가된 모델을 다시 스캔합니다"
       }
     },
     "advanced": {
@@ -282,11 +282,11 @@
       },
       "autostart": {
         "label": "시작 시 실행",
-        "description": "컴퓨터 로그인 시 Handy를 자동으로 시작합니다."
+        "description": "컴퓨터 로그인 시 Bespoke를 자동으로 시작합니다."
       },
       "showTrayIcon": {
         "label": "트레이 아이콘 표시",
-        "description": "시스템 트레이에 Handy 아이콘을 표시합니다."
+        "description": "시스템 트레이에 Bespoke 아이콘을 표시합니다."
       },
       "overlay": {
         "style": {
@@ -348,7 +348,7 @@
       },
       "voiceSubmit": {
         "title": "음성 제출",
-        "description": "받아쓰기를 키워드로 끝낸 뒤 잠시 멈추세요. Handy가 녹음을 멈추고 키워드를 지운 다음 텍스트를 붙여넣고 제출 키를 누릅니다.",
+        "description": "받아쓰기를 키워드로 끝낸 뒤 잠시 멈추세요. Bespoke가 녹음을 멈추고 키워드를 지운 다음 텍스트를 붙여넣고 제출 키를 누릅니다.",
         "keyword": {
           "title": "제출 키워드",
           "description": "마지막에 말하세요. 받아쓰기의 맨 끝에 있을 때만 인식됩니다.",
@@ -474,7 +474,7 @@
       },
       "addNew": "새로 추가",
       "searchPlaceholder": "검색",
-      "empty": "아직 단어가 없습니다. Handy가 잘못 인식하는 이름, 약어, 전문 용어를 추가하세요.",
+      "empty": "아직 단어가 없습니다. Bespoke가 잘못 인식하는 이름, 약어, 전문 용어를 추가하세요.",
       "noMatches": "\"{{query}}\"와(과) 일치하는 단어가 없습니다",
       "dialogTitle": "사전에 추가",
       "placeholder": "단어 추가",
@@ -602,7 +602,7 @@
       },
       "keyboardDiagnostic": {
         "title": "키보드 진단",
-        "description": "키보드 이벤트가 Handy에 도달하는지 확인합니다. 이벤트 개수만 기록되며, 어떤 키를 눌렀는지는 절대 기록되지 않습니다.",
+        "description": "키보드 이벤트가 Bespoke에 도달하는지 확인합니다. 이벤트 개수만 기록되며, 어떤 키를 눌렀는지는 절대 기록되지 않습니다.",
         "run": "10초 진단 실행",
         "running": "수신 중… 단축키를 몇 번 눌러 보세요 (예: Option+Space)",
         "secureInputLabel": "Secure Input",
@@ -616,7 +616,7 @@
         "mouse": "마우스",
         "verdictBlocked": "Secure Input이 키 이벤트를 차단하고 있습니다. 해결될 때까지 일반 키가 포함된 단축키는 작동할 수 없습니다.",
         "verdictSuspicious": "조합 키 이벤트는 도착했지만 키 이벤트는 없습니다. Secure Input은 꺼져 있다고 보고되지만 무언가가 키를 가로막고 있습니다. GitHub에 신고해 주세요.",
-        "verdictOk": "키 이벤트가 Handy에 정상적으로 도달하고 있습니다.",
+        "verdictOk": "키 이벤트가 Bespoke에 정상적으로 도달하고 있습니다.",
         "verdictNoEvents": "이벤트가 감지되지 않았습니다. 테스트 중에 키를 누르셨나요?",
         "failed": "진단 실패: {{error}}"
       },
@@ -644,15 +644,15 @@
       "title": "정보",
       "version": {
         "title": "버전",
-        "description": "Handy의 현재 버전"
+        "description": "Bespoke의 현재 버전"
       },
       "appDataDirectory": {
         "title": "앱 데이터 디렉토리",
-        "description": "Handy가 데이터를 저장하는 위치"
+        "description": "Bespoke가 데이터를 저장하는 위치"
       },
       "whatsNewUpdates": {
         "label": "새 소식 표시",
-        "description": "Handy 업데이트 후 릴리스 노트를 표시합니다"
+        "description": "Bespoke 업데이트 후 릴리스 노트를 표시합니다"
       }
     }
   },
@@ -666,7 +666,7 @@
     "noOptionsFound": "옵션을 찾을 수 없습니다"
   },
   "accessibility": {
-    "permissionsDescription": "Handy는 녹음된 텍스트를 입력하기 위해 접근성 권한이 필요합니다.",
+    "permissionsDescription": "Bespoke는 녹음된 텍스트를 입력하기 위해 접근성 권한이 필요합니다.",
     "openSettings": "시스템 설정 열기"
   },
   "errors": {
@@ -689,11 +689,11 @@
   },
   "appLanguage": {
     "title": "애플리케이션 언어",
-    "description": "Handy 인터페이스의 언어를 변경하세요"
+    "description": "Bespoke 인터페이스의 언어를 변경하세요"
   },
   "theme": {
     "title": "앱 테마",
-    "description": "Handy가 시스템 테마를 따를지, 밝게 또는 어둡게 유지할지 선택하세요",
+    "description": "Bespoke가 시스템 테마를 따를지, 밝게 또는 어둡게 유지할지 선택하세요",
     "options": {
       "system": "시스템",
       "light": "밝게",
@@ -705,7 +705,7 @@
     "processing": "처리 중..."
   },
   "whatsNew": {
-    "title": "Handy v{{version}}의 새 소식"
+    "title": "Bespoke v{{version}}의 새 소식"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}}이(가) 단축키 1개를 차단하고 있을 수 있습니다",
@@ -714,7 +714,6 @@
     "blockedNoCulprit_other": "macOS가 단축키 {{count}}개를 일시적으로 차단하고 있습니다",
     "recorderBlockedWithCulprit": "{{name}}이(가) 단축키 변경을 차단하고 있을 수 있습니다",
     "recorderBlockedNoCulprit": "macOS가 단축키 변경을 일시적으로 차단하고 있습니다",
-    "learnMore": "해결 방법",
     "recorderBlocked": "지금은 단축키를 등록할 수 없습니다. macOS Secure Input이 키 이벤트를 차단하고 있습니다. Secure Input 경고를 먼저 해결하세요.",
     "dismiss": "닫기"
   }

@@ -21,8 +21,13 @@ use std::sync::{Arc, OnceLock};
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 
-pub const APP_IDENTIFIER: &str = "com.pais.handy";
-pub const APP_NAME: &str = "Handy";
+pub const APP_IDENTIFIER: &str = "com.andynguyen.bespoke";
+pub const APP_NAME: &str = "Bespoke";
+
+/// The identifier and name of Handy, the app Bespoke started from. Bespoke
+/// moves folders left under them on first launch.
+pub const LEGACY_IDENTIFIER: &str = "com.pais.handy";
+pub const LEGACY_APP_NAME: &str = "Handy";
 
 pub type Error = anyhow::Error;
 
@@ -256,21 +261,21 @@ impl<T> Deref for State<T> {
     }
 }
 
-/// Where Handy keeps its files. Mirrors Tauri's path resolver for the
-/// `com.pais.handy` identifier.
+/// Where Bespoke keeps its files, in folders named after [`APP_IDENTIFIER`].
 pub struct PathResolver;
 
 impl PathResolver {
-    /// macOS: `~/Library/Application Support/com.pais.handy`,
-    /// Windows: `%APPDATA%\com.pais.handy`, Linux: `~/.local/share/com.pais.handy`.
+    /// macOS: `~/Library/Application Support/com.andynguyen.bespoke`,
+    /// Windows: `%APPDATA%\com.andynguyen.bespoke`,
+    /// Linux: `~/.local/share/com.andynguyen.bespoke`.
     pub fn app_data_dir(&self) -> Result<PathBuf, Error> {
         dirs::data_dir()
             .map(|dir| dir.join(APP_IDENTIFIER))
             .ok_or_else(|| anyhow::anyhow!("no data directory for this platform"))
     }
 
-    /// macOS: `~/Library/Logs/com.pais.handy`, elsewhere
-    /// `<local data>/com.pais.handy/logs`.
+    /// macOS: `~/Library/Logs/com.andynguyen.bespoke`, elsewhere
+    /// `<local data>/com.andynguyen.bespoke/logs`.
     pub fn app_log_dir(&self) -> Result<PathBuf, Error> {
         #[cfg(target_os = "macos")]
         let dir = dirs::home_dir().map(|home| home.join("Library/Logs").join(APP_IDENTIFIER));
@@ -316,6 +321,40 @@ pub enum BaseDirectory {
     AppConfig,
 }
 
+/// Renames each folder named [`LEGACY_IDENTIFIER`] (data, config, cache and,
+/// on macOS, logs) to [`APP_IDENTIFIER`], so settings, history, recordings
+/// and downloaded models carry over from Handy. A folder moves only while
+/// Bespoke's does not exist yet, so later launches do nothing. Runs before
+/// logging starts, so it returns what happened for the caller to log.
+pub fn migrate_legacy_dirs() -> Vec<String> {
+    let mut bases = vec![
+        dirs::data_dir(),
+        dirs::config_dir(),
+        dirs::cache_dir(),
+        dirs::data_local_dir(),
+    ];
+    #[cfg(target_os = "macos")]
+    bases.push(dirs::home_dir().map(|home| home.join("Library/Logs")));
+
+    let mut notes = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for base in bases.into_iter().flatten() {
+        if !seen.insert(base.clone()) {
+            continue;
+        }
+        let legacy = base.join(LEGACY_IDENTIFIER);
+        let current = base.join(APP_IDENTIFIER);
+        if !legacy.is_dir() || current.exists() {
+            continue;
+        }
+        notes.push(match std::fs::rename(&legacy, &current) {
+            Ok(()) => format!("Moved {} to {}", legacy.display(), current.display()),
+            Err(e) => format!("Failed to move {}: {e}", legacy.display()),
+        });
+    }
+    notes
+}
+
 /// Finds the directory that contains `resources/`: next to the executable on
 /// Windows and Linux, `Contents/Resources` in a macOS bundle, and the crate
 /// root during `cargo run`.
@@ -329,7 +368,7 @@ fn resource_dir() -> &'static Path {
         if let Some(exe_dir) = &exe_dir {
             candidates.push(exe_dir.join("../Resources"));
             candidates.push(exe_dir.to_path_buf());
-            candidates.push(exe_dir.join("../lib/Handy"));
+            candidates.push(exe_dir.join("../lib/Bespoke"));
         }
         candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")));
         candidates

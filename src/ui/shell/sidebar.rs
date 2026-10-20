@@ -12,16 +12,16 @@ use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, Alpha};
 
-/// The Handy wordmark, `width` pixels wide.
+/// The Bespoke wordmark, `width` pixels wide.
 pub fn logo(width: f32, cx: &App) -> impl IntoElement {
     let file = if palette(cx).is_dark {
-        "handy-logo-dark.svg"
+        "bespoke-logo-dark.svg"
     } else {
-        "handy-logo-light.svg"
+        "bespoke-logo-light.svg"
     };
     img(ImageSource::Resource(Resource::Embedded(file.into())))
         .w(px(width))
-        .h(px(width * 328. / 930.))
+        .h(px(width * 544. / 1965.))
         .flex_none()
 }
 

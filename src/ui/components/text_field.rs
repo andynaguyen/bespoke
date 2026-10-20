@@ -1,5 +1,5 @@
 //! `ui/Input.tsx` and `ui/Textarea.tsx`: gpui-component's text editing,
-//! framed with Handy's border, hover and focus ring.
+//! framed with Bespoke's border, hover and focus ring.
 
 use gpui::{div, prelude::*, px, rems, App, Entity, Focusable, FontWeight, Pixels, Rems, Window};
 use gpui_component::input::{Input, InputState};

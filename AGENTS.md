@@ -2,219 +2,111 @@
 
 This file provides guidance to AI coding assistants working with code in this repository.
 
-## Development Commands
+Bespoke is a speech-to-text dictation app for macOS, written in Rust with [GPUI](https://www.gpui.rs/). Read [README.md](README.md) for dev snapshots and GPUI layout notes before changing UI code.
 
-**Prerequisites:**
-
-- [Rust](https://rustup.rs/) (latest stable)
-- [Bun](https://bun.sh/) package manager
-
-**Core Development:**
+## Development commands
 
 ```bash
-# Install dependencies
-bun install
-
-# Run in development mode
-bun run tauri dev
-# If cmake error on macOS:
-CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri dev
-
-# Build for production
-bun run tauri build
-
-# Frontend only development
-bun run dev        # Start Vite dev server
-bun run build      # Build frontend (TypeScript + Vite)
-bun run preview    # Preview built frontend
+cargo run                    # debug build
+cargo run -- --start-hidden  # pass CLI flags after --
+cargo test
+cargo clippy
+cargo fmt
+scripts/install-local.sh     # release build, signed Bespoke.app in /Applications
 ```
 
-**Linting and Formatting (run before committing):**
+If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`.
 
-```bash
-bun run lint              # ESLint for frontend
-bun run lint:fix          # ESLint with auto-fix
-bun run format            # Prettier + cargo fmt
-bun run format:check      # Check formatting without changes
-bun run format:frontend   # Prettier only
-bun run format:backend    # cargo fmt only
-```
+The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a fresh clone needs no model download to build. Transcription models download at runtime from the Models page.
 
-**Model Setup (Required for Development):**
+## Architecture
 
-```bash
-mkdir -p src-tauri/resources/models
-curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
-```
+### Backend (`src/`)
 
-For detailed platform-specific build setup, see [BUILD.md](BUILD.md).
-
-## Architecture Overview
-
-Handy is a cross-platform desktop speech-to-text application built with Tauri 2.x (Rust backend + React/TypeScript frontend).
-
-### Backend Structure (src-tauri/src/)
-
-- `lib.rs` - Main entry point, Tauri setup, manager initialization
-- `managers/` - Core business logic:
-  - `audio.rs` - Audio recording and device management
-  - `model.rs` - Model downloading and management
-  - `transcription.rs` - Speech-to-text processing pipeline
-  - `history.rs` - Transcription history storage
-- `audio_toolkit/` - Low-level audio processing:
+- `main.rs`, `startup.rs` - CLI parsing, logging, manager setup
+- `app_handle.rs` - App state, events, data paths, and the JSON settings store (`settings_store.json`)
+- `managers/` - Core logic:
+  - `audio.rs` - Recording and device management
+  - `model.rs`, `model/` - Model catalog, downloads, and the Hugging Face cache
+  - `transcription.rs` - Speech-to-text pipeline
+  - `history.rs` - Transcription history (SQLite)
+- `audio_toolkit/` - Low-level audio:
   - `audio/` - Device enumeration, recording, resampling
-  - `vad/` - Voice Activity Detection (Silero VAD)
-- `commands/` - Tauri command handlers for frontend communication
-- `cli.rs` - CLI argument definitions (clap derive)
-- `shortcut.rs` - Global keyboard shortcut handling
-- `settings.rs` - Application settings management
-- `overlay.rs` - Recording overlay window (platform-specific)
-- `signal_handle.rs` - `send_transcription_input()` reusable function
-- `utils.rs` - Platform detection helpers
+  - `vad/` - Voice activity detection (Silero, Earshot)
+- `commands/` - Functions the UI calls into the backend (audio, history, models, transcription)
+- `actions.rs`, `transcription_coordinator.rs` - Start, stop, and cancel a dictation
+- `shortcut/` - Global shortcuts. `handy_keys.rs` wraps the patched `handy-keys` crate in `vendor/`, and `hotkey_impl.rs` wraps `global-hotkey`
+- `settings.rs` - Settings schema, defaults, and migrations
+- `clipboard.rs`, `input.rs`, `paste_tx/` - Pasting text into the front app
+- `overlay.rs` - Recording overlay entry points
+- `tray.rs`, `tray_i18n.rs` - Menu bar icon and menu
+- `single_instance.rs` - A second launch forwards its arguments to the running instance over a local socket, then exits
+- `signal_handle.rs` - `send_transcription_input()`, shared by Unix signal handlers and CLI flags
+- `headless.rs` - `--transcribe-file`, `--list-devices`, and `--list-models` without a window
+- `utils.rs` - Platform helpers
 
-### Frontend Structure (src/)
+### UI (`src/ui/`)
 
-- `App.tsx` - Main component with onboarding flow
-- `components/` - React UI components:
-  - `settings/` - Settings UI
-  - `model-selector/` - Model management interface
-  - `onboarding/` - First-run experience
-  - `overlay/` - Recording overlay UI
-  - `shared/`, `ui/`, `icons/`, `footer/` - Shared components
-- `hooks/useSettings.ts` - Settings state management hook
-- `stores/settingsStore.ts` - Zustand store for settings
-- `bindings.ts` - Auto-generated Tauri type bindings (via tauri-specta)
-- `overlay/` - Recording overlay window entry point
-- `lib/types.ts` - Shared TypeScript type definitions
+- `shell/` - Main window: sidebar, footer, banners
+- `pages/` - Sidebar pages. `rows.rs` holds the single-setting rows
+- `components/` - Shared controls (buttons, toggles, sliders, dropdowns, dialogs)
+- `onboarding/` - First-run permission and model screens
+- `stores/` - Shared UI state as GPUI entities
+- `overlay.rs` - Recording overlay window and view
+- `theme.rs` - Palette for light and dark mode
 
-### Key Architecture Patterns
+Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
 
-**Manager Pattern:** Core functionality organized into managers (Audio, Model, Transcription) initialized at startup and managed via Tauri state.
+### Pipeline
 
-**Command-Event Architecture:** Frontend → Backend via Tauri commands; Backend → Frontend via events.
+Shortcut press, then audio recording with VAD, then transcription (`transcribe-cpp` for GGML/GGUF models, `transcribe-rs` for ONNX models), then optional post-processing, then paste into the front app.
 
-**Pipeline Processing:** Audio → VAD → Whisper/Parakeet → Text output → Clipboard/Paste
+## Internationalization
 
-**State Flow:** Zustand → Tauri Command → Rust State → Persistence (tauri-plugin-store)
+All user-facing strings use translations. Add the key to `locales/en/translation.json`, then read it with `crate::i18n::t("key.path")` (or `t_with` for `{{placeholders}}`). `build.rs` embeds every file under `locales/`.
 
-### Technology Stack
-
-**Core Libraries:**
-
-- `transcribe-cpp` - Local Whisper-family inference (GGML/GGUF) with GPU acceleration
-- `transcribe-rs` - ONNX speech recognition (Parakeet, Moonshine, SenseVoice, etc.)
-- `cpal` - Cross-platform audio I/O
-- `vad-rs` - Voice Activity Detection
-- `rdev` - Global keyboard shortcuts
-- `rubato` - Audio resampling
-- `rodio` - Audio playback for feedback sounds
-
-### Application Flow
-
-1. **Initialization:** App starts minimized to tray, loads settings, initializes managers
-2. **Model Setup:** First-run downloads preferred Whisper model (Small/Medium/Turbo/Large)
-3. **Recording:** Global shortcut triggers audio recording with VAD filtering
-4. **Processing:** Audio sent to Whisper model for transcription
-5. **Output:** Text pasted to active application via system clipboard
-
-### Settings System
-
-Settings are stored using Tauri's store plugin with reactive updates:
-
-- Keyboard shortcuts (configurable, supports push-to-talk)
-- Audio devices (microphone/output selection)
-- Model preferences (Small/Medium/Turbo/Large Whisper variants)
-- Audio feedback and translation options
-
-### Single Instance Architecture
-
-The app enforces single instance behavior — launching when already running brings the settings window to front rather than creating a new process. Remote control flags (`--toggle-transcription`, etc.) work by launching a second instance that sends args to the running instance via `tauri_plugin_single_instance`, then exits.
-
-## GPUI port (`src-gpui/`)
-
-`src-gpui/` is a GPUI rewrite of this app with the same features and UI. It copies the `src-tauri/src` backend without Tauri and reads translations and release notes from `src/`. Read `src-gpui/README.md` before working in `src-gpui/`. A behavior change in the Tauri app or the React UI usually needs the same change in `src-gpui/`.
-
-## Internationalization (i18n)
-
-All user-facing strings must use i18next translations. ESLint enforces this (no hardcoded strings in JSX).
-
-**Adding new text:**
-
-1. Add key to `src/i18n/locales/en/translation.json`
-2. Use in component: `const { t } = useTranslation(); t('key.path')`
-
-**File structure:**
-
-```
-src/i18n/
-├── index.ts           # i18n setup
-├── languages.ts       # Language metadata
-└── locales/
-    ├── en/translation.json  # English (source)
-    ├── de/, es/, fr/, ja/, ru/, zh/, ...
-    └── ...
-```
-
-For translation contribution guidelines, see [CONTRIBUTING_TRANSLATIONS.md](CONTRIBUTING_TRANSLATIONS.md).
-
-## Code Style
-
-**Rust:**
+## Code style
 
 - Run `cargo fmt` and `cargo clippy` before committing
-- Handle errors explicitly (avoid unwrap in production)
-- Use descriptive names, add doc comments for public APIs
+- Handle errors explicitly (avoid `unwrap` in production code)
+- Use descriptive names and add doc comments for public APIs
 
-**TypeScript/React:**
+## CLI parameters
 
-- Strict TypeScript, avoid `any` types
-- Functional components with hooks
-- Tailwind CSS for styling
-- Path aliases: `@/` → `./src/`
+Flags are defined in `cli.rs`. They are runtime overrides and never change persisted settings.
 
-## CLI Parameters
+| Flag | Description |
+| --- | --- |
+| `--toggle-transcription` | Toggle recording on a running instance |
+| `--toggle-post-process` | Toggle recording with post-processing on a running instance |
+| `--cancel` | Cancel the current operation on a running instance |
+| `--start-hidden` | Launch without showing the main window |
+| `--no-tray` | Launch without the menu bar icon |
+| `--debug` | Enable debug mode with verbose logging |
+| `-f`, `--transcribe-file <WAV>` | Transcribe a 16 kHz mono WAV and exit |
+| `--model <ID>` | Model for `--transcribe-file` (default: the selected model) |
+| `--device-index <N>` | Compute device for `--transcribe-file` (see `--list-devices`) |
+| `--list-devices` | List transcribe-cpp compute devices and exit |
+| `--list-models` | List model ids and exit |
+| `--repeat <N>` | Repeat `--transcribe-file` N times |
+| `--json` | Print `--transcribe-file` and `--list-models` results as JSON |
 
-Handy supports command-line parameters on all platforms for integration with scripts, window managers, and autostart configurations.
+The remote-control flags work through `single_instance.rs`: the second instance sends its arguments to the running one and exits.
 
-**Implementation:** `cli.rs` (definitions), `main.rs` (parsing), `lib.rs` (applying), `signal_handle.rs` (shared logic)
+## Debug mode
 
-| Flag                     | Description                                                |
-| ------------------------ | ---------------------------------------------------------- |
-| `--toggle-transcription` | Toggle recording on/off on a running instance              |
-| `--toggle-post-process`  | Toggle recording with post-processing on/off               |
-| `--cancel`               | Cancel the current operation on a running instance         |
-| `--start-hidden`         | Launch without showing the main window (tray icon visible) |
-| `--no-tray`              | Launch without system tray (closing window quits the app)  |
-| `--debug`                | Enable debug mode with verbose (Trace) logging             |
+`Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows and Linux) toggles debug mode.
 
-**Key design decisions:**
+## Platform notes
 
-- CLI flags are runtime-only overrides — they do NOT modify persisted settings
-- Remote control flags work via `tauri_plugin_single_instance`: second instance sends args, then exits
-- `send_transcription_input()` in `signal_handle.rs` is shared between signal handlers and CLI
+- **macOS** is the only platform that has been built and run. It uses Metal acceleration, and global shortcuts need the Accessibility permission.
+- **Windows** code paths exist but have never been compiled. `main.rs` sets `VK_LOADER_LAYERS_DISABLE=~implicit~` to disable implicit Vulkan layers (overlays, capture hooks). Opt out with `BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS=1` or by setting `VK_LOADER_LAYERS_DISABLE` yourself.
+- **Linux** code paths exist but have never been compiled.
 
-## Debug Mode
+## Data location
 
-Access debug features: `Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows/Linux)
+Settings, history, recordings, and downloaded models live in `~/Library/Application Support/com.andynguyen.bespoke`. Logs go to `~/Library/Logs/com.andynguyen.bespoke`. On first launch, Bespoke moves data from the old `com.pais.handy` folders.
 
-## Platform Notes
+## Commits
 
-- **macOS**: Metal acceleration, accessibility permissions required for keyboard shortcuts
-- **Windows**: Vulkan acceleration, code signing. Implicit Vulkan layers (overlays, capture hooks) are disabled for the Handy process via `VK_LOADER_LAYERS_DISABLE=~implicit~` set in `main.rs`; opt out with `HANDY_KEEP_VULKAN_IMPLICIT_LAYERS=1` or by setting `VK_LOADER_LAYERS_DISABLE` yourself
-- **Linux**: OpenBLAS + Vulkan, limited Wayland support, overlay uses GTK layer shell (disable with `HANDY_NO_GTK_LAYER_SHELL=1`)
-
-## Troubleshooting
-
-See the [Troubleshooting](README.md#troubleshooting) section in README.md.
-
-## GitHub workflow for AI coding assistants
-
-**MANDATORY. Before opening any PR, issue, or discussion in this repo: you MUST read the relevant template file and follow it strictly.** That includes sections that look "ceremonial" — checklists, AI Assistance disclosures, "Human Written Description". A generic Summary/Test-plan layout is not acceptable.
-
-- **Opening a PR:** Read [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Every section listed there is mandatory. If a section requires a human-written paragraph (e.g. "Human Written Description"), leave a clear TODO placeholder and ask the human contributor to fill it in — do not invent their voice.
-- **Opening an issue:** Read [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/). Blank issues are disabled; pick the right template (`bug_report.md` for bugs). Feature requests do not belong in issues — they go to [Discussions](https://github.com/cjpais/Handy/discussions) (see `.github/ISSUE_TEMPLATE/config.yml`).
-- **Proposing a feature:** Handy is under a feature freeze. New features require community support gathered in [Discussions](https://github.com/cjpais/Handy/discussions) before any PR is opened — see the PR template's "Community Feedback" section.
-- **Translations:** Follow [CONTRIBUTING_TRANSLATIONS.md](CONTRIBUTING_TRANSLATIONS.md).
-- **Full contributor workflow:** [CONTRIBUTING.md](CONTRIBUTING.md).
-
-**Commits:** Use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Focus the message on _why_, not _what_.
+Use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Focus the message on why, not what.

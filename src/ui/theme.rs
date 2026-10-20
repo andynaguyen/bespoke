@@ -184,13 +184,13 @@ impl Alpha for Hsla {
 }
 
 /// The current palette plus the appearance inputs it was derived from.
-pub struct HandyTheme {
+pub struct BespokeTheme {
     pub palette: Palette,
     pub setting: ThemeSetting,
     pub system: WindowAppearance,
 }
 
-impl Global for HandyTheme {}
+impl Global for BespokeTheme {}
 
 static EFFECTIVE_DARK: AtomicBool = AtomicBool::new(false);
 
@@ -208,7 +208,7 @@ fn appearance_is_dark(appearance: WindowAppearance) -> bool {
 }
 
 pub fn palette(cx: &App) -> Palette {
-    cx.global::<HandyTheme>().palette
+    cx.global::<BespokeTheme>().palette
 }
 
 /// Makes the page-title serif available. WebKit's `ui-serif` is the hidden
@@ -234,7 +234,7 @@ fn load_serif_font(cx: &mut App) {
 pub fn init(setting: ThemeSetting, cx: &mut App) {
     load_serif_font(cx);
     let system = cx.window_appearance();
-    cx.set_global(HandyTheme {
+    cx.set_global(BespokeTheme {
         palette: Palette::light(),
         setting,
         system,
@@ -245,10 +245,10 @@ pub fn init(setting: ThemeSetting, cx: &mut App) {
 
 /// Applies the appearance setting (System/Light/Dark) and repaints.
 pub fn apply_theme_setting(setting: ThemeSetting, cx: &mut App) {
-    if !cx.has_global::<HandyTheme>() {
+    if !cx.has_global::<BespokeTheme>() {
         return;
     }
-    cx.global_mut::<HandyTheme>().setting = setting;
+    cx.global_mut::<BespokeTheme>().setting = setting;
     apply_native_appearance(setting, cx);
     recompute(cx);
     crate::tray::refresh_tray_icon(crate::app_handle::AppHandle::global());
@@ -274,17 +274,17 @@ pub fn sync_title_bar(cx: &mut App) {
 /// Call when the OS appearance changes.
 pub fn system_appearance_changed(window: &Window, cx: &mut App) {
     let appearance = window.appearance();
-    if cx.global::<HandyTheme>().system == appearance {
+    if cx.global::<BespokeTheme>().system == appearance {
         return;
     }
-    cx.global_mut::<HandyTheme>().system = appearance;
+    cx.global_mut::<BespokeTheme>().system = appearance;
     recompute(cx);
     log::info!("Theme changed to: {:?}", appearance);
     crate::tray::refresh_tray_icon(crate::app_handle::AppHandle::global());
 }
 
 fn recompute(cx: &mut App) {
-    let theme = cx.global::<HandyTheme>();
+    let theme = cx.global::<BespokeTheme>();
     let dark = match theme.setting {
         ThemeSetting::Light => false,
         ThemeSetting::Dark => true,
@@ -296,13 +296,13 @@ fn recompute(cx: &mut App) {
     } else {
         Palette::light()
     };
-    cx.global_mut::<HandyTheme>().palette = palette;
+    cx.global_mut::<BespokeTheme>().palette = palette;
     sync_component_theme(&palette, cx);
     cx.refresh_windows();
     sync_title_bar(cx);
 }
 
-/// Points gpui-component's theme (used by text inputs) at the Handy palette.
+/// Points gpui-component's theme (used by text inputs) at the Bespoke palette.
 fn sync_component_theme(palette: &Palette, cx: &mut App) {
     if !cx.has_global::<gpui_component::Theme>() {
         return;
