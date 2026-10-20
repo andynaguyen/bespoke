@@ -10,25 +10,39 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
 
+def sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--keep-target", action="store_true")
+    parser.add_argument(
+        "--output", type=Path, required=True,
+        help="new directory for result.json, timings and compiler output",
+    )
+    parser.add_argument(
+        "--keep-target", action="store_true",
+        help="keep the generated target directory after the run",
+    )
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    # Keep the same functional module dirty if main becomes a thin entry point.
+    # Recorded results touch this module. Keep it so new runs stay comparable.
     touch_source = root / "src/startup.rs"
     if not touch_source.is_file():
         parser.error(f"missing source file: {touch_source}")
     output = args.output.resolve()
-    output.mkdir(parents=True, exist_ok=False)
+    if output.exists():
+        parser.error(f"output already exists: {output}")
+    output.mkdir(parents=True)
     builds = root / "target" / "hillclimb"
     builds.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix="build-", dir=builds))
+    cargo_config = root / ".cargo/config.toml"
     env = os.environ.copy()
     # Cache hits in a compiler wrapper must not masquerade as faster compilation.
     for key in ("RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"):
@@ -50,14 +64,11 @@ def main():
             ["git", "diff", "HEAD", "--", "Cargo.toml", "Cargo.lock", ".cargo", "build.rs", "src"],
             cwd=root, text=True,
         ),
-        "manifest_sha256": hashlib.sha256((root / "Cargo.toml").read_bytes()).hexdigest(),
+        "manifest_sha256": sha256(root / "Cargo.toml"),
         "manifest": (root / "Cargo.toml").read_text(),
         "source_touch_file": str(touch_source.relative_to(root)),
-        "lockfile_sha256": hashlib.sha256((root / "Cargo.lock").read_bytes()).hexdigest(),
-        "cargo_config": (
-            (root / ".cargo/config.toml").read_text()
-            if (root / ".cargo/config.toml").exists() else None
-        ),
+        "lockfile_sha256": sha256(root / "Cargo.lock"),
+        "cargo_config": cargo_config.read_text() if cargo_config.exists() else None,
         "host": platform.platform(),
         "logical_cpus": os.cpu_count(),
         "rustc": subprocess.check_output(["rustc", "-Vv"], text=True),
@@ -72,6 +83,10 @@ def main():
         },
         "samples": {},
     }
+
+    def write_result():
+        (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+
     try:
         for mode in ("clean", "source-touch"):
             if mode == "source-touch":
@@ -98,9 +113,12 @@ def main():
                 and len(binaries) == 1
                 and (mode != "clean" or len(compiled) >= 100)
             )
+            # valid stays false until the binary also passes the CLI smoke check.
             sample = {
-                "seconds": elapsed, "exit_code": completed.returncode,
-                "compiled_artifacts": len(compiled), "valid": False,
+                "seconds": elapsed,
+                "exit_code": completed.returncode,
+                "compiled_artifacts": len(compiled),
+                "valid": False,
                 "compilation_valid": valid,
             }
             timing_path = target / "cargo-timings/cargo-timing.html"
@@ -110,9 +128,9 @@ def main():
                 sample["effective_jobs"] = int(jobs.group(1)) if jobs else None
                 shutil.copy2(timing_path, output / f"{mode}.timing.html")
             result["samples"][mode] = sample
-            (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+            write_result()
             if not valid:
-                raise RuntimeError(f"{mode} did not compile the expected binary. See {output}")
+                sys.exit(f"{mode} build did not compile the bespoke binary. See {output}")
             binary = Path(binaries[0]["executable"])
             smoke = subprocess.run(
                 [str(binary), "--help"], cwd=root, env=env, capture_output=True,
@@ -120,11 +138,11 @@ def main():
             )
             (output / f"{mode}.help.txt").write_text(smoke.stdout + smoke.stderr)
             if smoke.returncode or "--transcribe-file" not in smoke.stdout:
-                raise RuntimeError("The compiled binary failed the CLI smoke check")
+                sys.exit(f"{mode} binary failed the --help smoke check. See {output}")
             sample["binary_bytes"] = binary.stat().st_size
             sample["cli_smoke_passed"] = True
             sample["valid"] = True
-            (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+            write_result()
             print(json.dumps({mode: sample}), flush=True)
     finally:
         if not args.keep_target:

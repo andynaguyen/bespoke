@@ -9,14 +9,15 @@ default-run = "bespoke"
 
 [profile.dev]
 incremental = true
-# Preserve source lines in app backtraces without generating local-variable metadata.
+# Keep file and line numbers in backtraces. For local variables in a debugger,
+# build with CARGO_PROFILE_DEV_DEBUG=2.
 debug = "line-tables-only"
 
-# Omit dependency debug info to reduce clean compilation time.
+# Dependencies skip debug info, which shortens clean builds.
 [profile.dev.package."*"]
 debug = 0
 
-# Keep full debugger support for the locally maintained shortcut library.
+# The vendored shortcut crate keeps full debug info.
 [profile.dev.package.handy-keys]
 debug = 2
 

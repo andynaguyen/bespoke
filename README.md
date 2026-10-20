@@ -12,25 +12,16 @@ cargo test
 
 If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. GPUI uses the `runtime_shaders` feature, so the build does not need Xcode's Metal compiler.
 
-Development builds retain source lines for Bespoke backtraces and full debug
-information for the locally maintained `handy-keys` crate. Other dependencies
-omit debug information to reduce compilation time. Use
-`CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a
-debugger. Dependency backtraces lose file and line information, and dependency
-source stepping and local-variable inspection require removing the
-`profile.dev.package."*"` override in `Cargo.toml`.
+Development builds keep file and line numbers in Bespoke backtraces and full debug information for the vendored `handy-keys` crate. Other dependencies build without debug information, which shortens clean builds. Run `CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a debugger. Dependency backtraces have no file or line numbers. To step through dependency source or inspect its local variables, remove the `[profile.dev.package."*"]` section from `Cargo.toml`.
 
-To measure a clean development build and a rebuild after touching `src/startup.rs`:
+`scripts/benchmark-build.py` times a clean development build, then a rebuild after touching `src/startup.rs`:
 
 ```bash
 cargo fetch --locked
 python3 scripts/benchmark-build.py --output target/build-times/my-run
 ```
 
-Use a new output directory for each run. The script builds offline in an empty
-target directory, verifies that Cargo compiled the binary, and runs `--help`.
-It saves timings and compiler output, then removes its generated build artifacts.
-Pass `--keep-target` to retain those artifacts for additional checks.
+The output directory must not exist yet. The script builds offline in a new, empty target directory, checks that Cargo compiled the `bespoke` binary, and runs it with `--help`. It writes timings and compiler output to the output directory, then deletes the target directory. Pass `--keep-target` to keep it.
 
 ## Install
 
