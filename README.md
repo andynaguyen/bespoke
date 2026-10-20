@@ -12,6 +12,23 @@ cargo test
 
 If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. GPUI uses the `runtime_shaders` feature, so the build does not need Xcode's Metal compiler.
 
+Development builds retain full debug information for Bespoke and omit it for
+dependencies to reduce compilation time. Dependency source stepping and local
+variable inspection require removing the `profile.dev.package."*"` override in
+`Cargo.toml`.
+
+To measure a clean development build and a subsequent source-touch rebuild:
+
+```bash
+cargo fetch --locked
+python3 scripts/benchmark-build.py --output .audit/build-times/my-run
+```
+
+Use a new output directory for each run. The script builds offline in an empty
+target directory, verifies that Cargo compiled the binary, and runs `--help`.
+It saves timings and compiler output, then removes its generated build artifacts.
+Pass `--keep-target` to retain those artifacts for additional checks.
+
 ## Install
 
 `scripts/install-local.sh` builds a release, bundles `Bespoke.app`, signs it, and installs it to `/Applications`. It signs with the "Bespoke Local Signing" identity. Set `BESPOKE_SIGNING_IDENTITY` to sign with another codesign identity. A stable identity keeps the Accessibility and Microphone grants across reinstalls.

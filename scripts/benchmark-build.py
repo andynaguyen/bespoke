@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -38,6 +39,13 @@ def main():
             ["git", "rev-parse", "HEAD"], cwd=root, text=True
         ).strip(),
         "manifest_sha256": hashlib.sha256((root / "Cargo.toml").read_bytes()).hexdigest(),
+        "lockfile_sha256": hashlib.sha256((root / "Cargo.lock").read_bytes()).hexdigest(),
+        "cargo_config": (
+            (root / ".cargo/config.toml").read_text()
+            if (root / ".cargo/config.toml").exists() else None
+        ),
+        "host": platform.platform(),
+        "logical_cpus": os.cpu_count(),
         "rustc": subprocess.check_output(["rustc", "-Vv"], text=True),
         "command": command,
         "target": str(target),

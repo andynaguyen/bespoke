@@ -1,0 +1,28 @@
+{
+  "clean": {
+    "baseline_seconds": [
+      58.21006504166871,
+      57.37344908434898
+    ],
+    "final_seconds": [
+      52.12610375043005,
+      52.21494150068611
+    ],
+    "baseline_median_seconds": 57.791757063008845,
+    "final_median_seconds": 52.17052262555808,
+    "reduction_percent": 9.726706234804526
+  },
+  "source-touch": {
+    "baseline_seconds": [
+      3.1834303336218,
+      3.1825626669451594
+    ],
+    "final_seconds": [
+      3.187460208311677,
+      3.1866444582119584
+    ],
+    "baseline_median_seconds": 3.1829965002834797,
+    "final_median_seconds": 3.1870523332618177,
+    "reduction_percent": -0.1274218484995754
+  }
+}

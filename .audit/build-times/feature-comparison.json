@@ -1,0 +1,11 @@
+{
+  "compared_runs": [
+    "confirm-baseline-1",
+    "confirm-final-1",
+    "confirm-baseline-2",
+    "confirm-final-2"
+  ],
+  "artifacts_per_run": 838,
+  "identical_package_targets_and_features": true,
+  "identical_lockfile": true
+}

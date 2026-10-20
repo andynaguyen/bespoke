@@ -1,0 +1,42 @@
+{
+  "commit": "fcaf213b509e39d39bd840e7b86bf9adad94bc30",
+  "manifest_sha256": "1a310b12766e86d12e6f0109351f7171afab7bd8b52e91504a602de18bbed85b",
+  "lockfile_sha256": "304fe4693d9c44b032a84d80ed753e4fa62ed7a46591ff60a39695078ac53af6",
+  "cargo_config": null,
+  "host": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+  "logical_cpus": 12,
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--bin",
+    "bespoke",
+    "--timings",
+    "--message-format=json-render-diagnostics"
+  ],
+  "target": "/Users/karat-01/.t3/worktrees/bespoke/t3-ed4f3543/target/hillclimb/build-c7892sbe",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/karat-01/.t3/worktrees/bespoke/t3-ed4f3543/target/hillclimb/build-c7892sbe",
+    "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+  },
+  "samples": {
+    "clean": {
+      "seconds": 52.21494150068611,
+      "exit_code": 0,
+      "compiled_artifacts": 838,
+      "valid": true,
+      "binary_bytes": 174666136,
+      "cli_smoke_passed": true
+    },
+    "source-touch": {
+      "seconds": 3.1866444582119584,
+      "exit_code": 0,
+      "compiled_artifacts": 1,
+      "valid": true,
+      "binary_bytes": 174666200,
+      "cli_smoke_passed": true
+    }
+  }
+}

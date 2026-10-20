@@ -1,0 +1,18 @@
+   Compiling bespoke v0.9.7 (/Users/karat-01/.t3/worktrees/bespoke/t3-ed4f3543)
+warning: bespoke@0.9.7: Building with Apple Intelligence support.
+warning: value assigned to `model_takes_initial_prompt` is never read
+    --> src/managers/transcription.rs:1469:46
+     |
+1469 |         let mut model_takes_initial_prompt = false;
+     |                                              ^^^^^ this value is reassigned later and never used
+...
+1515 |                 model_takes_initial_prompt = model.supports(Feature::InitialPrompt);
+     |                 ------------------------------------------------------------------- `model_takes_initial_prompt` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `bespoke` (bin "bespoke") generated 1 warning
+      Timing report saved to /Users/karat-01/.t3/worktrees/bespoke/t3-ed4f3543/target/hillclimb/build-axf7l9_r/cargo-timings/cargo-timing-20261020T090552029Z-a1d2ba028f3b620f.html
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.12s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6, proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
