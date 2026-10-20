@@ -2,7 +2,8 @@
 //! transparent always-on-top panel near the top or bottom edge of the screen
 //! under the cursor. The compact form is a pill with a waveform, or a
 //! spinner and label while transcribing. The Live form opens into a panel
-//! that shows streaming text.
+//! that shows streaming text. Both use the look of Annotate's capsule: a dark
+//! surface, a red record dot, and a divider before the cancel chip.
 //!
 //! The panel window exists only while the overlay shows. `hide` clears the
 //! card at once and closes the window 300ms later, unless a newer `show`
@@ -12,9 +13,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, linear_color_stop, linear_gradient, percentage, point, prelude::*, px, size,
-    Animation, AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Entity, FontFeatures,
-    FontStyle, Global, HighlightStyle, Hsla, Pixels, ScrollHandle, SharedString, Size, StyledText,
+    canvas, div, linear_color_stop, linear_gradient, point, prelude::*, px, size, Animation,
+    AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Div, Entity, FontFeatures,
+    FontWeight, Global, HighlightStyle, Hsla, Pixels, ScrollHandle, SharedString, Size, StyledText,
     Subscription, Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations,
     WindowHandle, WindowKind, WindowOptions,
 };
@@ -28,7 +29,7 @@ use crate::overlay::MIC_LEVEL_EVENT;
 use crate::settings::OverlayPosition;
 use crate::ui::components::icon;
 use crate::ui::event_bus::event_bus;
-use crate::ui::theme::{palette, Alpha, BespokeTheme};
+use crate::ui::theme::{shadow, Alpha};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OverlayState {
@@ -38,12 +39,21 @@ pub enum OverlayState {
     Processing,
 }
 
-// Window sizes. The window must hold the card's widest state (the compact
-// pill grows to 218 wide, the Live panel to 394x118) since the card sits flush
-// against the screen-edge side of the window.
-const COMPACT_WINDOW: (f32, f32) = (256., 50.);
-const STREAM_WINDOW: (f32, f32) = (400., 120.);
+// The area the card can fill, before the shadow margins. It must hold the
+// card's widest state (the compact card grows to WORK_W wide, the Live panel
+// to about OPEN_W by 112) since the card sits flush against the screen-edge
+// side of it.
+const COMPACT_AREA: (f32, f32) = (WORK_W, BASE_H);
+const STREAM_AREA: (f32, f32) = (400., 120.);
 
+// Transparent window margins that keep the card's drop shadow from being
+// clipped. The shadow falls 4px down, so the top needs less, which also keeps
+// a top overlay's window clear of the menu bar.
+const PAD_X: f32 = 15.;
+const PAD_TOP: f32 = 8.;
+const PAD_BOTTOM: f32 = 15.;
+
+// Distance from the screen edge to the card.
 #[cfg(target_os = "macos")]
 const TOP_OFFSET: f32 = 46.;
 #[cfg(not(target_os = "macos"))]
@@ -55,24 +65,31 @@ const BOTTOM_OFFSET: f32 = 40.;
 
 const HIDE_DELAY: Duration = Duration::from_millis(300);
 
-// Card geometry (`--ov-*`). CSS sizes the card's content box, so the 1px
-// border adds 2px to each.
-const REST_W: f32 = 172.;
-const PILL_W: f32 = 184.;
-const WORK_W: f32 = 216.;
-const OPEN_W: f32 = 392.;
+// Card geometry, from Annotate's capsule: 40px tall, with 32px chips inset
+// 4px and 2px apart. Widths include the 1px border.
 const BASE_H: f32 = 40.;
-const CAP_MAX_H: f32 = 64.;
+const RADIUS: f32 = BASE_H / 2.;
+const INSET: f32 = 4.;
+const CHIP: f32 = 32.;
+const CHIP_GAP: f32 = 2.;
+const DIVIDER_W: f32 = 13.;
 const WAVE_BARS: usize = 9;
+const WAVE_W: f32 = WAVE_BARS as f32 * 4. + (WAVE_BARS - 1) as f32 * 3.;
+/// The listening lead: the dot centered in the first chip, then the waveform.
+const LEAD_W: f32 = 12. + 8. + 10. + WAVE_W + 10.;
+const REST_W: f32 = 2. * INSET + LEAD_W + 2. * CHIP_GAP + DIVIDER_W + CHIP;
+const WORK_W: f32 = 206.;
+const OPEN_W: f32 = 394.;
+const CAP_MAX_H: f32 = 64.;
 const MORPH: Duration = Duration::from_millis(460);
 
 fn window_size(state: OverlayState) -> Size<Pixels> {
     let (w, h) = if state == OverlayState::Streaming {
-        STREAM_WINDOW
+        STREAM_AREA
     } else {
-        COMPACT_WINDOW
+        COMPACT_AREA
     };
-    size(px(w), px(h))
+    size(px(w + 2. * PAD_X), px(h + PAD_TOP + PAD_BOTTOM))
 }
 
 /// CSS `cubic-bezier(x1, y1, x2, y2)`.
@@ -162,43 +179,31 @@ impl Tween {
     }
 }
 
-/// Overlay colors (`--s-*`), light and dark.
+/// Overlay colors, from Annotate's black capsule. The card stays dark in both
+/// themes, like Annotate's.
 struct Colors {
+    /// Opaque, unlike Annotate's 96%, so the live text's surface-colored fade
+    /// matches the card over light windows.
     surface: Hsla,
-    accent: Hsla,
-    accent_soft: Hsla,
-    muted: Hsla,
-    faint: Hsla,
     border: Hsla,
-    hair: Hsla,
+    divider: Hsla,
     text: Hsla,
+    /// The timer and the resting cancel icon.
+    secondary: Hsla,
+    hover: Hsla,
+    record: Hsla,
 }
 
-fn colors(cx: &App) -> Colors {
-    let p = palette(cx);
+fn colors() -> Colors {
     let hex = |value: u32| -> Hsla { gpui::rgb(value).into() };
-    if p.is_dark {
-        Colors {
-            surface: p.background.a(0.98),
-            accent: p.logo_primary,
-            accent_soft: p.logo_primary.a(0.2),
-            muted: hex(0xa3a09a),
-            faint: hex(0x6f6c66),
-            border: p.text.a(0.12),
-            hair: p.text.a(0.08),
-            text: p.text,
-        }
-    } else {
-        Colors {
-            surface: p.background.a(0.98),
-            accent: p.logo_primary,
-            accent_soft: p.background_ui.a(0.16),
-            muted: hex(0x6e6e6e),
-            faint: hex(0x9a9a9a),
-            border: p.mid_gray.a(0.22),
-            hair: p.mid_gray.a(0.12),
-            text: p.text,
-        }
+    Colors {
+        surface: hex(0x141416),
+        border: gpui::white().a(0.12),
+        divider: gpui::white().a(0.11),
+        text: hex(0xf5f5f7),
+        secondary: hex(0x9c9c9e),
+        hover: gpui::white().a(0.1),
+        record: hex(0xf04438),
     }
 }
 
@@ -243,10 +248,10 @@ fn placement(
     if let Some(screen) = crate::ui::platform::CursorScreen::current() {
         let x = (screen.width as f32 - f32::from(size.width)) / 2.;
         let y = match position {
-            OverlayPosition::Top => TOP_OFFSET,
+            OverlayPosition::Top => TOP_OFFSET - PAD_TOP,
             // The visible frame keeps the overlay above the Dock.
             OverlayPosition::Bottom => {
-                screen.visible_bottom as f32 - f32::from(size.height) - BOTTOM_OFFSET
+                screen.visible_bottom as f32 - f32::from(size.height) - BOTTOM_OFFSET + PAD_BOTTOM
             }
         };
         let display = cx
@@ -274,8 +279,10 @@ fn placement(
     let bounds = display.bounds();
     let x = (bounds.size.width - size.width) / 2.;
     let y = match position {
-        OverlayPosition::Top => px(TOP_OFFSET),
-        OverlayPosition::Bottom => bounds.size.height - size.height - px(BOTTOM_OFFSET),
+        OverlayPosition::Top => px(TOP_OFFSET - PAD_TOP),
+        OverlayPosition::Bottom => {
+            bounds.size.height - size.height - px(BOTTOM_OFFSET - PAD_BOTTOM)
+        }
     };
     (Some(display.id()), point(x, y))
 }
@@ -471,7 +478,6 @@ pub struct RecordingOverlay {
     /// Jump to the next targets instead of animating, as a fresh mount does.
     snap: bool,
     width: Tween,
-    radius: Tween,
     text_open: Tween,
     text_fade: Tween,
     text_height: Pixels,
@@ -487,7 +493,6 @@ impl RecordingOverlay {
             cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
                 this.handle_event(event, cx)
             }),
-            cx.observe_global::<BespokeTheme>(|_, cx| cx.notify()),
         ];
         Self {
             visible: false,
@@ -506,8 +511,7 @@ impl RecordingOverlay {
             pinned: true,
             cap_scroll: ScrollHandle::new(),
             snap: true,
-            width: Tween::new(REST_W + 2., MORPH, ease_morph),
-            radius: Tween::new(24., MORPH, ease_morph),
+            width: Tween::new(REST_W, MORPH, ease_morph),
             text_open: Tween::new(0., Duration::from_millis(440), ease_morph),
             text_fade: Tween::new(0., Duration::from_millis(260), ease),
             text_height: px(0.),
@@ -648,14 +652,12 @@ impl RecordingOverlay {
 
     fn waveform(&self, c: &Colors) -> impl IntoElement {
         let ready = self.capture_ready;
-        let muted = c.muted;
-        let accent = c.accent;
+        let text = c.text;
         div()
             .flex()
             .flex_none()
             .items_center()
             .gap(px(3.))
-            .pr(px(8.))
             .h(px(18.))
             .children(
                 self.smoothed[..WAVE_BARS]
@@ -665,13 +667,13 @@ impl RecordingOverlay {
                         let bar = div().w(px(4.)).rounded(px(2.)).flex_none();
                         if ready {
                             let height = (3. + level.max(0.).powf(0.7) * 15.).clamp(3., 18.);
-                            bar.h(px(height)).bg(accent).into_any_element()
+                            bar.h(px(height)).bg(text).into_any_element()
                         } else {
-                            // `swave-arming`: a muted pulse travelling out from the
+                            // `swave-arming`: a dim pulse travelling out from the
                             // middle bar.
                             let delay = [0., 75., 150., 225., 300., 225., 150., 75., 0.][i] / 900.;
                             bar.h(px(6.))
-                                .bg(muted)
+                                .bg(text)
                                 .with_animation(
                                     SharedString::from(format!("swave-arming-{i}")),
                                     Animation::new(Duration::from_millis(900)).repeat(),
@@ -693,159 +695,181 @@ impl RecordingOverlay {
             )
     }
 
+    /// Annotate's record dot. Once capture starts, a halo ripples out to 20px
+    /// and fades while the dot breathes, both on one 1.6s cycle.
     fn dot(&self, c: &Colors) -> impl IntoElement {
         let ready = self.capture_ready;
-        let soft = c.accent_soft;
+        let record = c.record;
+        let cycle = Duration::from_millis(1600);
         div()
             .relative()
-            .size(px(7.))
+            .size(px(8.))
             .flex_none()
             .when(ready, |el| {
-                // `sdot-pulse`: a soft ring spreads 7px and fades by 70%.
                 el.child(div().absolute().rounded_full().with_animation(
-                    "sdot-pulse",
-                    Animation::new(Duration::from_millis(1900)).repeat(),
-                    move |ring, delta| {
-                        let p = if delta < 0.7 { ease(delta / 0.7) } else { 1. };
-                        let spread = px(7. * p);
-                        ring.left(-spread)
-                            .top(-spread)
-                            .size(px(7.) + spread * 2.)
-                            .bg(soft.a(1. - p))
+                    "sdot-halo",
+                    Animation::new(cycle).repeat(),
+                    move |halo, ripple| {
+                        let r = 4. + 6. * ripple;
+                        halo.left(px(4. - r))
+                            .top(px(4. - r))
+                            .size(px(2. * r))
+                            .bg(record.a(0.34 * (1. - ripple).powi(2)))
+                    },
+                ))
+                .child(div().absolute().inset_0().rounded_full().with_animation(
+                    "sdot-breath",
+                    Animation::new(cycle).repeat(),
+                    move |dot, t| {
+                        let breath = 0.5 + 0.5 * (std::f32::consts::TAU * t).cos();
+                        dot.bg(record.a(0.78 + 0.22 * breath))
                     },
                 ))
             })
-            .child(
-                div()
-                    .absolute()
-                    .inset_0()
-                    .rounded_full()
-                    .when(ready, |el| el.bg(c.accent))
-                    .when(!ready, |el| el.bg(c.muted).opacity(0.45)),
-            )
+            .when(!ready, |el| {
+                el.child(div().absolute().inset_0().rounded_full().bg(c.text.a(0.3)))
+            })
     }
 
+    /// Annotate's close chip: a bare icon in a 32px slot that gains a 28px
+    /// circle on hover.
     fn cancel_button(&self, c: &Colors) -> impl IntoElement {
-        let (soft, text) = (c.accent_soft, c.text);
+        let (hover, text) = (c.hover, c.text);
         div()
-            .id("overlay-cancel")
-            .size(px(22.))
+            .size(px(CHIP))
             .flex_none()
-            .rounded_full()
             .flex()
             .items_center()
             .justify_center()
-            .text_color(c.muted)
-            .bg(c.hair)
-            .cursor_pointer()
-            .hover(move |s| s.bg(soft).text_color(text))
-            .on_click(|_, _, _| {
-                let app = AppHandle::global().clone();
-                crate::runtime::spawn_blocking(move || crate::commands::cancel_operation(app));
-            })
-            .child(icon("overlay-cancel").size(px(9.)))
-    }
-
-    fn spinner(&self, c: &Colors) -> impl IntoElement {
-        div()
-            .relative()
-            .size(px(13.))
-            .flex_none()
             .child(
                 div()
-                    .absolute()
-                    .inset_0()
+                    .id("overlay-cancel")
+                    .size(px(CHIP - 4.))
                     .rounded_full()
-                    .border_2()
-                    .border_color(c.hair),
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_color(c.secondary)
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(hover).text_color(text))
+                    .on_click(|_, _, _| {
+                        let app = AppHandle::global().clone();
+                        crate::runtime::spawn_blocking(move || {
+                            crate::commands::cancel_operation(app)
+                        });
+                    })
+                    .child(icon("overlay-cancel").size(px(11.))),
             )
-            .child(div().absolute().inset_0().text_color(c.accent).child(
-                icon("spinner-arc").size(px(13.)).with_animation(
-                    "sspin",
-                    Animation::new(Duration::from_millis(700)).repeat(),
-                    |icon, delta| icon.rotate(percentage(delta)),
-                ),
-            ))
     }
 
-    /// The 40px control row: left | center | right, with equal side columns
-    /// so the center stays centered.
-    fn base_row(
-        &self,
-        left: AnyElement,
-        center: AnyElement,
-        right: Vec<AnyElement>,
-    ) -> impl IntoElement {
+    /// Annotate's processing spinner: eight dots on a ring, brightest at a
+    /// head that goes around once a second.
+    fn spinner(&self, c: &Colors) -> impl IntoElement {
+        let color = c.text;
+        div()
+            .relative()
+            .size(px(16.))
+            .flex_none()
+            .children((0..8).map(move |k| {
+                let angle = k as f32 * std::f32::consts::FRAC_PI_4 - std::f32::consts::FRAC_PI_2;
+                div()
+                    .absolute()
+                    .left(px(8. + 6.2 * angle.cos() - 1.35))
+                    .top(px(8. + 6.2 * angle.sin() - 1.35))
+                    .size(px(2.7))
+                    .rounded_full()
+                    .bg(color)
+                    .with_animation(
+                        SharedString::from(format!("sspin-{k}")),
+                        Animation::new(Duration::from_secs(1)).repeat(),
+                        move |dot, t| {
+                            let behind = (t * 8. - k as f32).rem_euclid(8.);
+                            dot.opacity((1. - behind / 7.5).clamp(0.18, 1.))
+                        },
+                    )
+            }))
+    }
+
+    fn divider(&self, c: &Colors) -> impl IntoElement {
+        div()
+            .w(px(DIVIDER_W))
+            .flex_none()
+            .flex()
+            .justify_center()
+            .child(div().w(px(1.)).h(px(16.)).bg(c.divider))
+    }
+
+    /// The 40px control row, laid out like Annotate's capsule: the lead fills
+    /// the free space, then `extra`, a divider and the cancel chip.
+    fn base_row(&self, lead: Div, extra: Option<AnyElement>, c: &Colors) -> impl IntoElement {
         let rtl = crate::i18n::is_rtl();
         div()
             .flex_none()
-            .h(px(BASE_H))
-            .px(px(10.))
+            .h(px(BASE_H - 2.))
+            // The border is the last pixel of the inset.
+            .px(px(INSET - 1.))
             .flex()
             .items_center()
+            .gap(px(CHIP_GAP))
             .when(rtl, |el| el.flex_row_reverse())
             .child(
-                div()
-                    .flex_1()
-                    .min_w(px(22.))
+                lead.flex_1()
+                    .min_w_0()
+                    .h(px(CHIP))
                     .flex()
                     .items_center()
-                    .when(rtl, |el| el.justify_end().pr(px(5.)))
-                    .when(!rtl, |el| el.pl(px(5.)))
-                    .child(left),
+                    .when(rtl, |el| el.flex_row_reverse()),
             )
-            .child(center)
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(22.))
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .when(rtl, |el| el.flex_row_reverse().justify_end())
-                    .when(!rtl, |el| el.justify_end())
-                    .children(right),
-            )
+            .children(extra)
+            .child(self.divider(c))
+            .child(self.cancel_button(c))
     }
 
     fn listening_row(&self, show_timer: bool, c: &Colors) -> impl IntoElement {
-        let mut right = Vec::new();
-        if show_timer {
+        let rtl = crate::i18n::is_rtl();
+        let lead = div()
+            .gap(px(10.))
+            .when(rtl, |el| el.pr(px(12.)).pl(px(10.)))
+            .when(!rtl, |el| el.pl(px(12.)).pr(px(10.)))
+            .child(self.dot(c))
+            .child(self.waveform(c));
+        let timer = show_timer.then(|| {
             let secs = self.elapsed;
             let mut timer = div()
-                .text_size(px(12.))
-                .line_height(px(15.))
-                .text_color(c.faint)
+                .flex_none()
+                .text_size(px(13.))
+                .line_height(px(16.))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(c.secondary)
                 .whitespace_nowrap()
                 .child(format!("{}:{:02}", secs / 60, secs % 60));
             timer
                 .text_style()
                 .get_or_insert_with(Default::default)
                 .font_features = Some(FontFeatures(Arc::new(vec![("tnum".into(), 1)])));
-            right.push(timer.into_any_element());
-        }
-        right.push(self.cancel_button(c).into_any_element());
-        self.base_row(
-            self.dot(c).into_any_element(),
-            self.waveform(c).into_any_element(),
-            right,
-        )
+            timer.into_any_element()
+        });
+        self.base_row(lead, timer, c)
     }
 
     fn working_row(&self, label: SharedString, c: &Colors) -> impl IntoElement {
-        self.base_row(
-            self.spinner(c).into_any_element(),
-            div()
-                .min_w_0()
-                .px(px(8.))
-                .text_size(px(12.))
-                .line_height(px(15.))
-                .text_color(c.muted)
-                .truncate()
-                .child(label)
-                .into_any_element(),
-            vec![self.cancel_button(c).into_any_element()],
-        )
+        let rtl = crate::i18n::is_rtl();
+        let lead = div()
+            .gap(px(12.))
+            .when(rtl, |el| el.pr(px(8.)).pl(px(12.)))
+            .when(!rtl, |el| el.pl(px(8.)).pr(px(12.)))
+            .child(self.spinner(c))
+            .child(
+                div()
+                    .min_w_0()
+                    .text_size(px(13.))
+                    .line_height(px(16.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(c.text)
+                    .truncate()
+                    .child(label),
+            );
+        self.base_row(lead, None, c)
     }
 
     /// The scrolling live text with the blinking caret.
@@ -872,8 +896,7 @@ impl RecordingOverlay {
                 HighlightStyle {
                     // GPUI draws a zero-alpha glyph dark, so the off phase
                     // paints the caret in the card color instead.
-                    color: Some(if self.caret_on { c.accent } else { c.surface }),
-                    font_style: Some(FontStyle::Normal),
+                    color: Some(if self.caret_on { c.text } else { c.surface }),
                     ..Default::default()
                 },
             ));
@@ -881,7 +904,8 @@ impl RecordingOverlay {
 
         // `min(--ov-cap-max-h, 100vh - --ov-base-h - 20px)`, a content-box
         // height, so the 12px padding comes on top.
-        let cap_max = (f32::from(window.bounds().size.height) - BASE_H - 20.).min(CAP_MAX_H) + 12.;
+        let area_h = f32::from(window.bounds().size.height) - PAD_TOP - PAD_BOTTOM;
+        let cap_max = (area_h - BASE_H - 20.).min(CAP_MAX_H) + 12.;
         let overflowing = self.cap_scroll.max_offset().height > px(1.);
         let rtl = crate::i18n::is_rtl();
         let cap = div()
@@ -902,9 +926,8 @@ impl RecordingOverlay {
             .when(top, |el| el.pb(px(12.)))
             .when(!top, |el| el.pt(px(12.)))
             .text_size(px(15.))
-            .italic()
             .line_height(px(15. * 1.35))
-            .text_color(c.text.a(0.9))
+            .text_color(c.text)
             .when(rtl, |el| el.text_right())
             .child(
                 div()
@@ -915,17 +938,25 @@ impl RecordingOverlay {
         // CSS fades the top 18px with a mask: always at the bottom of the
         // screen, only on overflow at the top. A surface-colored gradient
         // gives the same look on the flat card.
+        //
+        // At the bottom of the screen the fade runs along the card's top
+        // edge. GPUI clips children to a rectangle, so the fade takes the
+        // card's inner corners, and GPUI caps a radius at half the height, so
+        // it grows tall enough for them and its gradient still ends at 18px.
         let fade = (!top || overflowing).then(|| {
+            let corner = RADIUS - 1.;
+            let height = if top { 18. } else { (2. * corner).max(18.) };
             div()
                 .absolute()
                 .top_0()
                 .left_0()
                 .right_0()
-                .h(px(18.))
+                .h(px(height))
+                .when(!top, |el| el.rounded_t(px(corner)))
                 .bg(linear_gradient(
                     180.,
                     linear_color_stop(c.surface, 0.),
-                    linear_color_stop(c.surface.a(0.), 1.),
+                    linear_color_stop(c.surface.a(0.), 18. / height),
                 ))
         });
 
@@ -960,30 +991,35 @@ impl RecordingOverlay {
             )
     }
 
+    /// The capsule both forms draw in: Annotate's dark surface, hairline rim
+    /// and soft drop shadow.
+    fn card(&self, c: &Colors) -> Div {
+        div()
+            .flex_none()
+            .flex()
+            .w(px(self.width.value()))
+            .rounded(px(RADIUS))
+            .overflow_hidden()
+            .bg(c.surface)
+            .border_1()
+            .border_color(c.border)
+            .shadow(vec![shadow(0., 4., 7., 0., 0.22)])
+    }
+
     fn render_compact(&mut self, c: &Colors) -> AnyElement {
         let working = matches!(
             self.state,
             OverlayState::Transcribing | OverlayState::Processing
         );
         let snap = std::mem::take(&mut self.snap);
-        self.width
-            .set(if working { WORK_W } else { REST_W } + 2., snap);
-        self.radius.set(24., snap);
+        self.width.set(if working { WORK_W } else { REST_W }, snap);
         let label = if self.state == OverlayState::Processing {
             t("overlay.processing")
         } else {
             t("overlay.transcribing")
         };
-        div()
-            .flex_none()
-            .flex()
+        self.card(c)
             .flex_col()
-            .w(px(self.width.value()))
-            .rounded(px(self.radius.value()))
-            .overflow_hidden()
-            .bg(c.surface)
-            .border_1()
-            .border_color(c.border)
             .child(if working {
                 self.working_row(label, c).into_any_element()
             } else {
@@ -998,16 +1034,15 @@ impl RecordingOverlay {
         // The panel stays open while finalizing so the text doesn't jump.
         let open = has_text;
         let collapsed = working && !has_text;
-        let (width, radius) = if open {
-            (OPEN_W, 16.)
+        let width = if open {
+            OPEN_W
         } else if collapsed {
-            (WORK_W, 18.)
+            WORK_W
         } else {
-            (PILL_W, 24.)
+            REST_W
         };
         let snap = std::mem::take(&mut self.snap);
-        self.width.set(width + 2., snap);
-        self.radius.set(radius, snap);
+        self.width.set(width, snap);
         let target = if open { 1. } else { 0. };
         self.text_open.set(target, snap);
         self.text_fade.set(target, snap);
@@ -1038,17 +1073,9 @@ impl RecordingOverlay {
             })
             .child(self.live_text(working, top, window, c, cx));
 
-        div()
-            .flex_none()
-            .flex()
+        self.card(c)
             .when(top, |el| el.flex_col_reverse())
             .when(!top, |el| el.flex_col())
-            .w(px(self.width.value()))
-            .rounded(px(self.radius.value()))
-            .overflow_hidden()
-            .bg(c.surface)
-            .border_1()
-            .border_color(c.border)
             .child(region)
             .child(row)
             // `scard-pop`: fade in once per session.
@@ -1063,21 +1090,23 @@ impl RecordingOverlay {
 
 impl Render for RecordingOverlay {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let stage = div().size_full().flex().justify_center();
+        let stage = div()
+            .size_full()
+            .flex()
+            .justify_center()
+            .px(px(PAD_X))
+            .pt(px(PAD_TOP))
+            .pb(px(PAD_BOTTOM));
         if !self.visible {
             return stage;
         }
-        let c = colors(cx);
+        let c = colors();
         let card = if self.state == OverlayState::Streaming {
             self.render_live(window, &c, cx)
         } else {
             self.render_compact(&c)
         };
-        if self.width.running()
-            || self.radius.running()
-            || self.text_open.running()
-            || self.text_fade.running()
-        {
+        if self.width.running() || self.text_open.running() || self.text_fade.running() {
             window.request_animation_frame();
         }
         stage

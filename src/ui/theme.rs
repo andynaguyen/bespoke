@@ -38,7 +38,6 @@ pub struct Palette {
     pub is_dark: bool,
     pub text: Hsla,
     pub background: Hsla,
-    pub logo_primary: Hsla,
     pub shell: Hsla,
     pub card: Hsla,
     pub accent: Hsla,
@@ -47,7 +46,6 @@ pub struct Palette {
     pub warning: Hsla,
     pub error: Hsla,
     pub mid_gray: Hsla,
-    pub background_ui: Hsla,
     /// `--color-log-surface`: the background mixed toward black.
     pub log_surface: Hsla,
 }
@@ -59,7 +57,6 @@ impl Palette {
             is_dark: false,
             text: hex(0x1c1a17),
             background,
-            logo_primary: hex(0xfaa2ca),
             shell: hex(0xf3f1ed),
             card: hex(0xf4f2ee),
             accent: hex(0x1f1d1a),
@@ -68,7 +65,6 @@ impl Palette {
             warning: hex(0xd97706),
             error: hex(0xdc2626),
             mid_gray: hex(0x8a857c),
-            background_ui: hex(0xda5893),
             log_surface: mix_black(background, 0.06),
         }
     }
@@ -79,7 +75,6 @@ impl Palette {
             is_dark: true,
             text: hex(0xf3f1ec),
             background,
-            logo_primary: hex(0xf28cbb),
             shell: hex(0x1c1b19),
             card: hex(0x2d2c29),
             accent: hex(0xece9e3),
@@ -88,7 +83,6 @@ impl Palette {
             warning: hex(0xfbbf24),
             error: hex(0xf87171),
             mid_gray: hex(0x8a857c),
-            background_ui: hex(0xda5893),
             log_surface: mix_black(background, 0.15),
         }
     }
