@@ -12,7 +12,7 @@ Protocol: `python3 scripts/benchmark-build.py --output .audit/build-times/NAME`.
 
 Baseline runs: 59.536s and 56.316s. Median 57.926s. Range 5.56% of median. Initial acceptance threshold: more than 6% improvement, repeated if near the noise boundary. The final baseline and final candidate will be rerun under the same conditions before reporting.
 
-Current best: E1 dependency debug override plus E7 app line tables. E18 preserves full debug info for the maintained shortcut crate, with adjacent control 50.271s and candidate 50.016s. The 50% target remains unmet. Resumed final original-versus-retained confirmation is pending; the earlier 9.73% result below applies to E1 alone.
+Current best: E1 + E7 + E18 on stable Rust. Final three-pair medians: original 61.213s, retained 49.913s, 18.46% less clean-build time. The 50% target remains unmet. Identified low-cost stable candidates have been measured or screened; all application source and dependency versions remain original.
 
 
 | Timestamp | Experiment | Hypothesis | Change | Before | After | Delta | Evidence | Decision and reason | Commit SHA |
@@ -41,7 +41,7 @@ Remaining hypotheses: an upstream handy-keys release that narrows the objc2 feat
 
 The retained change omits debug information only from development dependencies. Bespoke keeps full debug information. Developers inspecting dependency local variables or stepping through dependency sources can remove the package debug override, as documented in README.md. The release profile and Cargo.lock are unchanged.
 
-Final verification: `cargo fmt --check`, `cargo clippy --locked --offline`, Python byte compilation and `git diff --check` pass. Clippy retains the existing 12 source warnings. The 344-test run validates the retained application configuration. Redundant experiment build directories were removed; `confirm-final-2` retains its binary and artifacts.
+Final verification: `cargo fmt --check`, `cargo clippy --locked --offline`, Python byte compilation and `git diff --check` pass. Clippy retains the existing 12 source warnings. The 344-test run validates the retained application configuration. The first round kept the `confirm-final-2` binary temporarily. Final cleanup now keeps only the `resumed-confirm-final-3` binary and artifacts.
 
 ## Resumed run
 
@@ -77,6 +77,9 @@ Resumed baseline repeat: 51.425s clean, 3.143s source-touch. Background-load dri
 | 2026-10-20 | E21 | Faster proc macros and build scripts may shorten the frontend tail | profile.dev.build-override.opt-level=3 | E18 50.016s | 96.205s | +46.189s, +92.35% | `build-times/e21-build-opt3-1/` | Revert. Optimizing the build dependency graph and duplicated host/target variants overwhelms execution savings. 920 artifacts. Warm 3.111s. E20+E21 is not a distinct effective bindgen setting | N/A |
 | 2026-10-20 | E20b | Lower bindgen optimization may balance compilation and generation cost | package.bindgen.opt-level=1 | Adjacent controls 50.016s and 50.634s | 49.035s and 50.212s | Paired -1.96% and -0.83%, overlapping run ranges | `build-times/e20b-*/`, `build-times/e18-handy-debug-2/` | Revert. Improvement does not repeat past noise. GPUI still waits for its own build script after gpui_media finishes. Warm about 3.15s | N/A |
 | 2026-10-20 | E22 | Optimize only macros used on the frontend critical path | Named GPUI, component, i18n, serde and clap macro opt-level=3 | E18 50.016s | 53.156s | +3.140s, +6.28% | `build-times/e22-selected-macros-opt3-1/` | Revert. Narrowing avoids duplication, 838 artifacts, but optimizing these macros still costs more than it saves. Warm 3.083s | N/A |
+| 2026-10-20 | E22b | Cheaper macro optimization may preserve frontend savings | Five named macro opt-level=1 overrides | Updated-protocol control 49.086s, warm 3.367s | 52.155s clean, 3.115s warm | Clean +3.070s, +6.25% | `build-times/e22b-selected-macros-opt1-1/`, `build-times/e23-startup-touch-control-1/` | Revert. Primary regression remains at lower optimization. No demonstrated macro near miss to combine with uncertain bindgen savings. Broad E21 already included optimized bindgen | N/A |
+| 2026-10-20 | E23 | A library may pipeline app compilation on dependency metadata before completed rlibs | Move existing root to lib.rs with pub run, thin main retaining Windows subsystem attribute | Controls 49.086s and 49.035s, median 49.060s | 48.086s and 51.063s, median 49.574s | +0.514s, +1.05% median | `build-times/e23-*/`, `build-times/e23-library.patch` | Revert in full. Initial gain does not repeat. 839 artifacts include library plus binary. Startup-touch recompiles both, about 3.265s versus control median 3.237s. Binary grows from about 173MB to 179MB. No module restructuring retained | N/A |
+| 2026-10-20 | Resumed final confirmation | Verify original versus retained E1+E7+E18 | Three alternating original/final pairs with src/startup.rs touch | 61.213s median | 49.913s median | -11.299s, -18.46% | `build-times/resumed-summary.json`, `build-times/resumed-confirm-*/result.json` | Retain two speed changes and one debugging safeguard. Target 50% not met. All six runs compile identical 838 package targets, features, optimization and assertion settings | E1 fcaf213, E7 2279f6a, E18 f9bf5d2 |
 
 Review evidence notes: E5 dependency codegen=16 mostly repeated Cargo's effective registry-dependency default, so E12 and E17 explicitly tested 256 and 64. E11 changed the global profile and increased artifact variants; E11b and E16 corrected this with named `bespoke` overrides, restoring 838 artifacts. LTO=false already matches default opt-level=0 dev behavior, so it is not a distinct candidate. Alternate debug placement and the bundled linker were measured rather than rejected only by inspection.
 
@@ -88,6 +91,26 @@ Acceptance rule clarification: E7 is the first optimization accepted below the o
 
 Second Opus review identified two remaining build-time execution hypotheses: optimize bindgen, then optimize procedural macros and build-script code. These are being measured rather than assuming they work. Jobs=16 was screened out based on the 12-core machine's saturated early build and underutilized serial tail; slots cannot speed the tail, and 8 and 24 already regressed. This is a low-priority scheduling judgment, not proof of a numerical optimum.
 
-The root-lib split remains a first-party but non-cheap possibility: a library can begin on dependency metadata about 1.3s before final rlibs, whereas the bin waits for completed dependencies. That suggests a possible sub-3% clean gain in exchange for restructuring module ownership and tests. It is not considered exhausted or claimed impossible, but does not qualify as a remaining cheap profile experiment.
+The initial review considered the root-lib split non-cheap. Further inspection found a small move plus a thin entry point, so E23 tested it twice. The gain did not repeat, the binary grew, and the split was reverted in full.
 
 Warm-metric protocol revision before the library experiment: harness commit 7418d4b changes the touched file from src/main.rs to src/startup.rs and records it in each result. Both control and candidate are rerun with this same functional module. This prevents a thin main shim from appearing to accelerate application rebuilds by skipping the app library. Earlier warm numbers remain historical and are not directly used to claim a gain under the new protocol. Clean commands and empty targets are unchanged.
+
+The user explicitly chose to keep stable Rust. The optional read-only nightly preparation task was cancelled. No nightly toolchain was installed, no RUSTC_BOOTSTRAP was used, and no toolchain requirement or unstable flag was added. Final validation stays on stable rustc 1.99.0.
+
+## Resumed outcome
+
+The final protocol uses three complete alternating pairs. We added the third pair when the first two baseline timings differed by more than the original 6% noise screen. No result was dropped. See `build-times/resumed-summary.json` for every observation and the paired percentage reductions. The ratio of three-run medians is a measured estimate for this machine, not a universal speed guarantee.
+
+There were 25 measured configurations across the whole run: two retained speed changes, one retained debugging safeguard, and 22 discarded configurations, including failed linker and unity configurations. Two additional hypotheses were screened before mutation. The resumed run added 20 measurements of distinct configurations, plus repeated controls and confirmations.
+
+The stable-Rust plateau is supported by experiments and the timing graph, not a proof that 50% is impossible. In retained final run 1, GPUI runs from 27.31s to 36.29s, gpui-component from 34.70s to 42.53s, and Bespoke from 42.53s to 49.87s. Native transcription finishes at 40.68s, before it can gate the app. Profile, debug, macro, native optimization, concurrency, linking and root-library variants failed to remove this remaining frontend work cheaply. The library trial was actually measured twice and reverted. Timings are summarized in `build-times/retained-critical-path.json`.
+
+Remaining possibilities require a different scope: an upstream compatible dependency release with narrower default macOS bindings, or substantial first-party restructuring beyond the small library split tested here. Neither is a measured gain. Local dependency patches, removal of used runtime features and added frameworks remain excluded. Nightly and unstable flags are excluded by the user's explicit stable-Rust choice.
+
+All final warm runs touch the same functional startup module. Historical main.rs-touch results remain labeled by their protocol and are not mixed into the final summary. Raw logs, timing HTML and artifact streams are retained locally but ignored by Git; compact results and decisions are committed.
+
+Final startup-touch median: 3.384s to 3.110s, 8.09% reduction. This measures a timestamp invalidation, not every possible substantive source edit.
+
+Final regression verification: `cargo fmt --check`, `cargo clippy --locked --offline`, `cargo test --locked --offline`, Python byte compilation and `git diff --check` all pass. Tests: 344 passed, 0 failed, 0 ignored. Clippy retains the 12 existing source warnings. Portable evidence: `build-times/resumed-final-checks.json`. Only the stable toolchain is installed and active. Rejected experiments leave no application-source, dependency, build-script, linker-config or release-profile changes.
+
+Generated target cleanup removed redundant benchmark build directories owned by this harness. The latest binary remains at the target path in `build-times/resumed-confirm-final-3/result.json`. All measurement outputs and discarded source patches remain in `.audit/build-times/`; raw text and HTML are local, while result JSON, the library patch and this decision log are tracked.

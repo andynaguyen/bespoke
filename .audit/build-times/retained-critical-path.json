@@ -1,0 +1,68 @@
+{
+  "source": "resumed-confirm-final-1/clean.timing.html",
+  "units": [
+    {
+      "name": "transcribe-cpp-sys",
+      "target": " build-script (run)",
+      "start_seconds": 17.81,
+      "duration_seconds": 22.87,
+      "end_seconds": 40.68,
+      "sections": null
+    },
+    {
+      "name": "gpui",
+      "target": "",
+      "start_seconds": 27.31,
+      "duration_seconds": 8.98,
+      "end_seconds": 36.29,
+      "sections": [
+        [
+          "frontend",
+          {
+            "start": 0.0,
+            "end": 7.38
+          }
+        ],
+        [
+          "codegen",
+          {
+            "start": 7.38,
+            "end": 8.98
+          }
+        ]
+      ]
+    },
+    {
+      "name": "gpui-component",
+      "target": "",
+      "start_seconds": 34.7,
+      "duration_seconds": 7.83,
+      "end_seconds": 42.53,
+      "sections": [
+        [
+          "frontend",
+          {
+            "start": 0.0,
+            "end": 6.55
+          }
+        ],
+        [
+          "codegen",
+          {
+            "start": 6.55,
+            "end": 7.83
+          }
+        ]
+      ]
+    },
+    {
+      "name": "bespoke",
+      "target": " bespoke \"bin\"",
+      "start_seconds": 42.53,
+      "duration_seconds": 7.34,
+      "end_seconds": 49.87,
+      "sections": null
+    }
+  ],
+  "note": "These overlapping intervals explain the observed bottleneck; they are not a proof that no further optimization exists."
+}

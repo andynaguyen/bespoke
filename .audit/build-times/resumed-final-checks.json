@@ -1,0 +1,49 @@
+{
+  "configuration": "E1 + E7 + E18, stable Rust, original application source",
+  "fmt": {
+    "command": [
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0
+  },
+  "tests": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0,
+    "passed": 344,
+    "failed": 0,
+    "ignored": 0
+  },
+  "python": {
+    "command": [
+      "python3",
+      "-m",
+      "py_compile",
+      "scripts/benchmark-build.py"
+    ],
+    "exit_code": 0
+  },
+  "diff": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  }
+}

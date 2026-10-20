@@ -1,0 +1,71 @@
+{
+  "metric": "Clean development build wall time with an empty Cargo target and cached downloads",
+  "target_reduction_percent": 50,
+  "toolchain": "stable rustc 1.99.0, aarch64-apple-darwin",
+  "order": [
+    "resumed-confirm-baseline-1",
+    "resumed-confirm-final-1",
+    "resumed-confirm-baseline-2",
+    "resumed-confirm-final-2",
+    "resumed-confirm-baseline-3",
+    "resumed-confirm-final-3"
+  ],
+  "source_touch_file": "src/startup.rs",
+  "samples": {
+    "clean": {
+      "baseline_seconds": [
+        58.05343837477267,
+        62.4743185415864,
+        61.212830709293485
+      ],
+      "final_seconds": [
+        49.913424375467,
+        51.75581104122102,
+        49.899013666436076
+      ],
+      "baseline_median_seconds": 61.212830709293485,
+      "final_median_seconds": 49.913424375467,
+      "median_reduction_percent": 18.459212231972433,
+      "paired_reduction_percent": [
+        14.02158808709415,
+        17.15666173010041,
+        18.482754206528984
+      ]
+    },
+    "source-touch": {
+      "baseline_seconds": [
+        3.2994787925854325,
+        3.6110312091186643,
+        3.3837520834058523
+      ],
+      "final_seconds": [
+        3.102281582541764,
+        3.111913333646953,
+        3.110106708481908
+      ],
+      "baseline_median_seconds": 3.3837520834058523,
+      "final_median_seconds": 3.110106708481908,
+      "median_reduction_percent": 8.087039717416644,
+      "paired_reduction_percent": [
+        5.97661698831976,
+        13.822031618317965,
+        8.087039717416644
+      ]
+    }
+  },
+  "integrity": {
+    "identical_838_package_targets_features_optimization_assertions": true,
+    "original_application_source_build_script_lockfile_vendor_unchanged": true,
+    "release_profile_unchanged": true,
+    "all_six_cli_smoke_checks_pass": true,
+    "original_manifest_used_for_all_baselines": true
+  },
+  "experiments": {
+    "measured_configurations": 25,
+    "kept_speed_changes": 2,
+    "kept_debugging_safeguards": 1,
+    "discarded_configurations": 22,
+    "screened_hypotheses": 2,
+    "resumed_run_additional_configurations": 20
+  }
+}

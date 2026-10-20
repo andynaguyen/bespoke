@@ -1,0 +1,15 @@
+{
+  "runs": [
+    "resumed-confirm-baseline-1",
+    "resumed-confirm-final-1",
+    "resumed-confirm-baseline-2",
+    "resumed-confirm-final-2",
+    "resumed-confirm-baseline-3",
+    "resumed-confirm-final-3"
+  ],
+  "identical_838_package_targets_features_optimization_assertions": true,
+  "original_application_source_build_script_lockfile_vendor_unchanged": true,
+  "release_profile_unchanged": true,
+  "all_six_cli_smoke_checks_pass": true,
+  "original_manifest_used_for_all_baselines": true
+}
