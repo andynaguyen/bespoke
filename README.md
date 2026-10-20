@@ -23,6 +23,12 @@ python3 scripts/benchmark-build.py --output target/build-times/my-run
 
 The output directory must not exist yet. The script builds offline in a new, empty target directory, checks that Cargo compiled the `bespoke` binary, and runs it with `--help`. It writes timings and compiler output to the output directory, then deletes the target directory. Pass `--keep-target` to keep it.
 
+## Annotate
+
+Annotate is [Scrawl](https://github.com/kitlangton/scrawl) inside Bespoke (macOS only). Tap `⌥⇧S` to record the screen under the pointer while you talk, hold `⇧` and move to draw, and tap `⌥⇧S` again to finish. Hold `⌥⇧S` to pick an area, a window or the screen instead. The capture's contact sheet and `summary.md` go to the clipboard, and `⌥⇧V` pastes them into the app in front. The Annotate page holds both shortcuts, the microphone, how long captures are kept, and the Screen Recording, Microphone and Accessibility permissions.
+
+The build compiles `scrawl-helper` (Swift: Apple Speech transcription, keyframe decoding, the permission checks) beside the `bespoke` binary, and `scripts/install-local.sh` copies it into the app.
+
 ## Install
 
 `scripts/install-local.sh` builds a release, bundles `Bespoke.app`, signs it, and installs it to `/Applications`. It signs with the "Bespoke Local Signing" identity. Set `BESPOKE_SIGNING_IDENTITY` to sign with another codesign identity. A stable identity keeps the Accessibility and Microphone grants across reinstalls.
@@ -38,6 +44,7 @@ Run `scripts/create-signing-identity.sh` once per Mac to add that self-signed id
 | `src/managers/` | Audio recording, model downloads, transcription, and history |
 | `src/audio_toolkit/` | Device enumeration, recording, resampling, and voice activity detection |
 | `src/shortcut/` | Global shortcuts (`handy-keys` and `global-hotkey` backends) |
+| `src/annotate.rs`, `vendor/scrawl/` | Annotate: the parts of Scrawl's screen, voice and ink capture that Annotate runs. `vendor/scrawl/BESPOKE.md` lists what was kept and changed |
 | `src/overlay.rs`, `src/ui/overlay.rs` | The recording overlay: backend entry points, then the window and view |
 | `src/tray.rs` | The menu bar icon and menu |
 | `src/ui/shell/` | The main window: sidebar, footer, and banners |

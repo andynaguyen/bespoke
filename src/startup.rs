@@ -85,6 +85,9 @@ pub fn run(
     #[cfg(debug_assertions)]
     ui::dev_snapshot::start(cx);
 
+    #[cfg(target_os = "macos")]
+    crate::annotate::start(&app, cx);
+
     let forward_app = app.clone();
     listener.serve(move |args| handle_second_instance(&forward_app, &args));
 

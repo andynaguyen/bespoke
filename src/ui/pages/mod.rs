@@ -1,6 +1,8 @@
 //! One view per sidebar section. A page is rebuilt each time its section is
 //! opened, like the React components remounting.
 
+#[cfg(target_os = "macos")]
+mod annotate;
 mod customize;
 mod debug;
 mod history;
@@ -25,6 +27,10 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> AnyView {
             .new(|cx| customize::CustomizePage::new(window, cx))
             .into(),
         Section::Models => cx.new(|cx| models::ModelsPage::new(window, cx)).into(),
+        #[cfg(target_os = "macos")]
+        Section::Annotate => cx.new(annotate::AnnotatePage::new).into(),
+        #[cfg(not(target_os = "macos"))]
+        Section::Annotate => cx.new(|_| gpui::EmptyView).into(),
         Section::Debug => cx.new(debug::DebugPage::new).into(),
         Section::Settings => cx.new(|cx| settings::SettingsPage::new(window, cx)).into(),
     }

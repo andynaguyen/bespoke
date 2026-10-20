@@ -271,6 +271,17 @@ pub fn is_main_window_visible(cx: &mut App) -> bool {
         .unwrap_or(false)
 }
 
+/// Shows the main window on `section` (Annotate's missing permissions bring it forward).
+pub fn show_section(section: shell::Section, cx: &mut App) {
+    show_main_window(cx);
+    let (Some(main), Some(handle)) = (main_view(cx), main_window(cx)) else {
+        return;
+    };
+    let _ = handle.update(cx, |_, window, cx| {
+        main.update(cx, |main, cx| main.select_section(section, window, cx));
+    });
+}
+
 /// The settings view, for code that needs to open dialogs or switch pages.
 pub fn main_view(cx: &App) -> Option<gpui::Entity<MainWindow>> {
     cx.global::<MainWindowSlot>().view.clone()

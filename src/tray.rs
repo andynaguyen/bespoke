@@ -545,6 +545,8 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     let quit_i = MenuItem::with_id("quit", &strings.quit, true, accelerator(quit_accelerator));
     let separator = PredefinedMenuItem::separator;
 
+    // Where Annotate's submenu goes: just above Settings.
+    let annotate_at = if inputs.busy { 6 } else { 7 };
     let menu = if inputs.busy {
         let cancel_i = MenuItem::with_id("cancel", &strings.cancel, true, None);
         Menu::with_items(&[
@@ -595,6 +597,27 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             &quit_i,
         ])?
     };
+
+    // Annotate's items, which Scrawl kept in its own menu bar item.
+    #[cfg(target_os = "macos")]
+    {
+        let annotate = Submenu::with_id("annotate_submenu", &strings.annotate, true);
+        annotate.append_items(&[
+            &MenuItem::with_id("annotate_record", &strings.annotate_record, true, None),
+            &MenuItem::with_id("annotate_choose", &strings.annotate_choose, true, None),
+            &separator(),
+            &MenuItem::with_id(
+                "annotate_open_latest",
+                &strings.annotate_open_latest,
+                true,
+                None,
+            ),
+        ])?;
+        menu.insert(&annotate, annotate_at)?;
+        menu.insert(&separator(), annotate_at + 1)?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = annotate_at;
 
     // Both layouts start with [version, separator, ...]; slot the warning in
     // right below the version line so it's the first actionable thing seen.
@@ -723,6 +746,12 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
             crate::ui::show_main_window(cx);
         }
         "copy_last_transcript" => copy_last_transcript(app),
+        #[cfg(target_os = "macos")]
+        "annotate_record" => scrawl::host::menu(scrawl::MenuAction::ToggleCapture),
+        #[cfg(target_os = "macos")]
+        "annotate_choose" => scrawl::host::menu(scrawl::MenuAction::ChooseTarget),
+        #[cfg(target_os = "macos")]
+        "annotate_open_latest" => scrawl::host::menu(scrawl::MenuAction::OpenLatest),
         "unload_model" => {
             let transcription_manager = app.state::<Arc<TranscriptionManager>>();
             if !transcription_manager.is_model_loaded() {

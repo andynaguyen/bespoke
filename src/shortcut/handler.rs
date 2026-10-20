@@ -32,6 +32,12 @@ pub fn handle_shortcut_event(
     hotkey_string: &str,
     is_pressed: bool,
 ) {
+    #[cfg(target_os = "macos")]
+    if crate::annotate::is_annotate_binding(binding_id) {
+        crate::annotate::handle_shortcut(binding_id, is_pressed);
+        return;
+    }
+
     let settings = get_settings(app);
 
     // Transcribe bindings are handled by the coordinator.

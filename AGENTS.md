@@ -35,6 +35,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
   - `vad/` - Voice activity detection (Silero, Earshot)
 - `commands/` - Functions the UI calls into the backend (audio, history, models, transcription)
 - `actions.rs`, `transcription_coordinator.rs` - Start, stop, and cancel a dictation
+- `annotate.rs` - Annotate (macOS only): starts the Scrawl capture vendored in `vendor/scrawl` and forwards its two shortcut bindings. Read `vendor/scrawl/BESPOKE.md` before changing the vendored code
 - `shortcut/` - Global shortcuts. `handy_keys.rs` wraps the patched `handy-keys` crate in `vendor/`, and `hotkey_impl.rs` wraps `global-hotkey`
 - `settings.rs` - Settings schema, defaults, and migrations
 - `clipboard.rs`, `input.rs`, `paste_tx/` - Pasting text into the front app
@@ -59,7 +60,9 @@ Backend code emits events with `AppHandle::emit`. The UI receives them on the GP
 
 ### Pipeline
 
-Shortcut press, then audio recording with VAD, then transcription (`transcribe-cpp` for GGML/GGUF models, `transcribe-rs` for ONNX models), then optional post-processing, then paste into the front app.
+Annotate has its own pipeline in `vendor/scrawl`: the shortcut starts a screen, voice and ink recording, and finishing it writes a `.scrawl` bundle (keyframes, a contact sheet and `summary.md`) and copies it to the clipboard.
+
+Dictation: shortcut press, then audio recording with VAD, then transcription (`transcribe-cpp` for GGML/GGUF models, `transcribe-rs` for ONNX models), then optional post-processing, then paste into the front app.
 
 ## Internationalization
 
@@ -105,7 +108,7 @@ The remote-control flags work through `single_instance.rs`: the second instance 
 
 ## Data location
 
-Settings, history, recordings, and downloaded models live in `~/Library/Application Support/com.andynguyen.bespoke`. Logs go to `~/Library/Logs/com.andynguyen.bespoke`. On first launch, Bespoke moves data from the old `com.pais.handy` folders.
+Settings, history, recordings, and downloaded models live in `~/Library/Application Support/com.andynguyen.bespoke`. Annotate keeps its captures and `config.json` in its `annotate/` folder and logs to `annotate.log`. Logs go to `~/Library/Logs/com.andynguyen.bespoke`. On first launch, Bespoke moves data from the old `com.pais.handy` folders.
 
 ## Commits
 

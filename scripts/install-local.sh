@@ -29,6 +29,9 @@ VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 rm -rf "$STAGED_APP"
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
 cp target/release/bespoke "$STAGED_APP/Contents/MacOS/bespoke"
+# Annotate's Swift helper (speech, keyframe decoding, permission checks), built by
+# vendor/scrawl/build.rs beside the binary.
+cp target/release/scrawl-helper "$STAGED_APP/Contents/MacOS/scrawl-helper"
 cp icons/Bespoke.icns "$STAGED_APP/Contents/Resources/Bespoke.icns"
 # The app looks for its sounds, icons and VAD model in Contents/Resources/resources.
 ditto resources "$STAGED_APP/Contents/Resources/resources"
@@ -38,6 +41,10 @@ cp Info.plist "$STAGED_APP/Contents/Info.plist"
   -c "Set :CFBundleVersion $VERSION" \
   "$STAGED_APP/Contents/Info.plist"
 
+# Nested code is signed first, or the app's signature fails --strict.
+codesign --force --options runtime --entitlements Entitlements.plist \
+  --identifier com.andynguyen.bespoke.scrawl-helper \
+  --sign "$IDENTITY" "$STAGED_APP/Contents/MacOS/scrawl-helper"
 codesign --force --options runtime --entitlements Entitlements.plist \
   --sign "$IDENTITY" "$STAGED_APP"
 codesign --verify --strict "$STAGED_APP"

@@ -6,7 +6,11 @@
     "model": "Model",
     "quit": "Quit",
     "cancel": "Cancel",
-    "secureInputWarning": "⚠ Shortcuts blocked by Secure Input"
+    "secureInputWarning": "⚠ Shortcuts blocked by Secure Input",
+    "annotate": "Annotate",
+    "annotateRecord": "Record Screen",
+    "annotateChoose": "Choose What to Record…",
+    "annotateOpenLatest": "Open Latest Capture"
   },
   "sidebar": {
     "models": "Models",
@@ -14,7 +18,8 @@
     "history": "History",
     "stats": "Stats",
     "customize": "Customize",
-    "debug": "Debug"
+    "debug": "Debug",
+    "annotate": "Annotate"
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
@@ -184,6 +189,14 @@
           "transcribe_with_post_process": {
             "name": "Post-Processing Hotkey",
             "description": "Optional: A dedicated hotkey that always applies AI post-processing to your transcription."
+          },
+          "annotate": {
+            "name": "Annotate Shortcut",
+            "description": "Tap to record the screen under the pointer, tap again to finish. Hold it to choose an area, a window or the screen."
+          },
+          "annotate_paste": {
+            "name": "Paste Last Capture",
+            "description": "Pastes the latest capture's contact sheet and summary into the app in front."
           }
         },
         "errors": {
@@ -778,5 +791,76 @@
     "recorderBlockedNoCulprit": "macOS is temporarily blocking shortcut changes",
     "recorderBlocked": "Can't record shortcuts right now — macOS Secure Input is blocking key events. Resolve the Secure Input warning first.",
     "dismiss": "Dismiss"
+  },
+  "annotate": {
+    "groups": {
+      "shortcuts": "Shortcuts",
+      "recording": "Recording",
+      "storage": "Storage",
+      "permissions": "Permissions"
+    },
+    "howItWorks": {
+      "record": "Tap {{record}} to record the screen under the pointer while you talk.",
+      "choose": "Hold {{record}} to choose what to record: each {{recordKey}} steps between Screen and Window, a drag picks an area, and releasing starts recording.",
+      "draw": "While recording, hold ⇧ and move to draw, ⇧-click to drop a pin, and press ⌘Z to undo a stroke.",
+      "finish": "Tap {{record}} again to finish. The capture is copied to the clipboard, and {{paste}} pastes it into the app in front."
+    },
+    "microphone": {
+      "title": "Microphone",
+      "description": "Records your narration. System default follows the input macOS uses.",
+      "default": "System default",
+      "defaultNamed": "System default ({{name}})",
+      "notConnected": "{{name}} (not connected)",
+      "fallback": "{{name}} isn't connected, so captures record from the system default."
+    },
+    "transcription": {
+      "title": "Transcription",
+      "description": "Apple Speech transcribes your narration on this Mac, with the time of every word.",
+      "checking": "Checking the speech model…",
+      "downloading": "Downloading the speech model ({{percent}}%)",
+      "ready": "Ready",
+      "unavailable": "No speech model for this language",
+      "failed": "The speech model failed to download"
+    },
+    "retention": {
+      "title": "Keep Recordings",
+      "custom": "Custom",
+      "options": {
+        "week": "Video for 7 days",
+        "month": "Video for 30 days",
+        "forever": "Forever"
+      },
+      "notes": {
+        "week": "Video and audio go to the Trash after 7 days, the rest of each capture after 30 days.",
+        "month": "Video and audio go to the Trash after 30 days, the rest of each capture after 90 days.",
+        "forever": "Captures are never deleted.",
+        "custom": "The retention in config.json was set by hand."
+      }
+    },
+    "captures": {
+      "title": "Captures",
+      "size": "Captures use {{size}}.",
+      "measuring": "Measuring…",
+      "openLatest": "Open Latest",
+      "showInFinder": "Show in Finder"
+    },
+    "permissions": {
+      "granted": "Allowed",
+      "allow": "Allow",
+      "openSettings": "Open System Settings",
+      "relaunch": "Allowed. Quit and reopen Bespoke to record the screen.",
+      "screenRecording": {
+        "title": "Screen & System Audio Recording",
+        "description": "Records the screen. Required."
+      },
+      "microphone": {
+        "title": "Microphone",
+        "description": "Records your narration. Required."
+      },
+      "accessibility": {
+        "title": "Accessibility",
+        "description": "Sees ⌘Z, Esc and S presses while recording, and pastes captures. Required."
+      }
+    }
   }
 }

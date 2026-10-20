@@ -958,6 +958,32 @@ pub fn get_default_settings() -> AppSettings {
             current_binding: default_post_process_shortcut.to_string(),
         },
     );
+    #[cfg(target_os = "macos")]
+    for (id, name, description, default) in [
+        (
+            crate::annotate::RECORD_BINDING,
+            "Annotate",
+            "Records the screen, your voice and what you draw. Tap to record the screen, hold to choose what to record.",
+            "option+shift+s",
+        ),
+        (
+            crate::annotate::PASTE_BINDING,
+            "Paste Last Capture",
+            "Pastes the latest capture's contact sheet and summary into the app in front.",
+            "option+shift+v",
+        ),
+    ] {
+        bindings.insert(
+            id.to_string(),
+            ShortcutBinding {
+                id: id.to_string(),
+                name: name.to_string(),
+                description: description.to_string(),
+                default_binding: default.to_string(),
+                current_binding: default.to_string(),
+            },
+        );
+    }
     bindings.insert(
         "cancel".to_string(),
         ShortcutBinding {

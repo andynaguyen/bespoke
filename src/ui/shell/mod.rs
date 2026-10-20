@@ -34,12 +34,23 @@ pub enum Section {
     Stats,
     Customize,
     Models,
+    /// Scrawl's capture (macOS only).
+    Annotate,
     Debug,
     Settings,
 }
 
 impl Section {
-    pub const PRIMARY: [Section; 4] = [
+    #[cfg(target_os = "macos")]
+    pub const PRIMARY: &[Section] = &[
+        Section::History,
+        Section::Stats,
+        Section::Customize,
+        Section::Models,
+        Section::Annotate,
+    ];
+    #[cfg(not(target_os = "macos"))]
+    pub const PRIMARY: &[Section] = &[
         Section::History,
         Section::Stats,
         Section::Customize,
@@ -52,6 +63,7 @@ impl Section {
             Section::Stats => "sidebar.stats",
             Section::Customize => "sidebar.customize",
             Section::Models => "sidebar.models",
+            Section::Annotate => "sidebar.annotate",
             Section::Debug => "sidebar.debug",
             Section::Settings => "sidebar.settings",
         }
@@ -63,6 +75,7 @@ impl Section {
             Section::Stats => "nav-chart-column",
             Section::Customize => "nav-pencil-ruler",
             Section::Models => "nav-cpu",
+            Section::Annotate => "nav-pen-line",
             Section::Debug => "nav-flask-conical",
             Section::Settings => "nav-settings",
         }
@@ -271,6 +284,7 @@ impl MainWindow {
             "stats" => Section::Stats,
             "customize" => Section::Customize,
             "models" => Section::Models,
+            "annotate" => Section::Annotate,
             "debug" => Section::Debug,
             "settings" => Section::Settings,
             _ => Section::History,

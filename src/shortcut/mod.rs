@@ -198,9 +198,15 @@ pub fn change_binding(
     }
 
     // Update the binding in the settings
-    settings.bindings.insert(id, updated_binding.clone());
+    settings
+        .bindings
+        .insert(id.clone(), updated_binding.clone());
 
     // Save the settings and synchronize any active Secure Input shadows.
+    #[cfg(target_os = "macos")]
+    if crate::annotate::is_annotate_binding(&id) {
+        crate::annotate::sync_shortcuts(&settings);
+    }
     settings::write_settings(&app, settings);
     crate::secure_input::reconcile_fallback(&app);
 
@@ -233,6 +239,9 @@ pub fn reset_binding(app: AppHandle, id: String) -> Result<BindingResponse, Stri
 /// mid-capture. The "cancel" binding is untouched: it is managed dynamically
 /// by the recording lifecycle.
 pub fn suspend_all_shortcuts(app: &AppHandle) {
+    // Annotate's key tap also matches its record combo; pause it too.
+    #[cfg(target_os = "macos")]
+    scrawl::host::pause_shortcuts(true);
     for (id, binding) in settings::get_bindings(app) {
         if id == "cancel" {
             continue;
@@ -250,6 +259,8 @@ pub fn suspend_all_shortcuts(app: &AppHandle) {
 /// Registering an already-registered shortcut fails cleanly in both
 /// implementations, so this is idempotent and safe on every exit path.
 pub fn resume_all_shortcuts(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    scrawl::host::pause_shortcuts(false);
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
         if id == "cancel" {

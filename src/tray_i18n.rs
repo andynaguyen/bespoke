@@ -15,6 +15,10 @@ pub struct TrayStrings {
     pub quit: String,
     pub cancel: String,
     pub secure_input_warning: String,
+    pub annotate: String,
+    pub annotate_record: String,
+    pub annotate_choose: String,
+    pub annotate_open_latest: String,
 }
 
 /// Get localized tray menu strings for `locale` (the `app_language` setting).
@@ -30,6 +34,14 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
             .unwrap_or_default()
             .to_string()
     };
+    // Annotate's items are newer than most translations; English beats a blank item.
+    let get_or_en = |key: &str| {
+        let key = format!("tray.{key}");
+        i18n::lookup(language, &key)
+            .or_else(|| i18n::lookup("en", &key))
+            .unwrap_or_default()
+            .to_string()
+    };
     TrayStrings {
         settings: get("settings"),
         copy_last_transcript: get("copyLastTranscript"),
@@ -38,6 +50,10 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
         quit: get("quit"),
         cancel: get("cancel"),
         secure_input_warning: get("secureInputWarning"),
+        annotate: get_or_en("annotate"),
+        annotate_record: get_or_en("annotateRecord"),
+        annotate_choose: get_or_en("annotateChoose"),
+        annotate_open_latest: get_or_en("annotateOpenLatest"),
     }
 }
 

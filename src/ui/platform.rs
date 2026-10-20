@@ -109,6 +109,12 @@ mod imp {
             return;
         };
         ns_window.setHasShadow(false);
+        // Keeps it from becoming key (`prevent_panels_from_taking_focus`).
+        // SAFETY: NSWindow adopts NSUserInterfaceItemIdentification.
+        unsafe {
+            let identifier = NSString::from_str(OVERLAY_IDENTIFIER);
+            let _: () = msg_send![&*ns_window, setIdentifier: &*identifier];
+        }
         // NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton.
         for kind in 0isize..3 {
             // SAFETY: `standardWindowButton:` returns an autoreleased NSButton
@@ -157,28 +163,55 @@ mod imp {
         app.setAppearance(appearance.as_deref());
     }
 
+    /// The recording overlay's `NSWindow.identifier`.
+    const OVERLAY_IDENTIFIER: &str = "bespoke-overlay";
+    static PANEL_CAN_BECOME_KEY: std::sync::OnceLock<objc2::runtime::Imp> =
+        std::sync::OnceLock::new();
+
+    fn is_overlay(window: &AnyObject) -> bool {
+        // SAFETY: `identifier` returns an autoreleased NSString or nil.
+        let identifier: Option<Retained<NSString>> = unsafe { msg_send![window, identifier] };
+        identifier.is_some_and(|id| id.to_string() == OVERLAY_IDENTIFIER)
+    }
+
     /// GPUI's popup panel class answers YES to `canBecomeKeyWindow`, so a
     /// click on the overlay would take keyboard focus from the app the user
-    /// is dictating into. The overlay is the only popup window, so the class
-    /// method is swapped for one that answers NO.
+    /// is dictating into. The class method is swapped for one that answers NO
+    /// for the overlay. Other popups keep GPUI's answer: Annotate's target
+    /// picker needs the keys.
     pub fn prevent_panels_from_taking_focus() {
-        extern "C" fn no(_: &AnyObject, _: Sel) -> Bool {
-            Bool::NO
+        extern "C" fn can_become_key(this: &AnyObject, sel: Sel) -> Bool {
+            if is_overlay(this) {
+                return Bool::NO;
+            }
+            let Some(original) = PANEL_CAN_BECOME_KEY.get() else {
+                return Bool::YES;
+            };
+            // SAFETY: `original` is GPUIPanel's `BOOL (id, SEL)`
+            // implementation of the same selector.
+            let original: extern "C" fn(&AnyObject, Sel) -> Bool =
+                unsafe { std::mem::transmute(*original) };
+            original(this, sel)
         }
         let Some(class) = AnyClass::get(c"GPUIPanel") else {
             log::warn!("GPUIPanel class not found; overlay may take focus when clicked");
             return;
         };
-        // SAFETY: replaces an existing `BOOL (id, SEL)` method with one of
-        // the same signature.
+        let sel = sel!(canBecomeKeyWindow);
+        // SAFETY: looks up and replaces an existing `BOOL (id, SEL)` method
+        // with one of the same signature.
         unsafe {
+            let method = objc2::ffi::class_getInstanceMethod(class, sel);
+            if let Some(original) = objc2::ffi::method_getImplementation(method) {
+                let _ = PANEL_CAN_BECOME_KEY.set(original);
+            }
             objc2::ffi::class_replaceMethod(
                 class as *const AnyClass as *mut AnyClass,
-                sel!(canBecomeKeyWindow),
+                sel,
                 std::mem::transmute::<
                     extern "C" fn(&AnyObject, Sel) -> Bool,
                     unsafe extern "C-unwind" fn(),
-                >(no),
+                >(can_become_key),
                 c"c@:".as_ptr(),
             );
         }

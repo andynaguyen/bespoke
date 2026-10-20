@@ -115,6 +115,8 @@ transcribe-cpp = { version = "0.2.3", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 transcribe-cpp = { version = "0.2.3", default-features = false, features = ["metal"] }
+# Annotate: Scrawl's screen, voice and ink capture, vendored with Bespoke's patches.
+scrawl = { path = "vendor/scrawl" }
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = "0.3"
