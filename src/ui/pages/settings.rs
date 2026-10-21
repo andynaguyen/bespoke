@@ -832,7 +832,6 @@ impl Render for SettingsPage {
         }
         let entity = cx.entity().downgrade();
         div()
-            .max_w(rems(48.))
             .w_full()
             .flex()
             .flex_col()

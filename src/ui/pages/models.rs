@@ -229,7 +229,7 @@ impl ModelsPage {
 impl Render for ModelsPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        let root = div().max_w(rems(48.)).w_full().flex().flex_col().gap_4();
+        let root = div().w_full().flex().flex_col().gap_4();
         let store = self.store.read(cx);
         if store.loading {
             return root.child(

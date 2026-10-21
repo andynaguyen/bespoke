@@ -209,7 +209,7 @@ fn stat_card(value: String, label: SharedString, cx: &Context<StatsPage>) -> imp
 impl Render for StatsPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        let root = div().max_w(rems(48.)).w_full().flex().flex_col().gap_6();
+        let root = div().w_full().flex().flex_col().gap_6();
         let days = match &self.days {
             None => {
                 return root.child(

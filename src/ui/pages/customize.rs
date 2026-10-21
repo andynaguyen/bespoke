@@ -687,7 +687,6 @@ impl Render for CustomizePage {
             };
 
         div()
-            .max_w(rems(48.))
             .w_full()
             .flex()
             .flex_col()
