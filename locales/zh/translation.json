@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "词典",
-        "snippets": "片段",
         "history": "历史记录"
       },
       "addNew": "新增",
       "searchPlaceholder": "搜索",
-      "empty": "还没有词汇。添加 Bespoke 经常识别错误的人名、缩写和术语。",
-      "noMatches": "没有与\"{{query}}\"匹配的词汇",
       "dialogTitle": "添加到词典",
-      "placeholder": "添加词汇",
-      "add": "添加",
+      "addSnippet": "添加片段",
+      "save": "保存",
       "cancel": "取消",
       "remove": "删除 {{word}}",
-      "duplicate": "\"{{word}}\" 已存在",
-      "snippets": {
-        "empty": "还没有片段。保存你经常输入的文字，比如邮箱地址或提示词，然后说出触发短语即可粘贴。",
-        "noMatches": "没有与\"{{query}}\"匹配的片段",
-        "addTitle": "添加片段",
-        "editTitle": "编辑片段",
-        "triggerPlaceholder": "触发短语，例如\"我的邮箱\"",
-        "textPlaceholder": "要粘贴的文字",
-        "add": "添加片段",
-        "save": "保存",
-        "duplicate": "\"{{trigger}}\"的片段已存在",
-        "remove": "删除 {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" 已存在"
     },
     "history": {
       "title": "历史记录",

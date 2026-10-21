@@ -457,31 +457,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "القاموس",
-        "snippets": "المقتطفات",
         "history": "السجل"
       },
       "addNew": "إضافة جديد",
       "searchPlaceholder": "بحث",
-      "empty": "لا توجد كلمات بعد. أضف الأسماء والاختصارات والمصطلحات التي يخطئ فيها Bespoke.",
-      "noMatches": "لا توجد كلمات تطابق \"{{query}}\"",
       "dialogTitle": "إضافة إلى القاموس",
-      "placeholder": "أضف كلمة",
-      "add": "إضافة",
+      "addSnippet": "إضافة مقتطف",
+      "save": "حفظ",
       "cancel": "إلغاء",
       "remove": "إزالة {{word}}",
-      "duplicate": "\"{{word}}\" موجود بالفعل",
-      "snippets": {
-        "empty": "لا توجد مقتطفات بعد. احفظ نصًا تكتبه كثيرًا، مثل عنوان بريد إلكتروني أو موجّه، ثم قل عبارة التشغيل للصقه.",
-        "noMatches": "لا توجد مقتطفات تطابق \"{{query}}\"",
-        "addTitle": "إضافة مقتطف",
-        "editTitle": "تعديل المقتطف",
-        "triggerPlaceholder": "عبارة التشغيل، مثل \"my email\"",
-        "textPlaceholder": "النص المراد لصقه",
-        "add": "إضافة مقتطف",
-        "save": "حفظ",
-        "duplicate": "يوجد مقتطف لـ \"{{trigger}}\" بالفعل",
-        "remove": "إزالة {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" موجود بالفعل"
     },
     "history": {
       "title": "السجل",

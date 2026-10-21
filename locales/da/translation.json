@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Ordbog",
-        "snippets": "Tekstbidder",
         "history": "Historik"
       },
       "addNew": "Tilføj",
       "searchPlaceholder": "Søg",
-      "empty": "Ingen ord endnu. Tilføj navne, forkortelser og fagudtryk, som Bespoke tager fejl af.",
-      "noMatches": "Ingen ord matcher \"{{query}}\"",
       "dialogTitle": "Tilføj til ordbog",
-      "placeholder": "Tilføj et ord",
-      "add": "Tilføj",
+      "addSnippet": "Tilføj tekstbid",
+      "save": "Gem",
       "cancel": "Annuller",
       "remove": "Fjern {{word}}",
-      "duplicate": "\"{{word}}\" findes allerede",
-      "snippets": {
-        "empty": "Ingen tekstbidder endnu. Gem tekst, du ofte skriver, som en e-mailadresse eller en prompt, og sig så dens udløser for at indsætte den.",
-        "noMatches": "Ingen tekstbidder matcher \"{{query}}\"",
-        "addTitle": "Tilføj tekstbid",
-        "editTitle": "Rediger tekstbid",
-        "triggerPlaceholder": "Udløserfrase, fx \"min e-mail\"",
-        "textPlaceholder": "Tekst der skal indsættes",
-        "add": "Tilføj tekstbid",
-        "save": "Gem",
-        "duplicate": "Der findes allerede et tekstbid for \"{{trigger}}\"",
-        "remove": "Fjern {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" findes allerede"
     },
     "history": {
       "title": "Historik",

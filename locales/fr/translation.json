@@ -471,31 +471,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Dictionnaire",
-        "snippets": "Extraits",
         "history": "Historique"
       },
       "addNew": "Ajouter",
       "searchPlaceholder": "Rechercher",
-      "empty": "Aucun mot pour l'instant. Ajoutez les noms, sigles et termes que Bespoke transcrit mal.",
-      "noMatches": "Aucun mot ne correspond à \"{{query}}\"",
       "dialogTitle": "Ajouter au dictionnaire",
-      "placeholder": "Ajouter un mot",
-      "add": "Ajouter",
+      "addSnippet": "Ajouter l'extrait",
+      "save": "Enregistrer",
       "cancel": "Annuler",
       "remove": "Supprimer {{word}}",
-      "duplicate": "\"{{word}}\" existe déjà",
-      "snippets": {
-        "empty": "Aucun extrait pour l'instant. Enregistrez un texte que vous tapez souvent, comme une adresse e-mail ou un prompt, puis dites sa phrase de déclenchement pour le coller.",
-        "noMatches": "Aucun extrait ne correspond à \"{{query}}\"",
-        "addTitle": "Ajouter un extrait",
-        "editTitle": "Modifier l'extrait",
-        "triggerPlaceholder": "Phrase de déclenchement, par ex. \"mon e-mail\"",
-        "textPlaceholder": "Texte à coller",
-        "add": "Ajouter l'extrait",
-        "save": "Enregistrer",
-        "duplicate": "Un extrait existe déjà pour \"{{trigger}}\"",
-        "remove": "Supprimer {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" existe déjà"
     },
     "history": {
       "title": "Historique",

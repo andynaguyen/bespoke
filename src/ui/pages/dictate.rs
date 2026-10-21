@@ -1,14 +1,14 @@
-//! The Dictate page (`customize/`): the custom-word dictionary, text
+//! The Dictate page (`customize/`): the dictionary of custom words and text
 //! snippets, per-app writing style, and the History tab.
 
 use gpui::{
-    div, prelude::*, px, rems, AnyView, App, Context, Entity, FocusHandle, FontWeight, Pixels,
-    SharedString, Subscription, Window,
+    div, prelude::*, px, rems, AnyView, App, Context, Entity, FontWeight, Pixels, SharedString,
+    Subscription, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::i18n::{t, t_with};
-use crate::settings::{AppStyleRule, Snippet, WritingStyle};
+use crate::settings::{AppSettings, AppStyleRule, Snippet, WritingStyle};
 use crate::shortcut;
 use crate::ui::components::{
     focus_handle_for, icon, width_tracker, Button, ButtonVariant, Dialog, Dropdown, DropdownOption,
@@ -21,8 +21,8 @@ use crate::ui::theme::{palette, tw, Alpha};
 use super::history::HistoryPage;
 use super::rows::set;
 
-const MAX_WORD_LENGTH: usize = 50;
-const MAX_TRIGGER_LENGTH: usize = 50;
+/// The longest word or snippet trigger.
+const MAX_PHRASE_LENGTH: usize = 50;
 const MAX_TEXT_LENGTH: usize = 4000;
 /// Tailwind's `@2xl` container breakpoint, 42rem at the 15px root.
 const STYLE_CARDS_WIDE: f32 = 42. * 15.;
@@ -83,10 +83,127 @@ fn set_app_styles(rules: Vec<AppStyleRule>, cx: &mut App) {
     );
 }
 
+/// Where a dictionary row is stored. Words and snippets share the Dictionary
+/// tab but stay in separate settings: words steer transcription, and snippets
+/// expand after post-processing, just before the paste.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EntryRef {
+    Word(usize),
+    Snippet(usize),
+}
+
+/// A dictionary row: a word, or a snippet that writes `text` in place of
+/// `phrase`.
+struct Entry {
+    at: EntryRef,
+    phrase: String,
+    text: Option<String>,
+}
+
+/// Every word and snippet, sorted by phrase. The two lists share no
+/// timestamps, so newest first isn't possible across both.
+fn entries(settings: &AppSettings) -> Vec<Entry> {
+    let words = settings
+        .custom_words
+        .iter()
+        .enumerate()
+        .map(|(index, word)| Entry {
+            at: EntryRef::Word(index),
+            phrase: word.clone(),
+            text: None,
+        });
+    let snippets = settings
+        .snippets
+        .iter()
+        .enumerate()
+        .map(|(index, snippet)| Entry {
+            at: EntryRef::Snippet(index),
+            phrase: snippet.trigger.clone(),
+            text: Some(snippet.text.clone()),
+        });
+    let mut all: Vec<Entry> = words.chain(snippets).collect();
+    all.sort_by_cached_key(|entry| entry.phrase.to_lowercase());
+    all
+}
+
+/// Whether `phrase` is in the dictionary as anything other than `editing`.
+/// Phrases compare by spelling, case aside. A new snippet also compares
+/// against other triggers by the key they match on, so "my email" and
+/// "My email!" can't both expand.
+fn is_duplicate(
+    phrase: &str,
+    snippet: bool,
+    editing: Option<EntryRef>,
+    settings: &AppSettings,
+) -> bool {
+    let spelling = normalize_word(phrase).to_lowercase();
+    let key = trigger_key(phrase);
+    entries(settings).iter().any(|entry| {
+        Some(entry.at) != editing
+            && (normalize_word(&entry.phrase).to_lowercase() == spelling
+                || (snippet && entry.text.is_some() && trigger_key(&entry.phrase) == key))
+    })
+}
+
+/// What the dictionary dialog saves.
+#[derive(Debug, PartialEq)]
+enum Draft {
+    Word(String),
+    Snippet(Snippet),
+}
+
+/// Puts `draft` in place of the entry at `editing`: in the same slot when it
+/// keeps its kind, otherwise at the end of the other list.
+fn place(
+    draft: Draft,
+    editing: Option<EntryRef>,
+    words: &mut Vec<String>,
+    snippets: &mut Vec<Snippet>,
+) {
+    match editing {
+        Some(EntryRef::Word(index)) if index < words.len() => {
+            words.remove(index);
+        }
+        Some(EntryRef::Snippet(index)) if index < snippets.len() => {
+            snippets.remove(index);
+        }
+        _ => {}
+    }
+    match (draft, editing) {
+        (Draft::Word(word), Some(EntryRef::Word(index))) => {
+            words.insert(index.min(words.len()), word)
+        }
+        (Draft::Word(word), _) => words.push(word),
+        (Draft::Snippet(snippet), Some(EntryRef::Snippet(index))) => {
+            snippets.insert(index.min(snippets.len()), snippet)
+        }
+        (Draft::Snippet(snippet), _) => snippets.push(snippet),
+    }
+}
+
+fn remove_entry(at: EntryRef, cx: &mut App) {
+    let settings = SettingsStore::get(cx);
+    match at {
+        EntryRef::Word(index) => {
+            let mut words = settings.custom_words.clone();
+            if index < words.len() {
+                words.remove(index);
+                set_words(words, cx);
+            }
+        }
+        EntryRef::Snippet(index) => {
+            let mut snippets = settings.snippets.clone();
+            if index < snippets.len() {
+                snippets.remove(index);
+                set_snippets(snippets, cx);
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
-    Words,
-    Snippets,
+    Dictionary,
     Style,
     History,
 }
@@ -119,7 +236,7 @@ impl DictatePage {
         ];
         Self {
             store,
-            tab: Tab::Words,
+            tab: Tab::Dictionary,
             search,
             history: None,
             running_apps: Vec::new(),
@@ -130,10 +247,9 @@ impl DictatePage {
 
     pub fn select_tab(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.tab = match id {
-            "snippets" => Tab::Snippets,
             "style" => Tab::Style,
             "history" => Tab::History,
-            _ => Tab::Words,
+            _ => Tab::Dictionary,
         };
         if self.tab != Tab::History {
             self.history = None;
@@ -147,16 +263,6 @@ impl DictatePage {
 
     fn query(&self, cx: &App) -> String {
         self.search.read(cx).value().trim().to_lowercase()
-    }
-
-    fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.tab {
-            Tab::Words => open_dialog(window, cx, |window, cx| {
-                cx.new(|cx| AddWordDialog::new(window, cx)).into()
-            }),
-            Tab::Snippets => open_snippet_dialog(None, window, cx),
-            Tab::Style | Tab::History => {}
-        }
     }
 
     fn empty_card(text: SharedString, cx: &App) -> impl IntoElement {
@@ -208,20 +314,24 @@ impl DictatePage {
             .child(icon("trash-2").size(rems(1.)))
     }
 
-    fn render_words(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_dictionary(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let store = self.store.read(cx);
-        let words = store.settings.custom_words.clone();
-        let updating = store.is_updating("custom_words");
-        let query = self.query(cx);
-        if words.is_empty() {
+        let updating = store.is_updating("custom_words") || store.is_updating("snippets");
+        let all = entries(&store.settings);
+        if all.is_empty() {
             return Self::empty_card(t("settings.dictionary.empty"), cx).into_any_element();
         }
-        let shown: Vec<String> = words
-            .iter()
-            .rev()
-            .filter(|w| w.to_lowercase().contains(&query))
-            .cloned()
+        let query = self.query(cx);
+        let shown: Vec<Entry> = all
+            .into_iter()
+            .filter(|entry| {
+                entry.phrase.to_lowercase().contains(&query)
+                    || entry
+                        .text
+                        .as_ref()
+                        .is_some_and(|text| text.to_lowercase().contains(&query))
+            })
             .collect();
         if shown.is_empty() {
             let raw = self.search.read(cx).value().trim().to_string();
@@ -231,81 +341,18 @@ impl DictatePage {
             )
             .into_any_element();
         }
-        div()
-            .flex()
-            .flex_col()
-            .bg(p.card)
-            .rounded_2xl()
-            .children(shown.into_iter().enumerate().map(|(index, word)| {
-                let group = SharedString::from(format!("word-{index}"));
-                let all = words.clone();
-                let target = word.clone();
-                div()
-                    .id(group.clone())
-                    .group(group.clone())
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .row_dir()
-                    .gap_3()
-                    .px_5()
-                    .py(rems(0.875))
-                    .when(index > 0, |el| {
-                        el.border_t_1().border_color(p.mid_gray.a(0.15))
-                    })
-                    .child(div().min_w_0().text_px(15.).truncate().child(word.clone()))
-                    .child(Self::remove_button(
-                        SharedString::from(format!("remove-word-{index}")),
-                        group,
-                        t_with("settings.dictionary.remove", &[("word", &word)]),
-                        updating,
-                        move |cx| {
-                            set_words(all.iter().filter(|w| **w != target).cloned().collect(), cx)
-                        },
-                        cx,
-                    ))
-            }))
-            .into_any_element()
-    }
-
-    fn render_snippets(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let p = palette(cx);
-        let store = self.store.read(cx);
-        let snippets = store.settings.snippets.clone();
-        let updating = store.is_updating("snippets");
-        let query = self.query(cx);
-        if snippets.is_empty() {
-            return Self::empty_card(t("settings.dictionary.snippets.empty"), cx)
-                .into_any_element();
-        }
-        // Newest first, each with its stored index for edit and remove.
-        let shown: Vec<(usize, Snippet)> = snippets
+        let ids: Vec<String> = shown
             .iter()
-            .cloned()
-            .enumerate()
-            .rev()
-            .filter(|(_, s)| {
-                s.trigger.to_lowercase().contains(&query) || s.text.to_lowercase().contains(&query)
+            .map(|entry| match entry.at {
+                EntryRef::Word(index) => format!("word-{index}"),
+                EntryRef::Snippet(index) => format!("snippet-{index}"),
             })
             .collect();
-        if shown.is_empty() {
-            let raw = self.search.read(cx).value().trim().to_string();
-            return Self::empty_card(
-                t_with("settings.dictionary.snippets.noMatches", &[("query", &raw)]),
-                cx,
-            )
-            .into_any_element();
-        }
         // `focus-visible:underline`, no ring.
-        let snippet_focus = FocusVisible::styled(cx, |s| s.underline());
-        let snippet_handles: Vec<_> = shown
+        let entry_focus = FocusVisible::styled(cx, |s| s.underline());
+        let entry_handles: Vec<_> = ids
             .iter()
-            .map(|(index, _)| {
-                focus_handle_for(
-                    SharedString::from(format!("edit-snippet-{index}")).into(),
-                    cx,
-                )
-            })
+            .map(|id| focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx))
             .collect();
         div()
             .flex()
@@ -315,12 +362,12 @@ impl DictatePage {
             .children(
                 shown
                     .into_iter()
+                    .zip(ids)
+                    .zip(entry_handles)
                     .enumerate()
-                    .map(|(row, (index, snippet))| {
-                        let snippet_focus = snippet_focus.clone();
-                        let snippet_handle = snippet_handles[row].clone();
-                        let group = SharedString::from(format!("snippet-{index}"));
-                        let all = snippets.clone();
+                    .map(|(row, ((entry, id), handle))| {
+                        let at = entry.at;
+                        let group = SharedString::from(format!("entry-{id}"));
                         div()
                             .group(group.clone())
                             .flex()
@@ -332,12 +379,11 @@ impl DictatePage {
                                 el.border_t_1().border_color(p.mid_gray.a(0.15))
                             })
                             .child(
-                                snippet_focus
+                                entry_focus
+                                    .clone()
                                     .apply_with(
-                                        div().id(SharedString::from(format!(
-                                            "edit-snippet-{index}"
-                                        ))),
-                                        snippet_handle,
+                                        div().id(SharedString::from(format!("edit-{id}"))),
+                                        handle,
                                     )
                                     .flex_1()
                                     .min_w_0()
@@ -350,30 +396,27 @@ impl DictatePage {
                                     .text_px(15.)
                                     .cursor_pointer()
                                     .on_click(move |_, window, cx| {
-                                        open_snippet_dialog(Some(index), window, cx)
+                                        open_entry_dialog(Some(at), window, cx)
                                     })
-                                    .child(div().flex_shrink_0().child(snippet.trigger.clone()))
-                                    .child(div().text_color(p.text.a(0.4)).child("→"))
-                                    .child(
-                                        div()
-                                            .truncate()
-                                            .text_color(p.text.a(0.7))
-                                            .child(snippet.text.clone()),
-                                    ),
+                                    .child(div().flex_shrink_0().child(entry.phrase.clone()))
+                                    .when_some(entry.text, |el, text| {
+                                        // One line, so a multi-line snippet keeps the row short.
+                                        let preview =
+                                            text.split_whitespace().collect::<Vec<_>>().join(" ");
+                                        el.child(div().text_color(p.text.a(0.4)).child("→")).child(
+                                            div()
+                                                .truncate()
+                                                .text_color(p.text.a(0.7))
+                                                .child(preview),
+                                        )
+                                    }),
                             )
                             .child(Self::remove_button(
-                                SharedString::from(format!("remove-snippet-{index}")),
+                                SharedString::from(format!("remove-{id}")),
                                 group,
-                                t_with(
-                                    "settings.dictionary.snippets.remove",
-                                    &[("trigger", &snippet.trigger)],
-                                ),
+                                t_with("settings.dictionary.remove", &[("word", &entry.phrase)]),
                                 updating,
-                                move |cx| {
-                                    let mut next = all.clone();
-                                    next.remove(index);
-                                    set_snippets(next, cx);
-                                },
+                                move |cx| remove_entry(at, cx),
                                 cx,
                             ))
                     }),
@@ -637,16 +680,17 @@ impl Render for DictatePage {
         let p = palette(cx);
         let entity = cx.entity().downgrade();
         let tab_id = match self.tab {
-            Tab::Words => "words",
-            Tab::Snippets => "snippets",
+            Tab::Dictionary => "dictionary",
             Tab::Style => "style",
             Tab::History => "history",
         };
         let tabs = Tabs::new(
             "dictate-tabs",
             vec![
-                ("words".into(), t("settings.dictionary.tabs.dictionary")),
-                ("snippets".into(), t("settings.dictionary.tabs.snippets")),
+                (
+                    "dictionary".into(),
+                    t("settings.dictionary.tabs.dictionary"),
+                ),
                 ("style".into(), t("settings.dictionary.tabs.style")),
                 ("history".into(), t("settings.dictionary.tabs.history")),
             ],
@@ -657,53 +701,46 @@ impl Render for DictatePage {
             },
         );
 
-        let body =
-            match self.tab {
-                Tab::Style => self.render_style(cx).into_any_element(),
-                Tab::History => self
-                    .history
-                    .clone()
-                    .map(|history| history.into_any_element())
-                    .unwrap_or_else(|| div().into_any_element()),
-                Tab::Words | Tab::Snippets => {
-                    let list = if self.tab == Tab::Words {
-                        self.render_words(cx).into_any_element()
-                    } else {
-                        self.render_snippets(cx).into_any_element()
-                    };
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_5()
-                        .child(
-                            div()
-                                .flex()
-                                .row_dir()
-                                .items_center()
-                                .gap_3()
-                                .child(
-                                    TextField::new(&self.search).flex_1().prefix(
-                                        icon("search")
-                                            .size(rems(1.))
-                                            .text_color(p.text.a(0.4))
-                                            .me(rems(0.5)),
-                                    ),
-                                )
-                                .child(
-                                    Button::new("add-new")
-                                        .gap(rems(0.375))
-                                        .py_2()
-                                        .child(icon("plus").size(rems(1.)))
-                                        .child(t("settings.dictionary.addNew"))
-                                        .on_click(cx.listener(|this, _, window, cx| {
-                                            this.open_add(window, cx)
-                                        })),
+        let body = match self.tab {
+            Tab::Style => self.render_style(cx).into_any_element(),
+            Tab::History => self
+                .history
+                .clone()
+                .map(|history| history.into_any_element())
+                .unwrap_or_else(|| div().into_any_element()),
+            Tab::Dictionary => {
+                let list = self.render_dictionary(cx).into_any_element();
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_5()
+                    .child(
+                        div()
+                            .flex()
+                            .row_dir()
+                            .items_center()
+                            .gap_3()
+                            .child(
+                                TextField::new(&self.search).flex_1().prefix(
+                                    icon("search")
+                                        .size(rems(1.))
+                                        .text_color(p.text.a(0.4))
+                                        .me(rems(0.5)),
                                 ),
-                        )
-                        .child(list)
-                        .into_any_element()
-                }
-            };
+                            )
+                            .child(
+                                Button::new("add-new")
+                                    .gap(rems(0.375))
+                                    .py_2()
+                                    .child(icon("plus").size(rems(1.)))
+                                    .child(t("settings.dictionary.addNew"))
+                                    .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
+                            ),
+                    )
+                    .child(list)
+                    .into_any_element()
+            }
+        };
 
         div()
             .w_full()
@@ -715,135 +752,64 @@ impl Render for DictatePage {
     }
 }
 
-/// "Add to dictionary" (`AddWordDialog`). Enter adds.
-pub struct AddWordDialog {
-    input: Entity<InputState>,
-    _subscription: Subscription,
-}
-
-impl AddWordDialog {
-    fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder(t("settings.dictionary.placeholder"))
-                .validate(|text, _| text.chars().count() <= MAX_WORD_LENGTH)
-        });
-        input.update(cx, |input, cx| input.focus(window, cx));
-        let subscription = cx.subscribe_in(
-            &input,
-            window,
-            |this, _, event: &InputEvent, window, cx| match event {
-                InputEvent::Change => cx.notify(),
-                InputEvent::PressEnter { .. } => this.add(window, cx),
-                _ => {}
-            },
-        );
-        Self {
-            input,
-            _subscription: subscription,
-        }
-    }
-
-    fn state(&self, cx: &App) -> (String, bool, bool) {
-        let word = normalize_word(&self.input.read(cx).value());
-        let words = &SettingsStore::get(cx).custom_words;
-        let duplicate = words.contains(&word);
-        let can_add = !word.is_empty() && word.chars().count() <= MAX_WORD_LENGTH && !duplicate;
-        (word, duplicate, can_add)
-    }
-
-    fn add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let (word, _, can_add) = self.state(cx);
-        if !can_add {
-            return;
-        }
-        let mut words = SettingsStore::get(cx).custom_words.clone();
-        words.push(word);
-        set_words(words, cx);
-        close_dialog(window, cx);
-    }
-
-    fn focus(&self, cx: &App) -> FocusHandle {
-        gpui::Focusable::focus_handle(self.input.read(cx), cx)
-    }
-}
-
-impl Render for AddWordDialog {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (word, duplicate, can_add) = self.state(cx);
-        Dialog::new(
-            t("settings.dictionary.dialogTitle"),
-            self.focus(cx),
-            close_dialog,
-        )
-        .max_width(px(420.))
-        .child(TextField::new(&self.input).w_full())
-        .when(duplicate, |el| {
-            el.child(
-                div()
-                    .mt_2()
-                    .text_px(13.)
-                    .text_color(tw::red_500())
-                    .child(t_with("settings.dictionary.duplicate", &[("word", &word)])),
-            )
-        })
-        .footer(
-            Button::new("cancel-word")
-                .variant(ButtonVariant::Secondary)
-                .child(t("settings.dictionary.cancel"))
-                .on_click(|_, window, cx| close_dialog(window, cx)),
-        )
-        .footer(
-            Button::new("add-word")
-                .disabled(!can_add)
-                .child(t("settings.dictionary.add"))
-                .on_click(cx.listener(|this, _, window, cx| this.add(window, cx))),
-        )
-    }
-}
-
-fn open_snippet_dialog(editing: Option<usize>, window: &mut Window, cx: &mut App) {
+fn open_entry_dialog(editing: Option<EntryRef>, window: &mut Window, cx: &mut App) {
     open_dialog(window, cx, move |window, cx| -> AnyView {
-        cx.new(|cx| SnippetDialog::new(editing, window, cx)).into()
+        cx.new(|cx| EntryDialog::new(editing, window, cx)).into()
     });
 }
 
-/// Add or edit a snippet (`SnippetDialog`). Enter does not submit.
-pub struct SnippetDialog {
-    editing: Option<usize>,
-    trigger: Entity<InputState>,
+/// Adds or edits a dictionary entry. With "Write instead" empty it saves a
+/// word, otherwise a snippet, and an edit that changes the kind moves the
+/// entry to the other list. Enter in the phrase field saves.
+pub struct EntryDialog {
+    editing: Option<EntryRef>,
+    phrase: Entity<InputState>,
     text: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }
 
-impl SnippetDialog {
-    fn new(editing: Option<usize>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let initial = editing
-            .and_then(|i| SettingsStore::get(cx).snippets.get(i).cloned())
-            .unwrap_or(Snippet {
-                trigger: String::new(),
-                text: String::new(),
-            });
-        let trigger = cx.new(|cx| {
+impl EntryDialog {
+    fn new(editing: Option<EntryRef>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let settings = SettingsStore::get(cx);
+        let (phrase, text) = match editing {
+            Some(EntryRef::Word(index)) => (
+                settings
+                    .custom_words
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_default(),
+                String::new(),
+            ),
+            Some(EntryRef::Snippet(index)) => settings
+                .snippets
+                .get(index)
+                .map(|s| (s.trigger.clone(), s.text.clone()))
+                .unwrap_or_default(),
+            None => Default::default(),
+        };
+        let phrase = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder(t("settings.dictionary.snippets.triggerPlaceholder"))
-                .validate(|text, _| text.chars().count() <= MAX_TRIGGER_LENGTH)
-                .default_value(initial.trigger.clone())
+                .placeholder(t("settings.dictionary.phrasePlaceholder"))
+                .validate(|text, _| text.chars().count() <= MAX_PHRASE_LENGTH)
+                .default_value(phrase)
         });
         let text = cx.new(|cx| {
             InputState::new(window, cx)
                 .multi_line(true)
-                .placeholder(t("settings.dictionary.snippets.textPlaceholder"))
-                .validate(|text, _| text.chars().count() <= MAX_TEXT_LENGTH)
-                .default_value(initial.text.clone())
+                .placeholder(t("settings.dictionary.textPlaceholder"))
+                .default_value(text)
         });
-        trigger.update(cx, |input, cx| input.focus(window, cx));
+        phrase.update(cx, |input, cx| input.focus(window, cx));
         let subscriptions = vec![
-            cx.subscribe(&trigger, |_, _, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    cx.notify()
-                }
-            }),
+            cx.subscribe_in(
+                &phrase,
+                window,
+                |this, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::Change => cx.notify(),
+                    InputEvent::PressEnter { .. } => this.save(window, cx),
+                    _ => {}
+                },
+            ),
             cx.subscribe(&text, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     cx.notify()
@@ -852,107 +818,138 @@ impl SnippetDialog {
         ];
         Self {
             editing,
-            trigger,
+            phrase,
             text,
             _subscriptions: subscriptions,
         }
     }
 
-    fn state(&self, cx: &App) -> (bool, bool) {
-        let key = trigger_key(&self.trigger.read(cx).value());
-        let text = self.text.read(cx).value();
-        let duplicate = SettingsStore::get(cx)
-            .snippets
-            .iter()
-            .enumerate()
-            .any(|(index, s)| Some(index) != self.editing && trigger_key(&s.trigger) == key);
-        let can_save = !key.is_empty() && !text.trim().is_empty() && !duplicate;
-        (duplicate, can_save)
+    fn is_snippet(&self, cx: &App) -> bool {
+        !self.text.read(cx).value().trim().is_empty()
+    }
+
+    /// What the fields would save, or `None` while they can't be saved, and
+    /// whether the phrase is already taken.
+    fn draft(&self, cx: &App) -> (Option<Draft>, bool) {
+        let phrase = self.phrase.read(cx).value();
+        let snippet = self.is_snippet(cx);
+        let duplicate = !phrase.trim().is_empty()
+            && is_duplicate(&phrase, snippet, self.editing, SettingsStore::get(cx));
+        let draft = if snippet {
+            let trigger = phrase.split_whitespace().collect::<Vec<_>>().join(" ");
+            // Checked here, not with `validate`: gpui-component allows that on
+            // single-line inputs only and asserts it in debug builds.
+            let fits = self.text.read(cx).value().chars().count() <= MAX_TEXT_LENGTH;
+            (!trigger_key(&trigger).is_empty() && fits).then(|| {
+                Draft::Snippet(Snippet {
+                    trigger,
+                    text: self.text.read(cx).value().to_string(),
+                })
+            })
+        } else {
+            let word = normalize_word(&phrase);
+            (!word.is_empty() && word.chars().count() <= MAX_PHRASE_LENGTH)
+                .then_some(Draft::Word(word))
+        };
+        (draft.filter(|_| !duplicate), duplicate)
     }
 
     fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let (_, can_save) = self.state(cx);
-        if !can_save {
+        let (Some(draft), _) = self.draft(cx) else {
             return;
-        }
-        let snippet = Snippet {
-            trigger: self
-                .trigger
-                .read(cx)
-                .value()
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" "),
-            text: self.text.read(cx).value().to_string(),
         };
-        let mut snippets = SettingsStore::get(cx).snippets.clone();
-        match self.editing {
-            Some(index) if index < snippets.len() => snippets[index] = snippet,
-            _ => snippets.push(snippet),
+        let stored = SettingsStore::get(cx);
+        let mut words = stored.custom_words.clone();
+        let mut snippets = stored.snippets.clone();
+        place(draft, self.editing, &mut words, &mut snippets);
+        let words_changed = words != stored.custom_words;
+        let snippets_changed = snippets != stored.snippets;
+        if words_changed {
+            set_words(words, cx);
         }
-        set_snippets(snippets, cx);
+        if snippets_changed {
+            set_snippets(snippets, cx);
+        }
         close_dialog(window, cx);
     }
 }
 
-impl Render for SnippetDialog {
+impl Render for EntryDialog {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        let (duplicate, can_save) = self.state(cx);
-        let trigger = self.trigger.read(cx).value().trim().to_string();
+        let (draft, duplicate) = self.draft(cx);
+        let phrase = self.phrase.read(cx).value().trim().to_string();
         let count = self.text.read(cx).value().chars().count();
-        let focus = gpui::Focusable::focus_handle(self.trigger.read(cx), cx);
+        let focus = gpui::Focusable::focus_handle(self.phrase.read(cx), cx);
         let title = if self.editing.is_some() {
-            t("settings.dictionary.snippets.editTitle")
+            t("settings.dictionary.editTitle")
         } else {
-            t("settings.dictionary.snippets.addTitle")
+            t("settings.dictionary.dialogTitle")
+        };
+        // The button names the kind, so it's clear which one the fields make.
+        let action = if self.editing.is_some() {
+            t("settings.dictionary.save")
+        } else if self.is_snippet(cx) {
+            t("settings.dictionary.addSnippet")
+        } else {
+            t("settings.dictionary.addWord")
+        };
+        let label = |key: &str| {
+            div()
+                .mb_1()
+                .text_px(13.)
+                .text_color(p.text.a(0.6))
+                .child(t(key))
         };
         Dialog::new(title, focus, close_dialog)
             .child(
                 div()
                     .flex()
                     .flex_col()
-                    .gap_3()
-                    .child(div().child(TextField::new(&self.trigger).w_full()).when(
-                        duplicate,
-                        |el| {
-                            el.child(div().mt_2().text_px(13.).text_color(tw::red_500()).child(
-                                t_with(
-                                    "settings.dictionary.snippets.duplicate",
-                                    &[("trigger", &trigger)],
-                                ),
-                            ))
-                        },
-                    ))
+                    .gap_4()
                     .child(
                         div()
-                            .child(TextArea::new(&self.text).min_height(px(150.)).w_full())
-                            .child(
-                                div()
-                                    .mt_1()
-                                    .flex()
-                                    .row_dir()
-                                    .justify_flex_end()
-                                    .xs_text()
-                                    .text_color(p.text.a(0.45))
-                                    .child(format!("{count}/{MAX_TEXT_LENGTH}")),
-                            ),
+                            .child(label("settings.dictionary.phraseLabel"))
+                            .child(TextField::new(&self.phrase).w_full())
+                            .when(duplicate, |el| {
+                                el.child(div().mt_2().text_px(13.).text_color(tw::red_500()).child(
+                                    t_with("settings.dictionary.duplicate", &[("word", &phrase)]),
+                                ))
+                            }),
+                    )
+                    .child(
+                        div()
+                            .child(label("settings.dictionary.textLabel"))
+                            .child(TextArea::new(&self.text).min_height(px(96.)).w_full())
+                            .when(count > 0, |el| {
+                                el.child(
+                                    div()
+                                        .mt_1()
+                                        .flex()
+                                        .row_dir()
+                                        .justify_flex_end()
+                                        .xs_text()
+                                        .when(count <= MAX_TEXT_LENGTH, |el| {
+                                            el.text_color(p.text.a(0.45))
+                                        })
+                                        .when(count > MAX_TEXT_LENGTH, |el| {
+                                            el.text_color(tw::red_500())
+                                        })
+                                        .child(format!("{count}/{MAX_TEXT_LENGTH}")),
+                                )
+                            }),
                     ),
             )
             .footer(
-                Button::new("cancel-snippet")
+                Button::new("cancel-entry")
                     .variant(ButtonVariant::Secondary)
                     .child(t("settings.dictionary.cancel"))
                     .on_click(|_, window, cx| close_dialog(window, cx)),
             )
             .footer(
-                Button::new("save-snippet")
-                    .disabled(!can_save)
-                    .child(if self.editing.is_some() {
-                        t("settings.dictionary.snippets.save")
-                    } else {
-                        t("settings.dictionary.snippets.add")
-                    })
+                Button::new("save-entry")
+                    .disabled(draft.is_none())
+                    .child(action)
                     .on_click(cx.listener(|this, _, window, cx| this.save(window, cx))),
             )
     }
@@ -971,5 +968,82 @@ mod tests {
     fn trigger_keys_ignore_punctuation_and_case() {
         assert_eq!(trigger_key("My-Email"), "myemail");
         assert_eq!(trigger_key("my  email!"), "my email");
+    }
+
+    fn snippet(trigger: &str, text: &str) -> Snippet {
+        Snippet {
+            trigger: trigger.into(),
+            text: text.into(),
+        }
+    }
+
+    fn settings(words: &[&str], snippets: Vec<Snippet>) -> AppSettings {
+        let mut settings = crate::settings::get_default_settings();
+        settings.custom_words = words.iter().map(|w| w.to_string()).collect();
+        settings.snippets = snippets;
+        settings
+    }
+
+    #[test]
+    fn entries_mix_words_and_snippets_by_phrase() {
+        let settings = settings(
+            &["Karat", "idempotency"],
+            vec![snippet("my email", "andy@example.com")],
+        );
+        let phrases: Vec<_> = entries(&settings).into_iter().map(|e| e.phrase).collect();
+        assert_eq!(phrases, ["idempotency", "Karat", "my email"]);
+    }
+
+    #[test]
+    fn duplicates_span_both_lists_but_skip_the_entry_being_edited() {
+        let settings = settings(&["Karat"], vec![snippet("my email", "andy@example.com")]);
+        assert!(is_duplicate("karat", true, None, &settings));
+        assert!(is_duplicate("My Email", false, None, &settings));
+        assert!(is_duplicate("My email!", true, None, &settings));
+        assert!(!is_duplicate(
+            "Karat",
+            false,
+            Some(EntryRef::Word(0)),
+            &settings
+        ));
+        assert!(!is_duplicate("IntraFi", false, None, &settings));
+    }
+
+    #[test]
+    fn an_edit_keeps_its_slot_or_moves_to_the_other_list() {
+        let mut words = vec!["IntraFi".to_string(), "Karat".to_string()];
+        let mut snippets = vec![snippet("my email", "a@example.com")];
+
+        place(
+            Draft::Word("Carat".into()),
+            Some(EntryRef::Word(1)),
+            &mut words,
+            &mut snippets,
+        );
+        assert_eq!(words, ["IntraFi", "Carat"]);
+
+        place(
+            Draft::Snippet(snippet("intrafi", "IntraFi Network")),
+            Some(EntryRef::Word(0)),
+            &mut words,
+            &mut snippets,
+        );
+        assert_eq!(words, ["Carat"]);
+        assert_eq!(
+            snippets,
+            [
+                snippet("my email", "a@example.com"),
+                snippet("intrafi", "IntraFi Network")
+            ]
+        );
+
+        place(
+            Draft::Word("my email".into()),
+            Some(EntryRef::Snippet(0)),
+            &mut words,
+            &mut snippets,
+        );
+        assert_eq!(words, ["Carat", "my email"]);
+        assert_eq!(snippets, [snippet("intrafi", "IntraFi Network")]);
     }
 }

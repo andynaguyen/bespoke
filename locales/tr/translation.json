@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Sözlük",
-        "snippets": "Parçacıklar",
         "history": "Geçmiş"
       },
       "addNew": "Yeni ekle",
       "searchPlaceholder": "Ara",
-      "empty": "Henüz kelime yok. Bespoke'un yanlış yazdığı adları, kısaltmaları ve terimleri ekleyin.",
-      "noMatches": "\"{{query}}\" ile eşleşen kelime yok",
       "dialogTitle": "Sözlüğe ekle",
-      "placeholder": "Kelime ekle",
-      "add": "Ekle",
+      "addSnippet": "Parçacık ekle",
+      "save": "Kaydet",
       "cancel": "İptal",
       "remove": "{{word}} Kaldır",
-      "duplicate": "\"{{word}}\" zaten mevcut",
-      "snippets": {
-        "empty": "Henüz parçacık yok. E-posta adresi veya istem gibi sık yazdığınız bir metni kaydedin, sonra yapıştırmak için tetikleyici ifadesini söyleyin.",
-        "noMatches": "\"{{query}}\" ile eşleşen parçacık yok",
-        "addTitle": "Parçacık ekle",
-        "editTitle": "Parçacığı düzenle",
-        "triggerPlaceholder": "Tetikleyici ifade, örn. \"e-postam\"",
-        "textPlaceholder": "Yapıştırılacak metin",
-        "add": "Parçacık ekle",
-        "save": "Kaydet",
-        "duplicate": "\"{{trigger}}\" için zaten bir parçacık var",
-        "remove": "{{trigger}} öğesini kaldır"
-      }
+      "duplicate": "\"{{word}}\" zaten mevcut"
     },
     "history": {
       "title": "Geçmiş",

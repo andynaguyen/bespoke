@@ -471,31 +471,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Diccionari",
-        "snippets": "Fragments",
         "history": "Historial"
       },
       "addNew": "Afegeix",
       "searchPlaceholder": "Cerca",
-      "empty": "Encara no hi ha paraules. Afegiu noms, sigles i termes que Bespoke transcriu malament.",
-      "noMatches": "Cap paraula coincideix amb \"{{query}}\"",
       "dialogTitle": "Afegeix al diccionari",
-      "placeholder": "Afegiu una paraula",
-      "add": "Afegiu",
+      "addSnippet": "Afegeix el fragment",
+      "save": "Desa",
       "cancel": "Cancel·la",
       "remove": "Suprimiu {{word}}",
-      "duplicate": "«{{word}}» ja existeix",
-      "snippets": {
-        "empty": "Encara no hi ha fragments. Deseu text que escriviu sovint, com una adreça electrònica o una instrucció, i digueu la frase activadora per enganxar-lo.",
-        "noMatches": "Cap fragment coincideix amb \"{{query}}\"",
-        "addTitle": "Afegeix un fragment",
-        "editTitle": "Edita el fragment",
-        "triggerPlaceholder": "Frase activadora, com \"el meu correu\"",
-        "textPlaceholder": "Text per enganxar",
-        "add": "Afegeix el fragment",
-        "save": "Desa",
-        "duplicate": "Ja hi ha un fragment per a \"{{trigger}}\"",
-        "remove": "Elimina {{trigger}}"
-      }
+      "duplicate": "«{{word}}» ja existeix"
     },
     "history": {
       "title": "Historial",

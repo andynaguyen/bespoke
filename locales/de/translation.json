@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Wörterbuch",
-        "snippets": "Textbausteine",
         "history": "Verlauf"
       },
       "addNew": "Hinzufügen",
       "searchPlaceholder": "Suchen",
-      "empty": "Noch keine Wörter. Füge Namen, Abkürzungen und Fachbegriffe hinzu, die Bespoke falsch erkennt.",
-      "noMatches": "Keine Wörter passen zu \"{{query}}\"",
       "dialogTitle": "Zum Wörterbuch hinzufügen",
-      "placeholder": "Wort hinzufügen",
-      "add": "Hinzufügen",
+      "addSnippet": "Textbaustein hinzufügen",
+      "save": "Speichern",
       "cancel": "Abbrechen",
       "remove": "{{word}} entfernen",
-      "duplicate": "\"{{word}}\" existiert bereits",
-      "snippets": {
-        "empty": "Noch keine Textbausteine. Speichere Text, den du oft tippst, etwa eine E-Mail-Adresse oder einen Prompt, und sag dann seine Auslösephrase, um ihn einzufügen.",
-        "noMatches": "Keine Textbausteine passen zu \"{{query}}\"",
-        "addTitle": "Textbaustein hinzufügen",
-        "editTitle": "Textbaustein bearbeiten",
-        "triggerPlaceholder": "Auslösephrase, z. B. \"meine E-Mail\"",
-        "textPlaceholder": "Einzufügender Text",
-        "add": "Textbaustein hinzufügen",
-        "save": "Speichern",
-        "duplicate": "Für \"{{trigger}}\" gibt es bereits einen Textbaustein",
-        "remove": "{{trigger}} entfernen"
-      }
+      "duplicate": "\"{{word}}\" existiert bereits"
     },
     "history": {
       "title": "Verlauf",

@@ -471,31 +471,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "מילון",
-        "snippets": "קטעים",
         "history": "היסטוריה"
       },
       "addNew": "הוסף",
       "searchPlaceholder": "חיפוש",
-      "empty": "אין מילים עדיין. הוסף שמות, ראשי תיבות ומונחים ש-Bespoke מתמלל לא נכון.",
-      "noMatches": "אין מילים התואמות ל-\"{{query}}\"",
       "dialogTitle": "הוספה למילון",
-      "placeholder": "הוסף מילה",
-      "add": "הוסף",
+      "addSnippet": "הוסף קטע",
+      "save": "שמור",
       "cancel": "ביטול",
       "remove": "הסר את {{word}}",
-      "duplicate": "\"{{word}}\" כבר קיימת",
-      "snippets": {
-        "empty": "אין קטעים עדיין. שמור טקסט שאתה מקליד לעיתים קרובות, כמו כתובת אימייל או הנחיה, ואז אמור את ביטוי ההפעלה שלו כדי להדביק אותו.",
-        "noMatches": "אין קטעים התואמים ל-\"{{query}}\"",
-        "addTitle": "הוספת קטע",
-        "editTitle": "עריכת קטע",
-        "triggerPlaceholder": "ביטוי הפעלה, למשל \"האימייל שלי\"",
-        "textPlaceholder": "טקסט להדבקה",
-        "add": "הוסף קטע",
-        "save": "שמור",
-        "duplicate": "כבר קיים קטע עבור \"{{trigger}}\"",
-        "remove": "הסר את {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" כבר קיימת"
     },
     "history": {
       "title": "היסטוריה",

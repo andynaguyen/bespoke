@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "사전",
-        "snippets": "스니펫",
         "history": "히스토리"
       },
       "addNew": "새로 추가",
       "searchPlaceholder": "검색",
-      "empty": "아직 단어가 없습니다. Bespoke가 잘못 인식하는 이름, 약어, 전문 용어를 추가하세요.",
-      "noMatches": "\"{{query}}\"와(과) 일치하는 단어가 없습니다",
       "dialogTitle": "사전에 추가",
-      "placeholder": "단어 추가",
-      "add": "추가",
+      "addSnippet": "스니펫 추가",
+      "save": "저장",
       "cancel": "취소",
       "remove": "{{word}} 제거",
-      "duplicate": "\"{{word}}\"이(가) 이미 존재합니다",
-      "snippets": {
-        "empty": "아직 스니펫이 없습니다. 이메일 주소나 프롬프트처럼 자주 입력하는 텍스트를 저장한 뒤, 트리거 문구를 말하면 붙여넣습니다.",
-        "noMatches": "\"{{query}}\"와(과) 일치하는 스니펫이 없습니다",
-        "addTitle": "스니펫 추가",
-        "editTitle": "스니펫 편집",
-        "triggerPlaceholder": "트리거 문구 (예: \"내 이메일\")",
-        "textPlaceholder": "붙여넣을 텍스트",
-        "add": "스니펫 추가",
-        "save": "저장",
-        "duplicate": "\"{{trigger}}\"에 대한 스니펫이 이미 있습니다",
-        "remove": "{{trigger}} 삭제"
-      }
+      "duplicate": "\"{{word}}\"이(가) 이미 존재합니다"
     },
     "history": {
       "title": "히스토리",

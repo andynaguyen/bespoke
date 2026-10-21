@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "詞典",
-        "snippets": "片段",
         "history": "歷史紀錄"
       },
       "addNew": "新增",
       "searchPlaceholder": "搜尋",
-      "empty": "還沒有詞彙。新增 Bespoke 常辨識錯誤的人名、縮寫和術語。",
-      "noMatches": "沒有與「{{query}}」相符的詞彙",
       "dialogTitle": "新增至詞典",
-      "placeholder": "新增詞彙",
-      "add": "新增",
+      "addSnippet": "新增片段",
+      "save": "儲存",
       "cancel": "取消",
       "remove": "刪除 {{word}}",
-      "duplicate": "「{{word}}」已存在",
-      "snippets": {
-        "empty": "還沒有片段。儲存你常輸入的文字，例如電子郵件地址或提示詞，然後說出觸發短語即可貼上。",
-        "noMatches": "沒有與「{{query}}」相符的片段",
-        "addTitle": "新增片段",
-        "editTitle": "編輯片段",
-        "triggerPlaceholder": "觸發短語，例如「我的電子郵件」",
-        "textPlaceholder": "要貼上的文字",
-        "add": "新增片段",
-        "save": "儲存",
-        "duplicate": "「{{trigger}}」的片段已存在",
-        "remove": "移除 {{trigger}}"
-      }
+      "duplicate": "「{{word}}」已存在"
     },
     "history": {
       "title": "歷史紀錄",

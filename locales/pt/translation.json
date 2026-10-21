@@ -471,31 +471,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Dicionário",
-        "snippets": "Trechos",
         "history": "Histórico"
       },
       "addNew": "Adicionar",
       "searchPlaceholder": "Pesquisar",
-      "empty": "Nenhuma palavra ainda. Adicione nomes, siglas e termos que o Bespoke transcreve errado.",
-      "noMatches": "Nenhuma palavra corresponde a \"{{query}}\"",
       "dialogTitle": "Adicionar ao dicionário",
-      "placeholder": "Adicionar uma palavra",
-      "add": "Adicionar",
+      "addSnippet": "Adicionar trecho",
+      "save": "Salvar",
       "cancel": "Cancelar",
       "remove": "Remover {{word}}",
-      "duplicate": "\"{{word}}\" já existe",
-      "snippets": {
-        "empty": "Nenhum trecho ainda. Salve um texto que você digita com frequência, como um e-mail ou um prompt, e depois diga a frase de ativação para colá-lo.",
-        "noMatches": "Nenhum trecho corresponde a \"{{query}}\"",
-        "addTitle": "Adicionar trecho",
-        "editTitle": "Editar trecho",
-        "triggerPlaceholder": "Frase de ativação, como \"meu e-mail\"",
-        "textPlaceholder": "Texto para colar",
-        "add": "Adicionar trecho",
-        "save": "Salvar",
-        "duplicate": "Já existe um trecho para \"{{trigger}}\"",
-        "remove": "Remover {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" já existe"
     },
     "history": {
       "title": "Histórico",

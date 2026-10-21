@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Ordlista",
-        "snippets": "Textsnuttar",
         "history": "Historik"
       },
       "addNew": "Lägg till",
       "searchPlaceholder": "Sök",
-      "empty": "Inga ord än. Lägg till namn, förkortningar och facktermer som Bespoke tolkar fel.",
-      "noMatches": "Inga ord matchar \"{{query}}\"",
       "dialogTitle": "Lägg till i ordlistan",
-      "placeholder": "Lägg till ett ord",
-      "add": "Lägg till",
+      "addSnippet": "Lägg till textsnutt",
+      "save": "Spara",
       "cancel": "Avbryt",
       "remove": "Ta bort {{word}}",
-      "duplicate": "\"{{word}}\" finns redan",
-      "snippets": {
-        "empty": "Inga textsnuttar än. Spara text du ofta skriver, som en e-postadress eller en prompt, och säg sedan dess utlösarfras för att klistra in den.",
-        "noMatches": "Inga textsnuttar matchar \"{{query}}\"",
-        "addTitle": "Lägg till textsnutt",
-        "editTitle": "Redigera textsnutt",
-        "triggerPlaceholder": "Utlösarfras, t.ex. \"min e-post\"",
-        "textPlaceholder": "Text att klistra in",
-        "add": "Lägg till textsnutt",
-        "save": "Spara",
-        "duplicate": "Det finns redan en textsnutt för \"{{trigger}}\"",
-        "remove": "Ta bort {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" finns redan"
     },
     "history": {
       "title": "Historik",

@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Woordenboek",
-        "snippets": "Tekstfragmenten",
         "history": "Geschiedenis"
       },
       "addNew": "Toevoegen",
       "searchPlaceholder": "Zoeken",
-      "empty": "Nog geen woorden. Voeg namen, afkortingen en vaktermen toe die Bespoke verkeerd herkent.",
-      "noMatches": "Geen woorden gevonden voor \"{{query}}\"",
       "dialogTitle": "Toevoegen aan woordenboek",
-      "placeholder": "Woord toevoegen",
-      "add": "Toevoegen",
+      "addSnippet": "Tekstfragment toevoegen",
+      "save": "Opslaan",
       "cancel": "Annuleren",
       "remove": "{{word}} verwijderen",
-      "duplicate": "\"{{word}}\" bestaat al",
-      "snippets": {
-        "empty": "Nog geen tekstfragmenten. Sla tekst op die je vaak typt, zoals een e-mailadres of een prompt, en zeg daarna de triggerzin om die te plakken.",
-        "noMatches": "Geen tekstfragmenten gevonden voor \"{{query}}\"",
-        "addTitle": "Tekstfragment toevoegen",
-        "editTitle": "Tekstfragment bewerken",
-        "triggerPlaceholder": "Triggerzin, bijv. \"mijn e-mail\"",
-        "textPlaceholder": "Te plakken tekst",
-        "add": "Tekstfragment toevoegen",
-        "save": "Opslaan",
-        "duplicate": "Er bestaat al een tekstfragment voor \"{{trigger}}\"",
-        "remove": "{{trigger}} verwijderen"
-      }
+      "duplicate": "\"{{word}}\" bestaat al"
     },
     "history": {
       "title": "Geschiedenis",

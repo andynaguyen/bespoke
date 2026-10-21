@@ -471,31 +471,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Diccionario",
-        "snippets": "Fragmentos",
         "history": "Historial"
       },
       "addNew": "Agregar",
       "searchPlaceholder": "Buscar",
-      "empty": "Aún no hay palabras. Agrega nombres, siglas y términos que Bespoke transcribe mal.",
-      "noMatches": "Ninguna palabra coincide con \"{{query}}\"",
       "dialogTitle": "Agregar al diccionario",
-      "placeholder": "Agregar una palabra",
-      "add": "Agregar",
+      "addSnippet": "Agregar fragmento",
+      "save": "Guardar",
       "cancel": "Cancelar",
       "remove": "Eliminar {{word}}",
-      "duplicate": "\"{{word}}\" ya existe",
-      "snippets": {
-        "empty": "Aún no hay fragmentos. Guarda texto que escribes a menudo, como un correo o un prompt, y luego di su frase de activación para pegarlo.",
-        "noMatches": "Ningún fragmento coincide con \"{{query}}\"",
-        "addTitle": "Agregar fragmento",
-        "editTitle": "Editar fragmento",
-        "triggerPlaceholder": "Frase de activación, como \"mi correo\"",
-        "textPlaceholder": "Texto para pegar",
-        "add": "Agregar fragmento",
-        "save": "Guardar",
-        "duplicate": "Ya existe un fragmento para \"{{trigger}}\"",
-        "remove": "Quitar {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" ya existe"
     },
     "history": {
       "title": "Historial",

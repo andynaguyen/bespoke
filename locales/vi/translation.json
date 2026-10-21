@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Từ điển",
-        "snippets": "Đoạn mẫu",
         "history": "Lịch sử"
       },
       "addNew": "Thêm mới",
       "searchPlaceholder": "Tìm kiếm",
-      "empty": "Chưa có từ nào. Hãy thêm tên, từ viết tắt và thuật ngữ mà Bespoke hay nhận sai.",
-      "noMatches": "Không có từ nào khớp với \"{{query}}\"",
       "dialogTitle": "Thêm vào từ điển",
-      "placeholder": "Thêm một từ",
-      "add": "Thêm",
+      "addSnippet": "Thêm đoạn mẫu",
+      "save": "Lưu",
       "cancel": "Hủy",
       "remove": "Xóa {{word}}",
-      "duplicate": "\"{{word}}\" đã tồn tại",
-      "snippets": {
-        "empty": "Chưa có đoạn mẫu nào. Lưu văn bản bạn hay gõ, như địa chỉ email hoặc prompt, rồi nói cụm từ kích hoạt để dán nó.",
-        "noMatches": "Không có đoạn mẫu nào khớp với \"{{query}}\"",
-        "addTitle": "Thêm đoạn mẫu",
-        "editTitle": "Sửa đoạn mẫu",
-        "triggerPlaceholder": "Cụm từ kích hoạt, ví dụ \"email của tôi\"",
-        "textPlaceholder": "Văn bản cần dán",
-        "add": "Thêm đoạn mẫu",
-        "save": "Lưu",
-        "duplicate": "Đã có đoạn mẫu cho \"{{trigger}}\"",
-        "remove": "Xóa {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" đã tồn tại"
     },
     "history": {
       "title": "Lịch sử",

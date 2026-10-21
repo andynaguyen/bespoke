@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "辞書",
-        "snippets": "スニペット",
         "history": "履歴"
       },
       "addNew": "新規追加",
       "searchPlaceholder": "検索",
-      "empty": "まだ単語がありません。Bespoke が聞き間違える名前、略語、専門用語を追加してください。",
-      "noMatches": "「{{query}}」に一致する単語はありません",
       "dialogTitle": "辞書に追加",
-      "placeholder": "単語を追加",
-      "add": "追加",
+      "addSnippet": "スニペットを追加",
+      "save": "保存",
       "cancel": "キャンセル",
       "remove": "{{word}}を削除",
-      "duplicate": "「{{word}}」は既に存在します",
-      "snippets": {
-        "empty": "まだスニペットがありません。メールアドレスやプロンプトなど、よく入力するテキストを保存し、トリガーフレーズを話すと貼り付けられます。",
-        "noMatches": "「{{query}}」に一致するスニペットはありません",
-        "addTitle": "スニペットを追加",
-        "editTitle": "スニペットを編集",
-        "triggerPlaceholder": "トリガーフレーズ(例: 「my email」)",
-        "textPlaceholder": "貼り付けるテキスト",
-        "add": "スニペットを追加",
-        "save": "保存",
-        "duplicate": "「{{trigger}}」のスニペットはすでに存在します",
-        "remove": "{{trigger}} を削除"
-      }
+      "duplicate": "「{{word}}」は既に存在します"
     },
     "history": {
       "title": "履歴",

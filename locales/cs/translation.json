@@ -473,31 +473,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Slovník",
-        "snippets": "Úryvky",
         "history": "Historie"
       },
       "addNew": "Přidat",
       "searchPlaceholder": "Hledat",
-      "empty": "Zatím žádná slova. Přidejte jména, zkratky a termíny, které Bespoke přepisuje špatně.",
-      "noMatches": "Žádná slova neodpovídají \"{{query}}\"",
       "dialogTitle": "Přidat do slovníku",
-      "placeholder": "Přidat slovo",
-      "add": "Přidat",
+      "addSnippet": "Přidat úryvek",
+      "save": "Uložit",
       "cancel": "Zrušit",
       "remove": "Odebrat {{word}}",
-      "duplicate": "\"{{word}}\" již existuje",
-      "snippets": {
-        "empty": "Zatím žádné úryvky. Uložte si text, který často píšete, třeba e-mailovou adresu nebo prompt, a pak řekněte jeho spouštěcí frázi, abyste ho vložili.",
-        "noMatches": "Žádné úryvky neodpovídají \"{{query}}\"",
-        "addTitle": "Přidat úryvek",
-        "editTitle": "Upravit úryvek",
-        "triggerPlaceholder": "Spouštěcí fráze, např. \"můj e-mail\"",
-        "textPlaceholder": "Text k vložení",
-        "add": "Přidat úryvek",
-        "save": "Uložit",
-        "duplicate": "Úryvek pro \"{{trigger}}\" už existuje",
-        "remove": "Odebrat {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" již existuje"
     },
     "history": {
       "title": "Historie",

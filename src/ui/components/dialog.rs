@@ -62,12 +62,6 @@ impl Dialog {
         }
     }
 
-    /// `max-w-md` (420px) instead of the default `max-w-lg` (480px).
-    pub fn max_width(mut self, width: Pixels) -> Self {
-        self.max_width = width;
-        self
-    }
-
     pub fn footer(mut self, child: impl IntoElement) -> Self {
         self.footer.push(child.into_any_element());
         self

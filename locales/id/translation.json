@@ -469,31 +469,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Kamus",
-        "snippets": "Cuplikan",
         "history": "Riwayat"
       },
       "addNew": "Tambah",
       "searchPlaceholder": "Cari",
-      "empty": "Belum ada kata. Tambahkan nama, singkatan, dan istilah yang sering salah ditulis Bespoke.",
-      "noMatches": "Tidak ada kata yang cocok dengan \"{{query}}\"",
       "dialogTitle": "Tambahkan ke kamus",
-      "placeholder": "Tambahkan kata",
-      "add": "Tambah",
+      "addSnippet": "Tambah cuplikan",
+      "save": "Simpan",
       "cancel": "Batal",
       "remove": "Hapus {{word}}",
-      "duplicate": "\"{{word}}\" sudah ada",
-      "snippets": {
-        "empty": "Belum ada cuplikan. Simpan teks yang sering Anda ketik, seperti alamat email atau prompt, lalu ucapkan frasa pemicunya untuk menempelkannya.",
-        "noMatches": "Tidak ada cuplikan yang cocok dengan \"{{query}}\"",
-        "addTitle": "Tambah cuplikan",
-        "editTitle": "Edit cuplikan",
-        "triggerPlaceholder": "Frasa pemicu, seperti \"email saya\"",
-        "textPlaceholder": "Teks yang akan ditempel",
-        "add": "Tambah cuplikan",
-        "save": "Simpan",
-        "duplicate": "Cuplikan untuk \"{{trigger}}\" sudah ada",
-        "remove": "Hapus {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" sudah ada"
     },
     "history": {
       "title": "Riwayat",

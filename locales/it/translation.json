@@ -471,31 +471,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Dizionario",
-        "snippets": "Frammenti",
         "history": "Cronologia"
       },
       "addNew": "Aggiungi",
       "searchPlaceholder": "Cerca",
-      "empty": "Nessuna parola. Aggiungi nomi, sigle e termini che Bespoke trascrive male.",
-      "noMatches": "Nessuna parola corrisponde a \"{{query}}\"",
       "dialogTitle": "Aggiungi al dizionario",
-      "placeholder": "Aggiungi una parola",
-      "add": "Aggiungi",
+      "addSnippet": "Aggiungi frammento",
+      "save": "Salva",
       "cancel": "Annulla",
       "remove": "Rimuovi {{word}}",
-      "duplicate": "\"{{word}}\" esiste già",
-      "snippets": {
-        "empty": "Nessun frammento. Salva un testo che scrivi spesso, come un indirizzo email o un prompt, poi pronuncia la sua frase di attivazione per incollarlo.",
-        "noMatches": "Nessun frammento corrisponde a \"{{query}}\"",
-        "addTitle": "Aggiungi frammento",
-        "editTitle": "Modifica frammento",
-        "triggerPlaceholder": "Frase di attivazione, ad es. \"la mia email\"",
-        "textPlaceholder": "Testo da incollare",
-        "add": "Aggiungi frammento",
-        "save": "Salva",
-        "duplicate": "Esiste già un frammento per \"{{trigger}}\"",
-        "remove": "Rimuovi {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" esiste già"
     },
     "history": {
       "title": "Cronologia",

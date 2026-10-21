@@ -516,32 +516,25 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Dictionary",
-        "snippets": "Snippets",
         "style": "Style",
         "history": "History"
       },
       "addNew": "Add new",
       "searchPlaceholder": "Search",
-      "empty": "No words yet. Add names, acronyms, and jargon that Bespoke gets wrong.",
-      "noMatches": "No words match \"{{query}}\"",
+      "empty": "No words or snippets yet. Add names and jargon that Bespoke gets wrong, or a phrase that pastes text you type often.",
+      "noMatches": "Nothing matches \"{{query}}\"",
       "dialogTitle": "Add to dictionary",
-      "placeholder": "Add a word",
-      "add": "Add",
+      "editTitle": "Edit entry",
+      "phraseLabel": "When you say",
+      "phrasePlaceholder": "A word, or a phrase like \"my email\"",
+      "textLabel": "Write instead (optional)",
+      "textPlaceholder": "Leave empty to keep this spelling",
+      "addWord": "Add word",
+      "addSnippet": "Add snippet",
+      "save": "Save",
       "cancel": "Cancel",
       "remove": "Remove {{word}}",
-      "duplicate": "\"{{word}}\" already exists",
-      "snippets": {
-        "empty": "No snippets yet. Save text you type often, like an email address or a prompt, then say its trigger to paste it.",
-        "noMatches": "No snippets match \"{{query}}\"",
-        "addTitle": "Add snippet",
-        "editTitle": "Edit snippet",
-        "triggerPlaceholder": "Trigger phrase, like \"my email\"",
-        "textPlaceholder": "Text to paste",
-        "add": "Add snippet",
-        "save": "Save",
-        "duplicate": "A snippet for \"{{trigger}}\" already exists",
-        "remove": "Remove {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" already exists"
     },
     "style": {
       "default": "(default)",

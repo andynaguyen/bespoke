@@ -473,31 +473,16 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Słownik",
-        "snippets": "Fragmenty",
         "history": "Historia"
       },
       "addNew": "Dodaj",
       "searchPlaceholder": "Szukaj",
-      "empty": "Brak słów. Dodaj nazwy, skróty i terminy, które Bespoke rozpoznaje błędnie.",
-      "noMatches": "Brak słów pasujących do \"{{query}}\"",
       "dialogTitle": "Dodaj do słownika",
-      "placeholder": "Dodaj słowo",
-      "add": "Dodaj",
+      "addSnippet": "Dodaj fragment",
+      "save": "Zapisz",
       "cancel": "Anuluj",
       "remove": "Usuń {{word}}",
-      "duplicate": "\"{{word}}\" już istnieje",
-      "snippets": {
-        "empty": "Brak fragmentów. Zapisz tekst, który często wpisujesz, na przykład adres e-mail lub prompt, a potem wypowiedz jego frazę wyzwalającą, aby go wkleić.",
-        "noMatches": "Brak fragmentów pasujących do \"{{query}}\"",
-        "addTitle": "Dodaj fragment",
-        "editTitle": "Edytuj fragment",
-        "triggerPlaceholder": "Fraza wyzwalająca, np. \"mój e-mail\"",
-        "textPlaceholder": "Tekst do wklejenia",
-        "add": "Dodaj fragment",
-        "save": "Zapisz",
-        "duplicate": "Fragment dla \"{{trigger}}\" już istnieje",
-        "remove": "Usuń {{trigger}}"
-      }
+      "duplicate": "\"{{word}}\" już istnieje"
     },
     "history": {
       "title": "Historia",
