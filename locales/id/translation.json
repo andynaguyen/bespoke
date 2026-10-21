@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Model",
-    "history": "Riwayat",
     "stats": "Statistik",
     "debug": "Debug"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Kamus",
-        "snippets": "Cuplikan"
+        "snippets": "Cuplikan",
+        "history": "Riwayat"
       },
       "addNew": "Tambah",
       "searchPlaceholder": "Cari",

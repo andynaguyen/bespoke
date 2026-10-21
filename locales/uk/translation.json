@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Моделі",
-    "history": "Історія",
     "stats": "Статистика",
     "debug": "Дебаг"
   },
@@ -474,7 +473,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Словник",
-        "snippets": "Фрагменти"
+        "snippets": "Фрагменти",
+        "history": "Історія"
       },
       "addNew": "Додати",
       "searchPlaceholder": "Пошук",

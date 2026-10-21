@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "모델",
-    "history": "히스토리",
     "stats": "통계",
     "debug": "디버그"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "사전",
-        "snippets": "스니펫"
+        "snippets": "스니펫",
+        "history": "히스토리"
       },
       "addNew": "새로 추가",
       "searchPlaceholder": "검색",

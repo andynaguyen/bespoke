@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "מודלים",
-    "history": "היסטוריה",
     "stats": "סטטיסטיקה",
     "debug": "ניפוי שגיאות"
   },
@@ -472,7 +471,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "מילון",
-        "snippets": "קטעים"
+        "snippets": "קטעים",
+        "history": "היסטוריה"
       },
       "addNew": "הוסף",
       "searchPlaceholder": "חיפוש",

@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Models",
-    "history": "Historial",
     "stats": "Estadístiques",
     "debug": "Depuració"
   },
@@ -472,7 +471,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Diccionari",
-        "snippets": "Fragments"
+        "snippets": "Fragments",
+        "history": "Historial"
       },
       "addNew": "Afegeix",
       "searchPlaceholder": "Cerca",

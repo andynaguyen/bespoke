@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Mô hình",
-    "history": "Lịch sử",
     "stats": "Thống kê",
     "debug": "Gỡ lỗi"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Từ điển",
-        "snippets": "Đoạn mẫu"
+        "snippets": "Đoạn mẫu",
+        "history": "Lịch sử"
       },
       "addNew": "Thêm mới",
       "searchPlaceholder": "Tìm kiếm",

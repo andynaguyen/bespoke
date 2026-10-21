@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modely",
-    "history": "Historie",
     "stats": "Statistiky",
     "debug": "Ladění"
   },
@@ -474,7 +473,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Slovník",
-        "snippets": "Úryvky"
+        "snippets": "Úryvky",
+        "history": "Historie"
       },
       "addNew": "Přidat",
       "searchPlaceholder": "Hledat",

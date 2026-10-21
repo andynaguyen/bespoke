@@ -9,7 +9,6 @@
     "secureInputWarning": "⚠ الاختصارات محجوبة بواسطة Secure Input"
   },
   "sidebar": {
-    "history": "السجل",
     "stats": "الإحصائيات",
     "debug": "تصحيح الأخطاء",
     "models": "النماذج"
@@ -458,7 +457,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "القاموس",
-        "snippets": "المقتطفات"
+        "snippets": "المقتطفات",
+        "history": "السجل"
       },
       "addNew": "إضافة جديد",
       "searchPlaceholder": "بحث",

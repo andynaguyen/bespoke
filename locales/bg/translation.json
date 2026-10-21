@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Модели",
-    "history": "История",
     "stats": "Статистика",
     "debug": "Отстраняване"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Речник",
-        "snippets": "Фрагменти"
+        "snippets": "Фрагменти",
+        "history": "История"
       },
       "addNew": "Добави",
       "searchPlaceholder": "Търсене",

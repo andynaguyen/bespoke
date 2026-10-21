@@ -1,59 +1,43 @@
 //! The Annotate page: Scrawl's settings (its General, Recording, Storage and Permissions panes)
-//! for the capture in `vendor/scrawl`. The shortcuts are ordinary Bespoke bindings, and so is the
-//! Agents group's switch for `annotate::mcp`. Everything else reads and writes Scrawl's own
-//! `config.json` through `scrawl::host`.
+//! for the capture in `vendor/scrawl`. The shortcuts are ordinary Bespoke bindings. Everything
+//! else reads and writes Scrawl's own `config.json` through `scrawl::host`. Agent Access for
+//! `annotate::mcp` has its own page.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use gpui::{
-    div, prelude::*, rems, AnyElement, App, Context, Entity, FontWeight, SharedString, Task,
-};
+use gpui::{div, prelude::*, rems, AnyElement, Context, Entity, FontWeight, SharedString, Task};
 use scrawl::host::{
     Grants, MicrophoneChoice, Microphones, Permission, PermissionStatus, Retention, SpeechState,
     SpeechStatus,
 };
 
-use crate::annotate::mcp;
-use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_with};
 use crate::ui::components::{
     icon, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
-    SettingContainer, SettingsGroup, ToggleSwitchRow, Typography,
+    SettingContainer, SettingsGroup, Typography,
 };
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, tw, Alpha};
-use crate::ui::toast;
 
-use super::rows;
 use super::shortcut_input::ShortcutInput;
-
-/// The setting behind the Agent Access switch.
-const MCP_SETTING: &str = "annotate_mcp_enabled";
 
 /// How often the page re-reads the grants, the speech model and the microphones while it's open,
 /// so a grant made in System Settings shows up by itself.
 const POLL: Duration = Duration::from_millis(1500);
 
-/// A small secondary button with an icon, for the Captures and Agents rows.
-fn icon_button(id: &'static str, icon_name: &'static str, label: SharedString) -> Button {
+/// A small secondary button with an icon, for the Captures row and the MCP page.
+pub(super) fn icon_button(
+    id: &'static str,
+    icon_name: &'static str,
+    label: SharedString,
+) -> Button {
     Button::new(id)
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
         .gap(rems(0.375))
         .child(icon(icon_name).size(rems(0.875)))
         .child(label)
-}
-
-/// Copies `text` and confirms with a toast.
-fn copy(text: Result<String, String>, cx: &mut App) {
-    match text.and_then(|text| AppHandle::global().clipboard().write_text(text)) {
-        Ok(()) => toast::info(t("annotate.agents.copied"), cx),
-        Err(error) => {
-            log::error!("Copying for Agent Access failed: {error}");
-            toast::error(t("annotate.agents.copyFailed"), cx);
-        }
-    }
 }
 
 /// The id a retention preset's strings are under (`annotate.retention.options.<id>`).
@@ -357,98 +341,6 @@ impl AnnotatePage {
             .into_any_element()
     }
 
-    /// The Agent Access switch, then, while it's on, how to add the server to Claude Code here
-    /// and on remote machines.
-    fn agent_rows(&self, cx: &Context<Self>) -> Vec<AnyElement> {
-        let p = palette(cx);
-        let enabled = SettingsStore::get(cx).annotate_mcp_enabled;
-        let description = match mcp::status() {
-            mcp::Status::Failed(error) if enabled => {
-                t_with("annotate.agents.access.failed", &[("error", &error)])
-            }
-            _ => t_with(
-                "annotate.agents.access.description",
-                &[("port", &mcp::PORT)],
-            ),
-        };
-        let access = ToggleSwitchRow::new(
-            MCP_SETTING,
-            t("annotate.agents.access.title"),
-            description,
-            enabled,
-        )
-        .updating(SettingsStore::global(cx).read(cx).is_updating(MCP_SETTING))
-        .on_change(|value, _, cx| {
-            rows::set(
-                cx,
-                MCP_SETTING,
-                move |s| s.annotate_mcp_enabled = value,
-                move |app| mcp::set_enabled(app, value),
-            );
-        })
-        .into_any_element();
-        if !enabled {
-            return vec![access];
-        }
-        let claude_code = SettingContainer::new(t("annotate.agents.claudeCode.title"))
-            .description(t("annotate.agents.claudeCode.description"))
-            .child(
-                div().text_color(p.text).child(
-                    icon_button(
-                        "annotate-mcp-copy-command",
-                        "copy",
-                        t("annotate.agents.claudeCode.copy"),
-                    )
-                    .on_click(|_, _, cx| {
-                        copy(
-                            mcp::claude_command(AppHandle::global())
-                                .map_err(|error| format!("{error:#}")),
-                            cx,
-                        );
-                    }),
-                ),
-            )
-            .into_any_element();
-        let remote = SettingContainer::new(t("annotate.agents.remote.title"))
-            .description(t_with(
-                "annotate.agents.remote.description",
-                &[("line", &mcp::ssh_forward())],
-            ))
-            .child(
-                div().text_color(p.text).child(
-                    icon_button(
-                        "annotate-mcp-copy-forward",
-                        "copy",
-                        t("annotate.agents.remote.copy"),
-                    )
-                    .on_click(|_, _, cx| copy(Ok(mcp::ssh_forward()), cx)),
-                ),
-            )
-            .into_any_element();
-        let token = SettingContainer::new(t("annotate.agents.token.title"))
-            .description(t("annotate.agents.token.description"))
-            .child(
-                div().text_color(p.text).child(
-                    icon_button(
-                        "annotate-mcp-renew-token",
-                        "refresh-cw",
-                        t("annotate.agents.token.renew"),
-                    )
-                    .on_click(|_, _, cx| {
-                        match mcp::renew_token(AppHandle::global()) {
-                            Ok(()) => toast::info(t("annotate.agents.token.renewed"), cx),
-                            Err(error) => {
-                                log::error!("Renewing the Agent Access token failed: {error:#}");
-                                toast::error(t("annotate.agents.token.failed"), cx);
-                            }
-                        }
-                    }),
-                ),
-            )
-            .into_any_element();
-        vec![access, claude_code, remote, token]
-    }
-
     fn permission_row(&self, permission: Permission, cx: &mut Context<Self>) -> AnyElement {
         let p = palette(cx);
         let key = match permission {
@@ -521,9 +413,6 @@ impl Render for AnnotatePage {
             .title(t("annotate.groups.storage"))
             .child(self.retention_row(cx))
             .child(self.captures_row(cx));
-        let agents = SettingsGroup::new()
-            .title(t("annotate.groups.agents"))
-            .children(self.agent_rows(cx));
         let permissions = SettingsGroup::new()
             .title(t("annotate.groups.permissions"))
             .children(Permission::ALL.map(|permission| self.permission_row(permission, cx)));
@@ -535,7 +424,6 @@ impl Render for AnnotatePage {
             .child(shortcuts)
             .child(recording)
             .child(storage)
-            .child(agents)
             .child(permissions)
     }
 }

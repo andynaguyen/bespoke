@@ -1,5 +1,5 @@
-//! The Customize page (`customize/`): the custom-word dictionary, text
-//! snippets, and per-app writing style.
+//! The Dictate page (`customize/`): the custom-word dictionary, text
+//! snippets, per-app writing style, and the History tab.
 
 use gpui::{
     div, prelude::*, px, rems, AnyView, App, Context, Entity, FocusHandle, FontWeight, Pixels,
@@ -18,6 +18,7 @@ use crate::ui::shell::{close_dialog, open_dialog};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, tw, Alpha};
 
+use super::history::HistoryPage;
 use super::rows::set;
 
 const MAX_WORD_LENGTH: usize = 50;
@@ -87,18 +88,22 @@ enum Tab {
     Words,
     Snippets,
     Style,
+    History,
 }
 
-pub struct CustomizePage {
+pub struct DictatePage {
     store: Entity<SettingsStore>,
     tab: Tab,
     search: Entity<InputState>,
+    /// Built when the History tab opens and dropped when it closes, so the
+    /// list reloads each time like a remounted page.
+    history: Option<Entity<HistoryPage>>,
     running_apps: Vec<crate::utils::RunningApp>,
     style_cards_width: Pixels,
     _subscriptions: Vec<Subscription>,
 }
 
-impl CustomizePage {
+impl DictatePage {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = SettingsStore::global(cx);
         let search = cx.new(|cx| {
@@ -116,6 +121,7 @@ impl CustomizePage {
             store,
             tab: Tab::Words,
             search,
+            history: None,
             running_apps: Vec::new(),
             style_cards_width: px(0.),
             _subscriptions: subscriptions,
@@ -126,8 +132,14 @@ impl CustomizePage {
         self.tab = match id {
             "snippets" => Tab::Snippets,
             "style" => Tab::Style,
+            "history" => Tab::History,
             _ => Tab::Words,
         };
+        if self.tab != Tab::History {
+            self.history = None;
+        } else if self.history.is_none() {
+            self.history = Some(cx.new(|cx| HistoryPage::new(window, cx)));
+        }
         // Each tab starts with an empty search.
         self.search.update(cx, |s, cx| s.set_value("", window, cx));
         cx.notify();
@@ -143,7 +155,7 @@ impl CustomizePage {
                 cx.new(|cx| AddWordDialog::new(window, cx)).into()
             }),
             Tab::Snippets => open_snippet_dialog(None, window, cx),
-            Tab::Style => {}
+            Tab::Style | Tab::History => {}
         }
     }
 
@@ -620,7 +632,7 @@ impl CustomizePage {
     }
 }
 
-impl Render for CustomizePage {
+impl Render for DictatePage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let entity = cx.entity().downgrade();
@@ -628,13 +640,15 @@ impl Render for CustomizePage {
             Tab::Words => "words",
             Tab::Snippets => "snippets",
             Tab::Style => "style",
+            Tab::History => "history",
         };
         let tabs = Tabs::new(
-            "customize-tabs",
+            "dictate-tabs",
             vec![
                 ("words".into(), t("settings.dictionary.tabs.dictionary")),
                 ("snippets".into(), t("settings.dictionary.tabs.snippets")),
                 ("style".into(), t("settings.dictionary.tabs.style")),
+                ("history".into(), t("settings.dictionary.tabs.history")),
             ],
             tab_id,
             move |id, window, cx| {
@@ -646,6 +660,11 @@ impl Render for CustomizePage {
         let body =
             match self.tab {
                 Tab::Style => self.render_style(cx).into_any_element(),
+                Tab::History => self
+                    .history
+                    .clone()
+                    .map(|history| history.into_any_element())
+                    .unwrap_or_else(|| div().into_any_element()),
                 Tab::Words | Tab::Snippets => {
                     let list = if self.tab == Tab::Words {
                         self.render_words(cx).into_any_element()

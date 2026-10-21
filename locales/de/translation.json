@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modelle",
-    "history": "Verlauf",
     "stats": "Statistik",
     "debug": "Debug"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Wörterbuch",
-        "snippets": "Textbausteine"
+        "snippets": "Textbausteine",
+        "history": "Verlauf"
       },
       "addNew": "Hinzufügen",
       "searchPlaceholder": "Suchen",

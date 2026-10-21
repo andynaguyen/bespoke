@@ -2,12 +2,13 @@
 //! window, for checking the UI against the React app without clicking
 //! through it by hand.
 //!
-//! `BESPOKE_DEV_SNAPSHOT=/tmp/shots BESPOKE_DEV_PAGES=history,settings:system`
+//! `BESPOKE_DEV_SNAPSHOT=/tmp/shots BESPOKE_DEV_PAGES=dictate,settings:system`
 //! opens each page in turn, writes `<dir>/<page>.png`, then quits. Pages are
-//! sidebar sections (`history`, `stats`, `customize`, `models`, `debug`,
-//! `settings`), `settings:<tab>`, or `onboarding:accessibility|model`. A
-//! `@<px>` suffix, like `debug@900`, scrolls the page down before capture,
-//! and a `#<n>` suffix presses Tab n times with focus rings shown.
+//! sidebar sections (`dictate`, `stats`, `models`, `annotate`, `mcp`,
+//! `debug`, `settings`), `settings:<tab>`, `dictate:<tab>`, or
+//! `onboarding:accessibility|model`. A `@<px>` suffix, like `debug@900`,
+//! scrolls the page down before capture, and a `#<n>` suffix presses Tab n
+//! times with focus rings shown.
 //! `overlay:<kind>` shows the recording overlay with sample data and
 //! captures its window instead (see `ui::overlay::dev_preview`).
 //! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
@@ -46,7 +47,7 @@ pub fn start(cx: &mut App) {
         return;
     };
     let pages: Vec<String> = std::env::var("BESPOKE_DEV_PAGES")
-        .unwrap_or_else(|_| "history".into())
+        .unwrap_or_else(|_| "dictate".into())
         .split(',')
         .map(|p| p.trim().to_string())
         .filter(|p| !p.is_empty())

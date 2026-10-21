@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "模型",
-    "history": "历史记录",
     "stats": "统计",
     "debug": "调试"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "词典",
-        "snippets": "片段"
+        "snippets": "片段",
+        "history": "历史记录"
       },
       "addNew": "新增",
       "searchPlaceholder": "搜索",

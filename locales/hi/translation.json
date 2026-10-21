@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "मॉडल",
-    "history": "इतिहास",
     "stats": "आंकड़े",
     "debug": "डिबग"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "शब्दकोश",
-        "snippets": "स्निपेट"
+        "snippets": "स्निपेट",
+        "history": "इतिहास"
       },
       "addNew": "नया जोड़ें",
       "searchPlaceholder": "खोजें",

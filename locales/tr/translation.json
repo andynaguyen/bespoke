@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modeller",
-    "history": "Geçmiş",
     "stats": "İstatistikler",
     "debug": "Hata Ayıklama"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Sözlük",
-        "snippets": "Parçacıklar"
+        "snippets": "Parçacıklar",
+        "history": "Geçmiş"
       },
       "addNew": "Yeni ekle",
       "searchPlaceholder": "Ara",

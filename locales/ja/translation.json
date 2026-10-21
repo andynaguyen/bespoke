@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "モデル",
-    "history": "履歴",
     "stats": "統計",
     "debug": "デバッグ"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "辞書",
-        "snippets": "スニペット"
+        "snippets": "スニペット",
+        "history": "履歴"
       },
       "addNew": "新規追加",
       "searchPlaceholder": "検索",

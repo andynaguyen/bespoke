@@ -30,12 +30,14 @@ pub use sidebar::logo;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Section {
-    History,
+    /// The dictionary, snippets, writing style and history tabs.
+    Dictate,
     Stats,
-    Customize,
     Models,
     /// Scrawl's capture (macOS only).
     Annotate,
+    /// Agent Access, the MCP server for Annotate's captures (macOS only).
+    Mcp,
     Debug,
     Settings,
 }
@@ -43,27 +45,22 @@ pub enum Section {
 impl Section {
     #[cfg(target_os = "macos")]
     pub const PRIMARY: &[Section] = &[
-        Section::History,
-        Section::Stats,
-        Section::Customize,
-        Section::Models,
+        Section::Dictate,
         Section::Annotate,
+        Section::Stats,
+        Section::Mcp,
+        Section::Models,
     ];
     #[cfg(not(target_os = "macos"))]
-    pub const PRIMARY: &[Section] = &[
-        Section::History,
-        Section::Stats,
-        Section::Customize,
-        Section::Models,
-    ];
+    pub const PRIMARY: &[Section] = &[Section::Dictate, Section::Stats, Section::Models];
 
     pub fn label_key(self) -> &'static str {
         match self {
-            Section::History => "sidebar.history",
+            Section::Dictate => "sidebar.dictate",
             Section::Stats => "sidebar.stats",
-            Section::Customize => "sidebar.customize",
             Section::Models => "sidebar.models",
             Section::Annotate => "sidebar.annotate",
+            Section::Mcp => "sidebar.mcp",
             Section::Debug => "sidebar.debug",
             Section::Settings => "sidebar.settings",
         }
@@ -71,11 +68,11 @@ impl Section {
 
     pub fn icon(self) -> &'static str {
         match self {
-            Section::History => "nav-history",
+            Section::Dictate => "nav-mic",
             Section::Stats => "nav-chart-column",
-            Section::Customize => "nav-pencil-ruler",
             Section::Models => "nav-cpu",
             Section::Annotate => "nav-pen-line",
+            Section::Mcp => "nav-bot",
             Section::Debug => "nav-flask-conical",
             Section::Settings => "nav-settings",
         }
@@ -144,8 +141,8 @@ impl MainWindow {
             is_returning_user,
             post_onboarding_done: false,
             preview: None,
-            section: Section::History,
-            page: pages::build(Section::History, window, cx),
+            section: Section::Dictate,
+            page: pages::build(Section::Dictate, window, cx),
             scroll: ScrollHandle::new(),
             focus,
             model_selector: cx.new(ModelSelector::new),
@@ -282,12 +279,12 @@ impl MainWindow {
                 return;
             }
             "stats" => Section::Stats,
-            "customize" => Section::Customize,
             "models" => Section::Models,
             "annotate" => Section::Annotate,
+            "mcp" => Section::Mcp,
             "debug" => Section::Debug,
             "settings" => Section::Settings,
-            _ => Section::History,
+            _ => Section::Dictate,
         };
         self.select_section(section, window, cx);
         if !detail.is_empty() {

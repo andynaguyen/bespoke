@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modèles",
-    "history": "Historique",
     "stats": "Statistiques",
     "debug": "Débogage"
   },
@@ -472,7 +471,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Dictionnaire",
-        "snippets": "Extraits"
+        "snippets": "Extraits",
+        "history": "Historique"
       },
       "addNew": "Ajouter",
       "searchPlaceholder": "Rechercher",

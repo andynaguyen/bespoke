@@ -36,7 +36,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `commands/` - Functions the UI calls into the backend (audio, history, models, transcription)
 - `actions.rs`, `transcription_coordinator.rs` - Start, stop, and cancel a dictation
 - `annotate.rs` - Annotate (macOS only): starts the Scrawl capture vendored in `vendor/scrawl` and forwards its two shortcut bindings. Read `vendor/scrawl/BESPOKE.md` before changing the vendored code
-- `annotate/mcp.rs` - Agent Access: an MCP server on `127.0.0.1:47790` that serves captures to coding agents. Claude Code on a remote machine reaches it through an SSH `RemoteForward`. The tools are in `annotate/mcp/tools.rs`, and the guide sent to agents is `annotate/mcp/instructions.md`
+- `annotate/mcp.rs` - Agent Access: an MCP server on `127.0.0.1:47790` that serves captures to coding agents. Claude Code on a remote machine reaches it through an SSH `RemoteForward`. The tools are in `annotate/mcp/tools.rs`, and the guide sent to agents is `annotate/mcp/instructions.md`. Its switch and setup steps are on the MCP page, `ui/pages/mcp.rs`
 - `shortcut/` - Global shortcuts. `handy_keys.rs` wraps the patched `handy-keys` crate in `vendor/`, and `hotkey_impl.rs` wraps `global-hotkey`
 - `settings.rs` - Settings schema, defaults, and migrations
 - `clipboard.rs`, `input.rs`, `paste_tx/` - Pasting text into the front app

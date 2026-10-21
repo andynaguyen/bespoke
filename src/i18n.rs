@@ -312,6 +312,6 @@ mod tests {
     #[test]
     fn every_locale_parses() {
         assert_eq!(TABLES.len(), LOCALES.len());
-        assert!(lookup("en", "sidebar.history").is_some());
+        assert!(lookup("en", "sidebar.dictate").is_some());
     }
 }

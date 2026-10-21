@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modeller",
-    "history": "Historik",
     "stats": "Statistik",
     "debug": "Fejlfinding"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Ordbog",
-        "snippets": "Tekstbidder"
+        "snippets": "Tekstbidder",
+        "history": "Historik"
       },
       "addNew": "Tilføj",
       "searchPlaceholder": "Søg",

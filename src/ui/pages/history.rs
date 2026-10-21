@@ -1,5 +1,6 @@
-//! The History page (`history/HistorySettings.tsx`): recordings grouped by
-//! day, newest first, loaded 30 at a time as the list scrolls.
+//! The Dictate page's History tab (`history/HistorySettings.tsx`):
+//! recordings grouped by day, newest first, loaded 30 at a time as the list
+//! scrolls.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

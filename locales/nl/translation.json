@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modellen",
-    "history": "Geschiedenis",
     "stats": "Statistieken",
     "debug": "Probleemoplossing"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Woordenboek",
-        "snippets": "Tekstfragmenten"
+        "snippets": "Tekstfragmenten",
+        "history": "Geschiedenis"
       },
       "addNew": "Toevoegen",
       "searchPlaceholder": "Zoeken",

@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modeller",
-    "history": "Historik",
     "stats": "Statistik",
     "debug": "Felsökning"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Ordlista",
-        "snippets": "Textsnuttar"
+        "snippets": "Textsnuttar",
+        "history": "Historik"
       },
       "addNew": "Lägg till",
       "searchPlaceholder": "Sök",

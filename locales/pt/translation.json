@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "Modelos",
-    "history": "Histórico",
     "stats": "Estatísticas",
     "debug": "Depuração"
   },
@@ -472,7 +471,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "Dicionário",
-        "snippets": "Trechos"
+        "snippets": "Trechos",
+        "history": "Histórico"
       },
       "addNew": "Adicionar",
       "searchPlaceholder": "Pesquisar",

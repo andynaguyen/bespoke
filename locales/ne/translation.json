@@ -10,7 +10,6 @@
   },
   "sidebar": {
     "models": "मोडेलहरू",
-    "history": "हिस्ट्री",
     "stats": "तथ्याङ्क",
     "debug": "डिबग"
   },
@@ -470,7 +469,8 @@
     "dictionary": {
       "tabs": {
         "dictionary": "शब्दकोश",
-        "snippets": "स्निपेटहरू"
+        "snippets": "स्निपेटहरू",
+        "history": "हिस्ट्री"
       },
       "addNew": "नयाँ थप्नुहोस्",
       "searchPlaceholder": "खोज्नुहोस्",
