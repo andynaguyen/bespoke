@@ -65,7 +65,6 @@ impl Render for AccessibilityBanner {
         }
         let p = palette(cx);
         div()
-            .max_w(rems(48.))
             .w_full()
             .px_5()
             .py_4()
@@ -183,7 +182,6 @@ impl Render for SecureInputWarning {
         }
         let p = palette(cx);
         div()
-            .max_w(rems(48.))
             .w_full()
             .rounded_2xl()
             .border_1()

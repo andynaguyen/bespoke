@@ -528,7 +528,6 @@ impl Render for AnnotatePage {
             .title(t("annotate.groups.permissions"))
             .children(Permission::ALL.map(|permission| self.permission_row(permission, cx)));
         div()
-            .max_w(rems(48.))
             .w_full()
             .flex()
             .flex_col()

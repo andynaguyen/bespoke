@@ -632,13 +632,7 @@ impl Render for HistoryPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let header = self.render_header(cx);
-        let root = div()
-            .max_w(rems(48.))
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(header);
+        let root = div().w_full().flex().flex_col().gap_2().child(header);
 
         if self.loading || self.entries.is_empty() {
             return root.child(

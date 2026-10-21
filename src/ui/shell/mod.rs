@@ -447,33 +447,39 @@ impl MainWindow {
                                             .size_full()
                                             .overflow_y_scroll()
                                             .track_scroll(&self.scroll)
-                                            .child(
-                                                div()
-                                                    .flex()
-                                                    .flex_col()
-                                                    .items_center()
-                                                    .px_7()
-                                                    .pt_7()
-                                                    .pb_8()
-                                                    .gap_5()
-                                                    .child(
-                                                        div()
-                                                            .max_w(rems(48.))
-                                                            .w_full()
-                                                            .font(serif_font())
-                                                            .text_size(px(28.))
-                                                            .line_height(px(35.))
-                                                            .child(t(self.section.label_key())),
-                                                    )
-                                                    .child(self.accessibility_banner.clone())
-                                                    .child(self.secure_input_warning.clone())
-                                                    .child(self.page.clone()),
-                                            ),
+                                            .child(self.render_page()),
                                     )
                                     .vertical_scrollbar(&self.scroll),
                             ),
                     ),
             )
+    }
+
+    /// The section title, banners and page, centered and at most 48rem wide.
+    fn render_page(&self) -> impl IntoElement {
+        // Centered by a row, where width is the main axis and `max_w` applies
+        // before the height is measured. A column with `items_center`
+        // measured the height at the unclamped width (Taffy 0.9), so text
+        // wrapped onto more lines than measured and the end of the page could
+        // not scroll into view.
+        div().flex().justify_center().px_7().pt_7().pb_8().child(
+            div()
+                .w_full()
+                .max_w(rems(48.))
+                .flex()
+                .flex_col()
+                .gap_5()
+                .child(
+                    div()
+                        .font(serif_font())
+                        .text_size(px(28.))
+                        .line_height(px(35.))
+                        .child(t(self.section.label_key())),
+                )
+                .child(self.accessibility_banner.clone())
+                .child(self.secure_input_warning.clone())
+                .child(self.page.clone()),
+        )
     }
 }
 

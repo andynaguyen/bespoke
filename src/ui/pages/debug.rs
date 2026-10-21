@@ -551,13 +551,7 @@ impl Render for DebugPage {
         }
         group = group.child(self.render_logs(cx));
 
-        div()
-            .max_w(rems(48.))
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap_6()
-            .child(group)
+        div().w_full().flex().flex_col().gap_6().child(group)
     }
 }
 
