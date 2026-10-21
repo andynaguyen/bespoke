@@ -1492,6 +1492,9 @@ impl ScrawlCoordinator {
                         None,
                         activity,
                     );
+                    if let Ok((_, bundle, _)) = &finalized {
+                        crate::host::captured(bundle);
+                    }
                     (finalized, duration_ms)
                 })
                 .await;

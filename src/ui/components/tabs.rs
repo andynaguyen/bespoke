@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, App, ElementId, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, px, AnyElement, App, ElementId, FontWeight, SharedString, Window};
 
 use super::RowDirection;
 use super::{KeyboardFocus, Typography};
@@ -15,6 +15,7 @@ pub struct Tabs {
     tabs: Vec<(SharedString, SharedString)>,
     selected: SharedString,
     on_select: SelectHandler,
+    end: Option<AnyElement>,
 }
 
 impl Tabs {
@@ -30,7 +31,15 @@ impl Tabs {
             tabs,
             selected: selected.into(),
             on_select: Rc::new(on_select),
+            end: None,
         }
+    }
+
+    /// An element at the end of the row, above the underline, like a filter
+    /// for what the tabs show.
+    pub fn end(mut self, element: impl IntoElement) -> Self {
+        self.end = Some(element.into_any_element());
+        self
     }
 }
 
@@ -40,6 +49,7 @@ impl RenderOnce for Tabs {
         div()
             .flex()
             .row_dir()
+            .items_end()
             .gap_6()
             .border_b_1()
             .border_color(p.mid_gray.a(0.2))
@@ -69,5 +79,8 @@ impl RenderOnce for Tabs {
                             .child(label)
                     }),
             )
+            .when_some(self.end, |row, end| {
+                row.child(div().flex_1()).child(div().mb_2().child(end))
+            })
     }
 }

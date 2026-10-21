@@ -5,7 +5,7 @@
 //! `BESPOKE_DEV_SNAPSHOT=/tmp/shots BESPOKE_DEV_PAGES=dictate,settings:system`
 //! opens each page in turn, writes `<dir>/<page>.png`, then quits. Pages are
 //! sidebar sections (`dictate`, `stats`, `models`, `annotate`, `mcp`,
-//! `debug`, `settings`), `settings:<tab>`, `dictate:<tab>`, or
+//! `debug`, `settings`), `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, or
 //! `onboarding:accessibility|model`. A `@<px>` suffix, like `debug@900`,
 //! scrolls the page down before capture, and a `#<n>` suffix presses Tab n
 //! times with focus rings shown.

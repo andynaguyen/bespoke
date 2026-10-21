@@ -43,6 +43,16 @@ fn migrations() -> Migrations<'static> {
     ),
     // Null for backfilled rows and platforms that can't detect the focused app.
     M::up("ALTER TABLE usage_stats ADD COLUMN app_name TEXT;"),
+    // Annotate captures. Their own table keeps them out of the dictation streak.
+    M::up(
+        "CREATE TABLE annotate_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            mark_count INTEGER NOT NULL,
+            app_name TEXT
+        );",
+    ),
     ])
 }
 
@@ -119,6 +129,29 @@ pub struct DailyUsage {
     /// Distinct apps dictated into. 0 when no dictation recorded an app.
     pub apps_used: i64,
     /// App that received the most words, or None when no app was recorded.
+    pub top_app: Option<String>,
+}
+
+/// One finished Annotate capture.
+#[derive(Clone, Debug)]
+pub struct CaptureUsage {
+    /// Unix seconds when the recording started.
+    pub timestamp: i64,
+    pub duration_ms: i64,
+    pub marks: i64,
+    /// The app recorded. None for a whole display or an area.
+    pub app_name: Option<String>,
+}
+
+/// Annotate totals for one local calendar day. Days without captures are omitted.
+#[derive(Clone, Debug)]
+pub struct DailyCaptures {
+    /// YYYY-MM-DD in the user's local timezone.
+    pub date: String,
+    pub captures: i64,
+    pub duration_ms: i64,
+    pub marks: i64,
+    /// App captured most often, or None when no capture recorded an app.
     pub top_app: Option<String>,
 }
 
@@ -724,6 +757,104 @@ impl HistoryManager {
         Ok(days)
     }
 
+    /// Record one finished Annotate capture for the stats page.
+    pub fn record_capture(&self, capture: &CaptureUsage) -> Result<()> {
+        let conn = self.get_connection()?;
+        Self::record_capture_with_conn(&conn, capture)
+    }
+
+    fn record_capture_with_conn(conn: &Connection, capture: &CaptureUsage) -> Result<()> {
+        conn.execute(
+            "INSERT INTO annotate_usage (timestamp, duration_ms, mark_count, app_name)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                capture.timestamp,
+                capture.duration_ms,
+                capture.marks,
+                capture.app_name
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Seed Annotate stats from the captures `load` finds on disk, while none
+    /// are recorded yet: captures made before Bespoke counted them, or before
+    /// an update added the table. Returns how many were recorded.
+    pub fn seed_captures(&self, load: impl FnOnce() -> Vec<CaptureUsage>) -> Result<usize> {
+        let mut conn = self.get_connection()?;
+        Self::seed_captures_with_conn(&mut conn, load)
+    }
+
+    fn seed_captures_with_conn(
+        conn: &mut Connection,
+        load: impl FnOnce() -> Vec<CaptureUsage>,
+    ) -> Result<usize> {
+        let recorded: bool =
+            conn.query_row("SELECT EXISTS (SELECT 1 FROM annotate_usage)", [], |row| {
+                row.get(0)
+            })?;
+        if recorded {
+            return Ok(0);
+        }
+        let captures = load();
+        let tx = conn.transaction()?;
+        for capture in &captures {
+            Self::record_capture_with_conn(&tx, capture)?;
+        }
+        tx.commit()?;
+        Ok(captures.len())
+    }
+
+    /// Per-day Annotate captures, oldest first.
+    pub fn get_daily_captures(&self) -> Result<Vec<DailyCaptures>> {
+        let conn = self.get_connection()?;
+        Self::get_daily_captures_with_conn(&conn)
+    }
+
+    fn get_daily_captures_with_conn(conn: &Connection) -> Result<Vec<DailyCaptures>> {
+        let mut stmt = conn.prepare(
+            "SELECT
+                date(timestamp, 'unixepoch', 'localtime') AS day,
+                COUNT(*),
+                SUM(duration_ms),
+                SUM(mark_count)
+             FROM annotate_usage
+             GROUP BY day
+             ORDER BY day",
+        )?;
+        let mut days = stmt
+            .query_map([], |row| {
+                Ok(DailyCaptures {
+                    date: row.get(0)?,
+                    captures: row.get(1)?,
+                    duration_ms: row.get(2)?,
+                    marks: row.get(3)?,
+                    top_app: None,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        // Each day's apps, most captures first, so the first row per day is its top app.
+        let mut stmt = conn.prepare(
+            "SELECT
+                date(timestamp, 'unixepoch', 'localtime') AS day,
+                app_name
+             FROM annotate_usage
+             WHERE app_name IS NOT NULL
+             GROUP BY day, app_name
+             ORDER BY day, COUNT(*) DESC, app_name",
+        )?;
+        let mut top_apps: HashMap<String, String> = HashMap::new();
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            top_apps.entry(row.get(0)?).or_insert(row.get(1)?);
+        }
+        for day in &mut days {
+            day.top_app = top_apps.remove(&day.date);
+        }
+        Ok(days)
+    }
+
     pub async fn toggle_saved_status(&self, id: i64) -> Result<()> {
         let conn = self.get_connection()?;
 
@@ -926,6 +1057,61 @@ mod tests {
         assert_eq!(days[0].top_app.as_deref(), Some("Slack"));
         assert_eq!(days[1].apps_used, 0);
         assert_eq!(days[1].top_app, None);
+    }
+
+    #[test]
+    fn daily_captures_sum_each_day_and_pick_top_app_by_count() {
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        migrations()
+            .to_latest(&mut conn)
+            .expect("migrate to latest");
+        let day = 1_788_264_000; // Noon UTC, so every timezone sees the same date.
+        let record = |timestamp, duration_ms, marks, app: Option<&str>| {
+            let capture = CaptureUsage {
+                timestamp,
+                duration_ms,
+                marks,
+                app_name: app.map(str::to_string),
+            };
+            HistoryManager::record_capture_with_conn(&conn, &capture).expect("record capture");
+        };
+        record(day, 30_000, 2, Some("Slack"));
+        record(day + 60, 10_000, 0, Some("Ghostty"));
+        record(day + 120, 20_000, 3, Some("Slack"));
+        record(day + 2 * 86_400, 5_000, 1, None);
+
+        let days = HistoryManager::get_daily_captures_with_conn(&conn).expect("daily captures");
+        assert_eq!(days.len(), 2);
+        assert_eq!(
+            (days[0].captures, days[0].duration_ms, days[0].marks),
+            (3, 60_000, 5)
+        );
+        assert_eq!(days[0].top_app.as_deref(), Some("Slack"));
+        assert_eq!(days[1].top_app, None);
+    }
+
+    #[test]
+    fn seed_captures_loads_only_while_none_are_recorded() {
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        migrations()
+            .to_latest(&mut conn)
+            .expect("migrate to latest");
+        let capture = CaptureUsage {
+            timestamp: 1_788_264_000,
+            duration_ms: 1_000,
+            marks: 1,
+            app_name: None,
+        };
+
+        let seeded =
+            HistoryManager::seed_captures_with_conn(&mut conn, || vec![capture.clone(); 2])
+                .expect("seed captures");
+        assert_eq!(seeded, 2);
+        let seeded = HistoryManager::seed_captures_with_conn(&mut conn, || {
+            unreachable!("the table already has captures")
+        })
+        .expect("seed captures");
+        assert_eq!(seeded, 0);
     }
 
     #[test]

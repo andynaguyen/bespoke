@@ -39,7 +39,7 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> AnyView {
     }
 }
 
-/// Switches a page's tab by id (Settings tabs, Dictate tabs), for dev
+/// Switches a page's tab by id (Settings, Dictate and Stats tabs), for dev
 /// snapshots.
 #[cfg(debug_assertions)]
 pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) {
@@ -47,5 +47,7 @@ pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) 
         settings.update(cx, |page, cx| page.select_tab(tab, cx));
     } else if let Ok(dictate) = page.clone().downcast::<dictate::DictatePage>() {
         dictate.update(cx, |page, cx| page.select_tab(tab, window, cx));
+    } else if let Ok(stats) = page.clone().downcast::<stats::StatsPage>() {
+        stats.update(cx, |page, cx| page.select_tab(tab, cx));
     }
 }

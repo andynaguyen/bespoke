@@ -24,7 +24,7 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 
 ## Changes
 
-- `host.rs` (new) is the seam to Bespoke: data and log paths, menu actions, shortcut presses, and the reads and writes behind the Annotate page.
+- `host.rs` (new) is the seam to Bespoke: data and log paths, menu actions, shortcut presses, the reads and writes behind the Annotate page, and the length, marks and app of each finished capture for Bespoke's Stats page (`on_capture`, and `finished_captures` for the ones already on disk). `finish_recording` in `ui.rs` reports each capture once its bundle is written.
 - `permissions.rs` (new) reads the Screen Recording, Microphone and Accessibility grants. Upstream read them in its onboarding code.
 - Shortcuts: Bespoke owns the global shortcuts and forwards presses to `host::press`. The Carbon hotkeys are gone. The key tap still matches the record combo, and `emit_capture_shortcut` drops the second report of one press.
 - `ui.rs`: `start` replaces `run_app` and runs inside Bespoke's GPUI app. Every "Settings" button opens Bespoke's Annotate page through `host::open_settings`.

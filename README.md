@@ -74,7 +74,7 @@ BESPOKE_DEV_THEME=dark \
 cargo run
 ```
 
-Pages are sidebar sections, `settings:<tab>`, `dictate:<tab>`, `onboarding:accessibility|model` and `overlay:<state>` (see `ui::overlay::dev_preview`). An `@<px>` suffix scrolls the page first. `#<n>` presses Tab n times with focus rings shown, and focus carries over between pages. `BESPOKE_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. Snapshots work on macOS only, and they keep working with the screen locked.
+Pages are sidebar sections, `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, `onboarding:accessibility|model` and `overlay:<state>` (see `ui::overlay::dev_preview`). An `@<px>` suffix scrolls the page first. `#<n>` presses Tab n times with focus rings shown, and focus carries over between pages. `BESPOKE_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. Snapshots work on macOS only, and they keep working with the screen locked.
 
 ## GPUI layout notes
 

@@ -194,6 +194,10 @@ impl Capture {
         self.bundle.keyframes.len()
     }
 
+    pub(crate) fn finished(&self) -> crate::host::Finished {
+        crate::host::Finished::of(&self.bundle)
+    }
+
     pub fn note(&self) -> Option<&str> {
         self.bundle
             .note

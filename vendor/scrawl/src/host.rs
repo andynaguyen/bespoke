@@ -1,12 +1,14 @@
 //! The seam between Scrawl and the app it runs in (Bespoke, which calls it Annotate). The host
 //! picks where captures, the config and the log go, registers the two shortcuts itself and
-//! forwards their presses, sends its tray menu's Annotate items, and shows its own settings page
-//! wherever Scrawl would open its Settings or welcome window.
+//! forwards their presses, sends its tray menu's Annotate items, counts finished captures for its
+//! stats, and shows its own settings page wherever Scrawl would open its Settings or welcome
+//! window.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::capture::{SharedCaptureTelemetry, ShortcutConfig, ShortcutKind};
+use crate::model::ScrawlBundle;
 use crate::ui::MenuAction;
 
 pub struct Paths {
@@ -18,6 +20,7 @@ pub struct Paths {
 
 static PATHS: OnceLock<Paths> = OnceLock::new();
 static OPEN_SETTINGS: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+static ON_CAPTURE: OnceLock<Box<dyn Fn(Finished) + Send + Sync>> = OnceLock::new();
 static TELEMETRY: OnceLock<Arc<SharedCaptureTelemetry>> = OnceLock::new();
 static MENU: OnceLock<(flume::Sender<MenuAction>, flume::Receiver<MenuAction>)> = OnceLock::new();
 /// Bindings that arrived before `start` made the telemetry.
@@ -171,6 +174,51 @@ pub use crate::handoff::Capture;
 /// The folder `Capture::find` and `Capture::recent` look in.
 pub fn captures_dir() -> PathBuf {
     crate::handoff::default_captures_dir()
+}
+
+// MARK: Usage stats for the host
+
+/// What the host's usage stats keep of a finished capture.
+#[derive(Clone, Debug)]
+pub struct Finished {
+    pub created_at_ms: u64,
+    pub duration_ms: u64,
+    /// Ink marks. The laser pointer leaves none.
+    pub marks: usize,
+    /// The app recorded, or `None` for a whole display or an area.
+    pub app: Option<String>,
+}
+
+impl Finished {
+    pub(crate) fn of(bundle: &ScrawlBundle) -> Self {
+        Self {
+            created_at_ms: bundle.created_at_ms,
+            duration_ms: bundle.duration_ms,
+            marks: bundle.marks.len(),
+            app: bundle.target.app.clone(),
+        }
+    }
+}
+
+/// Called once, before `start`. `record` runs on a background thread after each capture's
+/// bundle is written.
+pub fn on_capture(record: impl Fn(Finished) + Send + Sync + 'static) {
+    let _ = ON_CAPTURE.set(Box::new(record));
+}
+
+pub(crate) fn captured(bundle: &ScrawlBundle) {
+    if let Some(record) = ON_CAPTURE.get() {
+        record(Finished::of(bundle));
+    }
+}
+
+/// The captures still in the captures folder, for counting the ones made before the host
+/// started recording them. Reads every manifest, so call it off the UI thread.
+pub fn finished_captures() -> Vec<Finished> {
+    Capture::recent(&captures_dir(), usize::MAX)
+        .iter()
+        .map(Capture::finished)
+        .collect()
 }
 
 // MARK: The host's settings page

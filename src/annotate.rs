@@ -1,14 +1,17 @@
 //! Annotate: Scrawl's screen, voice and ink capture (`vendor/scrawl`), running inside Bespoke.
 //! Bespoke registers its two shortcuts like any other binding and forwards their presses, keeps
-//! Scrawl's captures and config under its own data folder, and shows the Annotate page wherever
-//! Scrawl would open its own Settings or welcome window. `mcp` serves the captures to coding
-//! agents.
+//! Scrawl's captures and config under its own data folder, counts the captures for the Stats
+//! page, and shows the Annotate page wherever Scrawl would open its own Settings or welcome
+//! window. `mcp` serves the captures to coding agents.
 
 pub mod mcp;
+
+use std::sync::Arc;
 
 use gpui::App;
 
 use crate::app_handle::AppHandle;
+use crate::managers::history::{CaptureUsage, HistoryManager};
 use crate::settings::{get_settings, AppSettings};
 use crate::ui::shell::Section;
 
@@ -37,9 +40,44 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     scrawl::host::configure(scrawl::host::Paths { data_dir, log_dir }, move || {
         ui.with_ui(|cx| crate::ui::show_section(Section::Annotate, cx));
     });
+    count_captures(app);
     sync_shortcuts(&get_settings(app));
     scrawl::start(cx);
     mcp::sync(app);
+}
+
+/// Records each finished capture for the Stats page. Until one is recorded, it also counts the
+/// captures already on disk, which Annotate made before it kept stats.
+fn count_captures(app: &AppHandle) {
+    let history = Arc::clone(&app.state::<Arc<HistoryManager>>());
+    let seed = Arc::clone(&history);
+    scrawl::host::on_capture(move |capture| {
+        if let Err(e) = history.record_capture(&capture_usage(capture)) {
+            log::error!("Failed to record Annotate usage: {e}");
+        }
+    });
+    crate::runtime::spawn_blocking(move || {
+        let load = || {
+            scrawl::host::finished_captures()
+                .into_iter()
+                .map(capture_usage)
+                .collect()
+        };
+        match seed.seed_captures(load) {
+            Ok(0) => {}
+            Ok(count) => log::info!("Counted {count} Annotate captures already on disk"),
+            Err(e) => log::error!("Failed to count Annotate captures on disk: {e}"),
+        }
+    });
+}
+
+fn capture_usage(capture: scrawl::host::Finished) -> CaptureUsage {
+    CaptureUsage {
+        timestamp: (capture.created_at_ms / 1000) as i64,
+        duration_ms: capture.duration_ms as i64,
+        marks: capture.marks as i64,
+        app_name: capture.app,
+    }
 }
 
 /// A press of one of the Annotate bindings. Releases are ignored: Scrawl polls the modifiers to

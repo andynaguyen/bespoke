@@ -501,6 +501,14 @@
       "wordsPerMinute": "Words per minute",
       "totalWords": "Words dictated",
       "transcriptions": "Dictations",
+      "captures": "Captures",
+      "timeRecorded": "Time recorded",
+      "marksDrawn": "Marks drawn",
+      "duration": {
+        "seconds": "{{seconds}}s",
+        "minutesSeconds": "{{minutes}}m {{seconds}}s",
+        "hoursMinutes": "{{hours}}h {{minutes}}m"
+      },
       "streak_one": "{{count}} day streak",
       "streak_other": "{{count}} day streak",
       "longestStreak_one": "Longest streak: {{count}} day",
@@ -508,7 +516,9 @@
       "dayPopover": {
         "words": "Total words",
         "appsUsed": "Total apps used",
-        "topApp": "Top app"
+        "topApp": "Top app",
+        "captures": "Captures",
+        "timeRecorded": "Time recorded"
       },
       "less": "Less",
       "more": "More"
