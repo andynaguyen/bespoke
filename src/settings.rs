@@ -554,6 +554,9 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Serves Annotate captures to coding agents over MCP (`annotate::mcp`).
+    #[serde(default)]
+    pub annotate_mcp_enabled: bool,
 }
 
 fn default_model() -> String {
@@ -1063,6 +1066,7 @@ pub fn get_default_settings() -> AppSettings {
         vad_enabled: default_vad_enabled(),
         vad_backend: VadBackend::default(),
         overlay_style: default_overlay_style(),
+        annotate_mcp_enabled: false,
     }
 }
 

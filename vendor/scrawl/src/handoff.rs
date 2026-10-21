@@ -1,8 +1,8 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use serde::{Deserialize, Serialize};
 
 use crate::model::ScrawlBundle;
@@ -100,6 +100,202 @@ pub fn load_bundle(bundle_dir: &Path) -> Result<(PathBuf, ScrawlBundle)> {
     )
     .with_context(|| format!("Invalid bundle manifest: {}", path.display()))?;
     Ok((directory, bundle))
+}
+
+/// A capture as the host's MCP server reads it for an agent, which may run on another machine.
+pub struct Capture {
+    dir: PathBuf,
+    bundle: ScrawlBundle,
+}
+
+impl Capture {
+    /// The capture `reference` names in `captures`: `latest`, an id like
+    /// `scrawl-1792561826739-14c29-6`, or a path from a paste, which may be another machine's
+    /// path to the same bundle or a file inside it. Only the `.scrawl` folder's name counts, so
+    /// a reference can't reach outside `captures`.
+    pub fn find(captures: &Path, reference: &str) -> Result<Self> {
+        let reference = reference.trim();
+        if reference.is_empty() || reference == "latest" {
+            return Self::load(&newest_bundle(captures)?);
+        }
+        let names: Vec<_> = Path::new(reference)
+            .components()
+            .filter_map(|part| match part {
+                Component::Normal(name) => Some(name),
+                _ => None,
+            })
+            .collect();
+        let name = match names
+            .iter()
+            .rev()
+            .find(|name| Path::new(name).extension().is_some_and(|ext| ext == "scrawl"))
+        {
+            Some(name) => name.to_os_string(),
+            None if names.len() == 1 => {
+                let mut name = names[0].to_os_string();
+                name.push(".scrawl");
+                name
+            }
+            None => bail!("Not a capture: {reference}"),
+        };
+        let dir = captures.join(&name);
+        ensure!(
+            dir.join("scrawl.json").is_file(),
+            "No capture named {}",
+            Path::new(&name).with_extension("").display()
+        );
+        Self::load(&dir)
+    }
+
+    /// Up to `limit` captures, newest first. Skips bundles whose manifest doesn't load.
+    pub fn recent(captures: &Path, limit: usize) -> Vec<Self> {
+        let Ok(entries) = fs::read_dir(captures) else {
+            return Vec::new();
+        };
+        let mut found: Vec<_> = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "scrawl"))
+            .filter_map(|path| Self::load(&path).ok())
+            .collect();
+        found.sort_by_key(|capture| std::cmp::Reverse(capture.bundle.created_at_ms));
+        found.truncate(limit);
+        found
+    }
+
+    fn load(dir: &Path) -> Result<Self> {
+        let (dir, bundle) = load_bundle(dir)?;
+        Ok(Self { dir, bundle })
+    }
+
+    /// The folder's name without `.scrawl`, like `scrawl-1792561826739-14c29-6`.
+    pub fn id(&self) -> String {
+        self.dir
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    }
+
+    pub fn created_at_ms(&self) -> u64 {
+        self.bundle.created_at_ms
+    }
+
+    /// Like `0:16`.
+    pub fn duration(&self) -> String {
+        crate::model::format_clock(self.bundle.duration_ms)
+    }
+
+    /// The app and window recorded, like `Slack “Inbox”`, or `Display`.
+    pub fn target(&self) -> String {
+        crate::sketch::target_label(&self.bundle.target)
+    }
+
+    pub fn keyframe_count(&self) -> usize {
+        self.bundle.keyframes.len()
+    }
+
+    pub fn note(&self) -> Option<&str> {
+        self.bundle
+            .note
+            .as_deref()
+            .map(str::trim)
+            .filter(|note| !note.is_empty())
+    }
+
+    /// `summary.md`, with the id where the bundle path goes: the path is this Mac's, and the
+    /// agent reading it may run elsewhere.
+    pub fn summary(&self) -> String {
+        crate::sketch::summary_markdown(&self.bundle, Path::new(&self.id()))
+    }
+
+    /// The contact sheet, uncropped when `full` and the capture was cropped.
+    pub fn contact_sheet(&self, full: bool) -> Result<PathBuf> {
+        match &self.bundle.autocrop {
+            Some(crop) if full => self.full_size_file(&crop.full_contact_sheet),
+            _ => self.file(&self.bundle.contact_sheet),
+        }
+    }
+
+    /// Keyframe `#index` as a label like `#3 (0:10)` and its image, uncropped when `full` and
+    /// the capture was cropped.
+    pub fn keyframe(&self, index: usize, full: bool) -> Result<(String, PathBuf)> {
+        let keyframes = &self.bundle.keyframes;
+        let Some(keyframe) = keyframes.iter().find(|keyframe| keyframe.index == index) else {
+            match (keyframes.first(), keyframes.last()) {
+                (Some(first), Some(last)) => bail!(
+                    "No keyframe #{index}. This capture has #{} to #{}.",
+                    first.index,
+                    last.index
+                ),
+                _ => bail!("This capture has no keyframes."),
+            }
+        };
+        let label = format!(
+            "#{index} ({})",
+            crate::model::format_clock(keyframe.t)
+        );
+        let path = match &self.bundle.autocrop {
+            Some(crop) if full => {
+                let name = Path::new(&keyframe.file)
+                    .file_name()
+                    .context("Keyframe has no file name")?;
+                self.full_size_file(&Path::new(&crop.full_frames).join(name).to_string_lossy())?
+            }
+            _ => self.file(&keyframe.file)?,
+        };
+        Ok((label, path))
+    }
+
+    /// `scrawl.json` as compact JSON, without `cursor`, `windows` and the strokes' `pts` unless
+    /// `include` names them. They are most of the file and rarely help an agent.
+    pub fn manifest(&self, include: &[&str]) -> Result<String> {
+        let path = self.dir.join("scrawl.json");
+        let mut manifest: serde_json::Value = serde_json::from_slice(
+            &fs::read(&path).with_context(|| format!("Could not read {}", path.display()))?,
+        )?;
+        let object = manifest
+            .as_object_mut()
+            .context("scrawl.json isn't an object")?;
+        for key in ["cursor", "windows"] {
+            if !include.contains(&key) {
+                object.remove(key);
+            }
+        }
+        if !include.contains(&"strokes")
+            && let Some(strokes) = object
+                .get_mut("strokes")
+                .and_then(serde_json::Value::as_array_mut)
+        {
+            for stroke in strokes.iter_mut().filter_map(serde_json::Value::as_object_mut) {
+                stroke.remove("pts");
+            }
+        }
+        Ok(serde_json::to_string(&manifest)?)
+    }
+
+    /// A file the manifest names, which must stay inside the bundle.
+    fn file(&self, relative: &str) -> Result<PathBuf> {
+        let relative = Path::new(relative);
+        ensure!(
+            relative
+                .components()
+                .all(|part| matches!(part, Component::Normal(_))),
+            "Bundle file outside the bundle: {}",
+            relative.display()
+        );
+        let path = self.dir.join(relative);
+        ensure!(path.is_file(), "Missing from the capture: {}", relative.display());
+        Ok(path)
+    }
+
+    /// Like `file`, for the uncropped copies retention trashes with the video.
+    fn full_size_file(&self, relative: &str) -> Result<PathBuf> {
+        self.file(relative).map_err(|_| {
+            anyhow!(
+                "The uncropped images are gone: Annotate deletes them with the video. Ask without full."
+            )
+        })
+    }
 }
 
 pub fn copy_string_to_clipboard(content: &str) -> Result<()> {
@@ -382,6 +578,96 @@ mod tests {
         assert_eq!(bundle.created_at_ms, 123);
         fs::write(path.join("scrawl.json"), b"not json").unwrap();
         assert!(load_bundle(&path).is_err());
+    }
+
+    #[test]
+    fn finds_a_capture_by_id_path_or_latest_and_never_outside_the_folder() {
+        let fixture = Fixture::new();
+        fixture.bundle("scrawl-1-a", 100);
+        fixture.bundle("scrawl-2-b", 200);
+        let id = |reference: &str| Capture::find(&fixture.0, reference).map(|c| c.id());
+
+        assert_eq!(id("latest").unwrap(), "scrawl-2-b");
+        assert_eq!(id("").unwrap(), "scrawl-2-b");
+        assert_eq!(id("scrawl-1-a").unwrap(), "scrawl-1-a");
+        assert_eq!(id("scrawl-1-a.scrawl").unwrap(), "scrawl-1-a");
+        // Another machine's path to the same bundle, or a file inside it.
+        assert_eq!(
+            id("/Users/someone/Library/Application Support/x/captures/scrawl-1-a.scrawl").unwrap(),
+            "scrawl-1-a"
+        );
+        assert_eq!(
+            id("/elsewhere/scrawl-1-a.scrawl/contact-sheet.png").unwrap(),
+            "scrawl-1-a"
+        );
+
+        assert!(id("scrawl-9-z").is_err());
+        assert!(id("..").is_err());
+        assert!(id("../scrawl-1-a/../../etc").is_err());
+        // A bundle outside the folder resolves to the folder's copy, which doesn't exist.
+        let outside = Fixture::new();
+        let elsewhere = outside.bundle("scrawl-3-c", 300);
+        assert!(id(&elsewhere.display().to_string()).is_err());
+    }
+
+    #[test]
+    fn lists_recent_captures_newest_first() {
+        let fixture = Fixture::new();
+        fixture.bundle("scrawl-1-a", 100);
+        fixture.bundle("scrawl-3-c", 300);
+        fixture.bundle("scrawl-2-b", 200);
+        fs::create_dir_all(fixture.0.join("broken.scrawl")).unwrap();
+
+        let ids: Vec<_> = Capture::recent(&fixture.0, 2)
+            .iter()
+            .map(Capture::id)
+            .collect();
+        assert_eq!(ids, ["scrawl-3-c", "scrawl-2-b"]);
+        assert!(Capture::recent(&fixture.0.join("missing"), 10).is_empty());
+    }
+
+    #[test]
+    fn reads_keyframes_sheets_and_a_trimmed_manifest() {
+        let fixture = Fixture::new();
+        let dir = fixture.bundle("scrawl-1-a", 100);
+        fs::write(dir.join("contact-sheet.png"), b"sheet").unwrap();
+        let capture = Capture::find(&fixture.0, "scrawl-1-a").unwrap();
+
+        assert!(capture.summary().starts_with("[scrawl 0:07 · Display · scrawl-1-a]"));
+        assert!(capture.contact_sheet(false).unwrap().ends_with("contact-sheet.png"));
+        // Without autocrop the frames are already full size.
+        assert!(capture.contact_sheet(true).unwrap().ends_with("contact-sheet.png"));
+        let (label, path) = capture.keyframe(3, true).unwrap();
+        assert_eq!(label, "#3 (0:04)");
+        assert!(path.ends_with("frames/frame-003.png"));
+        assert!(capture.keyframe(9, false).unwrap_err().to_string().contains("#0 to #5"));
+
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.join("scrawl.json")).unwrap()).unwrap();
+        manifest["cursor"] = serde_json::json!([[0, 0.5, 0.5]]);
+        manifest["strokes"] = serde_json::json!([{"t0": 0, "t1": 1, "fw": 1, "fh": 1, "pts": [1, 2]}]);
+        manifest["autocrop"] = serde_json::json!({
+            "label": "Slack", "fullFrames": "frames-full",
+            "fullContactSheet": "contact-sheet-full.png", "crops": []
+        });
+        fs::write(dir.join("scrawl.json"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let capture = Capture::find(&fixture.0, "scrawl-1-a").unwrap();
+
+        let trimmed: serde_json::Value =
+            serde_json::from_str(&capture.manifest(&[]).unwrap()).unwrap();
+        assert!(trimmed.get("cursor").is_none());
+        assert_eq!(trimmed["strokes"], serde_json::json!([{"t0": 0, "t1": 1, "fw": 1, "fh": 1}]));
+        let all: serde_json::Value =
+            serde_json::from_str(&capture.manifest(&["cursor", "strokes"]).unwrap()).unwrap();
+        assert_eq!(all["cursor"], manifest["cursor"]);
+        assert_eq!(all["strokes"], manifest["strokes"]);
+
+        // Retention trashed the uncropped copies.
+        assert!(capture.contact_sheet(true).unwrap_err().to_string().contains("gone"));
+        assert!(capture.keyframe(3, true).is_err());
+        fs::create_dir_all(dir.join("frames-full")).unwrap();
+        fs::write(dir.join("frames-full/frame-003.png"), b"full").unwrap();
+        assert!(capture.keyframe(3, true).unwrap().1.ends_with("frames-full/frame-003.png"));
     }
 
     #[test]

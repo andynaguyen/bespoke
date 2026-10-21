@@ -164,6 +164,15 @@ fn named_key(name: &str) -> Option<(u32, String)> {
     Some((code, label.to_owned()))
 }
 
+// MARK: Captures for the host's MCP server
+
+pub use crate::handoff::Capture;
+
+/// The folder `Capture::find` and `Capture::recent` look in.
+pub fn captures_dir() -> PathBuf {
+    crate::handoff::default_captures_dir()
+}
+
 // MARK: The host's settings page
 
 pub use crate::mic::{Input as Microphone, Inputs as Microphones};

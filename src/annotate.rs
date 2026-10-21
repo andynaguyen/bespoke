@@ -1,7 +1,10 @@
 //! Annotate: Scrawl's screen, voice and ink capture (`vendor/scrawl`), running inside Bespoke.
 //! Bespoke registers its two shortcuts like any other binding and forwards their presses, keeps
 //! Scrawl's captures and config under its own data folder, and shows the Annotate page wherever
-//! Scrawl would open its own Settings or welcome window.
+//! Scrawl would open its own Settings or welcome window. `mcp` serves the captures to coding
+//! agents.
+
+pub mod mcp;
 
 use gpui::App;
 
@@ -36,6 +39,7 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     });
     sync_shortcuts(&get_settings(app));
     scrawl::start(cx);
+    mcp::sync(app);
 }
 
 /// A press of one of the Annotate bindings. Releases are ignored: Scrawl polls the modifiers to

@@ -446,21 +446,23 @@ pub fn timeline(bundle: &ScrawlBundle) -> Vec<String> {
     items.into_iter().map(|item| item.1).collect()
 }
 
-pub fn summary_markdown(bundle: &ScrawlBundle, bundle_dir: &std::path::Path) -> String {
-    let mut target = bundle
-        .target
-        .app
-        .clone()
-        .unwrap_or_else(|| "Display".into());
-    if let Some(title) = &bundle.target.window_title
+/// The app and window recorded, like `Slack “Inbox”`, or `Display`.
+pub fn target_label(target: &TargetInfo) -> String {
+    let mut label = target.app.clone().unwrap_or_else(|| "Display".into());
+    if let Some(title) = &target.window_title
         && !title.is_empty()
-        && Some(title.as_str()) != bundle.target.app.as_deref()
+        && Some(title.as_str()) != target.app.as_deref()
     {
-        target.push_str(&format!(" “{title}”"));
+        label.push_str(&format!(" “{title}”"));
     }
+    label
+}
+
+pub fn summary_markdown(bundle: &ScrawlBundle, bundle_dir: &std::path::Path) -> String {
     let mut out = format!(
-        "[scrawl {} · {target} · {}]\n",
+        "[scrawl {} · {} · {}]\n",
         format_clock(bundle.duration_ms),
+        target_label(&bundle.target),
         bundle_dir.display()
     );
     if let Some(note) = &bundle.note

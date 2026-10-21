@@ -18,7 +18,7 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 
 - The CLI (`main.rs`, `command_line.rs`), Sparkle, the menu bar item, onboarding, and the Rust and SwiftUI settings windows. Bespoke's Annotate page and its tray submenu replace them.
 - The iPhone mirror (`phone.rs`, `Mirror.swift`, ScrawlKit in `Sources/`). The hold switcher steps between Screen and Window only.
-- Sending captures to agents: OpenCode routing and delivery (`routing/`, `delivery.rs`, `inbox.rs`, `web.rs`, `page.rs`, `sdk.js`), Hex, and the accessibility context (`agent_context.rs`, `ax.rs`). Captures go to the clipboard only.
+- Sending captures to agents: OpenCode routing and delivery (`routing/`, `delivery.rs`, `inbox.rs`, `web.rs`, `page.rs`, `sdk.js`), Hex, and the accessibility context (`agent_context.rs`, `ax.rs`). Captures go to the clipboard, and Bespoke's own MCP server (`src/annotate/mcp.rs`) serves them to agents.
 - Experiments and tools: live transcription, the pill lab, the GPUI capsule fallback, tune and trace output, video export (`export/`, `Export.swift`), `zoom.rs`, and the autocrop playground.
 - All Windows code.
 
@@ -30,6 +30,7 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 - `ui.rs`: `start` replaces `run_app` and runs inside Bespoke's GPUI app. Every "Settings" button opens Bespoke's Annotate page through `host::open_settings`.
 - `ui/macos.rs`: the picker panel orders front without becoming key, and `focus_picker_soon` makes it key once Bespoke is active. Making a nonactivating panel key while the app is inactive sends Bespoke's main window a stray `windowDidBecomeKey`, and GPUI deadlocks re-entering its own window lock. For the same reason, Bespoke's swizzle in `src/ui/platform.rs` refuses key status only to its recording overlay. `hand_back_keys` reactivates another app only when Annotate took the keys from it. The picker is found by its own window number. Upstream took the first large window in the app, which in Bespoke can be the hidden main window.
 - `handoff.rs`, `capture.rs`: captures and `config.json` live in Bespoke's `annotate/` data folder, and the log is `annotate.log` in Bespoke's log folder.
+- `handoff.rs`: `Capture` (new, re-exported by `host.rs`) reads a bundle for Bespoke's MCP server. `Capture::find` takes an id, `latest`, or another machine's path to the bundle, and looks only inside the captures folder. `sketch.rs`: `target_label` moved out of `summary_markdown` so `Capture` can use it.
 - `mic.rs`, `audio.rs`: cpal 0.16 instead of 0.18, because Bespoke's rodio pins it and two cpal versions both link `alsa-sys`. Device ids stay CoreAudio UIDs, read from CoreAudio and matched to cpal's devices by name.
 - `laser_overlay.rs`, `native/pill/mod.rs`: the Metal shaders compile from source at launch, like GPUI's `runtime_shaders`, so the build needs no Metal toolchain.
 - `native/pill/types.rs`: `PillStyle::current` reads `config.json` once a second instead of every frame.

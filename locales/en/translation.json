@@ -797,6 +797,7 @@
       "shortcuts": "Shortcuts",
       "recording": "Recording",
       "storage": "Storage",
+      "agents": "Agents",
       "permissions": "Permissions"
     },
     "howItWorks": {
@@ -843,6 +844,32 @@
       "measuring": "Measuring…",
       "openLatest": "Open Latest",
       "showInFinder": "Show in Finder"
+    },
+    "agents": {
+      "access": {
+        "title": "Agent Access",
+        "description": "Coding agents read your captures from an MCP server on this Mac, on port {{port}}. Each request needs the token in the Claude Code command.",
+        "failed": "The server didn't start: {{error}}"
+      },
+      "claudeCode": {
+        "title": "Claude Code",
+        "description": "Run this command wherever Claude Code runs, on this Mac or a remote machine. It contains the token, so keep it private.",
+        "copy": "Copy Command"
+      },
+      "remote": {
+        "title": "Remote Machines",
+        "description": "Add {{line}} to the host's entry in this Mac's ~/.ssh/config, then reconnect. Claude Code on that machine reaches this Mac through the tunnel.",
+        "copy": "Copy Line"
+      },
+      "token": {
+        "title": "Token",
+        "description": "A new token cuts off every machine you added until you run the new command there.",
+        "renew": "New Token",
+        "renewed": "New token made. Copy the command again for each machine.",
+        "failed": "Couldn't make a new token"
+      },
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy"
     },
     "permissions": {
       "granted": "Allowed",
