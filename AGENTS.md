@@ -57,6 +57,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `overlay.rs` - Recording overlay window and view
 - `capsule.rs` - The capsule dictation and Annotate share: its glass surface, live dot, spinner, chips and colors
 - `glass.rs` - Liquid Glass behind GPUI elements: `glass(id, style, radius)` keeps an `NSGlassEffectView` under an element's bounds, below GPUI's Metal view. Anything GPUI paints over that area covers the glass, so leave it unpainted
+- `hover_card.rs` - A hover card on Liquid Glass, like a heatmap day's. Glass can't float over GPUI's drawing in the same window, so the card is one shared transparent window that `show` moves over the anchor
 - `theme.rs` - Palette for light and dark mode, and the corner radii (`radius`)
 
 Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.

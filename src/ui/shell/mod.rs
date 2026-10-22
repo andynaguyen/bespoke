@@ -240,6 +240,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         if self.section != section {
+            crate::ui::hover_card::hide(cx);
             self.section = section;
             self.page = pages::build(section, window, cx);
         }

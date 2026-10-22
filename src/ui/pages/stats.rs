@@ -7,26 +7,24 @@ use std::sync::Arc;
 
 use chrono::{Datelike, Duration, Local, NaiveDate};
 use gpui::{
-    anchored, deferred, div, ease_out_quint, point, prelude::*, px, rems, Animation, AnimationExt,
-    Context, Corner, FocusHandle, FontWeight, Hsla, KeyDownEvent, Pixels, SharedString, Window,
+    div, prelude::*, px, rems, Bounds, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
+    Pixels, SharedString, Window,
 };
 
 use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_count, t_with};
 use crate::managers::history::{DailyCaptures, DailyUsage, HistoryManager};
 use crate::ui::components::{
-    keyboard_modality, width_tracker, FocusVisible, RowDirection, SegmentedControl, Tooltip,
-    Typography,
+    keyboard_modality, width_tracker, FocusVisible, RowDirection, SegmentedControl, Typography,
 };
 use crate::ui::dates;
 use crate::ui::format::number;
+use crate::ui::hover_card::{self, Card};
 use crate::ui::shell::Toolbar;
 use crate::ui::theme::{palette, Alpha};
 
 const HEATMAP_WEEKS: usize = 20;
 const GAP: f32 = 3.75;
-/// How long a day's card takes to fade and rise into place.
-const CARD_IN: std::time::Duration = std::time::Duration::from_millis(120);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
@@ -248,6 +246,11 @@ pub struct StatsPage {
     /// the pointer leaves the grid, so crossing the gaps between days keeps
     /// the card up.
     hover_date: Option<NaiveDate>,
+    /// The day whose card shows: the hovered one, else the keyboard-focused
+    /// one.
+    card_date: Option<NaiveDate>,
+    /// Each heatmap day's bounds in the window, from the last frame.
+    cell_bounds: HashMap<NaiveDate, Bounds<Pixels>>,
 }
 
 impl StatsPage {
@@ -273,6 +276,8 @@ impl StatsPage {
             grid_width: px(0.),
             focus_date: None,
             hover_date: None,
+            card_date: None,
+            cell_bounds: HashMap::new(),
             cell_focus: HashMap::new(),
         }
     }
@@ -377,8 +382,19 @@ impl StatsPage {
         let rtl = crate::i18n::is_rtl();
         let dates = Arc::new(dates);
 
+        let measured = cx.entity().downgrade();
+        let row_dates: Vec<Vec<Option<NaiveDate>>> = (0..7)
+            .map(|weekday| {
+                weeks
+                    .iter()
+                    .map(|week| week[weekday].map(|(d, _)| d))
+                    .collect()
+            })
+            .collect();
         let rows: Vec<_> = (0..7)
             .map(|weekday| {
+                let measured = measured.clone();
+                let row_dates = row_dates[weekday].clone();
                 let label = if weekday % 2 == 1 {
                     weeks[0][weekday]
                         .map(|(d, _)| dates::short_weekday(d))
@@ -391,6 +407,17 @@ impl StatsPage {
                     .row_dir()
                     .items_center()
                     .gap(px(GAP))
+                    // Where each day sits, to put its card over it. The
+                    // first child is the weekday label.
+                    .on_children_prepainted(move |bounds, _, cx| {
+                        let _ = measured.update(cx, |this, _| {
+                            for (date, bounds) in row_dates.iter().zip(bounds.iter().skip(1)) {
+                                if let Some(date) = date {
+                                    this.cell_bounds.insert(*date, *bounds);
+                                }
+                            }
+                        });
+                    })
                     .child(
                         div()
                             .w(label_width)
@@ -463,47 +490,40 @@ impl StatsPage {
                                 if empty {
                                     return cell.into_any_element();
                                 }
-                                // The hovered day shows its card above the cell,
-                                // and so does the keyboard-focused one.
-                                let shown = self.hover_date == Some(date)
-                                    || (show_focused_card && focused == Some(date));
-                                let card = shown.then(|| {
-                                    deferred(
-                                        anchored()
-                                            .anchor(Corner::BottomLeft)
-                                            .offset(point(px(0.), px(-6.)))
-                                            .snap_to_window_with_margin(px(8.))
-                                            .child(
-                                                div()
-                                                    .child(day_popover(
-                                                        date,
-                                                        popover_rows(date),
-                                                        cx,
-                                                    ))
-                                                    .with_animation(
-                                                        SharedString::from(format!(
-                                                            "day-card-{date}"
-                                                        )),
-                                                        Animation::new(CARD_IN)
-                                                            .with_easing(ease_out_quint()),
-                                                        |card, t| {
-                                                            card.opacity(t).mt(px(4. * (1. - t)))
-                                                        },
-                                                    ),
-                                            ),
-                                    )
-                                    .with_priority(1)
-                                });
-                                cell.when(self.hover_date == Some(date), |el| {
-                                    el.border_1().border_color(p.text.a(0.6))
-                                })
-                                .children(card)
-                                .into_any_element()
+                                let marked = self.card_date == Some(date);
+                                cell.when(marked, |el| el.border_1().border_color(p.text.a(0.6)))
+                                    .into_any_element()
                             }
                         }
                     }))
             })
             .collect();
+
+        // The card floats in its own window over the day (`ui::hover_card`),
+        // so its glass shows over the grid.
+        let active = |date: &NaiveDate| values.get(date).is_some_and(|v| *v > 0);
+        let card_date = self
+            .hover_date
+            .or(focused.filter(|_| show_focused_card))
+            .filter(active)
+            .filter(|_| window.is_window_active());
+        self.card_date = card_date;
+        let card = card_date.and_then(|date| {
+            let cell = self.cell_bounds.get(&date)?;
+            let anchor = Bounds::new(window.bounds().origin + cell.origin, cell.size);
+            let card = Card {
+                title: dates::long_date(date).into(),
+                rows: popover_rows(date)
+                    .into_iter()
+                    .map(|(label, value)| (label, value.into()))
+                    .collect(),
+            };
+            Some((card, anchor))
+        });
+        cx.defer(move |cx| match card {
+            Some((card, anchor)) => hover_card::show(card, anchor, cx),
+            None => hover_card::hide(cx),
+        });
 
         let tracker = width_tracker(cx.entity().downgrade(), |this: &mut Self| {
             &mut this.grid_width
@@ -776,54 +796,6 @@ fn capture_rows(day: &DailyCaptures) -> Vec<PopoverRow> {
         rows.push((t("settings.stats.dayPopover.topApp"), top_app.clone()));
     }
     rows
-}
-
-/// The hover card for a heatmap day: its date, then `rows`.
-fn day_popover(date: NaiveDate, rows: Vec<PopoverRow>, cx: &mut gpui::App) -> gpui::AnyView {
-    Tooltip::element(
-        move |_, cx| {
-            let p = palette(cx);
-            let row = |(label, value): &PopoverRow| {
-                div()
-                    .flex()
-                    .justify_between()
-                    .row_dir()
-                    .gap_3()
-                    .child(
-                        div()
-                            .text_color(p.text.a(0.6))
-                            .whitespace_nowrap()
-                            .child(label.clone()),
-                    )
-                    .child(
-                        div()
-                            .font_weight(FontWeight::MEDIUM)
-                            .truncate()
-                            .child(value.clone()),
-                    )
-            };
-            div()
-                .xs_text()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .child(
-                    div()
-                        .sm_text()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(dates::long_date(date)),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .children(rows.iter().map(row)),
-                )
-                .into_any_element()
-        },
-        cx,
-    )
 }
 
 #[cfg(test)]

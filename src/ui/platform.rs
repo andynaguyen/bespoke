@@ -247,6 +247,12 @@ mod imp {
                 ])
             }
 
+            /// Gives the window the system shadow, which follows the shape
+            /// of what it draws.
+            pub fn set_shadow(&self, shadow: bool) {
+                self.0.setHasShadow(shadow);
+            }
+
             /// Lets clicks through to the apps below.
             pub fn set_ignores_mouse(&self, ignore: bool) {
                 if self.0.ignoresMouseEvents() != ignore {

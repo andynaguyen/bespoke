@@ -11,6 +11,7 @@ pub mod dev_snapshot;
 pub mod event_bus;
 pub mod format;
 pub mod glass;
+pub mod hover_card;
 pub mod keyboard;
 pub mod languages;
 pub mod model_card;
@@ -226,6 +227,7 @@ pub fn open_main_window(show: bool, cx: &mut App) {
 /// Hides the window instead of closing it; the app keeps running in the
 /// tray. Returns whether the platform should close the window anyway.
 pub fn hide_main_window(window: &mut gpui::Window, cx: &mut App) -> bool {
+    hover_card::hide(cx);
     let hidden = platform::hide_window(window, cx);
     if !hidden {
         let slot = cx.global_mut::<MainWindowSlot>();
