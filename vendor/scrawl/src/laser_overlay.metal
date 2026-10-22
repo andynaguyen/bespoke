@@ -180,12 +180,13 @@ fragment float4 laser_fragment(
         //    BOTH Selecting (`now_sec == 0`) and Recording (`now_sec > 0`), so there is zero window swap or jump.
         //    (`is_device` already renders its own titanium PhoneCaseView bezel.)
         if (!is_device) {
-            float border_w = is_window ? mix(2.0, 1.0, intro_ease) : 1.0;
+            // Bespoke: while recording, the border becomes the live red ring its capsule uses.
+            float border_w = is_window ? 2.0 : mix(1.5, 2.0, intro_ease);
             float border_cov = clamp(border_w + 0.5 + sdf, 0.0, 1.0) * clamp(0.5 - sdf, 0.0, 1.0);
             if (border_cov > 0.001) {
                 float3 picker_border = is_window ? float3(0.357, 0.486, 0.980) : float3(1.0, 1.0, 1.0);
-                float3 border_col = mix(picker_border, float3(1.0, 1.0, 1.0), intro_ease);
-                float border_alpha = border_cov * mix(is_window ? 0.93 : 0.92, 0.28, intro_ease) * picker_fade;
+                float3 border_col = mix(picker_border, float3(1.0, 0.23, 0.19), intro_ease);
+                float border_alpha = border_cov * mix(is_window ? 0.93 : 0.92, 0.8, intro_ease) * picker_fade;
                 out.rgb = border_col * border_alpha + out.rgb * (1.0 - border_alpha);
                 out.a = border_alpha + out.a * (1.0 - border_alpha);
             }

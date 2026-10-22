@@ -1,9 +1,11 @@
 //! Annotate: Scrawl's screen, voice and ink capture (`vendor/scrawl`), running inside Bespoke.
 //! Bespoke registers its two shortcuts like any other binding and forwards their presses, keeps
 //! Scrawl's captures and config under its own data folder, counts the captures for the Stats
-//! page, and shows the Annotate page wherever Scrawl would open its own Settings or welcome
-//! window. `mcp` serves the captures to coding agents.
+//! page, draws the capsule (`capsule`) with the one dictation uses, and shows the Annotate page
+//! wherever Scrawl would open its own Settings or welcome window. `mcp` serves the captures to
+//! coding agents.
 
+pub mod capsule;
 pub mod mcp;
 
 use std::sync::Arc;
@@ -42,6 +44,7 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     });
     count_captures(app);
     sync_shortcuts(&get_settings(app));
+    capsule::init(app);
     scrawl::start(cx);
     mcp::sync(app);
 }

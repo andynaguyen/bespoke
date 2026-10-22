@@ -139,11 +139,11 @@ impl SelectionMode {
     }
 
     /// Modes shown in the HUD, in order.
-    pub(crate) fn available() -> &'static [SelectionMode] {
+    pub fn available() -> &'static [SelectionMode] {
         &Self::ALL
     }
 
-    pub(crate) fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             Self::Area => "Area",
             Self::Window => "Window",
@@ -152,7 +152,7 @@ impl SelectionMode {
     }
 
     /// Screen needs no pointer gesture, so the HUD offers a Record chip for it.
-    pub(crate) fn shows_record(self) -> bool {
+    pub fn shows_record(self) -> bool {
         self == Self::Screen
     }
 
@@ -975,16 +975,10 @@ impl ScrawlCoordinator {
         if self.native_pill.is_some() {
             return;
         }
-        match crate::native::pill::NativePill::open() {
+        // The host adds the capsule's window to the excluded ones once it opens.
+        match crate::native::pill::NativePill::open(Arc::clone(&self.telemetry.excluded_window_ids))
+        {
             Ok(pill) => {
-                let num = pill.window_number();
-                if num > 0 {
-                    self.telemetry
-                        .excluded_window_ids
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)
-                        .push(num);
-                }
                 self.native_pill = Some(pill);
             }
             Err(err) => {
@@ -994,7 +988,7 @@ impl ScrawlCoordinator {
     }
 
     fn pill_snapshot(&self) -> crate::native::pill::PillSnapshot {
-        use crate::native::pill::{PillSnapshot, PillStyle, model::Pres};
+        use crate::native::pill::{PillSnapshot, Pres};
         let recording_ms = self
             .active_recording
             .as_ref()
@@ -1029,7 +1023,7 @@ impl ScrawlCoordinator {
             pres,
             clock,
             reduced_motion: self.reduced_motion,
-            style: PillStyle::current(),
+            shortcut: self.shortcut_label(),
         }
     }
 
@@ -1708,9 +1702,10 @@ impl Render for TargetPickerWindow {
                     .rounded(px(BADGE_H / 2.0))
                     .flex()
                     .items_center()
-                    .bg(rgba(0x1c1c1ef2))
+                    // Bespoke's capsule style: translucent and rimmed.
+                    .bg(rgba(0x16161ac7))
                     .border_1()
-                    .border_color(rgba(0xffffff21))
+                    .border_color(rgba(0xffffff38))
                     .shadow(vec![BoxShadow {
                         color: gpui::hsla(0.0, 0.0, 0.0, 0.3),
                         offset: point(px(0.0), px(2.0)),
@@ -1854,9 +1849,9 @@ impl Render for TargetPickerWindow {
     }
 }
 
-const BADGE_H: f32 = 22.0;
-const BADGE_PX: f32 = 8.0;
-const BADGE_TEXT: f32 = 12.0;
+const BADGE_H: f32 = 28.0;
+const BADGE_PX: f32 = 12.0;
+const BADGE_TEXT: f32 = 12.5;
 const BADGE_GAP: f32 = 8.0;
 const BADGE_MARGIN: f32 = 8.0;
 
@@ -2923,7 +2918,7 @@ mod tests {
             screen,
             BadgeAnchor::Center,
         );
-        assert_eq!([bx, by], [400.0, 289.0]);
+        assert_eq!([bx, by], [400.0, 300.0 - BADGE_H / 2.0]);
 
         let clipped = clip_rect([-300.0, -50.0, 400.0, 200.0], screen);
         assert_eq!(clipped, [0.0, 0.0, 100.0, 150.0]);

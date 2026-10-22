@@ -390,7 +390,8 @@ pub struct Config {
     /// `false` turns Screen-capture auto-crop off; an object overrides its settings.
     #[serde(default)]
     pub autocrop: Option<serde_json::Value>,
-    /// Visual style of the native recording pill: `"black"` (default) or `"glass"` (`NSGlassEffectView`).
+    /// The old Metal capsule's style. The host draws the capsule now and ignores it; kept so
+    /// existing configs round-trip.
     #[serde(default)]
     pub pill_style: Option<String>,
     /// The microphone Mac captures record from (`mic`); absent follows the macOS default.
@@ -448,18 +449,6 @@ fn config_from_value(value: serde_json::Value) -> Config {
     serde_json::from_value(serde_json::Value::Object(kept)).unwrap_or_default()
 }
 
-fn config() -> Config {
-    load_config_from(&default_config_path())
-}
-
-/// Configured capsule style (`pillStyle` in `config.json`, default `"black"`).
-pub fn pill_style() -> crate::native::pill::PillStyle {
-    config()
-        .pill_style
-        .as_deref()
-        .and_then(crate::native::pill::PillStyle::from_str_opt)
-        .unwrap_or(crate::native::pill::PillStyle::Black)
-}
 
 /// Sets one top-level key in `path` (`null` removes it), keeping the rest.
 pub fn set_config_value_in(path: &Path, key: &str, value: serde_json::Value) -> Result<()> {

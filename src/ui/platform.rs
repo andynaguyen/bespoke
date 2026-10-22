@@ -51,6 +51,9 @@ pub use imp::{
 };
 
 #[cfg(target_os = "macos")]
+pub use imp::capsule;
+
+#[cfg(target_os = "macos")]
 mod imp {
     use gpui::Window;
     use objc2::rc::Retained;
@@ -125,6 +128,109 @@ mod imp {
                     let _: () = msg_send![button, setHidden: true];
                 }
             }
+        }
+    }
+
+    /// Calls for a capsule window that floats over every app, like Annotate's.
+    /// Points are global, with the origin at the top left of the main
+    /// display, as Scrawl counts them.
+    pub mod capsule {
+        use gpui::Window;
+        use objc2::rc::Retained;
+        use objc2::MainThreadMarker;
+        use objc2_app_kit::{
+            NSEvent, NSScreen, NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior,
+        };
+        use objc2_foundation::NSPoint;
+
+        /// The main display's height, to flip AppKit's bottom-left y.
+        fn flip_height() -> Option<f64> {
+            let mtm = MainThreadMarker::new()?;
+            let screens = NSScreen::screens(mtm);
+            Some(screens.iter().next()?.frame().size.height)
+        }
+
+        /// A capsule's `NSWindow`, held apart from GPUI's window so the
+        /// capsule's view can move and hide it while GPUI updates that view.
+        #[derive(Clone)]
+        pub struct CapsuleWindow(Retained<NSWindow>);
+
+        impl CapsuleWindow {
+            pub fn of(window: &Window) -> Option<Self> {
+                super::ns_window(window).map(Self)
+            }
+
+            /// Raises the window above other apps' windows on every Space
+            /// and over full-screen apps, and returns its window number.
+            pub fn float(&self) -> u32 {
+                self.0.setLevel(NSStatusWindowLevel + 5);
+                self.0.setCollectionBehavior(
+                    NSWindowCollectionBehavior::CanJoinAllSpaces
+                        | NSWindowCollectionBehavior::FullScreenAuxiliary
+                        | NSWindowCollectionBehavior::Stationary
+                        | NSWindowCollectionBehavior::IgnoresCycle,
+                );
+                self.0.setHidesOnDeactivate(false);
+                self.0.windowNumber().max(0) as u32
+            }
+
+            /// Moves the window so its top-left corner is at `origin`. Runs on
+            /// the next main-thread turn: AppKit reports the move to GPUI
+            /// synchronously, and GPUI cannot take that while the caller holds
+            /// the app.
+            pub fn move_to(&self, origin: [f64; 2], cx: &gpui::App) {
+                let window = self.0.clone();
+                cx.foreground_executor()
+                    .spawn(async move {
+                        if let Some(height) = flip_height() {
+                            window
+                                .setFrameTopLeftPoint(NSPoint::new(origin[0], height - origin[1]));
+                        }
+                    })
+                    .detach();
+            }
+
+            /// The window's frame as `[x, y, width, height]`.
+            pub fn frame(&self) -> Option<[f64; 4]> {
+                let height = flip_height()?;
+                let f = self.0.frame();
+                Some([
+                    f.origin.x,
+                    height - f.origin.y - f.size.height,
+                    f.size.width,
+                    f.size.height,
+                ])
+            }
+
+            /// Lets clicks through to the apps below.
+            pub fn set_ignores_mouse(&self, ignore: bool) {
+                if self.0.ignoresMouseEvents() != ignore {
+                    self.0.setIgnoresMouseEvents(ignore);
+                }
+            }
+
+            /// Orders the window in or out, on the next main-thread turn like
+            /// `move_to`.
+            pub fn set_visible(&self, visible: bool, cx: &gpui::App) {
+                let window = self.0.clone();
+                cx.foreground_executor()
+                    .spawn(async move {
+                        if visible {
+                            window.orderFrontRegardless();
+                        } else {
+                            window.orderOut(None);
+                        }
+                    })
+                    .detach();
+            }
+        }
+
+        /// The pointer, and whether the primary button is down.
+        pub fn pointer() -> Option<([f64; 2], bool)> {
+            let height = flip_height()?;
+            let p = NSEvent::mouseLocation();
+            let down = NSEvent::pressedMouseButtons() & 1 != 0;
+            Some(([p.x, height - p.y], down))
         }
     }
 

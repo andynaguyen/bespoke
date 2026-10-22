@@ -9,7 +9,7 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 ## Kept
 
 - Recording: `capture.rs` and `capture/macos.rs` (ScreenCaptureKit video, the key tap, the mouse monitor), `audio.rs` and `mic.rs` (the microphone), `sketch.rs` and `laser_overlay.rs` (ink).
-- The capsule and picker: `native/pill/` (the Metal capsule), `ui.rs` and `ui/macos.rs` (the coordinator, the picker windows, the review window), `hold.rs` (tap or hold), `windows.rs` and `screens.rs` (window and screen targets).
+- The capsule and picker: `native/pill/` (the capsule's link to the host that draws it), `ui.rs` and `ui/macos.rs` (the coordinator, the picker windows, the review window), `hold.rs` (tap or hold), `windows.rs` and `screens.rs` (window and screen targets).
 - Building a capture: `keyframes.rs`, `autocrop.rs`, `render.rs` (the contact sheet), `transcribe.rs` and `speech_model.rs` (Apple Speech through the helper), `model.rs` and `lib.rs` (the bundle and `summary.md`).
 - After a capture: `handoff.rs` (clipboard, paste, `config.json`) and `retention.rs` (deleting old captures).
 - `helper/`: the Swift `scrawl-helper` with the `transcribe`, `speech-model`, `frames`, `permissions` and `permission-panel` commands.
@@ -33,8 +33,8 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 - `lib.rs`: bundle ids start with `bespoke-` instead of `scrawl-`. `retention.rs` reads the creation time from either prefix, so older bundles still expire.
 - `handoff.rs`: `Capture` (new, re-exported by `host.rs`) reads a bundle for Bespoke's MCP server. `Capture::find` takes an id, `latest`, or another machine's path to the bundle, and looks only inside the captures folder. `sketch.rs`: `target_label` moved out of `summary_markdown` so `Capture` can use it.
 - `mic.rs`, `audio.rs`: cpal 0.16 instead of 0.18, because Bespoke's rodio pins it and two cpal versions both link `alsa-sys`. Device ids stay CoreAudio UIDs, read from CoreAudio and matched to cpal's devices by name.
-- `laser_overlay.rs`, `native/pill/mod.rs`: the Metal shaders compile from source at launch, like GPUI's `runtime_shaders`, so the build needs no Metal toolchain.
-- `native/pill/types.rs`: `PillStyle::current` reads `config.json` once a second instead of every frame.
+- `laser_overlay.rs`: the Metal shader compiles from source at launch, like GPUI's `runtime_shaders`, so the build needs no Metal toolchain. While recording, the target's border turns into the red ring Bespoke's capsule uses, and the picker's size badge takes the capsule's translucent style.
+- `native/pill/`: Bespoke draws the capsule. Upstream's Metal capsule (`mod.rs`, `model.rs`, `atlas.rs`, `pill.metal`) is gone. `NativePill` keeps its calls (`sync`, `place_on`, `drain_actions`, `is_fully_hidden`, `pointer_on_pill`) and sends them over a `CapsuleLink` to the host registered with `host::on_capsule`. Bespoke's `src/annotate/capsule.rs` draws it with the capsule dictation uses. `Pres` moved to `types.rs`, `PillSnapshot` gained the record shortcut, and `pillStyle` in `config.json` is read but ignored. `host::capsule_origin` places the capsule at the top (upstream's `pill_origin`) or above the Dock.
 - `helper/`: the bundle id is `com.andynguyen.bespoke.scrawl-helper`, and the permission panel names Bespoke.
 - `build.rs` builds the helper into `target/<profile>/`. `scripts/install-local.sh` copies it into `Bespoke.app` and signs it.
 

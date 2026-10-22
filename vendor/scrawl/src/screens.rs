@@ -139,14 +139,23 @@ pub fn with_scale(frame: Rect, scale: f64) -> TargetFrame {
     }
 }
 
-/// Where the capsule's panel (`width` points wide) goes on `screen`: centred, its top
-/// `PANEL_Y` below the screen's top, and lower when a taller menu bar or the notch needs it.
+/// Where the capsule's window (`width` points wide) goes on `screen` at the top: centred, its
+/// top `panel_y` below the screen's top, and lower when a taller menu bar or the notch needs it.
 pub fn pill_origin(screen: &Screen, width: f64, panel_y: f64) -> [f64; 2] {
     let menu_bar = screen.visible[1] - screen.frame[1];
     let top = panel_y.max(menu_bar - 3.0).max(screen.safe_top + 2.0);
     [
         screen.frame[0] + ((screen.frame[2] - width) / 2.0).round(),
         screen.frame[1] + top,
+    ]
+}
+
+/// Where the capsule's window (`size` points) goes on `screen` at the bottom: centred, its
+/// bottom `gap` above the visible frame, so it clears the Dock.
+pub fn pill_origin_bottom(screen: &Screen, size: [f64; 2], gap: f64) -> [f64; 2] {
+    [
+        screen.frame[0] + ((screen.frame[2] - size[0]) / 2.0).round(),
+        screen.visible[1] + screen.visible[3] - size[1] - gap,
     ]
 }
 

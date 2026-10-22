@@ -1,8 +1,8 @@
 //! The seam between Scrawl and the app it runs in (Bespoke, which calls it Annotate). The host
 //! picks where captures, the config and the log go, registers the two shortcuts itself and
 //! forwards their presses, sends its tray menu's Annotate items, counts finished captures for its
-//! stats, and shows its own settings page wherever Scrawl would open its Settings or welcome
-//! window.
+//! stats, draws the capsule (`on_capsule`), and shows its own settings page wherever Scrawl would
+//! open its Settings or welcome window.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -219,6 +219,57 @@ pub fn finished_captures() -> Vec<Finished> {
         .iter()
         .map(Capture::finished)
         .collect()
+}
+
+// MARK: The capsule
+
+pub use crate::native::pill::{
+    CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
+};
+pub use crate::ui::SelectionMode;
+
+/// Shows a capsule with `snapshot` on the display holding `anchor`, without the coordinator, so
+/// the host can render each form for screenshots. Replaces the previous preview.
+pub fn preview_capsule(snapshot: PillSnapshot, anchor: [f64; 2]) {
+    static PREVIEW: Mutex<Option<crate::native::pill::NativePill>> = Mutex::new(None);
+    let mut preview = PREVIEW
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if preview.is_none() {
+        *preview = crate::native::pill::NativePill::open(Arc::new(Mutex::new(Vec::new()))).ok();
+    }
+    if let Some(pill) = preview.as_ref() {
+        pill.place_on(anchor);
+        pill.sync(snapshot);
+    }
+}
+
+/// Where the host sends a capsule's clicks.
+pub type CapsuleActions = flume::Sender<PillAction>;
+
+/// Where a capsule window of `size` points goes on the display holding `point` (global points,
+/// top-left origin): centred, below the menu bar and notch when `at_top`, else `gap` above the
+/// Dock. Main thread only.
+pub fn capsule_origin(point: [f64; 2], size: [f64; 2], at_top: bool, gap: f64) -> Option<[f64; 2]> {
+    let screens = crate::screens::current();
+    let index = crate::screens::index_at(&screens, point).or(if screens.is_empty() {
+        None
+    } else {
+        Some(0)
+    })?;
+    let screen = &screens[index];
+    Some(if at_top {
+        crate::screens::pill_origin(screen, size[0], gap)
+    } else {
+        crate::screens::pill_origin_bottom(screen, size, gap)
+    })
+}
+
+/// Called once, before `start`. `open` runs on the UI thread each time the coordinator needs a
+/// capsule: the host draws it from the link's snapshots and sends clicks back. The link closes
+/// when the coordinator drops the capsule.
+pub fn on_capsule(open: impl Fn(CapsuleLink) + Send + Sync + 'static) {
+    crate::native::pill::set_host(open);
 }
 
 // MARK: The host's settings page

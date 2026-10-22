@@ -1,56 +1,21 @@
-//! The native pill's values shared with the coordinator, on every platform.
+//! The capsule's values shared between the coordinator and the host that draws it.
 
-use super::model::Pres;
 use crate::ui::SelectionMode;
 
-/// Capsule visual style (`pillStyle: "black" | "glass"`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PillStyle {
-    #[default]
-    Black,
-    Glass,
+/// What the capsule shows.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Pres {
+    Hidden,
+    /// `chips`: the Area, Window and Screen chips replace Undo, Cancel and Finish, to switch
+    /// what is recorded.
+    Recording { chips: bool, stroke_count: usize },
+    /// The picker is open on `mode`. `hold`: it is the held switcher, which records on release.
+    Selecting { mode: SelectionMode, hold: bool },
+    Processing,
+    Completed { label: String },
 }
 
-#[allow(dead_code)]
-impl PillStyle {
-    pub fn from_str_opt(s: &str) -> Option<Self> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "glass" | "liquid" | "liquid-glass" | "1" | "true" => Some(Self::Glass),
-            "black" | "dark" | "metal" | "0" | "false" => Some(Self::Black),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Black => "black",
-            Self::Glass => "glass",
-        }
-    }
-
-    /// The style `pillStyle` in Annotate's `config.json` asks for (black unless it says glass).
-    /// The capsule asks every frame, so the file is read at most once a second.
-    pub fn current() -> Self {
-        static CACHED: std::sync::Mutex<Option<(std::time::Instant, PillStyle)>> =
-            std::sync::Mutex::new(None);
-        let mut cached = CACHED
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        match *cached {
-            Some((read_at, style)) if read_at.elapsed() < std::time::Duration::from_secs(1) => {
-                style
-            }
-            _ => {
-                let style = crate::handoff::pill_style();
-                *cached = Some((std::time::Instant::now(), style));
-                style
-            }
-        }
-    }
-}
-
-/// User actions emitted by clicking or pressing keys on the native pill (macOS only, so
-/// elsewhere nothing makes them).
+/// User actions from clicking the capsule.
 #[derive(Clone, Copy, Debug)]
 pub enum PillAction {
     SelectMode(SelectionMode),
@@ -59,16 +24,20 @@ pub enum PillAction {
     Undo,
     Cancel,
     Finish,
+    /// `Some`: the Paste chip was dragged to this point (global points, top-left origin), and
+    /// the capture pastes into whatever is there.
     Paste(Option<[f32; 2]>),
     Inspect,
     DismissCompleted,
 }
 
-/// Coordinator state snapshot synced to `NativePill`.
+/// Coordinator state sent to the capsule.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PillSnapshot {
     pub pres: Pres,
+    /// The recording's length so far, or the last recording's once it ends.
     pub clock: String,
     pub reduced_motion: bool,
-    pub style: PillStyle,
+    /// The record shortcut, like `⌥⇧S`.
+    pub shortcut: String,
 }

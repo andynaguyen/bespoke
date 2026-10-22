@@ -876,6 +876,21 @@
         "title": "Accessibility",
         "description": "Sees ⌘Z, Esc and S presses while recording, and pastes captures. Required."
       }
+    },
+    "capsule": {
+      "area": "Area",
+      "window": "Window",
+      "screen": "Screen",
+      "record": "Record",
+      "undo": "Undo",
+      "cancel": "Cancel",
+      "finish": "Finish",
+      "processing": "Processing",
+      "copied": "Copied",
+      "paste": "Paste",
+      "inspect": "Inspect",
+      "marks_one": "{{count}} mark",
+      "marks_other": "{{count}} marks"
     }
   },
   "mcp": {

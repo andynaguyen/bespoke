@@ -10,7 +10,11 @@
 //! scrolls the page down before capture, and a `#<n>` suffix presses Tab n
 //! times with focus rings shown.
 //! `overlay:<kind>` shows the recording overlay with sample data and
-//! captures its window instead (see `ui::overlay::dev_preview`).
+//! captures its window instead (see `ui::overlay::dev_preview`), and
+//! `capsule:<kind>` does the same for Annotate's capsule (see
+//! `annotate::capsule::dev_preview`). `scrawl:choose` opens Annotate's
+//! picker and `scrawl:latest` its latest capture, and both capture the main
+//! display.
 //! `BESPOKE_DEV_DESKTOP=1` keeps the desktop and windows behind the target
 //! window in the capture, so glass shows what it refracts.
 //! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
@@ -28,10 +32,18 @@ use gpui::{AnyWindowHandle, App, AsyncApp};
 thread_local! {
     /// Whether the current page is an overlay preview.
     static CAPTURE_OVERLAY: Cell<bool> = const { Cell::new(false) };
+    /// Whether the current page is an Annotate capsule preview.
+    static CAPTURE_CAPSULE: Cell<bool> = const { Cell::new(false) };
+    /// Whether the current page captures the whole screen.
+    static CAPTURE_SCREEN: Cell<bool> = const { Cell::new(false) };
 }
 
 /// The window the current page draws in.
 fn target_window(cx: &App) -> Option<AnyWindowHandle> {
+    #[cfg(target_os = "macos")]
+    if CAPTURE_CAPSULE.get() {
+        return crate::annotate::capsule::window_handle(cx);
+    }
     if CAPTURE_OVERLAY.get() {
         crate::ui::overlay::window_handle(cx)
     } else {
@@ -102,6 +114,24 @@ async fn wait(cx: &mut AsyncApp, ms: u64) {
 }
 
 fn navigate(page: &str, cx: &mut App) {
+    #[cfg(target_os = "macos")]
+    if let Some(action) = page.strip_prefix("scrawl:") {
+        CAPTURE_SCREEN.set(true);
+        let action = match action {
+            "latest" => scrawl::MenuAction::OpenLatest,
+            _ => scrawl::MenuAction::ChooseTarget,
+        };
+        scrawl::host::menu(action);
+        return;
+    }
+    CAPTURE_SCREEN.set(false);
+    #[cfg(target_os = "macos")]
+    if let Some(kind) = page.strip_prefix("capsule:") {
+        CAPTURE_CAPSULE.set(true);
+        crate::annotate::capsule::dev_preview(kind, cx);
+        return;
+    }
+    CAPTURE_CAPSULE.set(false);
     if let Some(kind) = page.strip_prefix("overlay:") {
         CAPTURE_OVERLAY.set(true);
         crate::ui::overlay::dev_preview(kind, cx);
@@ -177,6 +207,20 @@ fn force_draw(_cx: &mut AsyncApp) {}
 
 #[cfg(target_os = "macos")]
 fn capture(path: &std::path::Path, cx: &mut App) -> bool {
+    if CAPTURE_SCREEN.get() {
+        // Annotate's picker and capsule span several windows, so these pages
+        // capture the main display. Needs the Screen Recording permission.
+        return std::process::Command::new("screencapture")
+            .args(["-x", "-m"])
+            .arg(path)
+            .status()
+            .is_ok_and(|status| status.success());
+    }
+    capture_window(path, cx)
+}
+
+#[cfg(target_os = "macos")]
+fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
     use std::ffi::{c_void, CString};
 
     use objc2_app_kit::NSView;
