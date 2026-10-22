@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "정보",
-      "version": {
-        "title": "버전",
-        "description": "Bespoke의 현재 버전"
-      },
       "appDataDirectory": {
         "title": "앱 데이터 디렉토리",
         "description": "Bespoke가 데이터를 저장하는 위치"

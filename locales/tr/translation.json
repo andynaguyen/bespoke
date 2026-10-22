@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "Hakkında",
-      "version": {
-        "title": "Sürüm",
-        "description": "Bespoke'un mevcut sürümü"
-      },
       "appDataDirectory": {
         "title": "Uygulama Veri Dizini",
         "description": "Bespoke'un verilerini sakladığı konum"

@@ -629,10 +629,6 @@
     },
     "about": {
       "title": "אודות",
-      "version": {
-        "title": "גרסה",
-        "description": "הגרסה הנוכחית של Bespoke"
-      },
       "appDataDirectory": {
         "title": "תיקיית נתוני אפליקציה",
         "description": "המיקום שבו Bespoke שומר את הנתונים שלו"

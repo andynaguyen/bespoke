@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "के बारे में",
-      "version": {
-        "title": "वर्शन",
-        "description": "Bespoke का मौजूदा वर्शन"
-      },
       "whatsNewUpdates": {
         "label": "'नया क्या है' दिखाएं",
         "description": "Bespoke अपडेट होने के बाद रिलीज़ नोट दिखाएं"

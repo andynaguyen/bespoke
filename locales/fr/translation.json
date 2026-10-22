@@ -629,10 +629,6 @@
     },
     "about": {
       "title": "À propos",
-      "version": {
-        "title": "Version",
-        "description": "Version actuelle de Bespoke"
-      },
       "appDataDirectory": {
         "title": "Emplacement des données de l'application",
         "description": "Emplacement où Bespoke stocke ses données"

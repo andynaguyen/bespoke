@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "За приложението",
-      "version": {
-        "title": "Версия",
-        "description": "Текуща версия на Bespoke"
-      },
       "appDataDirectory": {
         "title": "Папка с данни на приложението",
         "description": "Мястото, където Bespoke съхранява данните си"

@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "Om",
-      "version": {
-        "title": "Version",
-        "description": "Nuvarande version av Bespoke"
-      },
       "appDataDirectory": {
         "title": "Mapp för appdata",
         "description": "Plats där Bespoke lagrar sina data"

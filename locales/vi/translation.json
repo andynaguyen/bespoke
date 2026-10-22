@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "Giới thiệu",
-      "version": {
-        "title": "Phiên bản",
-        "description": "Phiên bản hiện tại của Bespoke"
-      },
       "appDataDirectory": {
         "title": "Thư mục dữ liệu ứng dụng",
         "description": "Vị trí Bespoke lưu trữ dữ liệu"

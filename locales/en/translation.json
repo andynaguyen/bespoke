@@ -732,10 +732,6 @@
     },
     "about": {
       "title": "About",
-      "version": {
-        "title": "Version",
-        "description": "Current version of Bespoke"
-      },
       "whatsNewUpdates": {
         "label": "Show What's New",
         "description": "Show release notes after Bespoke updates"

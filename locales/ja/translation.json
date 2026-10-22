@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "概要",
-      "version": {
-        "title": "バージョン",
-        "description": "Bespoke の現在のバージョン"
-      },
       "appDataDirectory": {
         "title": "アプリデータディレクトリ",
         "description": "Bespoke がデータを保存する場所"

@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "關於",
-      "version": {
-        "title": "版本",
-        "description": "Bespoke 的目前版本"
-      },
       "appDataDirectory": {
         "title": "應用程式資料目錄",
         "description": "Bespoke 儲存資料的位置"

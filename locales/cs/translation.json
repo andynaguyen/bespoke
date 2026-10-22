@@ -631,10 +631,6 @@
     },
     "about": {
       "title": "O aplikaci",
-      "version": {
-        "title": "Verze",
-        "description": "Aktuální verze Bespoke"
-      },
       "appDataDirectory": {
         "title": "Adresář dat aplikace",
         "description": "Umístění, kde Bespoke ukládá data"

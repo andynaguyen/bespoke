@@ -629,10 +629,6 @@
     },
     "about": {
       "title": "Informazioni",
-      "version": {
-        "title": "Versione",
-        "description": "Versione attuale di Bespoke"
-      },
       "appDataDirectory": {
         "title": "Cartella Dati App",
         "description": "Cartella in cui Bespoke salva i dati"

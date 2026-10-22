@@ -615,10 +615,6 @@
     },
     "about": {
       "title": "حول",
-      "version": {
-        "title": "الإصدار",
-        "description": "الإصدار الحالي من Bespoke"
-      },
       "appDataDirectory": {
         "title": "مجلد بيانات التطبيق",
         "description": "الموقع الذي يخزن فيه Bespoke بياناته"

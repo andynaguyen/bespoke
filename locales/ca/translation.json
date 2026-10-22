@@ -629,10 +629,6 @@
     },
     "about": {
       "title": "Quant a",
-      "version": {
-        "title": "Versió",
-        "description": "Versió actual del Bespoke"
-      },
       "whatsNewUpdates": {
         "label": "Mostra les novetats",
         "description": "Mostra les notes de la versió després d'actualitzar el Bespoke"

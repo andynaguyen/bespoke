@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "Tentang",
-      "version": {
-        "title": "Versi",
-        "description": "Versi Bespoke saat ini"
-      },
       "whatsNewUpdates": {
         "label": "Tampilkan Yang Baru",
         "description": "Tampilkan catatan rilis setelah Bespoke diperbarui"

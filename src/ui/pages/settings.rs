@@ -754,7 +754,6 @@ impl SettingsPage {
             Tab::System => {
                 let about = SettingsGroup::new()
                     .title(t("settings.about.title"))
-                    .child(rows::version_row(cx))
                     .child(rows::directory_row(
                         "settings.about.appDataDirectory.title",
                         "settings.about.appDataDirectory.description",

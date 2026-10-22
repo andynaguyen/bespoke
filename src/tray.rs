@@ -484,14 +484,14 @@ fn load_tray_icon(
 }
 
 pub fn tray_tooltip() -> String {
-    version_label()
+    title_label()
 }
 
-fn version_label() -> String {
+fn title_label() -> String {
     if cfg!(debug_assertions) {
-        format!("Bespoke v{} (Dev)", env!("CARGO_PKG_VERSION"))
+        "Bespoke (Dev)".to_string()
     } else {
-        format!("Bespoke v{}", env!("CARGO_PKG_VERSION"))
+        "Bespoke".to_string()
     }
 }
 
@@ -528,8 +528,8 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     let accelerator = |s: &str| Accelerator::from_str(s).ok();
 
     // Create common menu items
-    let version_label = version_label();
-    let version_i = MenuItem::with_id("version", &version_label, false, None);
+    let title_label = title_label();
+    let title_i = MenuItem::with_id("title", &title_label, false, None);
     let settings_i = MenuItem::with_id(
         "settings",
         &strings.settings,
@@ -550,7 +550,7 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     let menu = if inputs.busy {
         let cancel_i = MenuItem::with_id("cancel", &strings.cancel, true, None);
         Menu::with_items(&[
-            &version_i,
+            &title_i,
             &separator(),
             &cancel_i,
             &separator(),
@@ -585,7 +585,7 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         );
 
         Menu::with_items(&[
-            &version_i,
+            &title_i,
             &separator(),
             &copy_last_transcript_i,
             &separator(),
@@ -619,9 +619,9 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     #[cfg(not(target_os = "macos"))]
     let _ = annotate_at;
 
-    // Both layouts start with [version, separator, ...]; slot the warning in
-    // right below the version line so it's the first actionable thing seen.
-    let mut tooltip = version_label;
+    // Both layouts start with [title, separator, ...]; slot the warning in
+    // right below the title line so it's the first actionable thing seen.
+    let mut tooltip = title_label;
     if let Some(warning_item) = secure_input_warning {
         menu.insert(&warning_item, 2)?;
         menu.insert(&separator(), 3)?;

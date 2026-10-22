@@ -631,10 +631,6 @@
     },
     "about": {
       "title": "О программе",
-      "version": {
-        "title": "Версия",
-        "description": "Текущая версия Bespoke"
-      },
       "appDataDirectory": {
         "title": "Каталог данных приложения",
         "description": "Место, где Bespoke хранит свои данные"

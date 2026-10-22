@@ -1024,19 +1024,6 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-pub fn version_row(cx: &App) -> AnyElement {
-    let _ = palette(cx);
-    SettingContainer::new(t("settings.about.version.title"))
-        .description(t("settings.about.version.description"))
-        .child(
-            div()
-                .sm_text()
-                .font_family(crate::ui::theme::MONO_FONT)
-                .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
-        )
-        .into_any_element()
-}
-
 /// App data or log directory with an Open button. `AppDataDirectory.tsx`
 /// replaces the whole row with its error box; `LogDirectory.tsx` keeps the
 /// title and shows the error in place of the path.

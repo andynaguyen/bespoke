@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "Over Bespoke",
-      "version": {
-        "title": "Versie",
-        "description": "Huidige versie van Bespoke"
-      },
       "whatsNewUpdates": {
         "label": "Toon 'Wat is er nieuw'",
         "description": "Release-notes tonen nadat Bespoke is bijgewerkt"

@@ -627,10 +627,6 @@
     },
     "about": {
       "title": "Om",
-      "version": {
-        "title": "Version",
-        "description": "Nuværende version af Bespoke"
-      },
       "whatsNewUpdates": {
         "label": "Vis nyheder",
         "description": "Vis udgivelsesnoter, efter Bespoke opdateres"

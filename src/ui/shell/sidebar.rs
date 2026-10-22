@@ -1,5 +1,5 @@
 //! The sidebar (`Sidebar.tsx`): logo, section links, and the footer with the
-//! model status, update status and version.
+//! model status.
 
 use gpui::{
     div, img, prelude::*, px, App, Context, FontWeight, ImageSource, Resource, SharedString, Window,
@@ -106,20 +106,11 @@ pub fn render(
                     .children(secondary)
                     .child(
                         div()
-                            .flex()
-                            .flex_col()
-                            .gap(px(6.))
                             .pt_2()
                             .text_px(12.)
                             .line_height(px(16.))
                             .text_color(p.mid_gray)
-                            .child(main.model_selector.clone())
-                            .child(
-                                div()
-                                    .px(px(10.))
-                                    .text_color(p.mid_gray.a(0.7))
-                                    .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
-                            ),
+                            .child(main.model_selector.clone()),
                     ),
             ),
     )
