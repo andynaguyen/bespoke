@@ -465,6 +465,9 @@ impl super::Page for AnnotatePage {
                     Button::new("captures-record")
                         .variant(ButtonVariant::Live)
                         .gap(rems(0.375))
+                        // The label's last letter carries space after it, so
+                        // the right side takes less padding to look even.
+                        .pe(gpui::px(13.5))
                         .on_click(|_, _, _| scrawl::host::menu(scrawl::MenuAction::ChooseTarget))
                         .child(div().size(rems(0.5)).rounded_full().bg(gpui::white()))
                         .child(t("annotate.library.record")),
