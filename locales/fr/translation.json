@@ -120,20 +120,9 @@
     "streaming": "Streaming",
     "active": "Actif",
     "switching": "Changement...",
-    "noModelsAvailable": "Aucun modèle disponible",
-    "verifying": "Vérification de {{modelName}}...",
     "verifyingGeneric": "Vérification...",
-    "extracting": "Extraction de {{modelName}}...",
-    "extractingMultiple": "Extraction de {{count}} modèles...",
     "extractingGeneric": "Extraction...",
     "downloading": "Téléchargement {{percentage}}%",
-    "downloadingMultiple": "Téléchargement de {{count}} modèles...",
-    "modelReady": "Modèle Prêt",
-    "loading": "Chargement de {{modelName}}...",
-    "loadingGeneric": "Chargement...",
-    "modelError": "Erreur du Modèle",
-    "modelUnloaded": "Modèle Déchargé",
-    "noModelDownloadRequired": "Aucun Modèle - Téléchargement Requis",
     "deleteModel": "Supprimer {{modelName}}",
     "downloadSpeed": "{{speed}} Mo/s",
     "capabilities": {
@@ -146,7 +135,6 @@
       "streaming": "Affiche la transcription en direct pendant que vous parlez"
     },
     "cancel": "Annuler",
-    "cancelDownload": "Annuler le téléchargement",
     "legacy": "Hérité"
   },
   "settings": {

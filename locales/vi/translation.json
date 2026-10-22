@@ -120,20 +120,9 @@
     "streaming": "Truyền trực tiếp",
     "active": "Đang hoạt động",
     "switching": "Đang chuyển...",
-    "noModelsAvailable": "Không có mô hình nào",
-    "verifying": "Đang xác minh {{modelName}}...",
     "verifyingGeneric": "Đang xác minh...",
-    "extracting": "Đang giải nén {{modelName}}...",
-    "extractingMultiple": "Đang giải nén {{count}} mô hình...",
     "extractingGeneric": "Đang giải nén...",
     "downloading": "Đang tải xuống {{percentage}}%",
-    "downloadingMultiple": "Đang tải xuống {{count}} mô hình...",
-    "modelReady": "Mô Hình Sẵn Sàng",
-    "loading": "Đang tải {{modelName}}...",
-    "loadingGeneric": "Đang tải...",
-    "modelError": "Lỗi Mô Hình",
-    "modelUnloaded": "Mô Hình Đã Gỡ",
-    "noModelDownloadRequired": "Chưa Có Mô Hình - Cần Tải Xuống",
     "deleteModel": "Xóa {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "capabilities": {
@@ -146,7 +135,6 @@
       "streaming": "Hiển thị phiên âm trực tiếp khi bạn nói"
     },
     "cancel": "Hủy",
-    "cancelDownload": "Hủy tải xuống",
     "legacy": "Cũ"
   },
   "settings": {

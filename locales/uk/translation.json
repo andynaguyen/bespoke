@@ -119,20 +119,9 @@
     "custom": "Користувацька",
     "streaming": "Потокове",
     "active": "Активна",
-    "noModelsAvailable": "Немає доступних моделей",
-    "verifying": "Перевірка {{modelName}}...",
     "verifyingGeneric": "Перевірка...",
-    "extracting": "Розпакування {{modelName}}...",
-    "extractingMultiple": "Розпакування {{count}} моделей...",
     "extractingGeneric": "Розпакування...",
     "downloading": "Завантаження {{percentage}}%",
-    "downloadingMultiple": "Завантаження {{count}} моделей...",
-    "modelReady": "Модель готова",
-    "loading": "Завантаження {{modelName}}...",
-    "loadingGeneric": "Завантаження...",
-    "modelError": "Помилка моделі",
-    "modelUnloaded": "Модель вивантажена",
-    "noModelDownloadRequired": "Немає моделі - потрібно завантажити",
     "deleteModel": "Видалити {{modelName}}",
     "switching": "Перемикання...",
     "downloadSpeed": "{{speed}} MB/s",
@@ -146,7 +135,6 @@
       "streaming": "Показує транскрипцію в реальному часі під час мовлення"
     },
     "cancel": "Скасувати",
-    "cancelDownload": "Скасувати завантаження",
     "legacy": "Застаріле"
   },
   "settings": {

@@ -1,5 +1,4 @@
-//! The sidebar (`Sidebar.tsx`): logo, section links, and the footer with the
-//! model status.
+//! The sidebar (`Sidebar.tsx`): the logo and the section links.
 
 use gpui::{
     div, img, prelude::*, px, App, Context, FontWeight, ImageSource, Resource, SharedString, Window,
@@ -69,7 +68,6 @@ pub fn render(
     _window: &mut Window,
     cx: &mut Context<MainWindow>,
 ) -> impl IntoElement {
-    let p = palette(cx);
     let debug_mode = SettingsStore::get(cx).debug_mode;
     let active = main.section;
 
@@ -111,15 +109,7 @@ pub fn render(
                     .flex()
                     .flex_col()
                     .gap(px(2.))
-                    .children(secondary)
-                    .child(
-                        div()
-                            .pt_2()
-                            .text_px(13.)
-                            .line_height(px(18.))
-                            .text_color(p.mid_gray)
-                            .child(main.model_selector.clone()),
-                    ),
+                    .children(secondary),
             ),
     )
 }

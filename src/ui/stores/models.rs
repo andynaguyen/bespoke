@@ -274,6 +274,21 @@ impl ModelStore {
         self.stats.remove(model_id);
     }
 
+    /// Switches to a model once its download (and any extraction)
+    /// finishes, unless the user is recording.
+    fn select_when_idle(&mut self, model_id: String, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(500))
+                .await;
+            if crate::commands::audio::is_recording(AppHandle::global().clone()) {
+                return;
+            }
+            let _ = this.update(cx, |this, cx| this.select_model(model_id, |_, _| {}, cx));
+        })
+        .detach();
+    }
+
     fn handle_event(&mut self, event: &AppEvent, cx: &mut Context<Self>) {
         let id = || event.payload.as_str().map(str::to_string);
         match event.name.as_str() {
@@ -291,6 +306,7 @@ impl ModelStore {
                     cx.notify();
                     if event.name == "model-download-complete" {
                         self.load_models(cx);
+                        self.select_when_idle(id, cx);
                     }
                 }
             }

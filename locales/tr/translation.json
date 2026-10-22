@@ -119,20 +119,9 @@
     "custom": "Özel",
     "streaming": "Akış",
     "active": "Aktif",
-    "noModelsAvailable": "Kullanılabilir model yok",
-    "verifying": "{{modelName}} doğrulanıyor...",
     "verifyingGeneric": "Doğrulanıyor...",
-    "extracting": "{{modelName}} çıkarılıyor...",
-    "extractingMultiple": "{{count}} model çıkarılıyor...",
     "extractingGeneric": "Çıkarılıyor...",
     "downloading": "%{{percentage}} indiriliyor",
-    "downloadingMultiple": "{{count}} model indiriliyor...",
-    "modelReady": "Model Hazır",
-    "loading": "{{modelName}} yükleniyor...",
-    "loadingGeneric": "Yükleniyor...",
-    "modelError": "Model Hatası",
-    "modelUnloaded": "Model Boşaltıldı",
-    "noModelDownloadRequired": "Model Yok – İndirme Gerekli",
     "deleteModel": "{{modelName}} Sil",
     "switching": "Değiştiriliyor...",
     "downloadSpeed": "{{speed}} MB/s",
@@ -146,7 +135,6 @@
       "streaming": "Konuşurken canlı transkripsiyon gösterir"
     },
     "cancel": "İptal",
-    "cancelDownload": "İndirmeyi iptal et",
     "legacy": "Eski"
   },
   "settings": {

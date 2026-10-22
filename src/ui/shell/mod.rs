@@ -4,7 +4,6 @@
 
 mod banners;
 mod inspector;
-mod model_selector;
 mod sidebar;
 mod toolbar;
 
@@ -29,7 +28,6 @@ use crate::ui::whats_new::WhatsNewGate;
 
 use banners::{AccessibilityBanner, SecureInputWarning};
 pub use inspector::inspector;
-use model_selector::ModelSelector;
 pub use sidebar::logo;
 pub use toolbar::Toolbar;
 
@@ -74,7 +72,7 @@ impl Section {
     pub fn icon(self) -> &'static str {
         match self {
             Section::Dictate => "nav-mic",
-            Section::Stats => "nav-chart-column",
+            Section::Stats => "nav-chart-no-axes-column",
             Section::Models => "nav-cpu",
             Section::Annotate => "nav-pen-line",
             Section::Mcp => "nav-bot",
@@ -103,7 +101,6 @@ pub struct MainWindow {
     page: PageHandle,
     scroll: ScrollHandle,
     focus: FocusHandle,
-    model_selector: Entity<ModelSelector>,
     accessibility_banner: Entity<AccessibilityBanner>,
     secure_input_warning: Entity<SecureInputWarning>,
     whats_new: Entity<WhatsNewGate>,
@@ -150,7 +147,6 @@ impl MainWindow {
             page: pages::build(Section::Dictate, window, cx),
             scroll: ScrollHandle::new(),
             focus,
-            model_selector: cx.new(ModelSelector::new),
             accessibility_banner: cx.new(|_| AccessibilityBanner::new()),
             secure_input_warning: cx.new(SecureInputWarning::new),
             whats_new: cx.new(|cx| WhatsNewGate::new(window, cx)),

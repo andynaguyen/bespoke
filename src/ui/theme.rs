@@ -148,12 +148,6 @@ pub mod tw {
     pub fn red_700() -> Hsla {
         hex(0xc10007)
     }
-    pub fn yellow_400() -> Hsla {
-        hex(0xfdc700)
-    }
-    pub fn green_400() -> Hsla {
-        hex(0x05df72)
-    }
     pub fn emerald_400() -> Hsla {
         hex(0x00d492)
     }
@@ -162,9 +156,6 @@ pub mod tw {
     }
     pub fn emerald_600() -> Hsla {
         hex(0x009966)
-    }
-    pub fn orange_400() -> Hsla {
-        hex(0xff8904)
     }
     pub fn sky_400() -> Hsla {
         hex(0x00bcff)

@@ -119,20 +119,9 @@
     "custom": "Personalizado",
     "streaming": "Streaming",
     "active": "Ativo",
-    "noModelsAvailable": "Nenhum modelo disponível",
-    "verifying": "Verificando {{modelName}}...",
     "verifyingGeneric": "Verificando...",
-    "extracting": "Extraindo {{modelName}}...",
-    "extractingMultiple": "Extraindo {{count}} modelos...",
     "extractingGeneric": "Extraindo...",
     "downloading": "Baixando {{percentage}}%",
-    "downloadingMultiple": "Baixando {{count}} modelos...",
-    "modelReady": "Modelo Pronto",
-    "loading": "Carregando {{modelName}}...",
-    "loadingGeneric": "Carregando...",
-    "modelError": "Erro no Modelo",
-    "modelUnloaded": "Modelo Descarregado",
-    "noModelDownloadRequired": "Sem Modelo - Download Necessário",
     "deleteModel": "Excluir {{modelName}}",
     "switching": "Alternando...",
     "downloadSpeed": "{{speed}} MB/s",
@@ -146,7 +135,6 @@
       "streaming": "Mostra a transcrição ao vivo enquanto você fala"
     },
     "cancel": "Cancelar",
-    "cancelDownload": "Cancelar download",
     "legacy": "Legado"
   },
   "settings": {

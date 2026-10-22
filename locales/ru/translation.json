@@ -120,20 +120,9 @@
     "streaming": "Потоковый",
     "active": "Активный",
     "switching": "Переключение...",
-    "noModelsAvailable": "Нет доступных моделей",
-    "verifying": "Проверка {{modelName}}...",
     "verifyingGeneric": "Проверка...",
-    "extracting": "Извлечение {{modelName}}...",
-    "extractingMultiple": "Извлечение моделей {{count}}...",
     "extractingGeneric": "Извлечение...",
     "downloading": "Загрузка {{percentage}} %",
-    "downloadingMultiple": "Загрузка моделей {{count}}...",
-    "modelReady": "Модель готова",
-    "loading": "Загрузка {{modelName}}...",
-    "loadingGeneric": "Загрузка...",
-    "modelError": "Ошибка модели",
-    "modelUnloaded": "Модель выгружена",
-    "noModelDownloadRequired": "Нет модели – требуется загрузка",
     "deleteModel": "Удалить {{modelName}}",
     "downloadSpeed": "{{speed}} МБ/с",
     "capabilities": {
@@ -146,7 +135,6 @@
       "streaming": "Показывает транскрипцию в реальном времени во время речи"
     },
     "cancel": "Отмена",
-    "cancelDownload": "Отменить загрузку",
     "legacy": "Устаревшее"
   },
   "settings": {

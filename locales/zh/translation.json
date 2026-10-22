@@ -120,20 +120,9 @@
     "streaming": "流式",
     "active": "活跃",
     "switching": "切换中...",
-    "noModelsAvailable": "没有可用的模型",
-    "verifying": "正在验证 {{modelName}}...",
     "verifyingGeneric": "正在验证...",
-    "extracting": "正在解压 {{modelName}}...",
-    "extractingMultiple": "正在解压 {{count}} 个模型...",
     "extractingGeneric": "解压中...",
     "downloading": "下载中 {{percentage}}%",
-    "downloadingMultiple": "正在下载 {{count}} 个模型...",
-    "modelReady": "模型已就绪",
-    "loading": "正在加载 {{modelName}}...",
-    "loadingGeneric": "加载中...",
-    "modelError": "模型错误",
-    "modelUnloaded": "模型已卸载",
-    "noModelDownloadRequired": "无模型 - 需要下载",
     "deleteModel": "删除 {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "capabilities": {
@@ -146,7 +135,6 @@
       "streaming": "在您说话时实时显示转录"
     },
     "cancel": "取消",
-    "cancelDownload": "取消下载",
     "legacy": "旧版"
   },
   "settings": {
