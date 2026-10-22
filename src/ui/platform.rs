@@ -247,10 +247,45 @@ mod imp {
                 ])
             }
 
-            /// Gives the window the system shadow, which follows the shape
-            /// of what it draws.
+            /// Gives the window the system shadow and hairline, drawn around
+            /// the window's frame.
             pub fn set_shadow(&self, shadow: bool) {
                 self.0.setHasShadow(shadow);
+            }
+
+            /// Rounds the window's frame, and so its shadow and hairline, at
+            /// `radius`, like `prepare_main_window`.
+            pub fn set_corner_radius(&self, radius: f64) {
+                // SAFETY: checked with respondsToSelector; takes a CGFloat.
+                unsafe {
+                    let responds: bool = objc2::msg_send![
+                        &*self.0,
+                        respondsToSelector: objc2::sel!(_setCornerRadius:)
+                    ];
+                    if responds {
+                        let _: () = objc2::msg_send![&*self.0, _setCornerRadius: radius];
+                        self.0.invalidateShadow();
+                    }
+                }
+            }
+
+            /// Moves and sizes the window: its top-left corner at `origin`,
+            /// `size` points across. Runs on the next main-thread turn like
+            /// `move_to`.
+            pub fn set_frame(&self, origin: [f64; 2], size: [f64; 2], cx: &gpui::App) {
+                let window = self.0.clone();
+                cx.foreground_executor()
+                    .spawn(async move {
+                        if let Some(height) = flip_height() {
+                            let frame = objc2_foundation::NSRect::new(
+                                NSPoint::new(origin[0], height - origin[1] - size[1]),
+                                objc2_foundation::NSSize::new(size[0], size[1]),
+                            );
+                            window.setFrame_display(frame, true);
+                            window.invalidateShadow();
+                        }
+                    })
+                    .detach();
             }
 
             /// Lets clicks through to the apps below.

@@ -4,21 +4,21 @@
 //! card drawn inside the main window would hide its glass under whatever the
 //! page paints there. The card gets a window of its own instead: one shared,
 //! transparent window that ignores the mouse, moved over the anchor and
-//! ordered in and out. The window keeps one size and the card sits in its
-//! bottom-left corner, so showing a card is only a move.
+//! ordered in and out. The window takes the card's measured size, so the
+//! system shadow and hairline it draws around its frame hug the card.
 
 use std::time::Duration;
 
 use gpui::{
     div, ease_out_quint, prelude::*, px, size, Animation, AnimationExt, App, Bounds, Context,
-    Entity, FontWeight, Global, Pixels, Point, SharedString, Window, WindowBackgroundAppearance,
-    WindowBounds, WindowDecorations, WindowKind, WindowOptions,
+    Entity, FontWeight, Global, Pixels, Point, SharedString, Size, Window,
+    WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind, WindowOptions,
 };
 
 use super::glass::{glass, GlassStyle};
 use super::theme::{palette, Alpha};
 
-/// The window's size; the card fits inside it, against its bottom-left.
+/// The widest a card gets, and the window's size before a card is measured.
 const WINDOW_W: f32 = 300.;
 const WINDOW_H: f32 = 220.;
 /// The gap between the anchor and the card.
@@ -68,11 +68,18 @@ impl Render for HoverCardView {
             .size_full()
             .flex()
             .flex_col()
-            .justify_end()
             .items_start()
+            // The window fits itself to the card (`fit`).
+            .on_children_prepainted(|bounds, _, cx| {
+                if let Some(card) = bounds.first() {
+                    let measured = card.size;
+                    cx.defer(move |cx| fit(measured, cx));
+                }
+            })
             .child(
                 div()
                     .relative()
+                    .flex_none()
                     .max_w(px(WINDOW_W))
                     .min_w(px(200.))
                     .rounded(px(RADIUS))
@@ -112,8 +119,44 @@ struct HoverCard {
     view: Entity<HoverCardView>,
     #[cfg(target_os = "macos")]
     native: Option<super::platform::capsule::CapsuleWindow>,
-    /// The card and where it was last placed, to skip repeat calls.
+    /// The card and the top-left of the day it shows over, to skip repeat
+    /// calls.
     showing: Option<(Card, Point<Pixels>)>,
+    /// The card's measured size, which the window takes.
+    size: Size<Pixels>,
+}
+
+impl HoverCard {
+    /// Puts the window's frame above `anchor`, at the card's size.
+    fn place(&self, anchor: Point<Pixels>, cx: &App) {
+        #[cfg(target_os = "macos")]
+        if let Some(native) = &self.native {
+            let width = f64::from(f32::from(self.size.width));
+            let height = f64::from(f32::from(self.size.height));
+            let x = f64::from(f32::from(anchor.x));
+            let y = f64::from(f32::from(anchor.y)) - f64::from(GAP) - height;
+            native.set_frame([x, y], [width, height], cx);
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (anchor, cx);
+    }
+}
+
+/// Resizes the window to the card's measured `size`, keeping it above the
+/// anchor.
+fn fit(size: Size<Pixels>, cx: &mut App) {
+    if !cx.has_global::<HoverCard>() {
+        return;
+    }
+    let state = cx.global_mut::<HoverCard>();
+    if state.size == size {
+        return;
+    }
+    state.size = size;
+    let state = cx.global::<HoverCard>();
+    if let Some((_, anchor)) = &state.showing {
+        state.place(*anchor, cx);
+    }
 }
 
 impl Global for HoverCard {}
@@ -122,7 +165,7 @@ impl Global for HoverCard {}
 /// the origin at the top left of the main display, as `Window::bounds`
 /// counts them.
 pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
-    let origin = Point::new(anchor.origin.x, anchor.origin.y - px(GAP) - px(WINDOW_H));
+    let origin = anchor.origin;
     if !cx.has_global::<HoverCard>() && !open(cx) {
         return;
     }
@@ -138,17 +181,10 @@ pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
     let appearing = state.showing.is_none();
     state.showing = Some((card.clone(), origin));
     let view = state.view.clone();
+    let state = cx.global::<HoverCard>();
+    state.place(origin, cx);
     #[cfg(target_os = "macos")]
-    let native = state.native.clone();
-    #[cfg(target_os = "macos")]
-    if let Some(native) = native {
-        native.move_to(
-            [
-                f64::from(f32::from(origin.x)),
-                f64::from(f32::from(origin.y)),
-            ],
-            cx,
-        );
+    if let Some(native) = &state.native {
         native.set_visible(true, cx);
     }
     if changed {
@@ -232,14 +268,16 @@ fn open(cx: &mut App) -> bool {
     #[cfg(target_os = "macos")]
     if let Some(native) = &native {
         native.set_ignores_mouse(true);
-        // The system shadow follows the glass's rounded shape.
+        // The frame's shadow and hairline follow the card's corners.
         native.set_shadow(true);
+        native.set_corner_radius(f64::from(RADIUS));
     }
     cx.set_global(HoverCard {
         view,
         #[cfg(target_os = "macos")]
         native,
         showing: None,
+        size: size(px(WINDOW_W), px(WINDOW_H)),
     });
     true
 }
