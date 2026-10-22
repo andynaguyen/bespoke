@@ -2,8 +2,9 @@
 //! transparent always-on-top panel near the top or bottom edge of the screen
 //! under the cursor. The compact form is a pill with a waveform, or a
 //! spinner and label while transcribing. The Live form opens into a panel
-//! that shows streaming text. Both use the look of Annotate's capsule: a dark
-//! surface, a red record dot, and a divider before the cancel chip.
+//! that shows streaming text. Both are the capsule Annotate also uses
+//! (`ui::capsule`): clear glass, a red live dot, and a divider before the
+//! cancel chip.
 //!
 //! The panel window exists only while the overlay shows. `hide` clears the
 //! card at once and closes the window 300ms later, unless a newer `show`
@@ -15,7 +16,7 @@ use std::time::{Duration, Instant};
 use gpui::{
     canvas, div, linear_color_stop, linear_gradient, point, prelude::*, px, size, Animation,
     AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Div, Entity, FontFeatures,
-    FontWeight, Global, HighlightStyle, Hsla, Pixels, ScrollHandle, SharedString, Size, StyledText,
+    FontWeight, Global, HighlightStyle, Pixels, ScrollHandle, SharedString, Size, StyledText,
     Subscription, Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations,
     WindowHandle, WindowKind, WindowOptions,
 };
@@ -27,9 +28,10 @@ use crate::managers::transcription::{
 };
 use crate::overlay::MIC_LEVEL_EVENT;
 use crate::settings::OverlayPosition;
+use crate::ui::capsule::{self, ChipKind, Colors};
 use crate::ui::components::icon;
 use crate::ui::event_bus::event_bus;
-use crate::ui::theme::{shadow, Alpha};
+use crate::ui::theme::Alpha;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OverlayState {
@@ -44,14 +46,14 @@ pub enum OverlayState {
 // to about OPEN_W by 112) since the card sits flush against the screen-edge
 // side of it.
 const COMPACT_AREA: (f32, f32) = (WORK_W, BASE_H);
-const STREAM_AREA: (f32, f32) = (400., 120.);
+const STREAM_AREA: (f32, f32) = (OPEN_W + 6., 132.);
 
-// Transparent window margins that keep the card's drop shadow from being
-// clipped. The shadow falls 4px down, so the top needs less, which also keeps
-// a top overlay's window clear of the menu bar.
-const PAD_X: f32 = 15.;
-const PAD_TOP: f32 = 8.;
-const PAD_BOTTOM: f32 = 15.;
+// Transparent window margins that keep the glass's shadow from being
+// clipped. The shadow falls down, so the top needs less, which also keeps a
+// top overlay's window clear of the menu bar.
+const PAD_X: f32 = 18.;
+const PAD_TOP: f32 = 10.;
+const PAD_BOTTOM: f32 = 18.;
 
 // Distance from the screen edge to the card.
 #[cfg(target_os = "macos")]
@@ -65,21 +67,21 @@ const BOTTOM_OFFSET: f32 = 40.;
 
 const HIDE_DELAY: Duration = Duration::from_millis(300);
 
-// Card geometry, from Annotate's capsule: 40px tall, with 32px chips inset
-// 4px and 2px apart. Widths include the 1px border.
-const BASE_H: f32 = 40.;
-const RADIUS: f32 = BASE_H / 2.;
-const INSET: f32 = 4.;
-const CHIP: f32 = 32.;
+// Card geometry, from the shared capsule: 48px tall, with 36px chips inset
+// 6px and 2px apart. Widths include the 1px border.
+const BASE_H: f32 = capsule::HEIGHT;
+const RADIUS: f32 = capsule::RADIUS;
+const INSET: f32 = capsule::INSET;
+const CHIP: f32 = capsule::CHIP;
 const CHIP_GAP: f32 = 2.;
 const DIVIDER_W: f32 = 13.;
 const WAVE_BARS: usize = 9;
 const WAVE_W: f32 = WAVE_BARS as f32 * 4. + (WAVE_BARS - 1) as f32 * 3.;
-/// The listening lead: the dot centered in the first chip, then the waveform.
-const LEAD_W: f32 = 12. + 8. + 10. + WAVE_W + 10.;
+/// The listening lead: the dot, then the waveform.
+const LEAD_W: f32 = 12. + 10. + 10. + WAVE_W + 10.;
 const REST_W: f32 = 2. * INSET + LEAD_W + 2. * CHIP_GAP + DIVIDER_W + CHIP;
-const WORK_W: f32 = 206.;
-const OPEN_W: f32 = 394.;
+const WORK_W: f32 = 220.;
+const OPEN_W: f32 = 440.;
 const CAP_MAX_H: f32 = 64.;
 const MORPH: Duration = Duration::from_millis(460);
 
@@ -176,34 +178,6 @@ impl Tween {
             self.to = to;
             self.start = Some(Instant::now());
         }
-    }
-}
-
-/// Overlay colors, from Annotate's black capsule. The card stays dark in both
-/// themes, like Annotate's.
-struct Colors {
-    /// Opaque, unlike Annotate's 96%, so the live text's surface-colored fade
-    /// matches the card over light windows.
-    surface: Hsla,
-    border: Hsla,
-    divider: Hsla,
-    text: Hsla,
-    /// The timer and the resting cancel icon.
-    secondary: Hsla,
-    hover: Hsla,
-    record: Hsla,
-}
-
-fn colors() -> Colors {
-    let hex = |value: u32| -> Hsla { gpui::rgb(value).into() };
-    Colors {
-        surface: hex(0x141416),
-        border: gpui::white().a(0.12),
-        divider: gpui::white().a(0.11),
-        text: hex(0xf5f5f7),
-        secondary: hex(0x9c9c9e),
-        hover: gpui::white().a(0.1),
-        record: hex(0xf04438),
     }
 }
 
@@ -695,108 +669,26 @@ impl RecordingOverlay {
             )
     }
 
-    /// Annotate's record dot. Once capture starts, a halo ripples out to 20px
-    /// and fades while the dot breathes, both on one 1.6s cycle.
     fn dot(&self, c: &Colors) -> impl IntoElement {
-        let ready = self.capture_ready;
-        let record = c.record;
-        let cycle = Duration::from_millis(1600);
-        div()
-            .relative()
-            .size(px(8.))
-            .flex_none()
-            .when(ready, |el| {
-                el.child(div().absolute().rounded_full().with_animation(
-                    "sdot-halo",
-                    Animation::new(cycle).repeat(),
-                    move |halo, ripple| {
-                        let r = 4. + 6. * ripple;
-                        halo.left(px(4. - r))
-                            .top(px(4. - r))
-                            .size(px(2. * r))
-                            .bg(record.a(0.34 * (1. - ripple).powi(2)))
-                    },
-                ))
-                .child(div().absolute().inset_0().rounded_full().with_animation(
-                    "sdot-breath",
-                    Animation::new(cycle).repeat(),
-                    move |dot, t| {
-                        let breath = 0.5 + 0.5 * (std::f32::consts::TAU * t).cos();
-                        dot.bg(record.a(0.78 + 0.22 * breath))
-                    },
-                ))
-            })
-            .when(!ready, |el| {
-                el.child(div().absolute().inset_0().rounded_full().bg(c.text.a(0.3)))
-            })
+        capsule::live_dot(self.capture_ready, c)
     }
 
-    /// Annotate's close chip: a bare icon in a 32px slot that gains a 28px
-    /// circle on hover.
+    /// The close chip: a bare icon that gains a circle on hover.
     fn cancel_button(&self, c: &Colors) -> impl IntoElement {
-        let (hover, text) = (c.hover, c.text);
-        div()
-            .size(px(CHIP))
-            .flex_none()
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                div()
-                    .id("overlay-cancel")
-                    .size(px(CHIP - 4.))
-                    .rounded_full()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .text_color(c.secondary)
-                    .cursor_pointer()
-                    .hover(move |s| s.bg(hover).text_color(text))
-                    .on_click(|_, _, _| {
-                        let app = AppHandle::global().clone();
-                        crate::runtime::spawn_blocking(move || {
-                            crate::commands::cancel_operation(app)
-                        });
-                    })
-                    .child(icon("overlay-cancel").size(px(11.))),
-            )
+        capsule::chip("overlay-cancel", ChipKind::Icon, c)
+            .on_click(|_, _, _| {
+                let app = AppHandle::global().clone();
+                crate::runtime::spawn_blocking(move || crate::commands::cancel_operation(app));
+            })
+            .child(icon("overlay-cancel").size(px(12.)))
     }
 
-    /// Annotate's processing spinner: eight dots on a ring, brightest at a
-    /// head that goes around once a second.
     fn spinner(&self, c: &Colors) -> impl IntoElement {
-        let color = c.text;
-        div()
-            .relative()
-            .size(px(16.))
-            .flex_none()
-            .children((0..8).map(move |k| {
-                let angle = k as f32 * std::f32::consts::FRAC_PI_4 - std::f32::consts::FRAC_PI_2;
-                div()
-                    .absolute()
-                    .left(px(8. + 6.2 * angle.cos() - 1.35))
-                    .top(px(8. + 6.2 * angle.sin() - 1.35))
-                    .size(px(2.7))
-                    .rounded_full()
-                    .bg(color)
-                    .with_animation(
-                        SharedString::from(format!("sspin-{k}")),
-                        Animation::new(Duration::from_secs(1)).repeat(),
-                        move |dot, t| {
-                            let behind = (t * 8. - k as f32).rem_euclid(8.);
-                            dot.opacity((1. - behind / 7.5).clamp(0.18, 1.))
-                        },
-                    )
-            }))
+        capsule::spinner(c)
     }
 
     fn divider(&self, c: &Colors) -> impl IntoElement {
-        div()
-            .w(px(DIVIDER_W))
-            .flex_none()
-            .flex()
-            .justify_center()
-            .child(div().w(px(1.)).h(px(16.)).bg(c.divider))
+        capsule::divider(c)
     }
 
     /// The 40px control row, laid out like Annotate's capsule: the lead fills
@@ -895,8 +787,12 @@ impl RecordingOverlay {
                 start..content.len(),
                 HighlightStyle {
                     // GPUI draws a zero-alpha glyph dark, so the off phase
-                    // paints the caret in the card color instead.
-                    color: Some(if self.caret_on { c.text } else { c.surface }),
+                    // paints the caret nearly transparent instead.
+                    color: Some(if self.caret_on {
+                        c.accent
+                    } else {
+                        c.text.a(0.01)
+                    }),
                     ..Default::default()
                 },
             ));
@@ -943,7 +839,10 @@ impl RecordingOverlay {
         // edge. GPUI clips children to a rectangle, so the fade takes the
         // card's inner corners, and GPUI caps a radius at half the height, so
         // it grows tall enough for them and its gradient still ends at 18px.
-        let fade = (!top || overflowing).then(|| {
+        // Over native glass a colored fade would show as a band, so the
+        // text clips at the padding instead.
+        let flat = !crate::ui::glass::native_available();
+        let fade = (flat && (!top || overflowing)).then(|| {
             let corner = RADIUS - 1.;
             let height = if top { 18. } else { (2. * corner).max(18.) };
             div()
@@ -955,8 +854,8 @@ impl RecordingOverlay {
                 .when(!top, |el| el.rounded_t(px(corner)))
                 .bg(linear_gradient(
                     180.,
-                    linear_color_stop(c.surface, 0.),
-                    linear_color_stop(c.surface.a(0.), 18. / height),
+                    linear_color_stop(c.tint.a(1.), 0.),
+                    linear_color_stop(c.tint.a(0.), 18. / height),
                 ))
         });
 
@@ -991,19 +890,9 @@ impl RecordingOverlay {
             )
     }
 
-    /// The capsule both forms draw in: Annotate's dark surface, hairline rim
-    /// and soft drop shadow.
+    /// The capsule both forms draw in.
     fn card(&self, c: &Colors) -> Div {
-        div()
-            .flex_none()
-            .flex()
-            .w(px(self.width.value()))
-            .rounded(px(RADIUS))
-            .overflow_hidden()
-            .bg(c.surface)
-            .border_1()
-            .border_color(c.border)
-            .shadow(vec![shadow(0., 4., 7., 0., 0.22)])
+        capsule::surface("overlay-capsule", px(RADIUS), c).w(px(self.width.value()))
     }
 
     fn render_compact(&mut self, c: &Colors) -> AnyElement {
@@ -1100,7 +989,7 @@ impl Render for RecordingOverlay {
         if !self.visible {
             return stage;
         }
-        let c = colors();
+        let c = Colors::current(cx);
         let card = if self.state == OverlayState::Streaming {
             self.render_live(window, &c, cx)
         } else {
