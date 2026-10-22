@@ -17,7 +17,8 @@ use scrawl::host::KeyframeRow;
 
 use crate::i18n::{t, t_count};
 use crate::ui::components::{
-    icon, Button, ButtonVariant, KeyboardFocus, RowDirection, SegmentedControl, Typography,
+    icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, SegmentedControl,
+    Typography,
 };
 use crate::ui::dates;
 use crate::ui::glass::{glass, GlassStyle};
@@ -290,6 +291,7 @@ impl Captures {
                         "folder-open",
                         t("annotate.library.showInFinder"),
                     )
+                    .size(ButtonSize::Md)
                     .on_click(move |_, _, _| scrawl::host::reveal_capture(&reveal_dir)),
                 )
                 .action(

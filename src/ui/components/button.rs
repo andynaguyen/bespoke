@@ -8,7 +8,7 @@ use gpui::{
 use super::KeyboardFocus;
 use super::RowDirection;
 use super::Typography;
-use crate::ui::theme::{palette, tw, Alpha};
+use crate::ui::theme::{palette, tw, Alpha, CONTROL_HEIGHT};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum ButtonVariant {
@@ -189,7 +189,7 @@ impl RenderOnce for Button {
             });
         button = match self.size {
             ButtonSize::Sm => button.h(px(26.)).px(px(10.)).text_px(12.),
-            ButtonSize::Md => button.h(px(32.)).px(px(14.)).text_px(13.),
+            ButtonSize::Md => button.h(CONTROL_HEIGHT).px(px(15.)).text_px(13.),
         };
         *button.style() = super::merge_styles(button.style().clone(), self.style);
 

@@ -458,6 +458,7 @@ impl super::Page for AnnotatePage {
                         "folder-open",
                         t("annotate.library.folder"),
                     )
+                    .size(ButtonSize::Md)
                     .on_click(|_, _, _| scrawl::host::show_captures()),
                 )
                 .action(

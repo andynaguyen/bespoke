@@ -389,6 +389,10 @@ pub fn shadow(x: f32, y: f32, blur: f32, spread: f32, alpha: f32) -> gpui::BoxSh
 
 /// Corner radii. Nested shapes are concentric: a panel inset by
 /// [`radius::INSET`] in the window uses the window's radius minus the inset.
+/// The height of a standard control: buttons, fields, dropdowns and
+/// segmented controls, so a row of them lines up.
+pub const CONTROL_HEIGHT: Pixels = px(34.);
+
 pub mod radius {
     use gpui::{px, Pixels};
 

@@ -6,7 +6,7 @@ use gpui_component::input::{Input, InputState};
 
 use super::RowDirection;
 use super::Typography;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{palette, Alpha, CONTROL_HEIGHT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Variant {
@@ -121,6 +121,7 @@ impl RenderOnce for TextField {
             .row_dir()
             .items_center()
             .px(px_)
+            .when(self.variant == Variant::Default, |el| el.h(CONTROL_HEIGHT))
             .when(!focused && !self.disabled && !self.invalid, |el| {
                 el.hover(|s| s.border_color(p.mid_gray.a(0.4)))
             });

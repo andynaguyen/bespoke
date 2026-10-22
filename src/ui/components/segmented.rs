@@ -7,7 +7,7 @@ use gpui::{div, prelude::*, px, App, ElementId, FontWeight, SharedString, Window
 
 use super::RowDirection;
 use super::{KeyboardFocus, Typography};
-use crate::ui::theme::{palette, shadow, Alpha};
+use crate::ui::theme::{palette, shadow, Alpha, CONTROL_HEIGHT};
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 
@@ -45,7 +45,7 @@ impl RenderOnce for SegmentedControl {
             .flex()
             .row_dir()
             .items_center()
-            .h(px(34.))
+            .h(CONTROL_HEIGHT)
             .p(px(3.))
             .gap(px(2.))
             .rounded_full()

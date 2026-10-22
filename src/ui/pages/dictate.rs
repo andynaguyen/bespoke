@@ -736,12 +736,15 @@ impl super::Page for DictatePage {
         match self.tab {
             Tab::Dictionary => toolbar
                 .action(
-                    TextField::new(&self.search).w(px(200.)).prefix(
-                        icon("search")
-                            .size(px(13.))
-                            .text_color(p.mid_gray)
-                            .me(px(6.)),
-                    ),
+                    TextField::new(&self.search)
+                        .w(px(200.))
+                        .rounded_full()
+                        .prefix(
+                            icon("search")
+                                .size(px(13.))
+                                .text_color(p.mid_gray)
+                                .me(px(6.)),
+                        ),
                 )
                 .action(
                     Button::new("add-new")

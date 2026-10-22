@@ -13,7 +13,7 @@ use gpui::{
 use super::RowDirection;
 use super::{icon, FocusVisible, Typography};
 use crate::i18n::t;
-use crate::ui::theme::{palette, shadow_lg, Alpha};
+use crate::ui::theme::{palette, shadow_lg, Alpha, CONTROL_HEIGHT};
 
 #[derive(Clone)]
 pub struct DropdownOption {
@@ -177,7 +177,7 @@ impl RenderOnce for Dropdown {
             .id((self.id.clone(), SharedString::from("trigger")))
             .w_full()
             .min_w(px(180.))
-            .h(px(32.))
+            .h(CONTROL_HEIGHT)
             .px(px(12.))
             .text_px(13.)
             .bg(p.card)

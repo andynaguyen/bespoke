@@ -234,6 +234,7 @@ impl super::Page for ModelsPage {
             TextField::new(&self.search)
                 .regular_weight()
                 .w(px(220.))
+                .rounded_full()
                 .prefix(
                     icon("search")
                         .size(px(13.))
