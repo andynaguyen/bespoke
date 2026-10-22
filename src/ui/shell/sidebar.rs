@@ -35,9 +35,9 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
         .id(SharedString::from(format!("nav-{:?}", section)))
         .flex()
         .row_dir()
-        .gap(px(9.))
+        .gap(px(10.))
         .items_center()
-        .h(px(32.))
+        .h(px(36.))
         .px(px(10.))
         .w_full()
         .rounded(radius::ROW)
@@ -55,11 +55,11 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
         .on_click(cx.listener(move |this, _, window, cx| this.select_section(section, window, cx)))
         .child(
             icon(section.icon())
-                .size(px(16.))
+                .size(px(18.))
                 .flex_none()
                 .text_color(if active { p.accent } else { p.mid_gray }),
         )
-        .child(div().text_px(13.5).min_w_0().truncate().child(label))
+        .child(div().text_px(15.).min_w_0().truncate().child(label))
 }
 
 pub fn render(
@@ -95,7 +95,7 @@ pub fn render(
             .pb_3()
             .rounded(radius::PANEL)
             .child(glass("sidebar", GlassStyle::Regular, radius::PANEL))
-            .child(div().mx(px(10.)).mt_3().mb_4().child(logo(84., cx)))
+            .child(div().mx(px(10.)).mt_3().mb_4().child(logo(92., cx)))
             .child(div().flex().flex_col().gap(px(2.)).children(primary))
             .child(
                 div()
@@ -107,8 +107,8 @@ pub fn render(
                     .child(
                         div()
                             .pt_2()
-                            .text_px(12.)
-                            .line_height(px(16.))
+                            .text_px(13.)
+                            .line_height(px(18.))
                             .text_color(p.mid_gray)
                             .child(main.model_selector.clone()),
                     ),
