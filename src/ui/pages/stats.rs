@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use chrono::{Datelike, Duration, Local, NaiveDate};
 use gpui::{
-    anchored, deferred, div, point, prelude::*, px, rems, Context, Corner, FocusHandle, FontWeight,
-    Hsla, KeyDownEvent, Pixels, SharedString, Window,
+    anchored, deferred, div, ease_out_quint, point, prelude::*, px, rems, Animation, AnimationExt,
+    Context, Corner, FocusHandle, FontWeight, Hsla, KeyDownEvent, Pixels, SharedString, Window,
 };
 
 use crate::app_handle::AppHandle;
@@ -25,6 +25,8 @@ use crate::ui::theme::{palette, Alpha};
 
 const HEATMAP_WEEKS: usize = 20;
 const GAP: f32 = 3.75;
+/// How long a day's card takes to fade and rise into place.
+const CARD_IN: std::time::Duration = std::time::Duration::from_millis(120);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
@@ -242,6 +244,10 @@ pub struct StatsPage {
     /// means today.
     focus_date: Option<NaiveDate>,
     cell_focus: HashMap<NaiveDate, FocusHandle>,
+    /// The heatmap day under the pointer, whose card shows. It clears when
+    /// the pointer leaves the grid, so crossing the gaps between days keeps
+    /// the card up.
+    hover_date: Option<NaiveDate>,
 }
 
 impl StatsPage {
@@ -266,6 +272,7 @@ impl StatsPage {
             range: Range::Week,
             grid_width: px(0.),
             focus_date: None,
+            hover_date: None,
             cell_focus: HashMap::new(),
         }
     }
@@ -442,27 +449,56 @@ impl StatsPage {
                                             }
                                         },
                                     ));
-                                if value == 0 {
-                                    // Empty days get no card.
+                                let empty = value == 0;
+                                let cell = cell.on_hover(cx.listener(
+                                    move |this, hovered: &bool, _, cx| {
+                                        // Empty days get no card.
+                                        let next = (!empty).then_some(date);
+                                        if *hovered && this.hover_date != next {
+                                            this.hover_date = next;
+                                            cx.notify();
+                                        }
+                                    },
+                                ));
+                                if empty {
                                     return cell.into_any_element();
                                 }
-                                let card_rows = popover_rows(date);
-                                // The keyboard-focused day shows its card above
-                                // the cell; the mouse gets the hover tooltip.
-                                let focused_card = (show_focused_card && focused == Some(date))
-                                    .then(|| {
-                                        deferred(
-                                            anchored()
-                                                .anchor(Corner::BottomLeft)
-                                                .offset(point(px(0.), px(-6.)))
-                                                .snap_to_window_with_margin(px(8.))
-                                                .child(day_popover(date, card_rows.clone(), cx)),
-                                        )
-                                        .with_priority(1)
-                                    });
-                                cell.tooltip(move |_, cx| day_popover(date, card_rows.clone(), cx))
-                                    .children(focused_card)
-                                    .into_any_element()
+                                // The hovered day shows its card above the cell,
+                                // and so does the keyboard-focused one.
+                                let shown = self.hover_date == Some(date)
+                                    || (show_focused_card && focused == Some(date));
+                                let card = shown.then(|| {
+                                    deferred(
+                                        anchored()
+                                            .anchor(Corner::BottomLeft)
+                                            .offset(point(px(0.), px(-6.)))
+                                            .snap_to_window_with_margin(px(8.))
+                                            .child(
+                                                div()
+                                                    .child(day_popover(
+                                                        date,
+                                                        popover_rows(date),
+                                                        cx,
+                                                    ))
+                                                    .with_animation(
+                                                        SharedString::from(format!(
+                                                            "day-card-{date}"
+                                                        )),
+                                                        Animation::new(CARD_IN)
+                                                            .with_easing(ease_out_quint()),
+                                                        |card, t| {
+                                                            card.opacity(t).mt(px(4. * (1. - t)))
+                                                        },
+                                                    ),
+                                            ),
+                                    )
+                                    .with_priority(1)
+                                });
+                                cell.when(self.hover_date == Some(date), |el| {
+                                    el.border_1().border_color(p.text.a(0.6))
+                                })
+                                .children(card)
+                                .into_any_element()
                             }
                         }
                     }))
@@ -518,6 +554,12 @@ impl StatsPage {
                     .text_size(px(10.))
                     .line_height(px(10.))
                     .text_color(p.text.a(0.5))
+                    .id("heatmap-grid")
+                    .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                        if !*hovered && this.hover_date.take().is_some() {
+                            cx.notify();
+                        }
+                    }))
                     .child(month_row)
                     .children(rows)
                     .child(tracker),
