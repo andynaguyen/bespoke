@@ -169,7 +169,41 @@ fn named_key(name: &str) -> Option<(u32, String)> {
 
 // MARK: Captures for the host's MCP server
 
-pub use crate::handoff::Capture;
+pub use crate::handoff::{Capture, KeyframeRow};
+
+/// Up to `limit` captures, newest first. Reads every manifest, so call it off the UI thread.
+pub fn recent_captures(limit: usize) -> Vec<Capture> {
+    Capture::recent(&captures_dir(), limit)
+}
+
+/// Copies a capture's `summary.md` to the clipboard, as the capsule does when it finishes.
+pub fn copy_capture(dir: &Path) -> Result<(), String> {
+    crate::handoff::copy_bundle_to_clipboard(dir).map_err(|e| e.to_string())
+}
+
+/// Shows a capture's folder in Finder.
+pub fn reveal_capture(dir: &Path) {
+    let _ = crate::handoff::open_path(dir);
+}
+
+static ON_INSPECT: OnceLock<Box<dyn Fn(PathBuf) + Send + Sync>> = OnceLock::new();
+
+/// Called once, before `start`. `inspect` runs on the UI thread with a capture's folder wherever
+/// Scrawl would open its Inspect window, so the host can show the capture itself.
+pub fn on_inspect(inspect: impl Fn(PathBuf) + Send + Sync + 'static) {
+    let _ = ON_INSPECT.set(Box::new(inspect));
+}
+
+/// Hands `dir` to the host's Inspect view. False when the host has none.
+pub(crate) fn inspect(dir: PathBuf) -> bool {
+    match ON_INSPECT.get() {
+        Some(inspect) => {
+            inspect(dir);
+            true
+        }
+        None => false,
+    }
+}
 
 /// The folder `Capture::find` and `Capture::recent` look in.
 pub fn captures_dir() -> PathBuf {

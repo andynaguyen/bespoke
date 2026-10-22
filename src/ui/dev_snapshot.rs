@@ -14,7 +14,7 @@
 //! `capsule:<kind>` does the same for Annotate's capsule (see
 //! `annotate::capsule::dev_preview`). `scrawl:choose` opens Annotate's
 //! picker and `scrawl:latest` its latest capture, and both capture the main
-//! display.
+//! display. `annotate:latest` opens the newest capture on the Annotate page.
 //! `BESPOKE_DEV_DESKTOP=1` keeps the desktop and windows behind the target
 //! window in the capture, so glass shows what it refracts.
 //! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
@@ -139,6 +139,12 @@ fn navigate(page: &str, cx: &mut App) {
     }
     if CAPTURE_OVERLAY.replace(false) {
         crate::ui::overlay::hide(cx);
+    }
+    if page == "annotate:latest" {
+        if let Some(capture) = scrawl::host::recent_captures(1).first() {
+            crate::ui::pages::captures::inspect(capture.dir().to_path_buf(), cx);
+        }
+        return;
     }
     let Some(main) = crate::ui::main_view(cx) else {
         log::warn!("snapshot: no main view");

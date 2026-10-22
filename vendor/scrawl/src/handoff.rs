@@ -108,6 +108,21 @@ pub struct Capture {
     bundle: ScrawlBundle,
 }
 
+/// One keyframe, for a timeline: when it is, what they did, what they said while it was on
+/// screen, and its image.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeyframeRow {
+    pub index: usize,
+    /// Like `0:10`.
+    pub clock: String,
+    /// What they did, like `Clicked Save`, without the details in parentheses.
+    pub action: String,
+    pub said: Option<String>,
+    /// Whether one of their marks made this keyframe.
+    pub mark: bool,
+    pub path: PathBuf,
+}
+
 impl Capture {
     /// The capture `reference` names in `captures`: `latest`, an id like
     /// `scrawl-1792561826739-14c29-6`, or a path from a paste, which may be another machine's
@@ -192,6 +207,48 @@ impl Capture {
 
     pub fn keyframe_count(&self) -> usize {
         self.bundle.keyframes.len()
+    }
+
+    /// The `.scrawl` folder.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
+    /// How many marks they drew.
+    pub fn marks(&self) -> usize {
+        self.bundle.marks.len()
+    }
+
+    /// The keyframes in order, with the images the contact sheet uses.
+    pub fn keyframe_rows(&self) -> Vec<KeyframeRow> {
+        self.bundle
+            .keyframes
+            .iter()
+            .filter_map(|keyframe| {
+                let path = self.file(&keyframe.file).ok()?;
+                let action = keyframe
+                    .event
+                    .split(" (")
+                    .next()
+                    .unwrap_or(&keyframe.event)
+                    .trim()
+                    .to_owned();
+                Some(KeyframeRow {
+                    index: keyframe.index,
+                    clock: crate::model::format_clock(keyframe.t),
+                    action,
+                    said: keyframe
+                        .said
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|said| !said.is_empty())
+                        .map(str::to_owned),
+                    mark: keyframe.reason == crate::model::KeyframeReason::Mark
+                        || keyframe.mark_id.is_some(),
+                    path,
+                })
+            })
+            .collect()
     }
 
     pub(crate) fn finished(&self) -> crate::host::Finished {

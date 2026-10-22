@@ -48,6 +48,7 @@ Run `scripts/create-signing-identity.sh` once per Mac to add that self-signed id
 | `src/overlay.rs`, `src/ui/overlay.rs` | The recording overlay: backend entry points, then the window and view |
 | `src/tray.rs` | The menu bar icon and menu |
 | `src/ui/shell/` | The main window: sidebar, footer, and banners |
+| `src/ui/glass.rs`, `src/ui/capsule.rs` | Liquid Glass under GPUI elements, and the capsule dictation and Annotate share |
 | `src/ui/pages/` | Sidebar pages, with single-setting rows in `rows.rs` |
 | `src/ui/components/` | Buttons, toggles, sliders, dropdowns, dialogs, and other controls |
 | `src/ui/onboarding/` | First-run permission and model screens |
@@ -74,7 +75,7 @@ BESPOKE_DEV_THEME=dark \
 cargo run
 ```
 
-Pages are sidebar sections, `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, `onboarding:accessibility|model` and `overlay:<state>` (see `ui::overlay::dev_preview`). An `@<px>` suffix scrolls the page first. `#<n>` presses Tab n times with focus rings shown, and focus carries over between pages. `BESPOKE_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. Snapshots work on macOS only, and they keep working with the screen locked.
+Pages are sidebar sections, `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, `onboarding:accessibility|model`, `overlay:<state>` (see `ui::overlay::dev_preview`), `capsule:<form>` for Annotate's capsule (see `annotate::capsule::dev_preview`), and `annotate:latest`, which opens the newest capture. `scrawl:choose` opens Annotate's picker and captures the whole main display, which needs the Screen Recording permission. An `@<px>` suffix scrolls the page first. `#<n>` presses Tab n times with focus rings shown, and focus carries over between pages. `BESPOKE_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. A window capture has nothing behind its glass, so glass looks flat in it. `BESPOKE_DEV_BACKDROP=<png>` fills each window behind its glass with an image, and `BESPOKE_DEV_DESKTOP=1` keeps what is on screen behind the window in the capture. Snapshots work on macOS only, and they keep working with the screen locked.
 
 ## GPUI layout notes
 

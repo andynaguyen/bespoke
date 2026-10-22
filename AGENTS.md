@@ -35,7 +35,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
   - `vad/` - Voice activity detection (Silero, Earshot)
 - `commands/` - Functions the UI calls into the backend (audio, history, models, transcription)
 - `actions.rs`, `transcription_coordinator.rs` - Start, stop, and cancel a dictation
-- `annotate.rs` - Annotate (macOS only): starts the Scrawl capture vendored in `vendor/scrawl` and forwards its two shortcut bindings. Read `vendor/scrawl/BESPOKE.md` before changing the vendored code
+- `annotate.rs` - Annotate (macOS only): starts the Scrawl capture vendored in `vendor/scrawl` and forwards its two shortcut bindings. `annotate/capsule.rs` draws Scrawl's capsule with `ui::capsule`, and `ui/pages/captures.rs` lists captures and opens one in place of Scrawl's Inspect window. Read `vendor/scrawl/BESPOKE.md` before changing the vendored code
 - `annotate/mcp.rs` - Agent Access: an MCP server on `127.0.0.1:47790` that serves captures to coding agents. Claude Code and Codex on a remote machine reach it through an SSH `RemoteForward`, or through this Mac's Tailscale address when Agent Access is set to Tailnet. The tools are in `annotate/mcp/tools.rs`, and the guide sent to agents is `annotate/mcp/instructions.md`. Its Off, This Mac and Tailnet control and the setup to copy are on the MCP page, `ui/pages/mcp.rs`
 - `shortcut/` - Global shortcuts. `handy_keys.rs` wraps the patched `handy-keys` crate in `vendor/`, and `hotkey_impl.rs` wraps `global-hotkey`
 - `settings.rs` - Settings schema, defaults, and migrations
@@ -49,13 +49,15 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 
 ### UI (`src/ui/`)
 
-- `shell/` - Main window: sidebar, toolbar, banners. The colors and sizes follow Annotate's Inspect window (`BundleReviewWindow` in `vendor/scrawl/src/ui.rs`)
+- `shell/` - Main window: sidebar, toolbar, banners. The window sits on AppKit's window material, and the sidebar floats on it as a glass panel inset 8pt
 - `pages/` - Sidebar pages. Each implements `pages::Page`, which puts its tabs and actions in the toolbar and picks a layout (`Padded`, `Flush` or `Fill`). `rows.rs` holds the single-setting rows
 - `components/` - Shared controls (buttons, toggles, sliders, dropdowns, dialogs)
 - `onboarding/` - First-run permission and model screens
 - `stores/` - Shared UI state as GPUI entities
 - `overlay.rs` - Recording overlay window and view
-- `theme.rs` - Palette for light and dark mode
+- `capsule.rs` - The capsule dictation and Annotate share: its glass surface, live dot, spinner, chips and colors
+- `glass.rs` - Liquid Glass behind GPUI elements: `glass(id, style, radius)` keeps an `NSGlassEffectView` under an element's bounds, below GPUI's Metal view. Anything GPUI paints over that area covers the glass, so leave it unpainted
+- `theme.rs` - Palette for light and dark mode, and the corner radii (`radius`)
 
 Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
 

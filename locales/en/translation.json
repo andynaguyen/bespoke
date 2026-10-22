@@ -891,6 +891,26 @@
       "inspect": "Inspect",
       "marks_one": "{{count}} mark",
       "marks_other": "{{count}} marks"
+    },
+    "library": {
+      "captures": "Captures",
+      "settings": "Settings",
+      "count_one": "{{count}} capture",
+      "count_other": "{{count}} captures",
+      "folder": "Captures Folder",
+      "record": "Record",
+      "empty": "No captures yet",
+      "emptyHint": "Tap ⌥⇧S to record the screen under the pointer while you talk.",
+      "back": "Back to captures",
+      "contactSheet": "Contact Sheet",
+      "keyframe": "Keyframe",
+      "keyframes_one": "{{count}} keyframe",
+      "keyframes_other": "{{count}} keyframes",
+      "timeline": "Timeline",
+      "showInFinder": "Show in Finder",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy the capture"
     }
   },
   "mcp": {

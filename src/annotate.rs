@@ -45,6 +45,10 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     count_captures(app);
     sync_shortcuts(&get_settings(app));
     capsule::init(app);
+    let ui = app.clone();
+    scrawl::host::on_inspect(move |dir| {
+        ui.with_ui(move |cx| crate::ui::pages::captures::inspect(dir, cx));
+    });
     scrawl::start(cx);
     mcp::sync(app);
 }

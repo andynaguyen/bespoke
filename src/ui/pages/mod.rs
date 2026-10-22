@@ -3,6 +3,7 @@
 
 #[cfg(target_os = "macos")]
 mod annotate;
+pub mod captures;
 mod debug;
 mod dictate;
 mod history;

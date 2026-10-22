@@ -1,7 +1,8 @@
-//! The Annotate page: Scrawl's settings (its General, Recording, Storage and Permissions panes)
-//! for the capture in `vendor/scrawl`. The shortcuts are ordinary Bespoke bindings. Everything
-//! else reads and writes Scrawl's own `config.json` through `scrawl::host`. Agent Access for
-//! `annotate::mcp` has its own page.
+//! The Annotate page. Its Captures tab lists the captures and opens one in place of Scrawl's
+//! Inspect window (`captures`). Its Settings tab holds Scrawl's settings (its General,
+//! Recording, Storage and Permissions panes). The shortcuts are ordinary Bespoke bindings.
+//! Everything else reads and writes Scrawl's own `config.json` through `scrawl::host`. Agent
+//! Access for `annotate::mcp` has its own page.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -12,15 +13,18 @@ use scrawl::host::{
     SpeechStatus,
 };
 
-use crate::i18n::{t, t_with};
+use crate::i18n::{t, t_count, t_with};
 use crate::ui::components::{
     icon, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
-    SettingContainer, SettingsGroup, Typography,
+    SegmentedControl, SettingContainer, SettingsGroup, Typography,
 };
+use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, tw, Alpha};
 
+use super::captures::Captures;
 use super::shortcut_input::ShortcutInput;
+use super::PageLayout;
 
 /// How often the page re-reads the grants, the speech model and the microphones while it's open,
 /// so a grant made in System Settings shows up by itself.
@@ -49,7 +53,15 @@ fn retention_id(preset: Retention) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Captures,
+    Settings,
+}
+
 pub struct AnnotatePage {
+    tab: Tab,
+    captures: Entity<Captures>,
     record_shortcut: Entity<ShortcutInput>,
     paste_shortcut: Entity<ShortcutInput>,
     microphones: Option<Microphones>,
@@ -86,7 +98,11 @@ impl AnnotatePage {
             }
             cx.background_executor().timer(POLL).await;
         });
+        let captures = cx.new(Captures::new);
+        cx.observe(&captures, |_, _, cx| cx.notify()).detach();
         let mut page = Self {
+            tab: Tab::Captures,
+            captures,
             record_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::RECORD_BINDING, cx)),
             paste_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::PASTE_BINDING, cx)),
             microphones: None,
@@ -398,10 +414,91 @@ impl AnnotatePage {
     }
 }
 
-impl super::Page for AnnotatePage {}
+impl super::Page for AnnotatePage {
+    fn toolbar(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> Toolbar {
+        if self.tab == Tab::Captures {
+            if let Some(toolbar) = self
+                .captures
+                .update(cx, |captures, cx| captures.toolbar(cx))
+            {
+                return toolbar;
+            }
+        }
+        let entity = cx.entity().downgrade();
+        let mut toolbar = Toolbar::new().tabs(SegmentedControl::new(
+            "annotate-tabs",
+            vec![
+                ("captures".into(), t("annotate.library.captures")),
+                ("settings".into(), t("annotate.library.settings")),
+            ],
+            match self.tab {
+                Tab::Captures => "captures",
+                Tab::Settings => "settings",
+            },
+            move |id, _, cx| {
+                let tab = if id.as_ref() == "settings" {
+                    Tab::Settings
+                } else {
+                    Tab::Captures
+                };
+                let _ = entity.update(cx, |this, cx| {
+                    this.tab = tab;
+                    if tab == Tab::Captures {
+                        this.captures.update(cx, |captures, cx| captures.reload(cx));
+                    }
+                    cx.notify();
+                });
+            },
+        ));
+        if self.tab == Tab::Captures {
+            if let Some(count) = self.captures.read(cx).count() {
+                toolbar = toolbar.meta(t_count("annotate.library.count", count as i64, &[]));
+            }
+            toolbar = toolbar
+                .action(
+                    icon_button(
+                        "captures-folder",
+                        "folder-open",
+                        t("annotate.library.folder"),
+                    )
+                    .on_click(|_, _, _| scrawl::host::show_captures()),
+                )
+                .action(
+                    Button::new("captures-record")
+                        .variant(ButtonVariant::Live)
+                        .gap(rems(0.375))
+                        .on_click(|_, _, _| scrawl::host::menu(scrawl::MenuAction::ChooseTarget))
+                        .child(div().size(rems(0.5)).rounded_full().bg(gpui::white()))
+                        .child(t("annotate.library.record")),
+                );
+        }
+        toolbar
+    }
+
+    fn layout(&self, cx: &gpui::App) -> PageLayout {
+        if self.tab == Tab::Captures && self.captures.read(cx).is_open() {
+            PageLayout::Fill
+        } else {
+            PageLayout::Padded
+        }
+    }
+}
 
 impl Render for AnnotatePage {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if cx.default_global::<super::captures::PendingInspectFlag>().0 {
+            cx.global_mut::<super::captures::PendingInspectFlag>().0 = false;
+            self.tab = Tab::Captures;
+        }
+        if self.tab == Tab::Captures {
+            return div()
+                .w_full()
+                .h_full()
+                .flex()
+                .flex_col()
+                .child(self.captures.clone())
+                .into_any_element();
+        }
         let shortcuts = SettingsGroup::new()
             .title(t("annotate.groups.shortcuts"))
             .child(self.record_shortcut.clone())
@@ -427,5 +524,6 @@ impl Render for AnnotatePage {
             .child(recording)
             .child(storage)
             .child(permissions)
+            .into_any_element()
     }
 }

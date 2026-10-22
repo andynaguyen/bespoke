@@ -15,6 +15,8 @@ pub enum ButtonVariant {
     #[default]
     Primary,
     Secondary,
+    /// Starts a recording: the live red.
+    Live,
     DangerGhost,
     Ghost,
 }
@@ -130,6 +132,14 @@ impl RenderOnce for Button {
                 hover_bg: p.accent.a(0.85),
                 hover_border: None,
             },
+            ButtonVariant::Live => Colors {
+                text: gpui::white(),
+                bg: p.ink,
+                border: gpui::white().a(0.18),
+                hover_text: None,
+                hover_bg: p.ink.a(0.85),
+                hover_border: None,
+            },
             ButtonVariant::Secondary => Colors {
                 text: p.text,
                 bg: p.card,
@@ -172,6 +182,10 @@ impl RenderOnce for Button {
             .when(self.variant == ButtonVariant::Primary, |el| {
                 el.font_weight(FontWeight::SEMIBOLD)
                     .shadow(vec![crate::ui::theme::colored_shadow(p.accent, 0.35)])
+            })
+            .when(self.variant == ButtonVariant::Live, |el| {
+                el.font_weight(FontWeight::SEMIBOLD)
+                    .shadow(vec![crate::ui::theme::colored_shadow(p.ink, 0.35)])
             });
         button = match self.size {
             ButtonSize::Sm => button.h(px(26.)).px(px(10.)).text_px(12.),

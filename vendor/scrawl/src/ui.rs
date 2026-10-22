@@ -2642,6 +2642,17 @@ fn close_review_window(cx: &mut App) {
 /// its menu is used, and the cooperative `NSApp.activate()` may leave the window behind the app
 /// in front, so it activates ignoring other apps once the window exists.
 fn open_review_window(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
+    // Bespoke shows captures in its own window.
+    let dir = coord_entity
+        .read(cx)
+        .review_bundle
+        .as_ref()
+        .map(|(dir, _)| dir.clone());
+    if let Some(dir) = dir
+        && crate::host::inspect(dir)
+    {
+        return;
+    }
     for handle in cx.windows() {
         if let Some(review) = handle.downcast::<BundleReviewWindow>() {
             platform::take_keys(cx);
