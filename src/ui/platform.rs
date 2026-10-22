@@ -43,6 +43,17 @@ pub fn prepare_overlay_window(window: &Window) {
     let _ = window;
 }
 
+/// Rounds the main window's frame at `radius::WINDOW`, the radius its glass
+/// is drawn with. macOS 26 rounds a window without a toolbar at 16pt and
+/// draws its hairline and shadow there, which left a sliver of desktop
+/// between the frame and the glass at each corner.
+pub fn prepare_main_window(window: &Window) {
+    #[cfg(target_os = "macos")]
+    imp::prepare_main_window(window);
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
+}
+
 #[cfg(target_os = "macos")]
 pub use imp::{
     accessibility_granted, launch_as_accessory, microphone_granted,
@@ -105,6 +116,27 @@ mod imp {
 
     pub fn is_window_visible(window: &Window) -> bool {
         ns_window(window).is_some_and(|w| w.isVisible())
+    }
+
+    pub fn prepare_main_window(window: &Window) {
+        if !crate::ui::glass::native_available() {
+            return;
+        }
+        let Some(ns_window) = ns_window(window) else {
+            return;
+        };
+        let radius = f64::from(f32::from(crate::ui::theme::radius::WINDOW));
+        // AppKit has no public setter for a window's corner radius. Check
+        // the private one exists, so a later macOS falls back to its own.
+        // SAFETY: `_setCornerRadius:` takes a CGFloat and returns nothing.
+        unsafe {
+            let responds: bool =
+                msg_send![&*ns_window, respondsToSelector: sel!(_setCornerRadius:)];
+            if responds {
+                let _: () = msg_send![&*ns_window, _setCornerRadius: radius];
+                ns_window.invalidateShadow();
+            }
+        }
     }
 
     pub fn prepare_overlay_window(window: &Window) {

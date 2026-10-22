@@ -174,13 +174,14 @@ pub fn open_main_window(show: bool, cx: &mut App) {
     let bounds = Bounds::centered(None, size(px(1024.), px(800.)), cx);
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(bounds)),
-        // On macOS the title bar is hidden and the sidebar runs to the top
-        // edge with the traffic lights drawn over it. The title stays set so
-        // Mission Control and the Window menu still show it.
+        // On macOS the title bar is hidden and the traffic lights sit inside
+        // the sidebar panel, clear of its rounded corner, the way macOS 26
+        // places them in a sidebar. The title stays set so Mission Control
+        // and the Window menu still show it.
         titlebar: Some(TitlebarOptions {
             title: Some("Bespoke".into()),
             appears_transparent: cfg!(target_os = "macos"),
-            traffic_light_position: None,
+            traffic_light_position: Some(gpui::point(px(19.), px(19.))),
         }),
         focus: show,
         show,
@@ -201,6 +202,7 @@ pub fn open_main_window(show: bool, cx: &mut App) {
 
     let handle = cx.open_window(options, |window, cx| {
         window.on_window_should_close(cx, hide_main_window);
+        platform::prepare_main_window(window);
         let view = cx.new(|cx| MainWindow::new(window, cx));
         cx.global_mut::<MainWindowSlot>().view = Some(view.clone());
         cx.new(|cx| Root::new(view, window, cx))
