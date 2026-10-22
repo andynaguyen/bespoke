@@ -7,7 +7,7 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, InputState};
 
-use crate::i18n::{t, t_count, t_with};
+use crate::i18n::{t, t_with};
 use crate::settings::{AppSettings, AppStyleRule, Snippet, WritingStyle};
 use crate::shortcut;
 use crate::ui::components::{
@@ -340,7 +340,6 @@ impl DictatePage {
         if all.is_empty() {
             return Self::empty_list(t("settings.dictionary.empty"), cx).into_any_element();
         }
-        let count = t_count("settings.dictionary.entries", all.len() as i64, &[]);
         let query = self.query(cx);
         let shown: Vec<Entry> = all
             .into_iter()
@@ -373,15 +372,6 @@ impl DictatePage {
             .iter()
             .map(|id| focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx))
             .collect();
-        // The count closes the table, like a list's footer in Finder.
-        let caption = div()
-            .h(px(32.))
-            .ps(px(16.))
-            .flex()
-            .items_center()
-            .text_px(12.)
-            .text_color(p.mid_gray)
-            .child(count);
         div()
             .flex()
             .flex_col()
@@ -446,7 +436,6 @@ impl DictatePage {
                             ))
                     }),
             )
-            .child(caption)
             .into_any_element()
     }
 

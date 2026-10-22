@@ -544,9 +544,7 @@
       "save": "Save",
       "cancel": "Cancel",
       "remove": "Remove {{word}}",
-      "duplicate": "\"{{word}}\" already exists",
-      "entries_one": "{{count}} entry",
-      "entries_other": "{{count}} entries"
+      "duplicate": "\"{{word}}\" already exists"
     },
     "style": {
       "default": "(default)",
@@ -891,8 +889,6 @@
     "library": {
       "captures": "Captures",
       "settings": "Settings",
-      "count_one": "{{count}} capture",
-      "count_other": "{{count}} captures",
       "folder": "Captures Folder",
       "record": "Record",
       "empty": "No captures yet",

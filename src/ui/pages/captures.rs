@@ -457,11 +457,6 @@ impl Captures {
             .flex_col()
             .gap(px(14.))
             .children(rows)
-            .child(div().text_px(12.).text_color(p.mid_gray).child(t_count(
-                "annotate.library.count",
-                items.len() as i64,
-                &[],
-            )))
             .into_any_element()
     }
 
