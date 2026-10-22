@@ -21,7 +21,6 @@ use crate::ui::components::{
     Typography,
 };
 use crate::ui::dates;
-use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::shell::Toolbar;
 use crate::ui::theme::{palette, radius, Alpha};
 
@@ -227,14 +226,12 @@ impl Captures {
         cx.notify();
     }
 
-    /// The toolbar for the open capture: back, the stage tabs, the
-    /// capture's summary, then Show in Finder and Copy.
+    /// The toolbar for the open capture: back, the stage tabs and the
+    /// capture's summary.
     pub fn toolbar(&self, cx: &mut Context<Self>) -> Option<Toolbar> {
         let item = self.open.as_ref()?;
         let back = cx.entity().downgrade();
         let tabs = cx.entity().downgrade();
-        let reveal_dir = item.dir.clone();
-        let copy = cx.entity().downgrade();
         let rows = item.rows.len();
         let meta = format!(
             "{} · {} · {}",
@@ -284,30 +281,37 @@ impl Captures {
                             },
                         )),
                 )
-                .meta(meta)
-                .action(
-                    super::annotate::icon_button(
-                        "capture-reveal",
-                        "folder-open",
-                        t("annotate.library.showInFinder"),
-                    )
-                    .size(ButtonSize::Md)
-                    .on_click(move |_, _, _| scrawl::host::reveal_capture(&reveal_dir)),
-                )
-                .action(
-                    Button::new("capture-copy")
-                        .gap(px(6.))
-                        .on_click(move |_, _, cx| {
-                            let _ = copy.update(cx, |this, cx| this.copy(cx));
-                        })
-                        .child(icon(if self.copied { "check" } else { "copy" }).size(px(14.)))
-                        .child(if self.copied {
-                            t("annotate.library.copied")
-                        } else {
-                            t("annotate.library.copy")
-                        }),
-                ),
+                .meta(meta),
         )
+    }
+
+    /// Show in Finder and Copy for the open capture, at the top of its
+    /// timeline.
+    fn actions(&self, item: &Item, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let reveal_dir = item.dir.clone();
+        let copy = cx.entity().downgrade();
+        vec![
+            super::annotate::icon_button(
+                "capture-reveal",
+                "folder-open",
+                t("annotate.library.showInFinder"),
+            )
+            .size(ButtonSize::Md)
+            .on_click(move |_, _, _| scrawl::host::reveal_capture(&reveal_dir))
+            .into_any_element(),
+            Button::new("capture-copy")
+                .gap(px(6.))
+                .on_click(move |_, _, cx| {
+                    let _ = copy.update(cx, |this, cx| this.copy(cx));
+                })
+                .child(icon(if self.copied { "check" } else { "copy" }).size(px(14.)))
+                .child(if self.copied {
+                    t("annotate.library.copied")
+                } else {
+                    t("annotate.library.copy")
+                })
+                .into_any_element(),
+        ]
     }
 
     fn card(&self, index: usize, item: &Item, cx: &mut Context<Self>) -> AnyElement {
@@ -474,7 +478,6 @@ impl Captures {
             .relative()
             .flex_1()
             .min_w_0()
-            .bg(p.surface)
             .child(
                 div()
                     .id("capture-stage")
@@ -590,46 +593,44 @@ impl Captures {
                     .into_any_element()
             })
             .collect();
-        div()
-            .flex_none()
-            .w(px(INSPECTOR_WIDTH) + radius::INSET * 2.)
-            .p(radius::INSET)
-            .pt(px(0.))
-            .child(
-                div()
-                    .relative()
-                    .size_full()
-                    .rounded(radius::PANEL)
-                    .child(glass(
-                        "capture-timeline",
-                        GlassStyle::Regular,
-                        radius::PANEL,
-                    ))
-                    .child(
-                        div()
-                            .id("capture-timeline")
-                            .size_full()
-                            .overflow_y_scroll()
-                            .track_scroll(&self.timeline_scroll)
-                            .px(px(8.))
-                            .py(px(12.))
-                            .flex()
-                            .flex_col()
-                            .gap(px(2.))
-                            .child(
-                                div()
-                                    .px(px(10.))
-                                    .pb(px(6.))
-                                    .xs_text()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(p.mid_gray)
-                                    .child(t("annotate.library.timeline")),
-                            )
-                            .children(rows),
-                    )
-                    .vertical_scrollbar(&self.timeline_scroll),
-            )
-            .into_any_element()
+        crate::ui::shell::inspector(
+            "capture-timeline",
+            INSPECTOR_WIDTH,
+            self.actions(item, cx),
+            div()
+                .relative()
+                .size_full()
+                .child(
+                    div()
+                        .id("capture-timeline")
+                        .size_full()
+                        .overflow_y_scroll()
+                        .track_scroll(&self.timeline_scroll)
+                        .px(px(8.))
+                        .py(px(12.))
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.))
+                        .child(
+                            div()
+                                .px(px(10.))
+                                .pb(px(6.))
+                                .xs_text()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(p.mid_gray)
+                                .child(t("annotate.library.timeline")),
+                        )
+                        .children(rows),
+                )
+                .vertical_scrollbar(&self.timeline_scroll),
+        )
+    }
+
+    /// The open capture's timeline, for the shell to show along the
+    /// window's edge (`Page::inspector`).
+    pub fn inspector(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let item = self.open.clone()?;
+        Some(self.render_timeline(&item, cx))
     }
 }
 
@@ -664,7 +665,6 @@ impl Render for Captures {
                 .flex()
                 .when(rtl, |el| el.flex_row_reverse())
                 .child(self.render_stage(&item, cx))
-                .child(self.render_timeline(&item, cx))
                 .into_any_element();
         }
         self.render_library(cx)

@@ -473,6 +473,18 @@ impl super::Page for AnnotatePage {
         toolbar
     }
 
+    fn inspector(
+        &mut self,
+        _window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) -> Option<gpui::AnyElement> {
+        if self.tab != Tab::Captures {
+            return None;
+        }
+        self.captures
+            .update(cx, |captures, cx| captures.inspector(cx))
+    }
+
     fn layout(&self, cx: &gpui::App) -> PageLayout {
         if self.tab == Tab::Captures && self.captures.read(cx).is_open() {
             PageLayout::Fill

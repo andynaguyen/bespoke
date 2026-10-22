@@ -189,7 +189,7 @@ pub fn open_main_window(show: bool, cx: &mut App) {
         is_movable: true,
         is_resizable: true,
         is_minimizable: true,
-        window_min_size: Some(size(px(680.), px(570.))),
+        window_min_size: Some(size(px(920.), px(570.))),
         // The window draws its own glass (`ui::glass`) under GPUI's layer.
         window_background: if glass::native_available() {
             WindowBackgroundAppearance::Transparent

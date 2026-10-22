@@ -27,10 +27,9 @@ use crate::ui::components::{
 };
 use crate::ui::dates;
 use crate::ui::event_bus::event_bus;
-use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, radius, Alpha};
+use crate::ui::theme::{palette, radius, Alpha, CONTROL_HEIGHT};
 use crate::ui::toast;
 
 use super::rows;
@@ -284,45 +283,93 @@ impl HistoryPage {
     }
 
     /// Adds the settings and recordings-folder buttons to the Dictate
-    /// page's toolbar.
+    /// page's toolbar while there is no inspector to hold them.
     pub fn toolbar_actions(
         &mut self,
         toolbar: Toolbar,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Toolbar {
+        if self.has_inspector() {
+            return toolbar;
+        }
+        self.actions(false, cx)
+            .into_iter()
+            .fold(toolbar, |toolbar, action| toolbar.action(action))
+    }
+
+    fn has_inspector(&self) -> bool {
+        !self.loading && !self.entries.is_empty()
+    }
+
+    /// The settings toggle and the recordings folder. `compact` leaves the
+    /// folder button an icon, to fit the inspector's top row.
+    fn actions(&mut self, compact: bool, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let show_settings = self.show_settings;
-        toolbar
-            .action(
-                Button::new("history-settings")
-                    .variant(if show_settings {
-                        ButtonVariant::Secondary
-                    } else {
-                        ButtonVariant::Ghost
-                    })
-                    .gap(px(5.))
-                    .child(icon("sliders-horizontal").size(px(13.)))
-                    .child(t("sidebar.settings"))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.show_settings = !this.show_settings;
-                        cx.notify();
-                    })),
-            )
-            .action(
-                Button::new("open-recordings")
-                    .variant(ButtonVariant::Secondary)
-                    .gap(px(5.))
-                    .title(t("settings.history.openFolder"))
-                    .child(icon("folder-open").size(px(13.)))
-                    .child(t("settings.history.openFolder"))
-                    .on_click(|_, _, _| {
-                        if let Err(e) =
-                            crate::commands::open_recordings_folder(AppHandle::global().clone())
-                        {
-                            log::error!("Failed to open recordings folder: {e}");
-                        }
-                    }),
-            )
+        let folder = t("settings.history.openFolder");
+        vec![
+            Button::new("history-settings")
+                .variant(if show_settings {
+                    ButtonVariant::Secondary
+                } else {
+                    ButtonVariant::Ghost
+                })
+                .gap(px(5.))
+                .child(icon("sliders-horizontal").size(px(13.)))
+                .child(t("sidebar.settings"))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.show_settings = !this.show_settings;
+                    cx.notify();
+                }))
+                .into_any_element(),
+            Button::new("open-recordings")
+                .variant(ButtonVariant::Secondary)
+                .gap(px(5.))
+                .title(folder.clone())
+                .when(compact, |el| el.w(CONTROL_HEIGHT).px(px(0.)))
+                .child(icon("folder-open").size(px(13.)))
+                .when(!compact, |el| el.child(folder))
+                .on_click(|_, _, _| {
+                    if let Err(e) =
+                        crate::commands::open_recordings_folder(AppHandle::global().clone())
+                    {
+                        log::error!("Failed to open recordings folder: {e}");
+                    }
+                })
+                .into_any_element(),
+        ]
+    }
+
+    /// The selected entry's details, for the shell to show along the
+    /// window's edge (`Page::inspector`).
+    pub fn inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        if !self.has_inspector() {
+            return None;
+        }
+        let actions = self.actions(true, cx);
+        let details = self
+            .selected_entry()
+            .cloned()
+            .map(|entry| self.render_inspector(&entry, window, cx).into_any_element());
+        Some(crate::ui::shell::inspector(
+            "history-inspector",
+            INSPECTOR_WIDTH,
+            actions,
+            div()
+                .relative()
+                .size_full()
+                .child(
+                    div()
+                        .id("history-inspector")
+                        .size_full()
+                        .overflow_y_scroll()
+                        .track_scroll(&self.inspector_scroll)
+                        .px_4()
+                        .py(px(16.))
+                        .children(details),
+                )
+                .vertical_scrollbar(&self.inspector_scroll),
+        ))
     }
 
     /// The history limit and retention, shown above the list from the
@@ -784,7 +831,7 @@ fn save_history_limit(limit: usize, cx: &mut App) {
 }
 
 impl Render for HistoryPage {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let root = div()
             .size_full()
@@ -855,68 +902,23 @@ impl Render for HistoryPage {
         .h_1()
         .w_full();
 
-        let inspector = self
-            .selected_entry()
-            .cloned()
-            .map(|entry| self.render_inspector(&entry, window, cx).into_any_element());
-        let rtl = crate::i18n::is_rtl();
-
         root.child(
             div()
+                .relative()
                 .flex_1()
                 .min_h_0()
-                .flex()
-                .when(rtl, |el| el.flex_row_reverse())
                 .child(
                     div()
-                        .relative()
-                        .flex_1()
-                        .min_w_0()
-                        .bg(p.surface)
-                        .child(
-                            div()
-                                .id("history-list")
-                                .size_full()
-                                .overflow_y_scroll()
-                                .track_scroll(&self.list_scroll)
-                                .flex()
-                                .flex_col()
-                                .children(list)
-                                .child(sentinel),
-                        )
-                        .vertical_scrollbar(&self.list_scroll),
+                        .id("history-list")
+                        .size_full()
+                        .overflow_y_scroll()
+                        .track_scroll(&self.list_scroll)
+                        .flex()
+                        .flex_col()
+                        .children(list)
+                        .child(sentinel),
                 )
-                // The inspector floats on the window's glass, inset like the
-                // sidebar.
-                .child(
-                    div()
-                        .flex_none()
-                        .w(px(INSPECTOR_WIDTH) + radius::INSET * 2.)
-                        .p(radius::INSET)
-                        .pt(px(0.))
-                        .child(
-                            div()
-                                .relative()
-                                .size_full()
-                                .rounded(radius::PANEL)
-                                .child(glass(
-                                    "history-inspector",
-                                    GlassStyle::Regular,
-                                    radius::PANEL,
-                                ))
-                                .child(
-                                    div()
-                                        .id("history-inspector")
-                                        .size_full()
-                                        .overflow_y_scroll()
-                                        .track_scroll(&self.inspector_scroll)
-                                        .px_4()
-                                        .py(px(16.))
-                                        .children(inspector),
-                                )
-                                .vertical_scrollbar(&self.inspector_scroll),
-                        ),
-                ),
+                .vertical_scrollbar(&self.list_scroll),
         )
     }
 }

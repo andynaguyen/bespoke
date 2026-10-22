@@ -20,7 +20,7 @@ mod stats;
 
 #[cfg(not(target_os = "macos"))]
 use gpui::{div, IntoElement};
-use gpui::{AnyView, App, AppContext, Context, Entity, Render, Window};
+use gpui::{AnyElement, AnyView, App, AppContext, Context, Entity, Render, Window};
 
 use crate::ui::shell::{Section, Toolbar};
 
@@ -45,9 +45,16 @@ pub trait Page: Render + Sized {
     fn layout(&self, _cx: &App) -> PageLayout {
         PageLayout::Padded
     }
+
+    /// A panel along the window's trailing edge, built with
+    /// `shell::inspector`. The shell puts it beside the toolbar and body.
+    fn inspector(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> Option<AnyElement> {
+        None
+    }
 }
 
 type ToolbarFn = Box<dyn Fn(&mut Window, &mut App) -> Toolbar>;
+type InspectorFn = Box<dyn Fn(&mut Window, &mut App) -> Option<AnyElement>>;
 type LayoutFn = Box<dyn Fn(&App) -> PageLayout>;
 
 /// The open page, with its toolbar and layout reachable from the shell.
@@ -55,18 +62,23 @@ pub struct PageHandle {
     pub view: AnyView,
     toolbar: ToolbarFn,
     layout: LayoutFn,
+    inspector: InspectorFn,
 }
 
 impl PageHandle {
     fn new<T: Page>(entity: Entity<T>) -> Self {
         let toolbar_entity = entity.clone();
         let layout_entity = entity.clone();
+        let inspector_entity = entity.clone();
         Self {
             view: entity.into(),
             toolbar: Box::new(move |window, cx| {
                 toolbar_entity.update(cx, |page, cx| page.toolbar(window, cx))
             }),
             layout: Box::new(move |cx| layout_entity.read(cx).layout(cx)),
+            inspector: Box::new(move |window, cx| {
+                inspector_entity.update(cx, |page, cx| page.inspector(window, cx))
+            }),
         }
     }
 
@@ -76,6 +88,10 @@ impl PageHandle {
 
     pub fn layout(&self, cx: &App) -> PageLayout {
         (self.layout)(cx)
+    }
+
+    pub fn inspector(&self, window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+        (self.inspector)(window, cx)
     }
 }
 

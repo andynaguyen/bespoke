@@ -3,6 +3,7 @@
 //! dialog layer and toasts.
 
 mod banners;
+mod inspector;
 mod model_selector;
 mod sidebar;
 mod toolbar;
@@ -18,7 +19,7 @@ use crate::i18n::{t, t_or, t_with};
 use crate::managers::transcription::ModelStateEvent;
 use crate::ui::components::{KeyboardFocus, RowDirection};
 use crate::ui::event_bus::event_bus;
-use crate::ui::glass::{glass, GlassStyle};
+use crate::ui::glass::{glass_with, GlassSpec, GlassStyle};
 use crate::ui::onboarding::{AccessibilityOnboarding, ModelOnboarding, OnboardingPreview};
 use crate::ui::pages::{self, PageHandle, PageLayout};
 use crate::ui::stores::SettingsStore;
@@ -27,6 +28,7 @@ use crate::ui::toast;
 use crate::ui::whats_new::WhatsNewGate;
 
 use banners::{AccessibilityBanner, SecureInputWarning};
+pub use inspector::inspector;
 use model_selector::ModelSelector;
 pub use sidebar::logo;
 pub use toolbar::Toolbar;
@@ -409,18 +411,25 @@ impl MainWindow {
         let rtl = crate::i18n::is_rtl();
         let toolbar = self.page.toolbar(window, cx);
         let toolbar = toolbar::render(t(self.section.label_key()), toolbar, window, cx);
-        let layout = self.page.layout(cx);
-        // The window is glass. The sidebar floats on it as its own glass
-        // panel, and the content pane covers the rest with a translucent
-        // surface. A `Fill` page paints its own surface, so a page can leave
-        // room for a glass panel of its own (History's inspector).
+        let inspector = self.page.inspector(window, cx);
+        // The window is glass tinted to the content surface, so the content
+        // runs behind the sidebar, which floats on it as its own glass panel.
+        // A page's inspector runs the window's height along its trailing
+        // edge, beside the toolbar.
         div()
             .relative()
             .size_full()
             .flex()
             .flex_col()
             .cursor_default()
-            .child(glass("window", GlassStyle::Window, radius::WINDOW))
+            .child(glass_with(
+                "window",
+                GlassSpec {
+                    style: GlassStyle::Window,
+                    radius: radius::WINDOW,
+                    tint: Some(p.surface),
+                },
+            ))
             .child(self.whats_new.clone())
             .child(
                 div()
@@ -437,19 +446,16 @@ impl MainWindow {
                             .flex()
                             .flex_col()
                             .overflow_hidden()
-                            .when(rtl, |el| el.rounded_l(radius::WINDOW))
-                            .when(!rtl, |el| el.rounded_r(radius::WINDOW))
-                            .when(layout != PageLayout::Fill, |el| el.bg(p.surface))
                             .child(
                                 div()
                                     .flex_none()
-                                    .when(layout == PageLayout::Fill, |el| el.bg(p.surface))
                                     .child(toolbar)
                                     .child(self.accessibility_banner.clone())
                                     .child(self.secure_input_warning.clone()),
                             )
                             .child(self.render_body(cx)),
-                    ),
+                    )
+                    .children(inspector),
             )
     }
 

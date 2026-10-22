@@ -37,7 +37,8 @@ pub enum GlassStyle {
 pub struct GlassSpec {
     pub style: GlassStyle,
     pub radius: Pixels,
-    /// Tints the glass, for example blue for a primary button.
+    /// Tints the glass, for example blue for a primary button. On the
+    /// window material it is a layer of color over the blur.
     pub tint: Option<Hsla>,
 }
 
@@ -100,8 +101,8 @@ mod imp {
     use objc2::rc::Retained;
     use objc2::runtime::AnyClass;
     use objc2::{msg_send, ClassType, Message};
-    use objc2_app_kit::{NSColor, NSView, NSWindowOrderingMode};
-    use objc2_foundation::{NSPoint, NSRect, NSSize};
+    use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSView, NSWindowOrderingMode};
+    use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
     use super::{GlassSpec, GlassStyle};
@@ -210,9 +211,55 @@ mod imp {
                 let _: () = msg_send![view, setCornerRadius: radius];
                 let tint = spec.tint.map(ns_color);
                 let _: () = msg_send![view, setTintColor: tint.as_deref()];
-            } else if let Some(layer) = view.layer() {
-                let _: () = msg_send![&layer, setCornerRadius: radius];
-                let _: () = msg_send![&layer, setMasksToBounds: true];
+            } else {
+                if let Some(layer) = view.layer() {
+                    let _: () = msg_send![&layer, setCornerRadius: radius];
+                    let _: () = msg_send![&layer, setMasksToBounds: true];
+                }
+                set_material_tint(view, spec.tint);
+            }
+        }
+    }
+
+    /// The identifier of the view that tints an `NSVisualEffectView`.
+    const TINT_ID: &str = "bespoke-glass-tint";
+
+    /// Lays `tint` over an effect view's blur with a subview that fills it,
+    /// or removes that subview when there is no tint.
+    fn set_material_tint(view: &NSView, tint: Option<Hsla>) {
+        let identifier = NSString::from_str(TINT_ID);
+        // SAFETY: NSView adopts NSUserInterfaceItemIdentification, and
+        // `CGColor` returns a color the layer retains.
+        unsafe {
+            let existing = view.subviews().iter().find(|subview| {
+                let id: Option<Retained<NSString>> = msg_send![&**subview, identifier];
+                id.is_some_and(|id| *id == *identifier)
+            });
+            let Some(tint) = tint else {
+                if let Some(existing) = existing {
+                    existing.removeFromSuperview();
+                }
+                return;
+            };
+            let layer_view = match existing {
+                Some(existing) => existing,
+                None => {
+                    let subview: Retained<NSView> =
+                        msg_send![msg_send![NSView::class(), alloc], initWithFrame: view.bounds()];
+                    let _: () = msg_send![&subview, setIdentifier: &*identifier];
+                    subview.setAutoresizingMask(
+                        NSAutoresizingMaskOptions::ViewWidthSizable
+                            | NSAutoresizingMaskOptions::ViewHeightSizable,
+                    );
+                    subview.setWantsLayer(true);
+                    view.addSubview(&subview);
+                    subview
+                }
+            };
+            if let Some(layer) = layer_view.layer() {
+                let color = ns_color(tint);
+                let cg: *mut std::ffi::c_void = msg_send![&color, CGColor];
+                let _: () = msg_send![&layer, setBackgroundColor: cg];
             }
         }
     }

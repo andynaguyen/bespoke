@@ -763,6 +763,19 @@ impl super::Page for DictatePage {
         }
     }
 
+    fn inspector(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<gpui::AnyElement> {
+        match (&self.tab, &self.history) {
+            (Tab::History, Some(history)) => {
+                history.update(cx, |history, cx| history.inspector(window, cx))
+            }
+            _ => None,
+        }
+    }
+
     fn layout(&self, _cx: &App) -> PageLayout {
         match self.tab {
             Tab::Dictionary => PageLayout::Flush,
