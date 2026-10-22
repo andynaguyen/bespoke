@@ -14,6 +14,8 @@ use crate::ui::theme::{palette, radius, Alpha};
 
 /// The sidebar panel's width, without the inset around it.
 pub const SIDEBAR_WIDTH: f32 = 220.;
+/// The gap between the title bar, where the traffic lights sit, and the logo.
+const LOGO_TOP: f32 = 26.;
 
 /// The Bespoke wordmark, `width` pixels wide.
 pub fn logo(width: f32, cx: &App) -> impl IntoElement {
@@ -57,7 +59,7 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
             icon(section.icon())
                 .size(px(18.))
                 .flex_none()
-                .text_color(if active { p.accent } else { p.mid_gray }),
+                .text_color(if active { p.text } else { p.text.a(0.85) }),
         )
         .child(div().text_px(15.).min_w_0().truncate().child(label))
 }
@@ -95,7 +97,13 @@ pub fn render(
             .pb_3()
             .rounded(radius::PANEL)
             .child(glass("sidebar", GlassStyle::Regular, radius::PANEL))
-            .child(div().mx(px(10.)).mt_3().mb_4().child(logo(92., cx)))
+            .child(
+                div()
+                    .mx(px(10.))
+                    .mt(px(LOGO_TOP))
+                    .mb_4()
+                    .child(logo(92., cx)),
+            )
             .child(div().flex().flex_col().gap(px(2.)).children(primary))
             .child(
                 div()
