@@ -187,9 +187,15 @@ impl RenderOnce for Button {
                 el.font_weight(FontWeight::SEMIBOLD)
                     .shadow(vec![crate::ui::theme::colored_shadow(p.ink, 0.35)])
             });
+        // Labels are mostly lowercase, whose letters sit low in the line, so
+        // a little bottom padding lifts the content to look centered.
         button = match self.size {
-            ButtonSize::Sm => button.h(px(26.)).px(px(10.)).text_px(12.),
-            ButtonSize::Md => button.h(CONTROL_HEIGHT).px(px(15.)).text_px(13.),
+            ButtonSize::Sm => button.h(px(26.)).px(px(10.)).pb(px(1.)).text_px(12.),
+            ButtonSize::Md => button
+                .h(CONTROL_HEIGHT)
+                .px(px(15.))
+                .pb(px(1.5))
+                .text_px(13.),
         };
         *button.style() = super::merge_styles(button.style().clone(), self.style);
 
