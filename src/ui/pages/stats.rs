@@ -304,7 +304,7 @@ impl StatsPage {
         let (current, longest) = streaks(&active, today);
 
         let levels = [
-            p.mid_gray.a(0.15),
+            p.text.a(if p.is_dark { 0.08 } else { 0.06 }),
             color.a(0.25),
             color.a(0.5),
             color.a(0.75),
