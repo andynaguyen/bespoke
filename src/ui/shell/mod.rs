@@ -18,10 +18,11 @@ use crate::i18n::{t, t_or, t_with};
 use crate::managers::transcription::ModelStateEvent;
 use crate::ui::components::{KeyboardFocus, RowDirection};
 use crate::ui::event_bus::event_bus;
+use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::onboarding::{AccessibilityOnboarding, ModelOnboarding, OnboardingPreview};
 use crate::ui::pages::{self, PageHandle, PageLayout};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{palette, radius, Alpha};
 use crate::ui::toast;
 use crate::ui::whats_new::WhatsNewGate;
 
@@ -408,11 +409,18 @@ impl MainWindow {
         let rtl = crate::i18n::is_rtl();
         let toolbar = self.page.toolbar(window, cx);
         let toolbar = toolbar::render(t(self.section.label_key()), toolbar, window, cx);
+        let layout = self.page.layout(cx);
+        // The window is glass. The sidebar floats on it as its own glass
+        // panel, and the content pane covers the rest with a translucent
+        // surface. A `Fill` page paints its own surface, so a page can leave
+        // room for a glass panel of its own (History's inspector).
         div()
+            .relative()
             .size_full()
             .flex()
             .flex_col()
             .cursor_default()
+            .child(glass("window", GlassStyle::Window, radius::WINDOW))
             .child(self.whats_new.clone())
             .child(
                 div()
@@ -423,15 +431,23 @@ impl MainWindow {
                     .child(sidebar)
                     .child(
                         div()
+                            .relative()
                             .flex_1()
                             .min_w_0()
                             .flex()
                             .flex_col()
                             .overflow_hidden()
-                            .bg(p.background)
-                            .child(toolbar)
-                            .child(self.accessibility_banner.clone())
-                            .child(self.secure_input_warning.clone())
+                            .when(rtl, |el| el.rounded_l(radius::WINDOW))
+                            .when(!rtl, |el| el.rounded_r(radius::WINDOW))
+                            .when(layout != PageLayout::Fill, |el| el.bg(p.surface))
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .when(layout == PageLayout::Fill, |el| el.bg(p.surface))
+                                    .child(toolbar)
+                                    .child(self.accessibility_banner.clone())
+                                    .child(self.secure_input_warning.clone()),
+                            )
                             .child(self.render_body(cx)),
                     ),
             )
@@ -598,7 +614,14 @@ impl Render for MainWindow {
             .track_focus(&self.focus)
             .size_full()
             .relative()
-            .bg(p.shell)
+            // The app draws on glass. Onboarding, and machines without native
+            // glass, get the opaque shell color instead.
+            .when(
+                self.preview.is_some()
+                    || self.step != OnboardingStep::Done
+                    || !crate::ui::glass::native_available(),
+                |el| el.bg(p.shell),
+            )
             .text_color(p.text)
             .text_size(px(13.))
             .line_height(px(18.))

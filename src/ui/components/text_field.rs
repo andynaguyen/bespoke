@@ -94,10 +94,10 @@ fn frame(focused: bool, disabled: bool, invalid: bool, cx: &App) -> gpui::Div {
         });
     }
     div()
-        .bg(p.background)
+        .bg(p.card)
         .border_1()
         .border_color(border)
-        .rounded(px(7.))
+        .rounded(px(10.))
         .shadow(shadows)
         .text_color(p.text)
         .when(disabled, |el| el.opacity(0.6).cursor_not_allowed())

@@ -25,32 +25,44 @@ fn hex(value: u32) -> Hsla {
     rgb(value).into()
 }
 
-/// The active palette. Every color in the UI comes from here. The dark
-/// palette matches Annotate's Inspect window (`vendor/scrawl/src/ui.rs`).
+/// The active palette. Every color in the UI comes from here.
+///
+/// The main window and the capsules sit on Liquid Glass (`ui::glass`), so the
+/// surfaces drawn over the glass are translucent. `background` stays opaque
+/// for popovers, dialogs and fields, which float over other content.
 #[derive(Clone, Copy, Debug)]
 pub struct Palette {
     pub is_dark: bool,
     pub text: Hsla,
-    /// The content pane behind each page.
+    /// Popovers, dialogs and text fields.
     pub background: Hsla,
-    /// The sidebar, the toolbar and the inspector column.
+    /// The content pane beside the sidebar, over the window's glass.
+    pub surface: Hsla,
+    /// Surfaces that need no glass, like the onboarding screens.
     pub shell: Hsla,
-    /// Setting groups, list rows and other surfaces on the background.
+    /// Setting groups, list rows and other surfaces on the content pane.
     pub card: Hsla,
     /// A selected sidebar item or segment.
     pub raised: Hsla,
     /// Hairline borders and dividers.
     pub line: Hsla,
+    /// Primary actions and selection.
     pub accent: Hsla,
     pub accent_contrast: Hsla,
+    /// Stats and meters.
     pub data: Hsla,
-    /// Annotate's data color on the Stats page, after the red of its ink.
+    /// Live recording and Annotate's ink.
     pub ink: Hsla,
+    /// A finished paste or copy.
+    pub done: Hsla,
     pub warning: Hsla,
     pub error: Hsla,
     pub mid_gray: Hsla,
     /// `--color-log-surface`: the background mixed toward black.
     pub log_surface: Hsla,
+    /// What `ui::glass` paints where native glass is unavailable.
+    pub glass: Hsla,
+    pub glass_clear: Hsla,
 }
 
 impl Palette {
@@ -58,41 +70,49 @@ impl Palette {
         let background = hex(0xffffff);
         Self {
             is_dark: false,
-            text: hex(0x1a1a1a),
+            text: hex(0x1d1d1f),
             background,
-            shell: hex(0xf6f6f6),
-            card: hex(0xfafafa),
-            raised: hex(0xe8e8e8),
-            line: hex(0xe4e4e4),
+            surface: rgba(0xffffffb8).into(),
+            shell: hex(0xf5f5f7),
+            card: rgba(0x0000000a).into(),
+            raised: rgba(0xffffffeb).into(),
+            line: rgba(0x00000017).into(),
             accent: hex(0x3b5cf6),
             accent_contrast: hex(0xffffff),
             data: hex(0x2f6360),
-            ink: hex(0xd92d20),
+            ink: hex(0xff3b30),
+            done: hex(0x28b14c),
             warning: hex(0xd97706),
             error: hex(0xdc2626),
-            mid_gray: hex(0x8a8a8a),
+            mid_gray: hex(0x86868b),
             log_surface: mix_black(background, 0.04),
+            glass: rgba(0xf5f5f8e6).into(),
+            glass_clear: rgba(0xf5f5f8cc).into(),
         }
     }
 
     pub fn dark() -> Self {
-        let background = hex(0x161616);
+        let background = hex(0x1e1e21);
         Self {
             is_dark: true,
-            text: hex(0xf2f2f2),
+            text: hex(0xf5f5f7),
             background,
-            shell: hex(0x111111),
-            card: hex(0x1d1d1d),
-            raised: hex(0x2e2e2e),
-            line: hex(0x2a2a2a),
+            surface: rgba(0x121216a8).into(),
+            shell: hex(0x111113),
+            card: rgba(0xffffff0f).into(),
+            raised: rgba(0xffffff26).into(),
+            line: rgba(0xffffff17).into(),
             accent: hex(0x3b5cf6),
             accent_contrast: hex(0xffffff),
             data: hex(0x6fb3aa),
             ink: hex(0xff3b30),
+            done: hex(0x30d158),
             warning: hex(0xfbbf24),
             error: hex(0xf87171),
-            mid_gray: hex(0x969696),
+            mid_gray: hex(0x98989f),
             log_surface: mix_black(background, 0.3),
+            glass: rgba(0x2a2a30e6).into(),
+            glass_clear: rgba(0x1e1e24cc).into(),
         }
     }
 }
@@ -291,7 +311,9 @@ fn sync_component_theme(palette: &Palette, cx: &mut App) {
     }
     let theme = gpui_component::Theme::global_mut(cx);
     theme.foreground = palette.text;
-    theme.background = palette.background;
+    // Root paints this behind every window, which would cover the glass
+    // (`ui::glass`). Bespoke's own fields paint `palette.background`.
+    theme.background = gpui::transparent_black();
     theme.muted_foreground = palette.text.a(0.4);
     theme.caret = palette.text;
     theme.selection = palette.accent.a(if palette.is_dark { 0.3 } else { 0.2 });
@@ -345,6 +367,16 @@ pub fn shadow_sm() -> Vec<gpui::BoxShadow> {
     vec![shadow(0., 1., 3., 0., 0.1), shadow(0., 1., 2., -1., 0.1)]
 }
 
+/// A soft glow under a tinted control, in `color` at `alpha` opacity.
+pub fn colored_shadow(color: Hsla, alpha: f32) -> gpui::BoxShadow {
+    gpui::BoxShadow {
+        color: color.a(alpha),
+        offset: gpui::point(px(0.), px(4.)),
+        blur_radius: px(14.),
+        spread_radius: px(-2.),
+    }
+}
+
 /// A black drop shadow at `alpha` opacity, in CSS px.
 pub fn shadow(x: f32, y: f32, blur: f32, spread: f32, alpha: f32) -> gpui::BoxShadow {
     gpui::BoxShadow {
@@ -353,4 +385,21 @@ pub fn shadow(x: f32, y: f32, blur: f32, spread: f32, alpha: f32) -> gpui::BoxSh
         blur_radius: px(blur),
         spread_radius: px(spread),
     }
+}
+
+/// Corner radii. Nested shapes are concentric: a panel inset by
+/// [`radius::INSET`] in the window uses the window's radius minus the inset.
+pub mod radius {
+    use gpui::{px, Pixels};
+
+    /// The main window's corners.
+    pub const WINDOW: Pixels = px(26.);
+    /// The gap between the window edge and a floating panel.
+    pub const INSET: Pixels = px(8.);
+    /// Floating glass panels: the sidebar and the inspector.
+    pub const PANEL: Pixels = px(18.);
+    /// Cards and setting groups.
+    pub const CARD: Pixels = px(16.);
+    /// List rows and selected sidebar items.
+    pub const ROW: Pixels = px(10.);
 }

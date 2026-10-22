@@ -8,8 +8,12 @@ use gpui::{
 use super::{MainWindow, Section, TITLEBAR_HEIGHT};
 use crate::i18n::t;
 use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
+use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, shadow, Alpha};
+use crate::ui::theme::{palette, radius, Alpha};
+
+/// The sidebar panel's width, without the inset around it.
+pub const SIDEBAR_WIDTH: f32 = 220.;
 
 /// The Bespoke wordmark, `width` pixels wide.
 pub fn logo(width: f32, cx: &App) -> impl IntoElement {
@@ -33,31 +37,29 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
         .row_dir()
         .gap(px(9.))
         .items_center()
-        .h(px(28.))
-        .px_2()
+        .h(px(32.))
+        .px(px(10.))
         .w_full()
-        .rounded(px(6.))
+        .rounded(radius::ROW)
         .cursor_pointer()
         .when(active, |el| {
-            el.bg(p.raised)
+            el.bg(p.text.a(if p.is_dark { 0.12 } else { 0.08 }))
                 .text_color(p.text)
-                .shadow(vec![shadow(0., 1., 2., 0., 0.25)])
+                .font_weight(FontWeight::SEMIBOLD)
         })
         .when(!active, |el| {
-            el.text_color(p.text.a(0.8))
-                .hover(|s| s.bg(p.mid_gray.a(0.12)).text_color(p.text))
+            el.text_color(p.text.a(0.85))
+                .hover(|s| s.bg(p.text.a(0.06)).text_color(p.text))
         })
         .keyboard_focus(cx)
         .on_click(cx.listener(move |this, _, window, cx| this.select_section(section, window, cx)))
-        .child(icon(section.icon()).size(px(15.)).flex_none())
         .child(
-            div()
-                .text_px(13.)
-                .font_weight(FontWeight::MEDIUM)
-                .min_w_0()
-                .truncate()
-                .child(label),
+            icon(section.icon())
+                .size(px(16.))
+                .flex_none()
+                .text_color(if active { p.accent } else { p.mid_gray }),
         )
+        .child(div().text_px(13.5).min_w_0().truncate().child(label))
 }
 
 pub fn render(
@@ -79,47 +81,46 @@ pub fn render(
         .map(|section| nav_item(*section, active == *section, cx).into_any_element())
         .collect();
 
-    div()
-        .flex()
-        .flex_col()
-        .w(px(196.))
-        .h_full()
-        .pt(px(TITLEBAR_HEIGHT))
-        .px(px(10.))
-        .pb_3()
-        .flex_shrink_0()
-        .bg(p.shell)
-        .when(crate::i18n::is_rtl(), |el| el.border_l_1())
-        .when(!crate::i18n::is_rtl(), |el| el.border_r_1())
-        .border_color(p.line)
-        .child(div().mx_2().mt_3().mb_4().child(logo(80., cx)))
-        .child(div().flex().flex_col().gap(px(1.)).children(primary))
-        .child(
-            div()
-                .mt_auto()
-                .flex()
-                .flex_col()
-                .gap(px(1.))
-                .pt_2()
-                .border_t_1()
-                .border_color(p.line)
-                .children(secondary)
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(4.))
-                        .px_2()
-                        .pt_2()
-                        .text_px(12.)
-                        .line_height(px(16.))
-                        .text_color(p.mid_gray)
-                        .child(main.model_selector.clone())
-                        .child(
-                            div()
-                                .text_color(p.mid_gray.a(0.7))
-                                .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
-                        ),
-                ),
-        )
+    // The panel floats in the window, inset on every side, so its corners
+    // nest inside the window's.
+    div().flex_none().h_full().p(radius::INSET).child(
+        div()
+            .relative()
+            .flex()
+            .flex_col()
+            .w(px(SIDEBAR_WIDTH))
+            .h_full()
+            .pt(px(TITLEBAR_HEIGHT))
+            .px(px(10.))
+            .pb_3()
+            .rounded(radius::PANEL)
+            .child(glass("sidebar", GlassStyle::Regular, radius::PANEL))
+            .child(div().mx(px(10.)).mt_3().mb_4().child(logo(84., cx)))
+            .child(div().flex().flex_col().gap(px(2.)).children(primary))
+            .child(
+                div()
+                    .mt_auto()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.))
+                    .children(secondary)
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap(px(6.))
+                            .pt_2()
+                            .text_px(12.)
+                            .line_height(px(16.))
+                            .text_color(p.mid_gray)
+                            .child(main.model_selector.clone())
+                            .child(
+                                div()
+                                    .px(px(10.))
+                                    .text_color(p.mid_gray.a(0.7))
+                                    .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
+                            ),
+                    ),
+            ),
+    )
 }

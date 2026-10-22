@@ -9,6 +9,7 @@ pub mod dates;
 pub mod dev_snapshot;
 pub mod event_bus;
 pub mod format;
+pub mod glass;
 pub mod keyboard;
 pub mod languages;
 pub mod model_card;
@@ -24,7 +25,8 @@ pub mod whats_new;
 
 use gpui::{
     actions, px, size, App, AppContext, Bounds, Global, KeyBinding, Menu, MenuItem, OsAction,
-    TitlebarOptions, WindowBounds, WindowHandle, WindowKind, WindowOptions,
+    TitlebarOptions, WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowKind,
+    WindowOptions,
 };
 use gpui_component::Root;
 
@@ -186,6 +188,12 @@ pub fn open_main_window(show: bool, cx: &mut App) {
         is_resizable: true,
         is_minimizable: true,
         window_min_size: Some(size(px(680.), px(570.))),
+        // The window draws its own glass (`ui::glass`) under GPUI's layer.
+        window_background: if glass::native_available() {
+            WindowBackgroundAppearance::Transparent
+        } else {
+            WindowBackgroundAppearance::Opaque
+        },
         app_id: Some(crate::app_handle::APP_IDENTIFIER.into()),
         ..Default::default()
     };

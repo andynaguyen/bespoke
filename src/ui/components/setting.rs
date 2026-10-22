@@ -153,7 +153,7 @@ impl RenderOnce for SettingsGroup {
                     .bg(p.card)
                     .border_1()
                     .border_color(p.line)
-                    .rounded(px(8.))
+                    .rounded(crate::ui::theme::radius::CARD)
                     .children(
                         self.children
                             .into_iter()

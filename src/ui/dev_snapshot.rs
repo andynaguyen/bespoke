@@ -11,6 +11,8 @@
 //! times with focus rings shown.
 //! `overlay:<kind>` shows the recording overlay with sample data and
 //! captures its window instead (see `ui::overlay::dev_preview`).
+//! `BESPOKE_DEV_DESKTOP=1` keeps the desktop and windows behind the target
+//! window in the capture, so glass shows what it refracts.
 //! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
 //! the UI language, without saving either.
 //!
@@ -227,13 +229,14 @@ fn capture(path: &std::path::Path, cx: &mut App) -> bool {
     }
 
     const INCLUDING_WINDOW: u32 = 1 << 3;
+    const ON_SCREEN_BELOW_WINDOW: u32 = 1 << 2;
     const BOUNDS_IGNORE_FRAMING: u32 = 1 << 0;
     const UTF8: u32 = 0x0800_0100;
 
     let Some(handle) = target_window(cx) else {
         return false;
     };
-    let number = handle
+    let found = handle
         .update(cx, |_, window, _| {
             let raw = HasWindowHandle::window_handle(window).ok()?;
             let RawWindowHandle::AppKit(raw) = raw.as_raw() else {
@@ -241,27 +244,43 @@ fn capture(path: &std::path::Path, cx: &mut App) -> bool {
             };
             // SAFETY: GPUI's live content view.
             let view: &NSView = unsafe { raw.ns_view.cast::<NSView>().as_ref() };
-            Some(view.window()?.windowNumber() as u32)
+            let ns_window = view.window()?;
+            let screen_height = ns_window.screen()?.frame().size.height;
+            let frame = ns_window.frame();
+            // CoreGraphics counts y down from the top of the main screen.
+            let rect = CGRect {
+                x: frame.origin.x,
+                y: screen_height - frame.origin.y - frame.size.height,
+                w: frame.size.width,
+                h: frame.size.height,
+            };
+            Some((ns_window.windowNumber() as u32, rect))
         })
         .ok()
         .flatten();
-    let Some(number) = number else {
+    let Some((number, frame)) = found else {
         return false;
     };
 
-    let null_rect = CGRect {
-        x: f64::INFINITY,
-        y: f64::INFINITY,
-        w: 0.,
-        h: 0.,
+    // `BESPOKE_DEV_DESKTOP=1` keeps what is on screen below the window, so
+    // glass shows what it refracts. It needs the Screen Recording permission.
+    let (list, bounds) = if std::env::var_os("BESPOKE_DEV_DESKTOP").is_some() {
+        (INCLUDING_WINDOW | ON_SCREEN_BELOW_WINDOW, frame)
+    } else {
+        let null_rect = CGRect {
+            x: f64::INFINITY,
+            y: f64::INFINITY,
+            w: 0.,
+            h: 0.,
+        };
+        (INCLUDING_WINDOW, null_rect)
     };
     let path_bytes = path.to_string_lossy().into_owned();
     let kind = CString::new("public.png").unwrap();
     // SAFETY: plain CoreGraphics/ImageIO calls; every created object is
     // released before returning.
     unsafe {
-        let image =
-            CGWindowListCreateImage(null_rect, INCLUDING_WINDOW, number, BOUNDS_IGNORE_FRAMING);
+        let image = CGWindowListCreateImage(bounds, list, number, BOUNDS_IGNORE_FRAMING);
         if image.is_null() {
             return false;
         }

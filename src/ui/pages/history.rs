@@ -27,9 +27,10 @@ use crate::ui::components::{
 };
 use crate::ui::dates;
 use crate::ui::event_bus::event_bus;
+use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{palette, radius, Alpha};
 use crate::ui::toast;
 
 use super::rows;
@@ -438,24 +439,20 @@ impl HistoryPage {
             .row_dir()
             .items_start()
             .gap_3()
-            .px_4()
-            .py(px(9.))
-            .border_b_1()
-            .border_color(p.line)
+            .mx(px(8.))
+            .px(px(12.))
+            .py(px(10.))
+            .rounded(radius::ROW)
+            .border_1()
             .cursor_pointer()
             .relative()
             .when(selected, |el| {
-                // A bar at the inline start, drawn over the row so the text
-                // does not shift.
-                let bar = div().absolute().top_0().bottom_0().w(px(2.)).bg(p.accent);
-                let bar = if crate::i18n::is_rtl() {
-                    bar.right_0()
-                } else {
-                    bar.left_0()
-                };
-                el.bg(p.card).child(bar)
+                el.bg(p.accent.a(0.16)).border_color(p.accent.a(0.3))
             })
-            .when(!selected, |el| el.hover(|s| s.bg(p.card.a(0.6))))
+            .when(!selected, |el| {
+                el.border_color(gpui::transparent_black())
+                    .hover(|s| s.bg(p.card))
+            })
             .keyboard_focus(cx)
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.selected = Some(id);
@@ -827,11 +824,9 @@ impl Render for HistoryPage {
                 last_day = Some(day);
                 list.push(
                     div()
-                        .px_4()
+                        .px(px(20.))
                         .pt_4()
                         .pb(px(6.))
-                        .border_b_1()
-                        .border_color(p.line)
                         .text_px(11.)
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(p.mid_gray)
@@ -877,6 +872,7 @@ impl Render for HistoryPage {
                         .relative()
                         .flex_1()
                         .min_w_0()
+                        .bg(p.surface)
                         .child(
                             div()
                                 .id("history-list")
@@ -890,26 +886,36 @@ impl Render for HistoryPage {
                         )
                         .vertical_scrollbar(&self.list_scroll),
                 )
+                // The inspector floats on the window's glass, inset like the
+                // sidebar.
                 .child(
                     div()
-                        .relative()
-                        .w(px(INSPECTOR_WIDTH))
                         .flex_none()
-                        .bg(p.shell)
-                        .when(rtl, |el| el.border_r_1())
-                        .when(!rtl, |el| el.border_l_1())
-                        .border_color(p.line)
+                        .w(px(INSPECTOR_WIDTH) + radius::INSET * 2.)
+                        .p(radius::INSET)
+                        .pt(px(0.))
                         .child(
                             div()
-                                .id("history-inspector")
+                                .relative()
                                 .size_full()
-                                .overflow_y_scroll()
-                                .track_scroll(&self.inspector_scroll)
-                                .px_4()
-                                .py(px(18.))
-                                .children(inspector),
-                        )
-                        .vertical_scrollbar(&self.inspector_scroll),
+                                .rounded(radius::PANEL)
+                                .child(glass(
+                                    "history-inspector",
+                                    GlassStyle::Regular,
+                                    radius::PANEL,
+                                ))
+                                .child(
+                                    div()
+                                        .id("history-inspector")
+                                        .size_full()
+                                        .overflow_y_scroll()
+                                        .track_scroll(&self.inspector_scroll)
+                                        .px_4()
+                                        .py(px(16.))
+                                        .children(inspector),
+                                )
+                                .vertical_scrollbar(&self.inspector_scroll),
+                        ),
                 ),
         )
     }

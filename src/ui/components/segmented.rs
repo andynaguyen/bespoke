@@ -39,19 +39,20 @@ impl SegmentedControl {
 impl RenderOnce for SegmentedControl {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = palette(cx);
-        // Inspect's tabs: track radius 8 = segment radius 6 + border 1 + pad 1.
+        // A capsule track with a capsule thumb, like the toolbar's glass
+        // controls in the design system.
         div()
             .flex()
             .row_dir()
             .items_center()
-            .h(px(28.))
-            .p(px(1.))
+            .h(px(34.))
+            .p(px(3.))
             .gap(px(2.))
-            .rounded(px(8.))
-            .bg(p.background)
+            .rounded_full()
+            .bg(p.card)
             .border_1()
             .border_color(p.line)
-            .text_px(12.)
+            .text_px(13.)
             .font_weight(FontWeight::MEDIUM)
             .children(
                 self.options
@@ -62,11 +63,11 @@ impl RenderOnce for SegmentedControl {
                         let on_select = self.on_select.clone();
                         div()
                             .id((self.id.clone(), SharedString::from(index.to_string())))
-                            .h(px(24.))
-                            .px(px(10.))
+                            .h(px(26.))
+                            .px(px(12.))
                             .flex()
                             .items_center()
-                            .rounded(px(6.))
+                            .rounded_full()
                             .whitespace_nowrap()
                             .cursor_pointer()
                             .keyboard_focus(cx)

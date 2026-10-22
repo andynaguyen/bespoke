@@ -124,17 +124,18 @@ impl RenderOnce for Button {
             ButtonVariant::Primary => Colors {
                 text: p.accent_contrast,
                 bg: p.accent,
-                border: p.accent,
+                // A light rim, like tinted glass.
+                border: gpui::white().a(0.18),
                 hover_text: None,
                 hover_bg: p.accent.a(0.85),
-                hover_border: Some(p.accent.a(0.85)),
+                hover_border: None,
             },
             ButtonVariant::Secondary => Colors {
                 text: p.text,
                 bg: p.card,
                 border: p.line,
                 hover_text: None,
-                hover_bg: p.raised,
+                hover_bg: p.text.a(if p.is_dark { 0.12 } else { 0.07 }),
                 hover_border: None,
             },
             ButtonVariant::DangerGhost => Colors {
@@ -163,14 +164,18 @@ impl RenderOnce for Button {
             .justify_center()
             .font_weight(FontWeight::MEDIUM)
             .whitespace_nowrap()
-            .rounded(px(7.))
+            .rounded_full()
             .border_1()
             .text_color(c.text)
             .bg(c.bg)
-            .border_color(c.border);
+            .border_color(c.border)
+            .when(self.variant == ButtonVariant::Primary, |el| {
+                el.font_weight(FontWeight::SEMIBOLD)
+                    .shadow(vec![crate::ui::theme::colored_shadow(p.accent, 0.35)])
+            });
         button = match self.size {
-            ButtonSize::Sm => button.h(px(24.)).px(px(8.)).text_px(12.),
-            ButtonSize::Md => button.h(px(28.)).px(px(12.)).text_px(12.5),
+            ButtonSize::Sm => button.h(px(26.)).px(px(10.)).text_px(12.),
+            ButtonSize::Md => button.h(px(32.)).px(px(14.)).text_px(13.),
         };
         *button.style() = super::merge_styles(button.style().clone(), self.style);
 

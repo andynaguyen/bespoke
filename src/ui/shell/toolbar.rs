@@ -1,13 +1,14 @@
-//! The toolbar above each page, after Annotate's Inspect window: the page
-//! name, the page's tabs as a segmented control, a muted summary, and the
-//! page's actions at the end. Empty space in it drags the window.
+//! The toolbar above each page: the page name, the page's tabs as a
+//! segmented control, a muted summary, and the page's actions at the end.
+//! It has no bar of its own, so its controls float on the content surface.
+//! Empty space in it drags the window.
 
 use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, MouseButton, SharedString, Window};
 
 use crate::ui::components::{RowDirection, Typography};
 use crate::ui::theme::palette;
 
-pub const TOOLBAR_HEIGHT: f32 = 48.;
+pub const TOOLBAR_HEIGHT: f32 = 56.;
 /// The width the macOS traffic lights cover at the window's top left.
 const TRAFFIC_LIGHTS_WIDTH: f32 = 84.;
 
@@ -59,9 +60,6 @@ pub fn render(title: SharedString, toolbar: Toolbar, _window: &mut Window, cx: &
         .items_center()
         .justify_between()
         .gap_4()
-        .bg(p.shell)
-        .border_b_1()
-        .border_color(p.line)
         // In RTL the sidebar moves right, but macOS keeps the traffic lights
         // at the top left, over the toolbar's end.
         .when(cfg!(target_os = "macos") && crate::i18n::is_rtl(), |bar| {
@@ -93,8 +91,8 @@ pub fn render(title: SharedString, toolbar: Toolbar, _window: &mut Window, cx: &
                 .child(
                     div()
                         .flex_none()
-                        .text_px(13.)
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_px(15.)
+                        .font_weight(FontWeight::BOLD)
                         .child(title),
                 )
                 .children(toolbar.tabs.map(control))
