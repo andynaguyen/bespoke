@@ -24,7 +24,7 @@ const TRACK_PADDING: f32 = 3.;
 /// The thumb's height when it rests.
 const THUMB_HEIGHT: f32 = 26.;
 /// How long the thumb takes to move to another option.
-const SLIDE: Duration = Duration::from_millis(300);
+const SLIDE: Duration = Duration::from_millis(250);
 
 #[derive(IntoElement)]
 pub struct SegmentedControl {
