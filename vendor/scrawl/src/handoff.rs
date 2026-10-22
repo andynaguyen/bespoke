@@ -168,7 +168,7 @@ impl Capture {
         Ok(Self { dir, bundle })
     }
 
-    /// The folder's name without `.scrawl`, like `scrawl-1792561826739-14c29-6`.
+    /// The folder's name without `.scrawl`, like `bespoke-1792561826739-14c29-6`.
     pub fn id(&self) -> String {
         self.dir
             .file_stem()

@@ -1,6 +1,6 @@
 Bespoke's Annotate records someone's screen while they talk, click and draw red marks on it. They send a capture to show you a problem instead of describing it, so the capture is the bug report. Read it closely before you answer, and don't ask them to explain again what it already shows.
 
-A pasted capture starts with a line like `[scrawl 0:33 · App “Window” · /path/to/scrawl-1792432139176-1a2b-3.scrawl]`, followed by its keyframe lines. The files live on the Mac that runs Bespoke. If that path doesn't exist on this machine, pass it to `get_capture` as `capture`. Without a paste, `latest` is the newest capture, and `list_captures` shows the others.
+A pasted capture starts with a line like `[scrawl 0:33 · App “Window” · /path/to/bespoke-1792432139176-1a2b-3.scrawl]`, followed by its keyframe lines. The files live on the Mac that runs Bespoke. If that path doesn't exist on this machine, pass it to `get_capture` as `capture`. Without a paste, `latest` is the newest capture, and `list_captures` shows the others.
 
 How to read a capture:
 

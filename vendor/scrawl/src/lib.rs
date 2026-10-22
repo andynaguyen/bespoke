@@ -56,8 +56,8 @@ pub fn make_bundle_id() -> String {
     let ms = now_epoch_ms();
     let pid = std::process::id();
     match COUNT.fetch_add(1, Ordering::Relaxed) {
-        0 => format!("scrawl-{ms}-{pid:x}"),
-        n => format!("scrawl-{ms}-{pid:x}-{n}"),
+        0 => format!("bespoke-{ms}-{pid:x}"),
+        n => format!("bespoke-{ms}-{pid:x}-{n}"),
     }
 }
 

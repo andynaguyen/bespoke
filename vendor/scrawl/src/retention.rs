@@ -191,9 +191,10 @@ fn changed_ago(path: &Path, now: SystemTime) -> Option<Duration> {
 
 fn created_ms(dir: &Path, manifest: &Manifest) -> Option<u64> {
     manifest.created_at_ms.or_else(|| {
-        // `scrawl-<ms>-…`
+        // `bespoke-<ms>-…`, or `scrawl-<ms>-…` from before Bespoke renamed its bundles.
         let name = dir.file_stem()?.to_str()?;
-        name.strip_prefix("scrawl-")?
+        name.strip_prefix("bespoke-")
+            .or_else(|| name.strip_prefix("scrawl-"))?
             .split('-')
             .next()?
             .parse()

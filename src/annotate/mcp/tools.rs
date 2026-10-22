@@ -23,7 +23,7 @@ const MANIFEST_EXTRAS: [&str; 3] = ["cursor", "windows", "strokes"];
 pub fn list() -> Value {
     let capture = json!({
         "type": "string",
-        "description": "`latest` (the default), an id like `scrawl-1792561826739-14c29-6`, or the bundle path from a pasted capture."
+        "description": "`latest` (the default), an id like `bespoke-1792561826739-14c29-6`, or the bundle path from a pasted capture."
     });
     let read_only = json!({"readOnlyHint": true, "openWorldHint": false});
     json!([
