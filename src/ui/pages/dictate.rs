@@ -738,6 +738,9 @@ impl super::Page for DictatePage {
                 .action(
                     Button::new("add-new")
                         .gap(px(4.))
+                        // The plus draws inside a wider box, which leaves
+                        // space before it, so the left takes less padding.
+                        .ps(px(13.5))
                         .child(icon("plus").size(px(13.)))
                         .child(t("settings.dictionary.addNew"))
                         .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
