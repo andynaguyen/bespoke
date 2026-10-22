@@ -54,6 +54,19 @@ pub fn prepare_main_window(window: &Window) {
     let _ = window;
 }
 
+/// Whether the user turned on Reduce motion, so animations should jump to
+/// their end instead.
+pub fn reduce_motion() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        objc2_app_kit::NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
 #[cfg(target_os = "macos")]
 pub use imp::{
     accessibility_granted, launch_as_accessory, microphone_granted,
