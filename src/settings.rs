@@ -157,6 +157,19 @@ pub enum OverlayStyle {
     Live,
 }
 
+/// Where Annotate's MCP server listens.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum McpReach {
+    /// No server.
+    #[default]
+    Off,
+    /// `127.0.0.1` only. Remote machines reach it through an SSH `RemoteForward`.
+    Local,
+    /// `127.0.0.1` and this Mac's Tailscale address.
+    Tailnet,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelUnloadTimeout {
@@ -554,9 +567,10 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
-    /// Serves Annotate captures to coding agents over MCP (`annotate::mcp`).
+    /// Where Annotate's MCP server listens for coding agents (`annotate::mcp`). Migrated from
+    /// the old `annotate_mcp_enabled` switch.
     #[serde(default)]
-    pub annotate_mcp_enabled: bool,
+    pub annotate_mcp_reach: McpReach,
 }
 
 fn default_model() -> String {
@@ -1066,7 +1080,7 @@ pub fn get_default_settings() -> AppSettings {
         vad_enabled: default_vad_enabled(),
         vad_backend: VadBackend::default(),
         overlay_style: default_overlay_style(),
-        annotate_mcp_enabled: false,
+        annotate_mcp_reach: McpReach::Off,
     }
 }
 
@@ -1280,6 +1294,18 @@ fn apply_settings_migrations(
         } else {
             OverlayStyle::Live
         };
+        updated = true;
+    }
+
+    // One-time Agent Access migration (only while the new key is absent): the retired
+    // `annotate_mcp_enabled` switch served on loopback only.
+    if settings_value.get("annotate_mcp_reach").is_none()
+        && settings_value
+            .get("annotate_mcp_enabled")
+            .and_then(|v| v.as_bool())
+            == Some(true)
+    {
+        settings.annotate_mcp_reach = McpReach::Local;
         updated = true;
     }
 
@@ -1613,6 +1639,19 @@ mod tests {
     fn default_overlay_style_is_live_when_overlay_defaults_on() {
         let settings = get_default_settings();
         assert_eq!(settings.overlay_style, OverlayStyle::Live);
+    }
+
+    #[test]
+    fn mcp_migration_keeps_agent_access_on_this_mac() {
+        let mut settings = get_default_settings();
+        let raw = serde_json::json!({ "annotate_mcp_enabled": true });
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.annotate_mcp_reach, McpReach::Local);
+
+        let mut settings = get_default_settings();
+        let raw = serde_json::json!({ "annotate_mcp_enabled": false });
+        apply_settings_migrations(&mut settings, &raw);
+        assert_eq!(settings.annotate_mcp_reach, McpReach::Off);
     }
 
     #[test]

@@ -1,7 +1,8 @@
 //! Agent access to Annotate's captures: an MCP server on `127.0.0.1:PORT` that coding agents
-//! call for a capture's summary, contact sheet, keyframes and manifest. Claude Code on another
-//! machine reaches it through an SSH `RemoteForward`, so a capture leaves this Mac only when an
-//! agent asks for it. Every request needs the bearer token kept in `annotate/mcp-token`.
+//! call for a capture's summary, contact sheet, keyframes and manifest. An agent on another
+//! machine reaches it through an SSH `RemoteForward`, or through this Mac's Tailscale address
+//! when the reach is `McpReach::Tailnet`. A capture leaves this Mac only when an agent asks for it.
+//! Every request needs the bearer token kept in `annotate/mcp-token`.
 //!
 //! The server speaks MCP's Streamable HTTP transport without sessions or server-sent events:
 //! each POST carries one JSON-RPC message and gets one JSON reply.
@@ -9,6 +10,7 @@
 mod tools;
 
 use std::convert::Infallible;
+use std::ffi::CStr;
 use std::fs;
 use std::future::Future;
 use std::io::Write as _;
@@ -16,6 +18,7 @@ use std::net::Ipv4Addr;
 use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use http_body_util::{BodyExt as _, Full, Limited};
@@ -28,7 +31,7 @@ use tokio::net::TcpListener;
 use tokio::task::{JoinHandle, JoinSet};
 
 use crate::app_handle::AppHandle;
-use crate::settings::{get_settings, write_settings};
+use crate::settings::{get_settings, write_settings, McpReach};
 
 /// The port on this Mac, and the one the `RemoteForward` line opens on the remote machine.
 pub const PORT: u16 = 47790;
@@ -38,6 +41,8 @@ const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", 
 const INSTRUCTIONS: &str = include_str!("mcp/instructions.md");
 /// The largest request body read. Requests are small JSON-RPC messages.
 const MAX_BODY: usize = 1 << 20;
+/// How often the server checks whether this Mac's Tailscale address has changed.
+const TAILSCALE_POLL: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -60,8 +65,60 @@ pub fn status() -> Status {
     STATUS.lock().clone()
 }
 
-fn url() -> String {
-    format!("http://127.0.0.1:{PORT}/mcp")
+fn url(host: impl std::fmt::Display) -> String {
+    format!("http://{host}:{PORT}/mcp")
+}
+
+/// The URL agents add: this Mac's Tailscale address while the server listens there, otherwise
+/// loopback, which `ssh_forward` carries to remote machines.
+fn agent_url(app: &AppHandle) -> Result<String> {
+    if get_settings(app).annotate_mcp_reach != McpReach::Tailnet {
+        return Ok(url(Ipv4Addr::LOCALHOST));
+    }
+    let address = tailscale_address().context("Tailscale isn't connected on this Mac")?;
+    Ok(url(address))
+}
+
+/// This Mac's Tailscale address: an IPv4 address in Tailscale's 100.64.0.0/10 range on its
+/// tunnel interface (`utun*` on macOS, `tailscale0` on Linux). `None` while Tailscale is off.
+pub fn tailscale_address() -> Option<Ipv4Addr> {
+    let mut list: *mut libc::ifaddrs = std::ptr::null_mut();
+    // SAFETY: on success `list` holds a linked list that `freeifaddrs` releases below.
+    if unsafe { libc::getifaddrs(&mut list) } != 0 {
+        return None;
+    }
+    let mut found = None;
+    let mut cursor = list;
+    while !cursor.is_null() {
+        // SAFETY: every node, its name and its address stay valid until `freeifaddrs`.
+        let entry = unsafe { &*cursor };
+        cursor = entry.ifa_next;
+        if entry.ifa_addr.is_null()
+            || i32::from(unsafe { (*entry.ifa_addr).sa_family }) != libc::AF_INET
+        {
+            continue;
+        }
+        let name = unsafe { CStr::from_ptr(entry.ifa_name) }.to_bytes();
+        if !(name.starts_with(b"utun") || name == b"tailscale0") {
+            continue;
+        }
+        // SAFETY: an `AF_INET` address is a `sockaddr_in`.
+        let address = unsafe { &*entry.ifa_addr.cast::<libc::sockaddr_in>() };
+        let address = Ipv4Addr::from(u32::from_be(address.sin_addr.s_addr));
+        if is_tailscale(address) {
+            found = Some(address);
+            break;
+        }
+    }
+    // SAFETY: `list` came from `getifaddrs` and nothing borrows from it any more.
+    unsafe { libc::freeifaddrs(list) };
+    found
+}
+
+/// Tailscale gives each machine an address in the CGNAT range, 100.64.0.0/10.
+fn is_tailscale(address: Ipv4Addr) -> bool {
+    let [first, second, ..] = address.octets();
+    first == 100 && (64..128).contains(&second)
 }
 
 /// The `~/.ssh/config` line that opens `PORT` on a remote machine and forwards it here.
@@ -73,15 +130,25 @@ pub fn ssh_forward() -> String {
 pub fn claude_command(app: &AppHandle) -> Result<String> {
     Ok(format!(
         "claude mcp add --transport http --scope user bespoke {} --header \"Authorization: Bearer {}\"",
-        url(),
+        agent_url(app)?,
         token(app)?
     ))
 }
 
-/// Saves the Agent Access switch and starts or stops the server to match.
-pub fn set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
+/// The `~/.codex/config.toml` entry that adds the server to Codex. `codex mcp add` can't store
+/// a header, so Codex gets a config entry instead of a command.
+pub fn codex_config(app: &AppHandle) -> Result<String> {
+    Ok(format!(
+        "[mcp_servers.bespoke]\nurl = \"{}\"\nhttp_headers = {{ Authorization = \"Bearer {}\" }}\n",
+        agent_url(app)?,
+        token(app)?
+    ))
+}
+
+/// Saves where the server listens and starts, stops or restarts it to match.
+pub fn set_reach(app: AppHandle, reach: McpReach) -> Result<(), String> {
     let mut settings = get_settings(&app);
-    settings.annotate_mcp_enabled = enabled;
+    settings.annotate_mcp_reach = reach;
     write_settings(&app, settings);
     sync(&app);
     Ok(())
@@ -112,14 +179,17 @@ pub fn sync(app: &AppHandle) {
             // The listener closes when its task is dropped, which frees the port to bind again.
             let _ = task.await;
         }
-        if !get_settings(&app).annotate_mcp_enabled {
+        if get_settings(&app).annotate_mcp_reach == McpReach::Off {
             *STATUS.lock() = Status::Off;
             return;
         }
         match listen(&app).await {
             Ok(serving) => {
                 *running = Some(crate::runtime::spawn(serving));
-                log::info!("Annotate MCP server listening on {}", url());
+                log::info!(
+                    "Annotate MCP server listening on {}",
+                    url(Ipv4Addr::LOCALHOST)
+                );
                 *STATUS.lock() = Status::Listening;
             }
             Err(error) => {
@@ -138,7 +208,43 @@ async fn listen(app: &AppHandle) -> Result<impl Future<Output = ()>> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, PORT))
         .await
         .with_context(|| format!("Couldn't listen on 127.0.0.1:{PORT}"))?;
-    Ok(serve(listener, service))
+    let tailscale = get_settings(app).annotate_mcp_reach == McpReach::Tailnet;
+    Ok(async move {
+        if tailscale {
+            tokio::join!(serve(listener, service.clone()), serve_tailscale(service));
+        } else {
+            serve(listener, service).await;
+        }
+    })
+}
+
+/// Serves on this Mac's Tailscale address and follows it as Tailscale connects, disconnects or
+/// changes address. Runs until the task is aborted, which drops the `JoinSet` and closes the
+/// listener with it.
+async fn serve_tailscale(service: Arc<Service>) {
+    let mut current = None;
+    let mut serving = JoinSet::new();
+    loop {
+        let address = tailscale_address();
+        if address != current {
+            serving.abort_all();
+            while serving.join_next().await.is_some() {}
+            current = address;
+            if let Some(address) = address {
+                match TcpListener::bind((address, PORT)).await {
+                    Ok(listener) => {
+                        log::info!("Annotate MCP server listening on {}", url(address));
+                        serving.spawn(serve(listener, service.clone()));
+                    }
+                    // Tried again when the address changes or the switch restarts the server.
+                    Err(error) => {
+                        log::warn!("Annotate MCP server couldn't listen on {address}: {error}")
+                    }
+                }
+            }
+        }
+        tokio::time::sleep(TAILSCALE_POLL).await;
+    }
 }
 
 /// Accepts connections until the task is aborted. Dropping the `JoinSet` with it closes every
@@ -588,6 +694,15 @@ mod tests {
             .await,
             StatusCode::NOT_FOUND
         );
+    }
+
+    #[test]
+    fn tailscale_range() {
+        assert!(is_tailscale(Ipv4Addr::new(100, 64, 0, 1)));
+        assert!(is_tailscale(Ipv4Addr::new(100, 127, 255, 254)));
+        assert!(!is_tailscale(Ipv4Addr::new(100, 128, 0, 1)));
+        assert!(!is_tailscale(Ipv4Addr::new(100, 63, 0, 1)));
+        assert!(!is_tailscale(Ipv4Addr::new(10, 64, 0, 1)));
     }
 
     #[test]

@@ -84,6 +84,7 @@ hf-hub = { git = "https://github.com/cjpais/hf-hub", branch = "cancellable-downl
 ] }
 
 [target.'cfg(unix)'.dependencies]
+libc = "0.2"
 signal-hook = "0.3"
 
 [target.'cfg(windows)'.dependencies]
@@ -131,7 +132,6 @@ raw-window-handle = "0.6"
 block2 = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-libc = "0.2"
 gtk = "0.18"
 transcribe-cpp = { version = "0.2.3", default-features = false, features = [
   "dynamic-backends",

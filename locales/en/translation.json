@@ -870,24 +870,30 @@
   "mcp": {
     "access": {
       "title": "Agent Access",
-      "description": "Coding agents read your captures from an MCP server on this Mac, on port {{port}}. Each request needs the token in the Claude Code command.",
-      "failed": "The server didn't start: {{error}}"
+      "off": "Coding agents read your captures from an MCP server on this Mac, on port {{port}}.",
+      "local": "Listening on 127.0.0.1, port {{port}}. Agents on this Mac connect directly, and remote machines connect through an SSH tunnel.",
+      "tailnet": "Listening on 127.0.0.1 and {{address}}, port {{port}}. Machines in your tailnet connect directly.",
+      "tailnetWaiting": "Listening on 127.0.0.1, port {{port}}. Tailscale isn't connected on this Mac. Bespoke listens on your tailnet once it connects.",
+      "failed": "The server didn't start: {{error}}",
+      "options": {
+        "off": "Off",
+        "local": "This Mac",
+        "tailnet": "Tailnet"
+      }
     },
-    "claudeCode": {
-      "title": "Claude Code",
-      "description": "Run this command wherever Claude Code runs, on this Mac or a remote machine. It contains the token, so keep it private.",
-      "copy": "Copy Command"
-    },
-    "remote": {
-      "title": "Remote Machines",
-      "description": "Add {{line}} to the host's entry in this Mac's ~/.ssh/config, then reconnect. Claude Code on that machine reaches this Mac through the tunnel.",
-      "copy": "Copy Line"
+    "agents": {
+      "title": "Add to an Agent",
+      "local": "Copies the setup with the token, so keep it private. For a machine you SSH into, also add the SSH line to its host entry in this Mac's ~/.ssh/config.",
+      "tailnet": "Copies the setup with the token, so keep it private. It works on this Mac and every machine in your tailnet.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH Line"
     },
     "token": {
       "title": "Token",
-      "description": "A new token cuts off every machine you added until you run the new command there.",
+      "description": "A new token cuts off every machine you added until you copy the new setup there.",
       "renew": "New Token",
-      "renewed": "New token made. Copy the command again for each machine.",
+      "renewed": "New token made. Copy the setup again for each machine.",
       "failed": "Couldn't make a new token"
     },
     "copied": "Copied",

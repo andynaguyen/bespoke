@@ -1,15 +1,17 @@
-//! The MCP page: the Agent Access switch for `annotate::mcp`, which serves Annotate's captures to
-//! coding agents, then, while it's on, how to add the server to Claude Code here and on remote
-//! machines.
+//! The MCP page: where `annotate::mcp`, which serves Annotate's captures to coding agents,
+//! listens (off, this Mac, or this Mac and the tailnet), then, while it's on, the setup to copy
+//! into Claude Code and Codex.
 
+use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use gpui::{div, prelude::*, AnyElement, App, Context, Task};
+use gpui::{div, prelude::*, AnyElement, App, Context, SharedString, Task};
 
 use crate::annotate::mcp;
 use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_with};
-use crate::ui::components::{SettingContainer, SettingsGroup, ToggleSwitchRow};
+use crate::settings::McpReach;
+use crate::ui::components::{ButtonVariant, SegmentedControl, SettingContainer, SettingsGroup};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::palette;
 use crate::ui::toast;
@@ -17,12 +19,24 @@ use crate::ui::toast;
 use super::annotate::icon_button;
 use super::rows;
 
-/// The setting behind the Agent Access switch.
-const SETTING: &str = "annotate_mcp_enabled";
+/// The setting behind the Agent Access control.
+const SETTING: &str = "annotate_mcp_reach";
 
-/// How often the page re-reads the server's status. `mcp::sync` starts the server in the
-/// background, so a port that's already taken shows up after the switch has saved.
+/// How often the page re-reads the server's status and this Mac's Tailscale address.
+/// `mcp::sync` starts the server in the background, so a port that's already taken shows up
+/// after the choice has saved.
 const POLL: Duration = Duration::from_millis(500);
+
+const REACHES: [McpReach; 3] = [McpReach::Off, McpReach::Local, McpReach::Tailnet];
+
+/// The id a reach's label is under (`mcp.access.options.<id>`).
+fn reach_id(reach: McpReach) -> &'static str {
+    match reach {
+        McpReach::Off => "off",
+        McpReach::Local => "local",
+        McpReach::Tailnet => "tailnet",
+    }
+}
 
 /// Copies `text` and confirms with a toast.
 fn copy(text: Result<String, String>, cx: &mut App) {
@@ -37,6 +51,7 @@ fn copy(text: Result<String, String>, cx: &mut App) {
 
 pub struct McpPage {
     status: mcp::Status,
+    tailscale: Option<Ipv4Addr>,
     _poll: Task<()>,
 }
 
@@ -47,9 +62,11 @@ impl McpPage {
         let poll = cx.spawn(async move |this, cx| loop {
             cx.background_executor().timer(POLL).await;
             let status = mcp::status();
+            let tailscale = mcp::tailscale_address();
             let updated = this.update(cx, |this, cx| {
-                if this.status != status {
+                if this.status != status || this.tailscale != tailscale {
                     this.status = status;
+                    this.tailscale = tailscale;
                     cx.notify();
                 }
             });
@@ -59,57 +76,109 @@ impl McpPage {
         });
         Self {
             status: mcp::status(),
+            tailscale: mcp::tailscale_address(),
             _poll: poll,
+        }
+    }
+
+    fn access_description(&self, reach: McpReach) -> SharedString {
+        let port = &mcp::PORT;
+        if let (mcp::Status::Failed(error), McpReach::Local | McpReach::Tailnet) =
+            (&self.status, reach)
+        {
+            return t_with("mcp.access.failed", &[("error", error)]);
+        }
+        match (reach, self.tailscale) {
+            (McpReach::Off, _) => t_with("mcp.access.off", &[("port", port)]),
+            (McpReach::Local, _) => t_with("mcp.access.local", &[("port", port)]),
+            (McpReach::Tailnet, Some(address)) => t_with(
+                "mcp.access.tailnet",
+                &[("address", &address), ("port", port)],
+            ),
+            (McpReach::Tailnet, None) => t_with("mcp.access.tailnetWaiting", &[("port", port)]),
         }
     }
 
     fn rows(&self, cx: &Context<Self>) -> Vec<AnyElement> {
         let p = palette(cx);
-        let enabled = SettingsStore::get(cx).annotate_mcp_enabled;
-        let description = match &self.status {
-            mcp::Status::Failed(error) if enabled => {
-                t_with("mcp.access.failed", &[("error", error)])
-            }
-            _ => t_with("mcp.access.description", &[("port", &mcp::PORT)]),
-        };
-        let access = ToggleSwitchRow::new(SETTING, t("mcp.access.title"), description, enabled)
-            .updating(SettingsStore::global(cx).read(cx).is_updating(SETTING))
-            .on_change(|value, _, cx| {
-                rows::set(
-                    cx,
-                    SETTING,
-                    move |s| s.annotate_mcp_enabled = value,
-                    move |app| mcp::set_enabled(app, value),
-                );
-            })
+        let reach = SettingsStore::get(cx).annotate_mcp_reach;
+        let access = SettingContainer::new(t("mcp.access.title"))
+            .description(self.access_description(reach))
+            .child(SegmentedControl::new(
+                "mcp-reach",
+                REACHES
+                    .iter()
+                    .map(|&reach| {
+                        let id = reach_id(reach);
+                        (
+                            SharedString::from(id),
+                            t(&format!("mcp.access.options.{id}")),
+                        )
+                    })
+                    .collect(),
+                reach_id(reach),
+                |id, _, cx| {
+                    let Some(&reach) = REACHES
+                        .iter()
+                        .find(|&&reach| reach_id(reach) == id.as_ref())
+                    else {
+                        return;
+                    };
+                    rows::set(
+                        cx,
+                        SETTING,
+                        move |s| s.annotate_mcp_reach = reach,
+                        move |app| mcp::set_reach(app, reach),
+                    );
+                },
+            ))
             .into_any_element();
-        if !enabled {
+        if reach == McpReach::Off {
             return vec![access];
         }
-        let claude_code = SettingContainer::new(t("mcp.claudeCode.title"))
-            .description(t("mcp.claudeCode.description"))
-            .child(div().text_color(p.text).child(
-                icon_button("mcp-copy-command", "copy", t("mcp.claudeCode.copy")).on_click(
-                    |_, _, cx| {
-                        copy(
-                            mcp::claude_command(AppHandle::global())
-                                .map_err(|error| format!("{error:#}")),
-                            cx,
-                        );
-                    },
-                ),
-            ))
-            .into_any_element();
-        let remote = SettingContainer::new(t("mcp.remote.title"))
-            .description(t_with(
-                "mcp.remote.description",
-                &[("line", &mcp::ssh_forward())],
-            ))
+        // Tailnet setups carry this Mac's Tailscale address, so there's nothing to copy until
+        // Tailscale connects.
+        let waiting = reach == McpReach::Tailnet && self.tailscale.is_none();
+        let agents = SettingContainer::new(t("mcp.agents.title"))
+            .description(match reach {
+                McpReach::Tailnet => t("mcp.agents.tailnet"),
+                _ => t("mcp.agents.local"),
+            })
             .child(
-                div().text_color(p.text).child(
-                    icon_button("mcp-copy-forward", "copy", t("mcp.remote.copy"))
-                        .on_click(|_, _, cx| copy(Ok(mcp::ssh_forward()), cx)),
-                ),
+                div()
+                    .flex()
+                    .gap_2()
+                    .text_color(p.text)
+                    .child(
+                        icon_button("mcp-copy-claude", "copy", t("mcp.agents.claudeCode"))
+                            .disabled(waiting)
+                            .on_click(|_, _, cx| {
+                                copy(
+                                    mcp::claude_command(AppHandle::global())
+                                        .map_err(|error| format!("{error:#}")),
+                                    cx,
+                                );
+                            }),
+                    )
+                    .child(
+                        icon_button("mcp-copy-codex", "copy", t("mcp.agents.codex"))
+                            .disabled(waiting)
+                            .on_click(|_, _, cx| {
+                                copy(
+                                    mcp::codex_config(AppHandle::global())
+                                        .map_err(|error| format!("{error:#}")),
+                                    cx,
+                                );
+                            }),
+                    )
+                    // The tunnel ends at 127.0.0.1, which only the local setup points at.
+                    .when(reach == McpReach::Local, |row| {
+                        row.child(
+                            icon_button("mcp-copy-ssh", "copy", t("mcp.agents.ssh"))
+                                .variant(ButtonVariant::Ghost)
+                                .on_click(|_, _, cx| copy(Ok(mcp::ssh_forward()), cx)),
+                        )
+                    }),
             )
             .into_any_element();
         let token = SettingContainer::new(t("mcp.token.title"))
@@ -126,7 +195,7 @@ impl McpPage {
                 ),
             ))
             .into_any_element();
-        vec![access, claude_code, remote, token]
+        vec![access, agents, token]
     }
 }
 
