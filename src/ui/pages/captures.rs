@@ -308,10 +308,6 @@ impl Captures {
         )
     }
 
-    pub fn count(&self) -> Option<usize> {
-        self.items.as_ref().map(Vec::len)
-    }
-
     fn card(&self, index: usize, item: &Item, cx: &mut Context<Self>) -> AnyElement {
         let p = palette(cx);
         let open = item.clone();
@@ -455,6 +451,11 @@ impl Captures {
             .flex_col()
             .gap(px(14.))
             .children(rows)
+            .child(div().text_px(12.).text_color(p.mid_gray).child(t_count(
+                "annotate.library.count",
+                items.len() as i64,
+                &[],
+            )))
             .into_any_element()
     }
 

@@ -13,7 +13,7 @@ use scrawl::host::{
     SpeechStatus,
 };
 
-use crate::i18n::{t, t_count, t_with};
+use crate::i18n::{t, t_with};
 use crate::ui::components::{
     icon, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
     SegmentedControl, SettingContainer, SettingsGroup, Typography,
@@ -451,9 +451,6 @@ impl super::Page for AnnotatePage {
             },
         ));
         if self.tab == Tab::Captures {
-            if let Some(count) = self.captures.read(cx).count() {
-                toolbar = toolbar.meta(t_count("annotate.library.count", count as i64, &[]));
-            }
             toolbar = toolbar
                 .action(
                     icon_button(

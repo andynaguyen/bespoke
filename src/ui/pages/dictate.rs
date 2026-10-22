@@ -340,6 +340,7 @@ impl DictatePage {
         if all.is_empty() {
             return Self::empty_list(t("settings.dictionary.empty"), cx).into_any_element();
         }
+        let count = t_count("settings.dictionary.entries", all.len() as i64, &[]);
         let query = self.query(cx);
         let shown: Vec<Entry> = all
             .into_iter()
@@ -372,6 +373,15 @@ impl DictatePage {
             .iter()
             .map(|id| focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx))
             .collect();
+        // The count closes the table, like a list's footer in Finder.
+        let caption = div()
+            .h(px(32.))
+            .ps(px(16.))
+            .flex()
+            .items_center()
+            .text_px(12.)
+            .text_color(p.mid_gray)
+            .child(count);
         div()
             .flex()
             .flex_col()
@@ -436,6 +446,7 @@ impl DictatePage {
                             ))
                     }),
             )
+            .child(caption)
             .into_any_element()
     }
 
@@ -723,26 +734,22 @@ impl super::Page for DictatePage {
             },
         ));
         match self.tab {
-            Tab::Dictionary => {
-                let count = entries(&self.store.read(cx).settings).len() as i64;
-                toolbar
-                    .meta(t_count("settings.dictionary.entries", count, &[]))
-                    .action(
-                        TextField::new(&self.search).w(px(200.)).prefix(
-                            icon("search")
-                                .size(px(13.))
-                                .text_color(p.mid_gray)
-                                .me(px(6.)),
-                        ),
-                    )
-                    .action(
-                        Button::new("add-new")
-                            .gap(px(4.))
-                            .child(icon("plus").size(px(13.)))
-                            .child(t("settings.dictionary.addNew"))
-                            .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
-                    )
-            }
+            Tab::Dictionary => toolbar
+                .action(
+                    TextField::new(&self.search).w(px(200.)).prefix(
+                        icon("search")
+                            .size(px(13.))
+                            .text_color(p.mid_gray)
+                            .me(px(6.)),
+                    ),
+                )
+                .action(
+                    Button::new("add-new")
+                        .gap(px(4.))
+                        .child(icon("plus").size(px(13.)))
+                        .child(t("settings.dictionary.addNew"))
+                        .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
+                ),
             Tab::Style => toolbar,
             Tab::History => match &self.history {
                 Some(history) => history.update(cx, |history, cx| {
