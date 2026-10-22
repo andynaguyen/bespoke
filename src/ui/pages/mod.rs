@@ -17,25 +17,94 @@ mod settings;
 mod shortcut_input;
 mod stats;
 
-use gpui::{AnyView, App, AppContext, Window};
+#[cfg(not(target_os = "macos"))]
+use gpui::{div, IntoElement};
+use gpui::{AnyView, App, AppContext, Context, Entity, Render, Window};
 
-use crate::ui::shell::Section;
+use crate::ui::shell::{Section, Toolbar};
 
-pub fn build(section: Section, window: &mut Window, cx: &mut App) -> AnyView {
+/// How the shell lays out a page's body under the toolbar.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PageLayout {
+    /// Scrolls, with padding, at most 48rem wide and centered.
+    Padded,
+    /// Scrolls, edge to edge, for lists with their own row dividers.
+    Flush,
+    /// Fills the space under the toolbar and scrolls its own parts.
+    Fill,
+}
+
+/// A sidebar section's view.
+pub trait Page: Render + Sized {
+    /// The page's tabs, summary and actions for the toolbar.
+    fn toolbar(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> Toolbar {
+        Toolbar::new()
+    }
+
+    fn layout(&self, _cx: &App) -> PageLayout {
+        PageLayout::Padded
+    }
+}
+
+type ToolbarFn = Box<dyn Fn(&mut Window, &mut App) -> Toolbar>;
+type LayoutFn = Box<dyn Fn(&App) -> PageLayout>;
+
+/// The open page, with its toolbar and layout reachable from the shell.
+pub struct PageHandle {
+    pub view: AnyView,
+    toolbar: ToolbarFn,
+    layout: LayoutFn,
+}
+
+impl PageHandle {
+    fn new<T: Page>(entity: Entity<T>) -> Self {
+        let toolbar_entity = entity.clone();
+        let layout_entity = entity.clone();
+        Self {
+            view: entity.into(),
+            toolbar: Box::new(move |window, cx| {
+                toolbar_entity.update(cx, |page, cx| page.toolbar(window, cx))
+            }),
+            layout: Box::new(move |cx| layout_entity.read(cx).layout(cx)),
+        }
+    }
+
+    pub fn toolbar(&self, window: &mut Window, cx: &mut App) -> Toolbar {
+        (self.toolbar)(window, cx)
+    }
+
+    pub fn layout(&self, cx: &App) -> PageLayout {
+        (self.layout)(cx)
+    }
+}
+
+/// A section with nothing to show on this platform.
+#[cfg(not(target_os = "macos"))]
+struct EmptyPage;
+
+#[cfg(not(target_os = "macos"))]
+impl Render for EmptyPage {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+impl Page for EmptyPage {}
+
+pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle {
     match section {
-        Section::Dictate => cx.new(|cx| dictate::DictatePage::new(window, cx)).into(),
-        Section::Stats => cx.new(stats::StatsPage::new).into(),
-        Section::Models => cx.new(|cx| models::ModelsPage::new(window, cx)).into(),
+        Section::Dictate => PageHandle::new(cx.new(|cx| dictate::DictatePage::new(window, cx))),
+        Section::Stats => PageHandle::new(cx.new(stats::StatsPage::new)),
+        Section::Models => PageHandle::new(cx.new(|cx| models::ModelsPage::new(window, cx))),
         #[cfg(target_os = "macos")]
-        Section::Annotate => cx.new(annotate::AnnotatePage::new).into(),
-        #[cfg(not(target_os = "macos"))]
-        Section::Annotate => cx.new(|_| gpui::EmptyView).into(),
+        Section::Annotate => PageHandle::new(cx.new(annotate::AnnotatePage::new)),
         #[cfg(target_os = "macos")]
-        Section::Mcp => cx.new(mcp::McpPage::new).into(),
+        Section::Mcp => PageHandle::new(cx.new(mcp::McpPage::new)),
         #[cfg(not(target_os = "macos"))]
-        Section::Mcp => cx.new(|_| gpui::EmptyView).into(),
-        Section::Debug => cx.new(debug::DebugPage::new).into(),
-        Section::Settings => cx.new(|cx| settings::SettingsPage::new(window, cx)).into(),
+        Section::Annotate | Section::Mcp => PageHandle::new(cx.new(|_| EmptyPage)),
+        Section::Debug => PageHandle::new(cx.new(debug::DebugPage::new)),
+        Section::Settings => PageHandle::new(cx.new(|cx| settings::SettingsPage::new(window, cx))),
     }
 }
 

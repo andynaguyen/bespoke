@@ -3,11 +3,11 @@
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, rems, App, ElementId, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, px, App, ElementId, FontWeight, SharedString, Window};
 
 use super::RowDirection;
 use super::{KeyboardFocus, Typography};
-use crate::ui::theme::{palette, shadow_sm, Alpha};
+use crate::ui::theme::{palette, shadow, Alpha};
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 
@@ -39,19 +39,19 @@ impl SegmentedControl {
 impl RenderOnce for SegmentedControl {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = palette(cx);
-        // The raised segment is lighter than the track in both themes.
-        let raised = if p.is_dark {
-            p.text.a(0.12)
-        } else {
-            p.background
-        };
+        // Inspect's tabs: track radius 8 = segment radius 6 + border 1 + pad 1.
         div()
             .flex()
             .row_dir()
-            .p(px(3.))
-            .rounded(px(9.))
-            .bg(p.card)
-            .sm_text()
+            .items_center()
+            .h(px(28.))
+            .p(px(1.))
+            .gap(px(2.))
+            .rounded(px(8.))
+            .bg(p.background)
+            .border_1()
+            .border_color(p.line)
+            .text_px(12.)
             .font_weight(FontWeight::MEDIUM)
             .children(
                 self.options
@@ -62,18 +62,26 @@ impl RenderOnce for SegmentedControl {
                         let on_select = self.on_select.clone();
                         div()
                             .id((self.id.clone(), SharedString::from(index.to_string())))
-                            .px(rems(0.625))
-                            .py(px(3.))
-                            .rounded(px(7.))
+                            .h(px(24.))
+                            .px(px(10.))
+                            .flex()
+                            .items_center()
+                            .rounded(px(6.))
                             .whitespace_nowrap()
                             .cursor_pointer()
                             .keyboard_focus(cx)
                             .when(selected, |el| {
-                                el.bg(raised).text_color(p.text).shadow(shadow_sm())
+                                el.bg(p.raised).text_color(p.text).shadow(vec![shadow(
+                                    0.,
+                                    1.,
+                                    2.,
+                                    0.,
+                                    if p.is_dark { 0.25 } else { 0.08 },
+                                )])
                             })
                             .when(!selected, |el| {
-                                el.text_color(p.text.a(0.55))
-                                    .hover(|s| s.text_color(p.text))
+                                el.text_color(p.mid_gray)
+                                    .hover(|s| s.text_color(p.text.a(0.85)))
                             })
                             .on_click(move |_, window, cx| on_select(&id, window, cx))
                             .child(label)

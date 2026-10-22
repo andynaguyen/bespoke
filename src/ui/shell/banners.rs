@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use gpui::{div, prelude::*, rems, Context, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, px, rems, Context, FontWeight, SharedString, Window};
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_count};
@@ -64,12 +64,15 @@ impl Render for AccessibilityBanner {
             return div().into_any_element();
         }
         let p = palette(cx);
+        // A strip under the toolbar, as wide as the page.
         div()
             .w_full()
-            .px_5()
-            .py_4()
-            .rounded_2xl()
+            .flex_none()
+            .px_4()
+            .py_2()
             .bg(p.card)
+            .border_b_1()
+            .border_color(p.line)
             .child(
                 div()
                     .flex()
@@ -79,21 +82,21 @@ impl Render for AccessibilityBanner {
                     .gap_2()
                     .child(
                         div()
-                            .sm_text()
+                            .text_px(13.)
                             .font_weight(FontWeight::MEDIUM)
                             .child(t("accessibility.permissionsDescription")),
                     )
                     .child(
                         div()
                             .id("accessibility-open-settings")
-                            .min_h(rems(2.5))
-                            .px_3()
-                            .py(rems(0.375))
-                            .sm_text()
+                            .h(px(28.))
+                            .px(px(12.))
+                            .text_px(12.5)
                             .font_weight(FontWeight::MEDIUM)
-                            .bg(p.mid_gray.a(0.15))
-                            .hover(|s| s.bg(p.mid_gray.a(0.25)))
-                            .rounded_lg()
+                            .bg(p.accent)
+                            .text_color(p.accent_contrast)
+                            .hover(|s| s.bg(p.accent.a(0.85)))
+                            .rounded(px(7.))
                             .cursor_pointer()
                             .whitespace_nowrap()
                             .flex()
@@ -183,12 +186,12 @@ impl Render for SecureInputWarning {
         let p = palette(cx);
         div()
             .w_full()
-            .rounded_2xl()
-            .border_1()
+            .flex_none()
+            .border_b_1()
             .border_color(p.warning.a(0.3))
             .bg(p.warning.a(0.1))
             .px_4()
-            .py_3()
+            .py_2()
             .child(
                 div()
                     .flex()

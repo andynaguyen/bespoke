@@ -220,7 +220,7 @@ impl RenderOnce for ModelCard {
             .group(group.clone())
             .flex()
             .flex_col()
-            .rounded_2xl()
+            .rounded(px(10.))
             .px_5()
             .py_4()
             .gap_2()
@@ -321,7 +321,7 @@ impl RenderOnce for ModelCard {
                             .flex_wrap()
                             .child(
                                 div()
-                                    .base_text()
+                                    .text_px(14.)
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .text_color(p.text)
                                     .when(clickable && !self.disabled, |el| {

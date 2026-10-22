@@ -10,13 +10,14 @@ use crate::managers::transcription::AvailableAccelerators;
 use crate::settings::{AppSettings, PasteMethod, TranscribeAcceleratorSetting, TypingTool};
 use crate::shortcut;
 use crate::ui::components::{
-    reset_button, Dropdown, DropdownOption, RowDirection, SettingContainer, SettingsGroup, Spinner,
-    Tabs, TextField,
+    reset_button, Dropdown, DropdownOption, RowDirection, SegmentedControl, SettingContainer,
+    SettingsGroup, Spinner, TextField,
 };
 use crate::ui::languages::{
     language_label, recognition_language, selectable_languages, supports_language_code,
     unique_capability_languages, CHINESE_LANGUAGE_CODE,
 };
+use crate::ui::shell::Toolbar;
 use crate::ui::stores::{ModelStore, SettingsStore};
 use crate::ui::theme::{palette, Alpha};
 
@@ -814,13 +815,9 @@ impl SettingsPage {
     }
 }
 
-impl Render for SettingsPage {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl super::Page for SettingsPage {
+    fn toolbar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
         let experimental = self.store.read(cx).settings.experimental_enabled;
-        // Fall back to Dictation if the Experimental tab disappears while selected.
-        if self.tab == Tab::Experimental && !experimental {
-            self.tab = Tab::Dictation;
-        }
         let mut tabs = vec![
             (Tab::Dictation, "settings.advanced.groups.dictation"),
             (Tab::Transcription, "settings.advanced.groups.transcription"),
@@ -831,21 +828,31 @@ impl Render for SettingsPage {
             tabs.push((Tab::Experimental, "settings.advanced.groups.experimental"));
         }
         let entity = cx.entity().downgrade();
+        Toolbar::new().tabs(SegmentedControl::new(
+            "settings-tabs",
+            tabs.iter()
+                .map(|(tab, key)| (SharedString::from(tab.id()), t(key)))
+                .collect(),
+            self.tab.id(),
+            move |id, _, cx| {
+                let _ = entity.update(cx, |this, cx| this.select_tab(id, cx));
+            },
+        ))
+    }
+}
+
+impl Render for SettingsPage {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let experimental = self.store.read(cx).settings.experimental_enabled;
+        // Fall back to Dictation if the Experimental tab disappears while selected.
+        if self.tab == Tab::Experimental && !experimental {
+            self.tab = Tab::Dictation;
+        }
         div()
             .w_full()
             .flex()
             .flex_col()
             .gap_5()
-            .child(Tabs::new(
-                "settings-tabs",
-                tabs.iter()
-                    .map(|(tab, key)| (SharedString::from(tab.id()), t(key)))
-                    .collect(),
-                self.tab.id(),
-                move |id, _, cx| {
-                    let _ = entity.update(cx, |this, cx| this.select_tab(id, cx));
-                },
-            ))
             .children(self.render_tab(cx))
     }
 }

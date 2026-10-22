@@ -1,12 +1,12 @@
 //! `ui/Input.tsx` and `ui/Textarea.tsx`: gpui-component's text editing,
 //! framed with Bespoke's border, hover and focus ring.
 
-use gpui::{div, prelude::*, px, rems, App, Entity, Focusable, FontWeight, Pixels, Rems, Window};
+use gpui::{div, prelude::*, px, App, Entity, Focusable, FontWeight, Pixels, Window};
 use gpui_component::input::{Input, InputState};
 
 use super::RowDirection;
 use super::Typography;
-use crate::ui::theme::{palette, shadow, Alpha};
+use crate::ui::theme::{palette, Alpha};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Variant {
@@ -80,14 +80,14 @@ fn frame(focused: bool, disabled: bool, invalid: bool, cx: &App) -> gpui::Div {
     let border = if invalid {
         p.error
     } else if focused {
-        p.mid_gray.a(0.6)
+        p.accent.a(0.7)
     } else {
-        p.mid_gray.a(0.25)
+        p.line
     };
-    let mut shadows = vec![shadow(0., 1., 1., 0., 0.03)];
+    let mut shadows = Vec::new();
     if focused {
         shadows.push(gpui::BoxShadow {
-            color: p.accent.a(0.1),
+            color: p.accent.a(0.15),
             offset: gpui::point(px(0.), px(0.)),
             blur_radius: px(0.),
             spread_radius: px(2.),
@@ -97,16 +97,16 @@ fn frame(focused: bool, disabled: bool, invalid: bool, cx: &App) -> gpui::Div {
         .bg(p.background)
         .border_1()
         .border_color(border)
-        .rounded_lg()
+        .rounded(px(7.))
         .shadow(shadows)
         .text_color(p.text)
         .when(disabled, |el| el.opacity(0.6).cursor_not_allowed())
 }
 
-fn padding(variant: Variant) -> (Rems, Rems) {
+fn padding(variant: Variant) -> (Pixels, Pixels) {
     match variant {
-        Variant::Default => (rems(0.75), rems(0.5)),
-        Variant::Compact => (rems(0.5), rems(0.25)),
+        Variant::Default => (px(9.), px(5.)),
+        Variant::Compact => (px(7.), px(3.)),
     }
 }
 
@@ -122,7 +122,7 @@ impl RenderOnce for TextField {
             .items_center()
             .px(px_)
             .when(!focused && !self.disabled && !self.invalid, |el| {
-                el.hover(|s| s.bg(p.mid_gray.a(0.1)).border_color(p.mid_gray.a(0.5)))
+                el.hover(|s| s.border_color(p.mid_gray.a(0.4)))
             });
         *root.style() = super::merge_styles(root.style().clone(), self.style);
         root.children(self.prefix).child(
@@ -132,8 +132,9 @@ impl RenderOnce for TextField {
                 .flex_1()
                 .px_0()
                 .py(py_)
-                .h(rems(1.25) + py_ + py_)
-                .sm_text()
+                .h(px(16.) + py_ + py_)
+                .text_px(12.5)
+                .line_height(px(16.))
                 .when(self.medium_weight, |el| el.font_weight(FontWeight::MEDIUM)),
         )
     }
@@ -177,7 +178,7 @@ impl RenderOnce for TextArea {
         let mut root = frame(focused, false, false, cx)
             .id(("text-area", self.state.entity_id()))
             .when(!focused, |el| {
-                el.hover(|s| s.bg(p.mid_gray.a(0.1)).border_color(p.mid_gray.a(0.5)))
+                el.hover(|s| s.border_color(p.mid_gray.a(0.4)))
             });
         *root.style() = super::merge_styles(root.style().clone(), self.style);
         root.child(
@@ -186,7 +187,8 @@ impl RenderOnce for TextArea {
                 .h(self.min_height)
                 .px(px_)
                 .py(py_)
-                .sm_text(),
+                .text_px(12.5)
+                .line_height(px(18.)),
         )
     }
 }

@@ -199,6 +199,8 @@ impl McpPage {
     }
 }
 
+impl super::Page for McpPage {}
+
 impl Render for McpPage {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()

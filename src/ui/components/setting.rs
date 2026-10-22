@@ -1,10 +1,10 @@
 //! `ui/SettingContainer.tsx` and `ui/SettingsGroup.tsx`.
 
-use gpui::{div, prelude::*, px, rems, AnyElement, App, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, SharedString, Window};
 
 use super::RowDirection;
 use super::Typography;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::palette;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum SettingLayout {
@@ -65,13 +65,13 @@ impl RenderOnce for SettingContainer {
         let p = palette(cx);
         let dim = |el: gpui::Div| if self.disabled { el.opacity(0.5) } else { el };
 
-        let title = dim(div().sm_text().font_weight(FontWeight::MEDIUM)).child(self.title.clone());
+        let title = dim(div().text_px(13.).line_height(px(18.))).child(self.title.clone());
         let description = self.description.clone().map(|description| {
             dim(div()
-                .text_px(13.)
-                .leading_snug()
-                .text_color(p.text.a(0.55))
-                .mt(rems(0.125)))
+                .text_px(12.)
+                .line_height(px(16.))
+                .text_color(p.mid_gray)
+                .mt(px(2.)))
             .child(description)
         });
 
@@ -85,9 +85,9 @@ impl RenderOnce for SettingContainer {
                 .justify_between()
                 .row_dir()
                 .gap_4()
-                .min_h(rems(3.5))
-                .px_5()
-                .py_3()
+                .min_h(px(48.))
+                .px_3()
+                .py(px(10.))
                 .child(
                     div()
                         .flex_1()
@@ -98,8 +98,8 @@ impl RenderOnce for SettingContainer {
                 .child(div().relative().flex_shrink_0().children(self.children)),
             SettingLayout::Stacked => div()
                 .w_full()
-                .px_5()
-                .py(rems(0.875))
+                .px_3()
+                .py(px(10.))
                 .child(div().mb_2().child(header))
                 .child(div().w_full().children(self.children)),
         }
@@ -137,12 +137,12 @@ impl RenderOnce for SettingsGroup {
             .w_full()
             .flex()
             .flex_col()
-            .gap(rems(0.625))
+            .gap(px(8.))
             .children(self.title.map(|title| {
                 div()
-                    .px_1()
-                    .text_px(15.)
+                    .text_px(11.)
                     .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(p.mid_gray)
                     .child(title)
             }))
             .child(
@@ -151,7 +151,9 @@ impl RenderOnce for SettingsGroup {
                     .flex()
                     .flex_col()
                     .bg(p.card)
-                    .rounded_2xl()
+                    .border_1()
+                    .border_color(p.line)
+                    .rounded(px(8.))
                     .children(
                         self.children
                             .into_iter()
@@ -161,9 +163,7 @@ impl RenderOnce for SettingsGroup {
                                     .w_full()
                                     .flex()
                                     .flex_col()
-                                    .when(index > 0, |el| {
-                                        el.border_t(px(1.)).border_color(p.mid_gray.a(0.15))
-                                    })
+                                    .when(index > 0, |el| el.border_t(px(1.)).border_color(p.line))
                                     .child(child)
                             }),
                     ),

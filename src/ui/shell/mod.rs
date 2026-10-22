@@ -5,6 +5,7 @@
 mod banners;
 mod model_selector;
 mod sidebar;
+mod toolbar;
 
 use gpui::{
     div, point, prelude::*, px, rems, AnyView, App, Context, Entity, FocusHandle, Focusable,
@@ -18,15 +19,16 @@ use crate::managers::transcription::ModelStateEvent;
 use crate::ui::components::{KeyboardFocus, RowDirection};
 use crate::ui::event_bus::event_bus;
 use crate::ui::onboarding::{AccessibilityOnboarding, ModelOnboarding, OnboardingPreview};
-use crate::ui::pages;
+use crate::ui::pages::{self, PageHandle, PageLayout};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, shadow, Alpha, SERIF_FALLBACKS, SERIF_FONT};
+use crate::ui::theme::{palette, Alpha};
 use crate::ui::toast;
 use crate::ui::whats_new::WhatsNewGate;
 
 use banners::{AccessibilityBanner, SecureInputWarning};
 use model_selector::ModelSelector;
 pub use sidebar::logo;
+pub use toolbar::Toolbar;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Section {
@@ -95,7 +97,7 @@ pub struct MainWindow {
     post_onboarding_done: bool,
     preview: Option<OnboardingPreview>,
     section: Section,
-    page: AnyView,
+    page: PageHandle,
     scroll: ScrollHandle,
     focus: FocusHandle,
     model_selector: Entity<ModelSelector>,
@@ -288,7 +290,7 @@ impl MainWindow {
         };
         self.select_section(section, window, cx);
         if !detail.is_empty() {
-            pages::select_tab(&self.page, detail, window, cx);
+            pages::select_tab(&self.page.view, detail, window, cx);
         }
         if let Ok(offset) = scroll.parse::<f32>() {
             self.scroll.set_offset(gpui::point(px(0.), px(-offset)));
@@ -404,11 +406,12 @@ impl MainWindow {
         let p = palette(cx);
         let sidebar = sidebar::render(self, window, cx);
         let rtl = crate::i18n::is_rtl();
+        let toolbar = self.page.toolbar(window, cx);
+        let toolbar = toolbar::render(t(self.section.label_key()), toolbar, window, cx);
         div()
             .size_full()
             .flex()
             .flex_col()
-            .pt(px(TITLEBAR_HEIGHT))
             .cursor_default()
             .child(self.whats_new.clone())
             .child(
@@ -425,71 +428,59 @@ impl MainWindow {
                             .flex()
                             .flex_col()
                             .overflow_hidden()
-                            .my_2()
-                            .when(rtl, |el| el.ml_2())
-                            .when(!rtl, |el| el.mr_2())
-                            .rounded_2xl()
-                            .border_1()
-                            .border_color(p.mid_gray.a(0.15))
                             .bg(p.background)
-                            .shadow(vec![shadow(0., 1., 3., 0., 0.04)])
-                            .child(
-                                div()
-                                    .relative()
-                                    .flex_1()
-                                    .min_h_0()
-                                    .child(
-                                        div()
-                                            .id("content-scroll")
-                                            .size_full()
-                                            .overflow_y_scroll()
-                                            .track_scroll(&self.scroll)
-                                            .child(self.render_page()),
-                                    )
-                                    .vertical_scrollbar(&self.scroll),
-                            ),
+                            .child(toolbar)
+                            .child(self.accessibility_banner.clone())
+                            .child(self.secure_input_warning.clone())
+                            .child(self.render_body(cx)),
                     ),
             )
     }
 
-    /// The section title, banners and page, centered and at most 48rem wide.
-    fn render_page(&self) -> impl IntoElement {
+    /// The page under the toolbar, laid out as the page asks.
+    fn render_body(&self, cx: &App) -> impl IntoElement {
+        let page = self.page.view.clone();
+        let layout = self.page.layout(cx);
+        if layout == PageLayout::Fill {
+            return div()
+                .flex_1()
+                .min_h_0()
+                .flex()
+                .flex_col()
+                .child(page)
+                .into_any_element();
+        }
         // Centered by a row, where width is the main axis and `max_w` applies
         // before the height is measured. A column with `items_center`
         // measured the height at the unclamped width (Taffy 0.9), so text
         // wrapped onto more lines than measured and the end of the page could
         // not scroll into view.
-        div().flex().justify_center().px_7().pt_7().pb_8().child(
-            div()
-                .w_full()
-                .max_w(rems(48.))
-                .flex()
-                .flex_col()
-                .gap_5()
-                .child(
-                    div()
-                        .font(serif_font())
-                        .text_size(px(28.))
-                        .line_height(px(35.))
-                        .child(t(self.section.label_key())),
-                )
-                .child(self.accessibility_banner.clone())
-                .child(self.secure_input_warning.clone())
-                .child(self.page.clone()),
-        )
-    }
-}
-
-/// The page-title serif (`--font-serif`), with the CSS fallbacks.
-fn serif_font() -> gpui::Font {
-    gpui::Font {
-        family: SERIF_FONT.into(),
-        features: Default::default(),
-        fallbacks: Some(gpui::FontFallbacks::from_fonts(
-            SERIF_FALLBACKS.iter().map(|f| f.to_string()).collect(),
-        )),
-        weight: FontWeight::NORMAL,
-        style: gpui::FontStyle::Normal,
+        let content = if layout == PageLayout::Padded {
+            div().flex().justify_center().px_6().pt_5().pb_8().child(
+                div()
+                    .w_full()
+                    .max_w(rems(48.))
+                    .flex()
+                    .flex_col()
+                    .child(page),
+            )
+        } else {
+            div().flex().flex_col().pb_6().child(page)
+        };
+        div()
+            .relative()
+            .flex_1()
+            .min_h_0()
+            .child(
+                div()
+                    .id("content-scroll")
+                    .size_full()
+                    .overflow_y_scroll()
+                    .track_scroll(&self.scroll)
+                    .child(content),
+            )
+            .vertical_scrollbar(&self.scroll)
+            .into_any_element()
     }
 }
 
@@ -609,8 +600,8 @@ impl Render for MainWindow {
             .relative()
             .bg(p.shell)
             .text_color(p.text)
-            .text_size(px(15.))
-            .line_height(px(24.))
+            .text_size(px(13.))
+            .line_height(px(18.))
             // `dir="rtl"` makes start-aligned text right-aligned.
             .when(crate::i18n::is_rtl(), |el| el.text_right())
             .on_action(

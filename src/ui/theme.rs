@@ -13,13 +13,6 @@ use crate::settings::Theme as ThemeSetting;
 /// Root font size of the React app (`:root { font-size: 15px }`).
 pub const REM: Pixels = px(15.);
 
-/// The serif stack used for page titles (`--font-serif`).
-pub const SERIF_FONT: &str = if cfg!(target_os = "macos") {
-    ".New York"
-} else {
-    "Georgia"
-};
-pub const SERIF_FALLBACKS: &[&str] = &["Iowan Old Style", "Georgia", "Times New Roman"];
 pub const MONO_FONT: &str = if cfg!(target_os = "macos") {
     "Menlo"
 } else if cfg!(target_os = "windows") {
@@ -32,14 +25,22 @@ fn hex(value: u32) -> Hsla {
     rgb(value).into()
 }
 
-/// The active palette. Every color in the UI comes from here.
+/// The active palette. Every color in the UI comes from here. The dark
+/// palette matches Annotate's Inspect window (`vendor/scrawl/src/ui.rs`).
 #[derive(Clone, Copy, Debug)]
 pub struct Palette {
     pub is_dark: bool,
     pub text: Hsla,
+    /// The content pane behind each page.
     pub background: Hsla,
+    /// The sidebar, the toolbar and the inspector column.
     pub shell: Hsla,
+    /// Setting groups, list rows and other surfaces on the background.
     pub card: Hsla,
+    /// A selected sidebar item or segment.
+    pub raised: Hsla,
+    /// Hairline borders and dividers.
+    pub line: Hsla,
     pub accent: Hsla,
     pub accent_contrast: Hsla,
     pub data: Hsla,
@@ -54,40 +55,44 @@ pub struct Palette {
 
 impl Palette {
     pub fn light() -> Self {
-        let background = hex(0xfcfbf9);
+        let background = hex(0xffffff);
         Self {
             is_dark: false,
-            text: hex(0x1c1a17),
+            text: hex(0x1a1a1a),
             background,
-            shell: hex(0xf3f1ed),
-            card: hex(0xf4f2ee),
-            accent: hex(0x1f1d1a),
+            shell: hex(0xf6f6f6),
+            card: hex(0xfafafa),
+            raised: hex(0xe8e8e8),
+            line: hex(0xe4e4e4),
+            accent: hex(0x3b5cf6),
             accent_contrast: hex(0xffffff),
             data: hex(0x2f6360),
-            ink: hex(0xb9432c),
+            ink: hex(0xd92d20),
             warning: hex(0xd97706),
             error: hex(0xdc2626),
-            mid_gray: hex(0x8a857c),
-            log_surface: mix_black(background, 0.06),
+            mid_gray: hex(0x8a8a8a),
+            log_surface: mix_black(background, 0.04),
         }
     }
 
     pub fn dark() -> Self {
-        let background = hex(0x252422);
+        let background = hex(0x161616);
         Self {
             is_dark: true,
-            text: hex(0xf3f1ec),
+            text: hex(0xf2f2f2),
             background,
-            shell: hex(0x1c1b19),
-            card: hex(0x2d2c29),
-            accent: hex(0xece9e3),
-            accent_contrast: hex(0x1c1b19),
+            shell: hex(0x111111),
+            card: hex(0x1d1d1d),
+            raised: hex(0x2e2e2e),
+            line: hex(0x2a2a2a),
+            accent: hex(0x3b5cf6),
+            accent_contrast: hex(0xffffff),
             data: hex(0x6fb3aa),
-            ink: hex(0xe0806a),
+            ink: hex(0xff3b30),
             warning: hex(0xfbbf24),
             error: hex(0xf87171),
-            mid_gray: hex(0x8a857c),
-            log_surface: mix_black(background, 0.15),
+            mid_gray: hex(0x969696),
+            log_surface: mix_black(background, 0.3),
         }
     }
 }
@@ -209,28 +214,7 @@ pub fn palette(cx: &App) -> Palette {
     cx.global::<BespokeTheme>().palette
 }
 
-/// Makes the page-title serif available. WebKit's `ui-serif` is the hidden
-/// system font New York, which GPUI cannot find by name, so its file is
-/// registered directly. Other platforms fall back to Georgia.
-fn load_serif_font(cx: &mut App) {
-    #[cfg(target_os = "macos")]
-    match std::fs::read("/System/Library/Fonts/NewYork.ttf") {
-        Ok(bytes) => {
-            if let Err(e) = cx
-                .text_system()
-                .add_fonts(vec![std::borrow::Cow::Owned(bytes)])
-            {
-                log::warn!("Failed to load New York: {e}");
-            }
-        }
-        Err(e) => log::warn!("New York font not found: {e}"),
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = cx;
-}
-
 pub fn init(setting: ThemeSetting, cx: &mut App) {
-    load_serif_font(cx);
     let system = cx.window_appearance();
     cx.set_global(BespokeTheme {
         palette: Palette::light(),
@@ -311,16 +295,16 @@ fn sync_component_theme(palette: &Palette, cx: &mut App) {
     theme.muted_foreground = palette.text.a(0.4);
     theme.caret = palette.text;
     theme.selection = palette.accent.a(if palette.is_dark { 0.3 } else { 0.2 });
-    theme.border = palette.mid_gray.a(0.25);
-    theme.input = palette.mid_gray.a(0.25);
+    theme.border = palette.line;
+    theme.input = palette.line;
     theme.ring = palette.accent.a(0.1);
     theme.scrollbar = gpui::transparent_black();
     theme.scrollbar_thumb = palette.text.a(0.15);
     theme.scrollbar_thumb_hover = palette.text.a(0.3);
-    theme.popover = palette.background;
+    theme.popover = palette.card;
     theme.popover_foreground = palette.text;
-    theme.font_size = px(15.);
-    theme.radius = px(7.5);
+    theme.font_size = px(13.);
+    theme.radius = px(7.);
 }
 
 /// macOS: sets `NSApp.appearance` so native chrome (title bar, traffic

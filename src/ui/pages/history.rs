@@ -1,6 +1,7 @@
 //! The Dictate page's History tab (`history/HistorySettings.tsx`):
 //! recordings grouped by day, newest first, loaded 30 at a time as the list
-//! scrolls.
+//! scrolls. The selected recording opens in a column on the right, like a
+//! keyframe in Annotate's Inspect window.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -9,10 +10,11 @@ use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use gpui::{
-    canvas, div, prelude::*, px, rems, Animation, AnimationExt, App, Context, Entity, Focusable,
-    FontWeight, SharedString, Subscription, Task, Window,
+    canvas, div, prelude::*, px, relative, rems, Animation, AnimationExt, AnyElement, App, Context,
+    Entity, Focusable, FontWeight, ScrollHandle, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
+use gpui_component::scroll::ScrollableElement;
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::t;
@@ -20,11 +22,12 @@ use crate::managers::history::{HistoryEntry, HistoryManager, HistoryUpdatePayloa
 use crate::managers::transcription::TranscriptionManager;
 use crate::ui::audio_player::{self, audio_player, PlayerState};
 use crate::ui::components::{
-    focus_handle_for, icon, Button, ButtonSize, ButtonVariant, FocusVisible, RowDirection,
+    focus_handle_for, icon, Button, ButtonVariant, FocusVisible, KeyboardFocus, RowDirection,
     SettingContainer, SettingsGroup, TextField, Tooltip, Typography,
 };
 use crate::ui::dates;
 use crate::ui::event_bus::event_bus;
+use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, Alpha};
 use crate::ui::toast;
@@ -32,6 +35,8 @@ use crate::ui::toast;
 use super::rows;
 
 const PAGE_SIZE: usize = 30;
+/// The inspector column, as wide as Inspect's.
+const INSPECTOR_WIDTH: f32 = 300.;
 
 pub struct HistoryPage {
     entries: Vec<HistoryEntry>,
@@ -39,6 +44,10 @@ pub struct HistoryPage {
     loading_more: bool,
     has_more: bool,
     show_settings: bool,
+    /// The entry open in the inspector. `None` shows the newest.
+    selected: Option<i64>,
+    list_scroll: ScrollHandle,
+    inspector_scroll: ScrollHandle,
     history_limit: Entity<InputState>,
     players: HashMap<i64, Entity<PlayerState>>,
     copied: HashSet<i64>,
@@ -100,6 +109,9 @@ impl HistoryPage {
             loading_more: false,
             has_more: true,
             show_settings: false,
+            selected: None,
+            list_scroll: ScrollHandle::new(),
+            inspector_scroll: ScrollHandle::new(),
             history_limit,
             players: HashMap::new(),
             copied: HashSet::new(),
@@ -270,113 +282,219 @@ impl HistoryPage {
         }));
     }
 
-    fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Adds the settings and recordings-folder buttons to the Dictate
+    /// page's toolbar.
+    pub fn toolbar_actions(
+        &mut self,
+        toolbar: Toolbar,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Toolbar {
+        let show_settings = self.show_settings;
+        toolbar
+            .action(
+                Button::new("history-settings")
+                    .variant(if show_settings {
+                        ButtonVariant::Secondary
+                    } else {
+                        ButtonVariant::Ghost
+                    })
+                    .gap(px(5.))
+                    .child(icon("sliders-horizontal").size(px(13.)))
+                    .child(t("sidebar.settings"))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.show_settings = !this.show_settings;
+                        cx.notify();
+                    })),
+            )
+            .action(
+                Button::new("open-recordings")
+                    .variant(ButtonVariant::Secondary)
+                    .gap(px(5.))
+                    .title(t("settings.history.openFolder"))
+                    .child(icon("folder-open").size(px(13.)))
+                    .child(t("settings.history.openFolder"))
+                    .on_click(|_, _, _| {
+                        if let Err(e) =
+                            crate::commands::open_recordings_folder(AppHandle::global().clone())
+                        {
+                            log::error!("Failed to open recordings folder: {e}");
+                        }
+                    }),
+            )
+    }
+
+    /// The history limit and retention, shown above the list from the
+    /// toolbar's Settings button.
+    fn render_settings(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let settings = SettingsStore::get(cx).clone();
         let limit_updating = SettingsStore::global(cx)
             .read(cx)
             .is_updating("history_limit");
         div()
-            .flex()
-            .flex_col()
-            .gap_2()
+            .flex_none()
+            .px_5()
+            .py_4()
+            .border_b_1()
+            .border_color(p.line)
             .child(
-                div()
-                    .flex()
-                    .row_dir()
-                    .justify_flex_end()
-                    .gap_1()
+                SettingsGroup::new()
                     .child(
-                        Button::new("history-settings")
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .gap(rems(0.375))
-                            .text_color(p.text.a(0.6))
-                            .hover(move |s| s.text_color(p.text))
-                            .child(icon("sliders-horizontal").size(rems(0.875)))
-                            .child(t("sidebar.settings"))
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.show_settings = !this.show_settings;
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        Button::new("open-recordings")
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .gap(rems(0.375))
-                            .text_color(p.text.a(0.6))
-                            .hover(move |s| s.text_color(p.text))
-                            .title(t("settings.history.openFolder"))
-                            .child(icon("folder-open").size(rems(0.875)))
-                            .child(t("settings.history.openFolder"))
-                            .on_click(|_, _, _| {
-                                if let Err(e) = crate::commands::open_recordings_folder(
-                                    AppHandle::global().clone(),
-                                ) {
-                                    log::error!("Failed to open recordings folder: {e}");
-                                }
-                            }),
-                    ),
-            )
-            .when(self.show_settings, |el| {
-                el.child(
-                    SettingsGroup::new()
-                        .child(
-                            SettingContainer::new(t("settings.debug.historyLimit.title"))
-                                .description(t("settings.debug.historyLimit.description"))
-                                .child(
-                                    div()
-                                        .flex()
-                                        .row_dir()
-                                        .items_center()
-                                        .gap_2()
-                                        .child(
-                                            div()
-                                                // Arrow keys step like a number input's
-                                                // spinner, within `min="0" max="1000"`.
-                                                .capture_key_down(cx.listener(
-                                                    |this, event: &gpui::KeyDownEvent, window, cx| {
-                                                        let step: i64 = match event.keystroke.key.as_str() {
+                        SettingContainer::new(t("settings.debug.historyLimit.title"))
+                            .description(t("settings.debug.historyLimit.description"))
+                            .child(
+                                div()
+                                    .flex()
+                                    .row_dir()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            // Arrow keys step like a number input's
+                                            // spinner, within `min="0" max="1000"`.
+                                            .capture_key_down(cx.listener(
+                                                |this, event: &gpui::KeyDownEvent, window, cx| {
+                                                    let step: i64 =
+                                                        match event.keystroke.key.as_str() {
                                                             "up" => 1,
                                                             "down" => -1,
                                                             _ => return,
                                                         };
-                                                        cx.stop_propagation();
-                                                        let current = this
-                                                            .history_limit
-                                                            .read(cx)
-                                                            .value()
-                                                            .trim()
-                                                            .parse::<i64>()
-                                                            .unwrap_or(0);
-                                                        let next = (current + step).clamp(0, 1000);
-                                                        this.history_limit.update(cx, |input, cx| {
-                                                            input.set_value(next.to_string(), window, cx)
-                                                        });
-                                                        save_history_limit(next as usize, cx);
-                                                    },
-                                                ))
-                                                .child(
-                                                    TextField::new(&self.history_limit)
-                                                        .disabled(limit_updating)
-                                                        .w(rems(5.)),
-                                                ),
-                                        )
-                                        .child(
-                                            div()
-                                                .sm_text()
-                                                .text_color(p.text)
-                                                .child(t("settings.debug.historyLimit.entries")),
-                                        ),
-                                ),
-                        )
-                        .child(rows::recording_retention(&settings, cx)),
-                )
-            })
+                                                    cx.stop_propagation();
+                                                    let current = this
+                                                        .history_limit
+                                                        .read(cx)
+                                                        .value()
+                                                        .trim()
+                                                        .parse::<i64>()
+                                                        .unwrap_or(0);
+                                                    let next = (current + step).clamp(0, 1000);
+                                                    this.history_limit.update(cx, |input, cx| {
+                                                        input.set_value(
+                                                            next.to_string(),
+                                                            window,
+                                                            cx,
+                                                        )
+                                                    });
+                                                    save_history_limit(next as usize, cx);
+                                                },
+                                            ))
+                                            .child(
+                                                TextField::new(&self.history_limit)
+                                                    .disabled(limit_updating)
+                                                    .w(rems(5.)),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_px(13.)
+                                            .text_color(p.text)
+                                            .child(t("settings.debug.historyLimit.entries")),
+                                    ),
+                            ),
+                    )
+                    .child(rows::recording_retention(&settings, cx)),
+            )
     }
 
-    fn render_entry(
+    /// The entry the inspector shows: the selected one, or the newest.
+    fn selected_entry(&self) -> Option<&HistoryEntry> {
+        self.selected
+            .and_then(|id| self.entries.iter().find(|e| e.id == id))
+            .or_else(|| self.entries.first())
+    }
+
+    /// One line in the list: the time, the text cut to two lines, and a
+    /// star when saved.
+    fn render_row(
+        &self,
+        entry: &HistoryEntry,
+        selected: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let p = palette(cx);
+        let id = entry.id;
+        let time = Local
+            .timestamp_opt(entry.timestamp, 0)
+            .single()
+            .map(dates::time_label)
+            .unwrap_or_default();
+        let text = entry.transcription_text.trim();
+        let (text, failed) = if self.retrying.contains(&id) {
+            (t("settings.history.transcribing"), true)
+        } else if text.is_empty() {
+            (t("settings.history.transcriptionFailed"), true)
+        } else {
+            // One paragraph, so a multi-line dictation keeps the row short.
+            (
+                SharedString::from(text.split_whitespace().collect::<Vec<_>>().join(" ")),
+                false,
+            )
+        };
+        div()
+            .id(SharedString::from(format!("entry-{id}")))
+            .flex()
+            .row_dir()
+            .items_start()
+            .gap_3()
+            .px_4()
+            .py(px(9.))
+            .border_b_1()
+            .border_color(p.line)
+            .cursor_pointer()
+            .relative()
+            .when(selected, |el| {
+                // A bar at the inline start, drawn over the row so the text
+                // does not shift.
+                let bar = div().absolute().top_0().bottom_0().w(px(2.)).bg(p.accent);
+                let bar = if crate::i18n::is_rtl() {
+                    bar.right_0()
+                } else {
+                    bar.left_0()
+                };
+                el.bg(p.card).child(bar)
+            })
+            .when(!selected, |el| el.hover(|s| s.bg(p.card.a(0.6))))
+            .keyboard_focus(cx)
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.selected = Some(id);
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .w(px(64.))
+                    .flex_none()
+                    .text_px(12.)
+                    .line_height(px(18.))
+                    .text_color(p.mid_gray)
+                    .child(time),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .text_px(13.)
+                    .line_height(px(18.))
+                    .line_clamp(2)
+                    .text_ellipsis()
+                    .text_color(if failed { p.mid_gray } else { p.text.a(0.85) })
+                    .child(text),
+            )
+            .when(entry.saved, |el| {
+                el.child(
+                    icon("star-filled")
+                        .size(px(12.))
+                        .mt(px(3.))
+                        .flex_none()
+                        .text_color(p.accent),
+                )
+            })
+            .into_any_element()
+    }
+
+    /// The selected entry in full: its text, playback, actions and details.
+    fn render_inspector(
         &mut self,
         entry: &HistoryEntry,
         window: &mut Window,
@@ -386,11 +504,7 @@ impl HistoryPage {
         let id = entry.id;
         let has_text = !entry.transcription_text.trim().is_empty();
         let retrying = self.retrying.contains(&id);
-        let time = Local
-            .timestamp_opt(entry.timestamp, 0)
-            .single()
-            .map(dates::time_label)
-            .unwrap_or_default();
+        let recorded = Local.timestamp_opt(entry.timestamp, 0).single();
         let path: PathBuf = manager().get_audio_file_path(&entry.file_name);
         if audio_player::is_playing(&path) {
             self.ensure_ticker(cx);
@@ -406,10 +520,17 @@ impl HistoryPage {
             cx,
         );
 
-        let text = if retrying {
-            div()
-                .sm_text()
-                .line_height(px(24.))
+        let quote = div()
+            .p_3()
+            .rounded(px(8.))
+            .bg(p.card)
+            .border_1()
+            .border_color(p.line)
+            .text_px(13.)
+            .line_height(relative(1.45))
+            .whitespace_normal();
+        let quote = if retrying {
+            quote
                 .child(t("settings.history.transcribing"))
                 .with_animation(
                     SharedString::from(format!("retry-pulse-{id}")),
@@ -421,23 +542,21 @@ impl HistoryPage {
                 )
                 .into_any_element()
         } else if has_text {
-            div()
-                .sm_text()
-                .line_height(px(24.))
-                .whitespace_normal()
-                .child(entry.transcription_text.clone())
+            quote
+                .child(format!(
+                    "\u{201c}{}\u{201d}",
+                    entry.transcription_text.trim()
+                ))
                 .into_any_element()
         } else {
-            div()
-                .sm_text()
-                .line_height(px(24.))
-                .text_color(p.text.a(0.4))
+            quote
+                .text_color(p.mid_gray)
                 .child(t("settings.history.transcriptionFailed"))
                 .into_any_element()
         };
 
         let focus = FocusVisible::ring(cx);
-        let handles: HashMap<&'static str, gpui::FocusHandle> = ["copy", "save", "retry", "delete"]
+        let handles: HashMap<&'static str, gpui::FocusHandle> = ["save", "retry", "delete"]
             .into_iter()
             .map(|name| {
                 let key = SharedString::from(format!("{name}-{id}"));
@@ -452,8 +571,11 @@ impl HistoryPage {
                            spin: bool| {
             let button = div()
                 .id(SharedString::from(format!("{name}-{id}")))
-                .p(rems(0.375))
-                .rounded_lg()
+                .size(px(28.))
+                .rounded(px(7.))
+                .border_1()
+                .border_color(p.line)
+                .bg(p.card)
                 .flex()
                 .row_dir()
                 .items_center()
@@ -470,7 +592,7 @@ impl HistoryPage {
                         el.text_color(p.accent).hover(|s| s.bg(p.mid_gray.a(0.15)))
                     })
                     .when(!active, |el| {
-                        el.text_color(p.text.a(0.45))
+                        el.text_color(p.text.a(0.6))
                             .hover(|s| s.bg(p.mid_gray.a(0.15)).text_color(p.text))
                     })
             };
@@ -479,7 +601,7 @@ impl HistoryPage {
                 .child(if spin {
                     // `spin 1s linear infinite reverse`.
                     icon(glyph)
-                        .size(px(16.))
+                        .size(px(14.))
                         .with_animation(
                             SharedString::from(format!("{name}-spin-{id}")),
                             Animation::new(Duration::from_secs(1)).repeat(),
@@ -487,130 +609,165 @@ impl HistoryPage {
                         )
                         .into_any_element()
                 } else {
-                    icon(glyph).size(px(16.)).into_any_element()
+                    icon(glyph).size(px(14.)).into_any_element()
                 })
         };
 
         let copied = self.copied.contains(&id);
-        div()
-            .id(SharedString::from(format!("entry-{id}")))
+        let actions = div()
             .flex()
             .row_dir()
-            .gap_4()
-            .px_5()
-            .py_4()
-            .hover(|s| s.bg(p.card.a(0.6)))
+            .items_center()
+            .gap_2()
             .child(
-                div()
-                    .w(rems(4.))
-                    .flex_shrink_0()
-                    .text_px(13.)
-                    .line_height(px(24.))
-                    .text_color(p.text.a(0.5))
-                    .child(time),
+                Button::new(SharedString::from(format!("copy-{id}")))
+                    .gap(px(5.))
+                    .disabled(!has_text || retrying)
+                    .child(icon(if copied { "check" } else { "copy" }).size(px(13.)))
+                    .child(if copied {
+                        t("settings.history.copied")
+                    } else {
+                        t("settings.history.copy")
+                    })
+                    .on_click(cx.listener(move |this, _, _, cx| this.copy(id, cx))),
             )
             .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(text)
+                icon_button(
+                    "save",
+                    if entry.saved { "star-filled" } else { "star" },
+                    if entry.saved {
+                        t("settings.history.unsave")
+                    } else {
+                        t("settings.history.save")
+                    },
+                    entry.saved,
+                    retrying,
+                    false,
+                )
+                .when(!retrying, |el| {
+                    el.on_click(cx.listener(move |this, _, _, cx| this.toggle_saved(id, cx)))
+                }),
+            )
+            .child(
+                icon_button(
+                    "retry",
+                    "rotate-ccw",
+                    t("settings.history.retranscribe"),
+                    false,
+                    retrying,
+                    retrying,
+                )
+                .when(!retrying, |el| {
+                    el.on_click(cx.listener(move |this, _, _, cx| this.retry(id, cx)))
+                }),
+            )
+            .child(
+                icon_button(
+                    "delete",
+                    "trash-2",
+                    t("settings.history.delete"),
+                    false,
+                    retrying,
+                    false,
+                )
+                .when(!retrying, |el| {
+                    el.on_click(cx.listener(move |this, _, _, cx| {
+                        this.selected = None;
+                        this.delete(id, cx)
+                    }))
+                }),
+            );
+
+        let words = entry.transcription_text.split_whitespace().count();
+        let mut details: Vec<(SharedString, SharedString)> = Vec::new();
+        if let Some(recorded) = recorded {
+            details.push((
+                t("settings.history.recorded"),
+                format!(
+                    "{}, {}",
+                    capitalize(&dates::day_label(recorded.date_naive())),
+                    dates::time_label(recorded)
+                )
+                .into(),
+            ));
+        }
+        details.push((
+            t("settings.history.wordCount"),
+            crate::ui::format::number(words as i64).into(),
+        ));
+        if let Some(prompt) = entry.post_process_prompt.clone().filter(|p| !p.is_empty()) {
+            details.push((t("settings.history.prompt"), prompt.into()));
+        }
+
+        div()
+            .flex()
+            .flex_col()
+            .child(heading(t("settings.history.transcript"), cx))
+            .child(quote)
+            .child(div().mt_3().child(player))
+            .child(div().mt_3().child(actions))
+            .when_some(
+                entry
+                    .post_processed_text
+                    .clone()
+                    .filter(|text| !text.trim().is_empty() && has_text),
+                |el, text| {
+                    el.child(
+                        div()
+                            .mt_5()
+                            .child(heading(t("settings.history.postProcessed"), cx)),
+                    )
                     .child(
                         div()
-                            .flex()
-                            .row_dir()
-                            .items_center()
-                            .gap_3()
-                            .child(div().flex_1().min_w_0().child(player))
-                            .child(
-                                div()
-                                    .flex()
-                                    .row_dir()
-                                    .items_center()
-                                    .flex_shrink_0()
-                                    .me(rems(-0.375))
-                                    .child(
-                                        icon_button(
-                                            "copy",
-                                            if copied { "check" } else { "copy" },
-                                            t("settings.history.copyToClipboard"),
-                                            false,
-                                            !has_text || retrying,
-                                            false,
-                                        )
-                                        .when(
-                                            has_text && !retrying,
-                                            |el| {
-                                                el.on_click(cx.listener(move |this, _, _, cx| {
-                                                    this.copy(id, cx)
-                                                }))
-                                            },
-                                        ),
-                                    )
-                                    .child(
-                                        icon_button(
-                                            "save",
-                                            if entry.saved { "star-filled" } else { "star" },
-                                            if entry.saved {
-                                                t("settings.history.unsave")
-                                            } else {
-                                                t("settings.history.save")
-                                            },
-                                            entry.saved,
-                                            retrying,
-                                            false,
-                                        )
-                                        .when(
-                                            !retrying,
-                                            |el| {
-                                                el.on_click(cx.listener(move |this, _, _, cx| {
-                                                    this.toggle_saved(id, cx)
-                                                }))
-                                            },
-                                        ),
-                                    )
-                                    .child(
-                                        icon_button(
-                                            "retry",
-                                            "rotate-ccw",
-                                            t("settings.history.retranscribe"),
-                                            false,
-                                            retrying,
-                                            retrying,
-                                        )
-                                        .when(
-                                            !retrying,
-                                            |el| {
-                                                el.on_click(cx.listener(move |this, _, _, cx| {
-                                                    this.retry(id, cx)
-                                                }))
-                                            },
-                                        ),
-                                    )
-                                    .child(
-                                        icon_button(
-                                            "delete",
-                                            "trash-2",
-                                            t("settings.history.delete"),
-                                            false,
-                                            retrying,
-                                            false,
-                                        )
-                                        .when(
-                                            !retrying,
-                                            |el| {
-                                                el.on_click(cx.listener(move |this, _, _, cx| {
-                                                    this.delete(id, cx)
-                                                }))
-                                            },
-                                        ),
-                                    ),
-                            ),
-                    ),
+                            .text_px(12.5)
+                            .line_height(relative(1.45))
+                            .text_color(p.text.a(0.75))
+                            .child(text),
+                    )
+                },
             )
+            .child(
+                div()
+                    .mt_5()
+                    .child(heading(t("settings.history.details"), cx)),
+            )
+            .child(div().flex().flex_col().gap(px(6.)).text_px(12.5).children(
+                details.into_iter().map(|(label, value)| {
+                    div()
+                        .flex()
+                        .row_dir()
+                        .gap(px(10.))
+                        .child(
+                            div()
+                                .w(px(84.))
+                                .flex_none()
+                                .text_color(p.mid_gray)
+                                .child(label),
+                        )
+                        .child(div().flex_1().min_w_0().child(value))
+                }),
+            ))
     }
+}
+
+/// `day_label` with its first letter capitalized ("yesterday" starts a
+/// heading).
+fn capitalize(label: &str) -> String {
+    let mut chars = label.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+/// A small muted heading in the inspector, like Inspect's sidebar headings.
+fn heading(label: SharedString, cx: &App) -> impl IntoElement {
+    div()
+        .mb_2()
+        .text_px(11.)
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(palette(cx).mid_gray)
+        .child(label)
 }
 
 /// Saves the history limit and trims old entries to it.
@@ -632,22 +789,22 @@ fn save_history_limit(limit: usize, cx: &mut App) {
 impl Render for HistoryPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        let header = self.render_header(cx);
-        let root = div().w_full().flex().flex_col().gap_2().child(header);
+        let root = div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .when(self.show_settings, |el| el.child(self.render_settings(cx)));
 
         if self.loading || self.entries.is_empty() {
             return root.child(
                 div()
-                    .px_4()
-                    .py_10()
+                    .px_8()
+                    .py_16()
                     .flex()
                     .row_dir()
                     .justify_center()
-                    .sm_text()
-                    .text_color(p.text.a(0.55))
-                    .border_1()
-                    .border_color(p.mid_gray.a(0.15))
-                    .rounded_2xl()
+                    .text_px(13.)
+                    .text_color(p.mid_gray)
                     .child(if self.loading {
                         t("settings.history.loading")
                     } else {
@@ -657,58 +814,32 @@ impl Render for HistoryPage {
         }
 
         // Entries arrive newest first, so each day's entries are contiguous.
-        let mut groups: Vec<(chrono::NaiveDate, Vec<HistoryEntry>)> = Vec::new();
-        for entry in &self.entries {
-            let date = Local
+        let selected_id = self.selected_entry().map(|e| e.id);
+        let mut list: Vec<AnyElement> = Vec::new();
+        let mut last_day = None;
+        for entry in self.entries.clone() {
+            let day = Local
                 .timestamp_opt(entry.timestamp, 0)
                 .single()
                 .map(|d| d.date_naive())
                 .unwrap_or_default();
-            match groups.last_mut() {
-                Some((day, list)) if *day == date => list.push(entry.clone()),
-                _ => groups.push((date, vec![entry.clone()])),
-            }
-        }
-
-        let mut sections = Vec::new();
-        for (date, entries) in groups {
-            let mut rendered = Vec::new();
-            for (index, entry) in entries.iter().enumerate() {
-                let row = self.render_entry(entry, window, cx);
-                rendered.push(
+            if last_day != Some(day) {
+                last_day = Some(day);
+                list.push(
                     div()
-                        .flex()
-                        .flex_col()
-                        .when(index > 0, |el| {
-                            el.border_t_1().border_color(p.mid_gray.a(0.15))
-                        })
-                        .child(row),
+                        .px_4()
+                        .pt_4()
+                        .pb(px(6.))
+                        .border_b_1()
+                        .border_color(p.line)
+                        .text_px(11.)
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(p.mid_gray)
+                        .child(capitalize(&dates::day_label(day)))
+                        .into_any_element(),
                 );
             }
-            sections.push(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(
-                        div()
-                            .px_1()
-                            .xs_text()
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(p.text.a(0.55))
-                            .child(dates::day_label(date).to_uppercase()),
-                    )
-                    .child(
-                        div()
-                            .border_1()
-                            .border_color(p.mid_gray.a(0.15))
-                            .rounded_2xl()
-                            .overflow_hidden()
-                            .flex()
-                            .flex_col()
-                            .children(rendered),
-                    ),
-            );
+            list.push(self.render_row(&entry, Some(entry.id) == selected_id, cx));
         }
 
         // Load the next page once the end of the list scrolls into view.
@@ -729,7 +860,57 @@ impl Render for HistoryPage {
         .h_1()
         .w_full();
 
-        root.child(div().flex().flex_col().gap_6().children(sections))
-            .child(sentinel)
+        let inspector = self
+            .selected_entry()
+            .cloned()
+            .map(|entry| self.render_inspector(&entry, window, cx).into_any_element());
+        let rtl = crate::i18n::is_rtl();
+
+        root.child(
+            div()
+                .flex_1()
+                .min_h_0()
+                .flex()
+                .when(rtl, |el| el.flex_row_reverse())
+                .child(
+                    div()
+                        .relative()
+                        .flex_1()
+                        .min_w_0()
+                        .child(
+                            div()
+                                .id("history-list")
+                                .size_full()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.list_scroll)
+                                .flex()
+                                .flex_col()
+                                .children(list)
+                                .child(sentinel),
+                        )
+                        .vertical_scrollbar(&self.list_scroll),
+                )
+                .child(
+                    div()
+                        .relative()
+                        .w(px(INSPECTOR_WIDTH))
+                        .flex_none()
+                        .bg(p.shell)
+                        .when(rtl, |el| el.border_r_1())
+                        .when(!rtl, |el| el.border_l_1())
+                        .border_color(p.line)
+                        .child(
+                            div()
+                                .id("history-inspector")
+                                .size_full()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.inspector_scroll)
+                                .px_4()
+                                .py(px(18.))
+                                .children(inspector),
+                        )
+                        .vertical_scrollbar(&self.inspector_scroll),
+                ),
+        )
     }
 }

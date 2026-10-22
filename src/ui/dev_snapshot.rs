@@ -65,13 +65,6 @@ pub fn start(cx: &mut App) {
         crate::ui::theme::apply_theme_setting(setting, cx);
     }
     let _ = std::fs::create_dir_all(&dir);
-    let fonts: Vec<String> = cx
-        .text_system()
-        .all_font_names()
-        .into_iter()
-        .filter(|f| f.contains("York") || f.contains("Iowan") || f.contains("Georgia"))
-        .collect();
-    log::info!("snapshot: serif fonts available: {fonts:?}");
     cx.spawn(async move |cx| {
         wait(cx, 1500).await;
         for page in pages {

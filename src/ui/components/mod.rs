@@ -10,7 +10,6 @@ mod misc;
 mod segmented;
 mod setting;
 mod slider;
-mod tabs;
 mod text_field;
 mod toggle;
 
@@ -26,7 +25,6 @@ pub use misc::*;
 pub use segmented::SegmentedControl;
 pub use setting::{SettingContainer, SettingLayout, SettingsGroup};
 pub use slider::Slider;
-pub use tabs::Tabs;
 pub use text_field::{TextArea, TextField};
 pub use toggle::ToggleSwitchRow;
 

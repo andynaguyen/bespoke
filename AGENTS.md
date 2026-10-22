@@ -49,8 +49,8 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 
 ### UI (`src/ui/`)
 
-- `shell/` - Main window: sidebar, footer, banners
-- `pages/` - Sidebar pages. `rows.rs` holds the single-setting rows
+- `shell/` - Main window: sidebar, toolbar, banners. The colors and sizes follow Annotate's Inspect window (`BundleReviewWindow` in `vendor/scrawl/src/ui.rs`)
+- `pages/` - Sidebar pages. Each implements `pages::Page`, which puts its tabs and actions in the toolbar and picks a layout (`Padded`, `Flush` or `Fill`). `rows.rs` holds the single-setting rows
 - `components/` - Shared controls (buttons, toggles, sliders, dropdowns, dialogs)
 - `onboarding/` - First-run permission and model screens
 - `stores/` - Shared UI state as GPUI entities

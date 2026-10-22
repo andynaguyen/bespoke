@@ -1,7 +1,8 @@
 //! `ui/Button.tsx`.
 
 use gpui::{
-    div, prelude::*, AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, SharedString, Window,
+    div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, SharedString,
+    Window,
 };
 
 use super::KeyboardFocus;
@@ -130,10 +131,10 @@ impl RenderOnce for Button {
             },
             ButtonVariant::Secondary => Colors {
                 text: p.text,
-                bg: p.mid_gray.a(0.15),
-                border: transparent,
+                bg: p.card,
+                border: p.line,
                 hover_text: None,
-                hover_bg: p.mid_gray.a(0.25),
+                hover_bg: p.raised,
                 hover_border: None,
             },
             ButtonVariant::DangerGhost => Colors {
@@ -161,14 +162,15 @@ impl RenderOnce for Button {
             .items_center()
             .justify_center()
             .font_weight(FontWeight::MEDIUM)
-            .rounded_lg()
+            .whitespace_nowrap()
+            .rounded(px(7.))
             .border_1()
             .text_color(c.text)
             .bg(c.bg)
             .border_color(c.border);
         button = match self.size {
-            ButtonSize::Sm => button.px_2().py_1().xs_text(),
-            ButtonSize::Md => button.px(gpui::rems(0.875)).py(gpui::rems(0.375)).sm_text(),
+            ButtonSize::Sm => button.h(px(24.)).px(px(8.)).text_px(12.),
+            ButtonSize::Md => button.h(px(28.)).px(px(12.)).text_px(12.5),
         };
         *button.style() = super::merge_styles(button.style().clone(), self.style);
 

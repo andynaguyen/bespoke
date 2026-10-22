@@ -544,7 +544,9 @@
       "save": "Save",
       "cancel": "Cancel",
       "remove": "Remove {{word}}",
-      "duplicate": "\"{{word}}\" already exists"
+      "duplicate": "\"{{word}}\" already exists",
+      "entries_one": "{{count}} entry",
+      "entries_other": "{{count}} entries"
     },
     "style": {
       "default": "(default)",
@@ -588,7 +590,16 @@
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
-      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon."
+      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon.",
+      "transcript": "Transcript",
+      "details": "Details",
+      "recorded": "Recorded",
+      "wordCount": "Words",
+      "postProcessed": "Post-processed",
+      "prompt": "Prompt",
+      "copy": "Copy",
+      "copied": "Copied",
+      "noSelection": "Select a transcription to see it here."
     },
     "debug": {
       "title": "Debug",

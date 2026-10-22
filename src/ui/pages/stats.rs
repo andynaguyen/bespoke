@@ -15,11 +15,12 @@ use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_count, t_with};
 use crate::managers::history::{DailyCaptures, DailyUsage, HistoryManager};
 use crate::ui::components::{
-    keyboard_modality, width_tracker, FocusVisible, RowDirection, SegmentedControl, Tabs, Tooltip,
+    keyboard_modality, width_tracker, FocusVisible, RowDirection, SegmentedControl, Tooltip,
     Typography,
 };
 use crate::ui::dates;
 use crate::ui::format::number;
+use crate::ui::shell::Toolbar;
 use crate::ui::theme::{palette, Alpha};
 
 const HEATMAP_WEEKS: usize = 20;
@@ -474,7 +475,9 @@ impl StatsPage {
 
         div()
             .bg(p.card)
-            .rounded_2xl()
+            .border_1()
+            .border_color(p.line)
+            .rounded(px(8.))
             .px_5()
             .py_5()
             .flex()
@@ -546,7 +549,9 @@ fn stat_card(value: String, label: SharedString, cx: &Context<StatsPage>) -> imp
         .flex()
         .flex_col()
         .bg(p.card)
-        .rounded_2xl()
+        .border_1()
+        .border_color(p.line)
+        .rounded(px(8.))
         .px_5()
         .py_4()
         .child(
@@ -565,6 +570,50 @@ fn stat_card(value: String, label: SharedString, cx: &Context<StatsPage>) -> imp
                 .mt(rems(0.375))
                 .child(label.to_uppercase()),
         )
+}
+
+impl super::Page for StatsPage {
+    fn toolbar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
+        let tabs_entity = cx.entity().downgrade();
+        let range_entity = cx.entity().downgrade();
+        Toolbar::new()
+            .tabs(SegmentedControl::new(
+                "stats-tabs",
+                vec![
+                    ("dictate".into(), t("sidebar.dictate")),
+                    ("annotate".into(), t("sidebar.annotate")),
+                ],
+                self.tab.id(),
+                move |id, _, cx| {
+                    let _ = tabs_entity.update(cx, |this, cx| this.select_tab(id, cx));
+                },
+            ))
+            .action(SegmentedControl::new(
+                "stats-ranges",
+                [Range::Today, Range::Week, Range::Month, Range::All]
+                    .iter()
+                    .map(|r| {
+                        (
+                            SharedString::from(r.id()),
+                            t(&format!("settings.stats.ranges.{}", r.id())),
+                        )
+                    })
+                    .collect(),
+                self.range.id(),
+                move |id, _, cx| {
+                    let range = match id.as_ref() {
+                        "today" => Range::Today,
+                        "month" => Range::Month,
+                        "all" => Range::All,
+                        _ => Range::Week,
+                    };
+                    let _ = range_entity.update(cx, |this, cx| {
+                        this.range = range;
+                        cx.notify();
+                    });
+                },
+            ))
+    }
 }
 
 impl Render for StatsPage {
@@ -651,54 +700,8 @@ impl Render for StatsPage {
             }
         };
 
-        let tabs_entity = cx.entity().downgrade();
-        let range_entity = cx.entity().downgrade();
-        let tabs = Tabs::new(
-            "stats-tabs",
-            vec![
-                ("dictate".into(), t("sidebar.dictate")),
-                ("annotate".into(), t("sidebar.annotate")),
-            ],
-            self.tab.id(),
-            move |id, _, cx| {
-                let _ = tabs_entity.update(cx, |this, cx| this.select_tab(id, cx));
-            },
-        )
-        .end(SegmentedControl::new(
-            "stats-ranges",
-            [Range::Today, Range::Week, Range::Month, Range::All]
-                .iter()
-                .map(|r| {
-                    (
-                        SharedString::from(r.id()),
-                        t(&format!("settings.stats.ranges.{}", r.id())),
-                    )
-                })
-                .collect(),
-            self.range.id(),
-            move |id, _, cx| {
-                let range = match id.as_ref() {
-                    "today" => Range::Today,
-                    "month" => Range::Month,
-                    "all" => Range::All,
-                    _ => Range::Week,
-                };
-                let _ = range_entity.update(cx, |this, cx| {
-                    this.range = range;
-                    cx.notify();
-                });
-            },
-        ));
-
-        root.child(
-            div()
-                .flex()
-                .flex_col()
-                .gap_5()
-                .child(tabs)
-                .child(div().flex().row_dir().gap_3().children(cards)),
-        )
-        .child(activity)
+        root.child(div().flex().row_dir().gap_3().children(cards))
+            .child(activity)
     }
 }
 

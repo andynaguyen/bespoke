@@ -13,7 +13,7 @@
 use std::collections::BTreeSet;
 
 use gpui::{
-    canvas, div, prelude::*, rems, App, Bounds, Context, Entity, FocusHandle, FontWeight,
+    canvas, div, prelude::*, px, App, Bounds, Context, Entity, FocusHandle, FontWeight,
     KeyDownEvent, KeyUpEvent, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent,
     MouseUpEvent, NavigationDirection, Pixels, SharedString, Window,
 };
@@ -28,7 +28,7 @@ use crate::ui::components::{
 use crate::ui::event_bus::event_bus;
 use crate::ui::keyboard::format_key_combination;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, shadow, Alpha};
+use crate::ui::theme::{palette, Alpha};
 use crate::ui::toast;
 
 const MODIFIERS: &[&str] = &[
@@ -492,12 +492,14 @@ impl ShortcutInput {
 
         let chip = div()
             .id(SharedString::from(format!("shortcut-{}", self.binding_id)))
-            .px(rems(0.625))
-            .py_1()
-            .sm_text()
+            .h(px(26.))
+            .px(px(9.))
+            .flex()
+            .items_center()
+            .text_px(12.5)
             .font_weight(FontWeight::MEDIUM)
             .whitespace_nowrap()
-            .rounded_lg()
+            .rounded(px(6.))
             .bg(p.background)
             .border_1();
         let chip = if self.recording {
@@ -521,8 +523,7 @@ impl ShortcutInput {
                 )
                 .child(text)
         } else {
-            chip.border_color(p.mid_gray.a(0.25))
-                .shadow(vec![shadow(0., 1., 1., 0., 0.03)])
+            chip.border_color(p.line)
                 .hover(|s| s.border_color(p.mid_gray.a(0.5)))
                 .cursor_pointer()
                 .keyboard_focus(cx)

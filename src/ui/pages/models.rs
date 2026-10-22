@@ -2,8 +2,8 @@
 //! downloaded models, then models available to download.
 
 use gpui::{
-    div, prelude::*, rems, Context, Entity, FontWeight, PromptLevel, SharedString, Subscription,
-    Window,
+    div, prelude::*, px, rems, Context, Entity, FontWeight, PromptLevel, SharedString,
+    Subscription, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
 
@@ -14,6 +14,7 @@ use crate::ui::components::{
 };
 use crate::ui::languages::{model_capability_languages, supports_language_code};
 use crate::ui::model_card::{is_legacy, CardStatus, ModelCard};
+use crate::ui::shell::Toolbar;
 use crate::ui::stores::ModelStore;
 use crate::ui::theme::{palette, Alpha};
 
@@ -226,6 +227,23 @@ impl ModelsPage {
     }
 }
 
+impl super::Page for ModelsPage {
+    fn toolbar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
+        let p = palette(cx);
+        Toolbar::new().action(
+            TextField::new(&self.search)
+                .regular_weight()
+                .w(px(220.))
+                .prefix(
+                    icon("search")
+                        .size(px(13.))
+                        .text_color(p.mid_gray)
+                        .me(px(6.)),
+                ),
+        )
+    }
+}
+
 impl Render for ModelsPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
@@ -277,8 +295,9 @@ impl Render for ModelsPage {
 
         let section_title = |text: SharedString| {
             div()
-                .text_px(15.)
+                .text_px(11.)
                 .font_weight(FontWeight::SEMIBOLD)
+                .text_color(p.mid_gray)
                 .child(text)
         };
 
@@ -355,22 +374,9 @@ impl Render for ModelsPage {
 
         root.child(
             div()
-                .sm_text()
-                .text_color(p.text.a(0.6))
-                .mt(rems(-0.5))
-                .mb_5()
+                .text_px(12.5)
+                .text_color(p.mid_gray)
                 .child(t("settings.models.description")),
-        )
-        .child(
-            TextField::new(&self.search)
-                .regular_weight()
-                .rounded_xl()
-                .prefix(
-                    icon("search")
-                        .size(rems(1.))
-                        .text_color(p.text.a(0.4))
-                        .me(rems(0.5)),
-                ),
         )
         .child(
             div()

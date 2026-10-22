@@ -13,7 +13,7 @@ use gpui::{
 use super::RowDirection;
 use super::{icon, FocusVisible, Typography};
 use crate::i18n::t;
-use crate::ui::theme::{palette, shadow, shadow_lg, Alpha};
+use crate::ui::theme::{palette, shadow_lg, Alpha};
 
 #[derive(Clone)]
 pub struct DropdownOption {
@@ -176,16 +176,14 @@ impl RenderOnce for Dropdown {
         let trigger = div()
             .id((self.id.clone(), SharedString::from("trigger")))
             .w_full()
-            .min_w(px(200.))
-            .px_3()
-            .py(rems(0.375))
-            .sm_text()
-            .font_weight(FontWeight::MEDIUM)
+            .min_w(px(180.))
+            .h(px(28.))
+            .px(px(10.))
+            .text_px(12.5)
             .bg(p.background)
             .border_1()
-            .border_color(p.mid_gray.a(0.25))
-            .rounded_lg()
-            .shadow(vec![shadow(0., 1., 1., 0., 0.03)])
+            .border_color(p.line)
+            .rounded(px(7.))
             .flex()
             .row_dir()
             .items_center()
@@ -193,7 +191,7 @@ impl RenderOnce for Dropdown {
             .child(div().flex_1().min_w_0().truncate().child(selected_label))
             .child(
                 icon("chevron-down-thin")
-                    .size(rems(1.))
+                    .size(px(13.))
                     .flex_none()
                     .text_color(p.text)
                     .when(open, |svg| svg.rotate(gpui::percentage(0.5))),
@@ -201,7 +199,7 @@ impl RenderOnce for Dropdown {
             .when(disabled, |el| el.opacity(0.5).cursor_not_allowed())
             .when(!disabled, |el| {
                 el.cursor_pointer()
-                    .hover(|s| s.bg(p.mid_gray.a(0.1)).border_color(p.mid_gray.a(0.5)))
+                    .hover(|s| s.bg(p.card).border_color(p.mid_gray.a(0.4)))
                     .on_click(move |event: &ClickEvent, window, cx| {
                         let opening = !toggle_state.read(cx).open;
                         if opening {
@@ -255,10 +253,10 @@ impl RenderOnce for Dropdown {
                 })
                 .occlude()
                 .p_1()
-                .bg(p.background)
+                .bg(p.card)
                 .border_1()
-                .border_color(p.mid_gray.a(0.2))
-                .rounded_xl()
+                .border_color(p.line)
+                .rounded(px(8.))
                 .shadow(shadow_lg())
                 .max_h(rems(15.))
                 .overflow_y_scroll()
@@ -298,12 +296,10 @@ impl RenderOnce for Dropdown {
                         let item = div()
                             .id((self.id.clone(), SharedString::from(index.to_string())))
                             .w_full()
-                            .sm_text()
-                            .rounded_lg()
-                            .when(option.description.is_some(), |el| el.px_3().py_2())
-                            .when(option.description.is_none(), |el| {
-                                el.px(rems(0.625)).py(rems(0.375))
-                            })
+                            .text_px(12.5)
+                            .rounded(px(6.))
+                            .when(option.description.is_some(), |el| el.px_2().py(px(6.)))
+                            .when(option.description.is_none(), |el| el.px_2().py(px(5.)))
                             .when(is_selected, |el| el.bg(p.mid_gray.a(0.15)))
                             .hover(|s| s.bg(p.mid_gray.a(0.1)))
                             .when(option.disabled, |el| el.opacity(0.5).cursor_not_allowed())

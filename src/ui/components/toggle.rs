@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, rems, Animation, AnimationExt, App, ElementId, Hsla, SharedString, Window,
+    div, prelude::*, px, rems, Animation, AnimationExt, App, ElementId, Hsla, SharedString, Window,
 };
 
 use super::KeyboardFocus;
@@ -94,9 +94,9 @@ impl RenderOnce for ToggleSwitch {
             el.bg(lerp_color(off_track, on_track, t)).child(
                 div()
                     .absolute()
-                    .top(rems(0.125))
-                    .left(rems(0.125 + offset))
-                    .size(rems(1.25))
+                    .top(px(2.))
+                    .left(px(2. + 14. * offset))
+                    .size(px(14.))
                     .rounded_full()
                     .bg(if checked { on_knob } else { off_knob })
                     .shadow(shadow_sm()),
@@ -104,8 +104,8 @@ impl RenderOnce for ToggleSwitch {
         };
         let track = div()
             .relative()
-            .w(rems(2.5))
-            .h(rems(1.5))
+            .w(px(32.))
+            .h(px(18.))
             .flex_shrink_0()
             .rounded_full();
         let track = if changes == 0 {

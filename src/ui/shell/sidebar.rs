@@ -2,15 +2,14 @@
 //! model status, update status and version.
 
 use gpui::{
-    div, img, prelude::*, px, rems, App, Context, FontWeight, ImageSource, Resource, SharedString,
-    Window,
+    div, img, prelude::*, px, App, Context, FontWeight, ImageSource, Resource, SharedString, Window,
 };
 
-use super::{MainWindow, Section};
+use super::{MainWindow, Section, TITLEBAR_HEIGHT};
 use crate::i18n::t;
 use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{palette, shadow, Alpha};
 
 /// The Bespoke wordmark, `width` pixels wide.
 pub fn logo(width: f32, cx: &App) -> impl IntoElement {
@@ -32,24 +31,28 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
         .id(SharedString::from(format!("nav-{:?}", section)))
         .flex()
         .row_dir()
-        .gap_3()
+        .gap(px(9.))
         .items_center()
-        .px_3()
-        .py_2()
+        .h(px(28.))
+        .px_2()
         .w_full()
-        .rounded_lg()
+        .rounded(px(6.))
         .cursor_pointer()
-        .when(active, |el| el.bg(p.mid_gray.a(0.15)).text_color(p.text))
+        .when(active, |el| {
+            el.bg(p.raised)
+                .text_color(p.text)
+                .shadow(vec![shadow(0., 1., 2., 0., 0.25)])
+        })
         .when(!active, |el| {
-            el.text_color(p.text.a(0.75))
-                .hover(|s| s.bg(p.mid_gray.a(0.1)).text_color(p.text))
+            el.text_color(p.text.a(0.8))
+                .hover(|s| s.bg(p.mid_gray.a(0.12)).text_color(p.text))
         })
         .keyboard_focus(cx)
         .on_click(cx.listener(move |this, _, window, cx| this.select_section(section, window, cx)))
-        .child(icon(section.icon()).size(px(20.)).flex_none())
+        .child(icon(section.icon()).size(px(15.)).flex_none())
         .child(
             div()
-                .text_px(15.)
+                .text_px(13.)
                 .font_weight(FontWeight::MEDIUM)
                 .min_w_0()
                 .truncate()
@@ -79,36 +82,42 @@ pub fn render(
     div()
         .flex()
         .flex_col()
-        .w(rems(13.))
+        .w(px(196.))
         .h_full()
-        .px_2()
+        .pt(px(TITLEBAR_HEIGHT))
+        .px(px(10.))
         .pb_3()
         .flex_shrink_0()
-        .child(div().mx_3().mt_4().mb_6().child(logo(96., cx)))
-        .child(div().flex().flex_col().gap_1().children(primary))
+        .bg(p.shell)
+        .when(crate::i18n::is_rtl(), |el| el.border_l_1())
+        .when(!crate::i18n::is_rtl(), |el| el.border_r_1())
+        .border_color(p.line)
+        .child(div().mx_2().mt_3().mb_4().child(logo(80., cx)))
+        .child(div().flex().flex_col().gap(px(1.)).children(primary))
         .child(
             div()
                 .mt_auto()
                 .flex()
                 .flex_col()
-                .gap_1()
-                .pt_3()
+                .gap(px(1.))
+                .pt_2()
                 .border_t_1()
-                .border_color(p.mid_gray.a(0.15))
+                .border_color(p.line)
                 .children(secondary)
                 .child(
                     div()
                         .flex()
                         .flex_col()
-                        .gap(rems(0.375))
-                        .px_3()
-                        .pt_3()
-                        .xs_text()
-                        .text_color(p.text.a(0.6))
+                        .gap(px(4.))
+                        .px_2()
+                        .pt_2()
+                        .text_px(12.)
+                        .line_height(px(16.))
+                        .text_color(p.mid_gray)
                         .child(main.model_selector.clone())
                         .child(
                             div()
-                                .text_color(p.text.a(0.4))
+                                .text_color(p.mid_gray.a(0.7))
                                 .child(format!("v{}", env!("CARGO_PKG_VERSION"))),
                         ),
                 ),

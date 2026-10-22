@@ -487,6 +487,8 @@ impl DebugPage {
     }
 }
 
+impl super::Page for DebugPage {}
+
 impl Render for DebugPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let s = SettingsStore::get(cx).clone();

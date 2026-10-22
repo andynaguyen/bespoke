@@ -398,6 +398,8 @@ impl AnnotatePage {
     }
 }
 
+impl super::Page for AnnotatePage {}
+
 impl Render for AnnotatePage {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         let shortcuts = SettingsGroup::new()

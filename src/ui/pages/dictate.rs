@@ -7,19 +7,20 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, InputState};
 
-use crate::i18n::{t, t_with};
+use crate::i18n::{t, t_count, t_with};
 use crate::settings::{AppSettings, AppStyleRule, Snippet, WritingStyle};
 use crate::shortcut;
 use crate::ui::components::{
     focus_handle_for, icon, width_tracker, Button, ButtonVariant, Dialog, Dropdown, DropdownOption,
-    FocusVisible, KeyboardFocus, RowDirection, Tabs, TextArea, TextField, Typography,
+    FocusVisible, KeyboardFocus, RowDirection, SegmentedControl, TextArea, TextField, Typography,
 };
-use crate::ui::shell::{close_dialog, open_dialog};
+use crate::ui::shell::{close_dialog, open_dialog, Toolbar};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, tw, Alpha};
 
 use super::history::HistoryPage;
 use super::rows::set;
+use super::PageLayout;
 
 /// The longest word or snippet trigger.
 const MAX_PHRASE_LENGTH: usize = 50;
@@ -269,7 +270,9 @@ impl DictatePage {
         let p = palette(cx);
         div()
             .bg(p.card)
-            .rounded_2xl()
+            .border_1()
+            .border_color(p.line)
+            .rounded(px(8.))
             .px_5()
             .py_10()
             .flex()
@@ -277,6 +280,21 @@ impl DictatePage {
             .justify_center()
             .sm_text()
             .text_color(p.text.a(0.55))
+            .child(text)
+    }
+
+    /// The message in place of an empty edge-to-edge list.
+    fn empty_list(text: SharedString, cx: &App) -> impl IntoElement {
+        let p = palette(cx);
+        div()
+            .px_8()
+            .py_16()
+            .flex()
+            .row_dir()
+            .justify_center()
+            .text_center()
+            .text_px(13.)
+            .text_color(p.mid_gray)
             .child(text)
     }
 
@@ -320,7 +338,7 @@ impl DictatePage {
         let updating = store.is_updating("custom_words") || store.is_updating("snippets");
         let all = entries(&store.settings);
         if all.is_empty() {
-            return Self::empty_card(t("settings.dictionary.empty"), cx).into_any_element();
+            return Self::empty_list(t("settings.dictionary.empty"), cx).into_any_element();
         }
         let query = self.query(cx);
         let shown: Vec<Entry> = all
@@ -335,7 +353,7 @@ impl DictatePage {
             .collect();
         if shown.is_empty() {
             let raw = self.search.read(cx).value().trim().to_string();
-            return Self::empty_card(
+            return Self::empty_list(
                 t_with("settings.dictionary.noMatches", &[("query", &raw)]),
                 cx,
             )
@@ -357,15 +375,12 @@ impl DictatePage {
         div()
             .flex()
             .flex_col()
-            .bg(p.card)
-            .rounded_2xl()
             .children(
                 shown
                     .into_iter()
                     .zip(ids)
                     .zip(entry_handles)
-                    .enumerate()
-                    .map(|(row, ((entry, id), handle))| {
+                    .map(|((entry, id), handle)| {
                         let at = entry.at;
                         let group = SharedString::from(format!("entry-{id}"));
                         div()
@@ -374,10 +389,10 @@ impl DictatePage {
                             .row_dir()
                             .items_center()
                             .gap_3()
-                            .pe(rems(1.25))
-                            .when(row > 0, |el| {
-                                el.border_t_1().border_color(p.mid_gray.a(0.15))
-                            })
+                            .pe(px(10.))
+                            .border_b_1()
+                            .border_color(p.line)
+                            .hover(|s| s.bg(p.card))
                             .child(
                                 entry_focus
                                     .clone()
@@ -391,9 +406,9 @@ impl DictatePage {
                                     .row_dir()
                                     .items_center()
                                     .gap_2()
-                                    .ps(rems(1.25))
-                                    .py(rems(0.875))
-                                    .text_px(15.)
+                                    .ps(px(16.))
+                                    .h(px(36.))
+                                    .text_px(13.)
                                     .cursor_pointer()
                                     .on_click(move |_, window, cx| {
                                         open_entry_dialog(Some(at), window, cx)
@@ -403,7 +418,7 @@ impl DictatePage {
                                         // One line, so a multi-line snippet keeps the row short.
                                         let preview =
                                             text.split_whitespace().collect::<Vec<_>>().join(" ");
-                                        el.child(div().text_color(p.text.a(0.4)).child("→")).child(
+                                        el.child(div().text_color(p.mid_gray).child("→")).child(
                                             div()
                                                 .truncate()
                                                 .text_color(p.text.a(0.7))
@@ -431,7 +446,9 @@ impl DictatePage {
             div()
                 .when(wide, |el| el.flex_1().min_w_0())
                 .bg(p.card)
-                .rounded_2xl()
+                .border_1()
+                .border_color(p.line)
+                .rounded(px(8.))
                 .px_4()
                 .py(rems(0.875))
                 .child(
@@ -439,7 +456,7 @@ impl DictatePage {
                         .flex()
                         .row_dir()
                         .gap_1()
-                        .text_px(15.)
+                        .text_px(13.)
                         .font_weight(FontWeight::MEDIUM)
                         .child(t(&format!("settings.style.styles.{key}.name")))
                         .when(default, |el| {
@@ -494,7 +511,9 @@ impl DictatePage {
             } else {
                 div()
                     .bg(p.card)
-                    .rounded_2xl()
+                    .border_1()
+                    .border_color(p.line)
+                    .rounded(px(8.))
                     .px_5()
                     .py_4()
                     .sm_text()
@@ -533,7 +552,9 @@ impl DictatePage {
                 .flex()
                 .flex_col()
                 .bg(p.card)
-                .rounded_2xl()
+                .border_1()
+                .border_color(p.line)
+                .rounded(px(8.))
                 .children(rules.iter().enumerate().map(|(index, rule)| {
                     let group = SharedString::from(format!("app-rule-{index}"));
                     let style = match rule.style {
@@ -560,7 +581,7 @@ impl DictatePage {
                             div()
                                 .id(SharedString::from(format!("app-name-{index}")))
                                 .min_w_0()
-                                .text_px(15.)
+                                .text_px(13.)
                                 .truncate()
                                 .tooltip({
                                     let bundle_id = bundle_id.clone();
@@ -637,8 +658,9 @@ impl DictatePage {
                     .gap_3()
                     .child(
                         div()
-                            .text_px(15.)
-                            .font_weight(FontWeight::MEDIUM)
+                            .text_px(11.)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(p.mid_gray)
                             .child(t("settings.style.apps.title")),
                     )
                     .child(
@@ -675,8 +697,8 @@ impl DictatePage {
     }
 }
 
-impl Render for DictatePage {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl super::Page for DictatePage {
+    fn toolbar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
         let p = palette(cx);
         let entity = cx.entity().downgrade();
         let tab_id = match self.tab {
@@ -684,7 +706,7 @@ impl Render for DictatePage {
             Tab::Style => "style",
             Tab::History => "history",
         };
-        let tabs = Tabs::new(
+        let toolbar = Toolbar::new().tabs(SegmentedControl::new(
             "dictate-tabs",
             vec![
                 (
@@ -699,56 +721,63 @@ impl Render for DictatePage {
                 let id = id.to_string();
                 let _ = entity.update(cx, |this, cx| this.select_tab(&id, window, cx));
             },
-        );
+        ));
+        match self.tab {
+            Tab::Dictionary => {
+                let count = entries(&self.store.read(cx).settings).len() as i64;
+                toolbar
+                    .meta(t_count("settings.dictionary.entries", count, &[]))
+                    .action(
+                        TextField::new(&self.search).w(px(200.)).prefix(
+                            icon("search")
+                                .size(px(13.))
+                                .text_color(p.mid_gray)
+                                .me(px(6.)),
+                        ),
+                    )
+                    .action(
+                        Button::new("add-new")
+                            .gap(px(4.))
+                            .child(icon("plus").size(px(13.)))
+                            .child(t("settings.dictionary.addNew"))
+                            .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
+                    )
+            }
+            Tab::Style => toolbar,
+            Tab::History => match &self.history {
+                Some(history) => history.update(cx, |history, cx| {
+                    history.toolbar_actions(toolbar, window, cx)
+                }),
+                None => toolbar,
+            },
+        }
+    }
 
-        let body = match self.tab {
-            Tab::Style => self.render_style(cx).into_any_element(),
+    fn layout(&self, _cx: &App) -> PageLayout {
+        match self.tab {
+            Tab::Dictionary => PageLayout::Flush,
+            Tab::Style => PageLayout::Padded,
+            Tab::History => PageLayout::Fill,
+        }
+    }
+}
+
+impl Render for DictatePage {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        match self.tab {
+            Tab::Style => div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .child(self.render_style(cx))
+                .into_any_element(),
             Tab::History => self
                 .history
                 .clone()
                 .map(|history| history.into_any_element())
                 .unwrap_or_else(|| div().into_any_element()),
-            Tab::Dictionary => {
-                let list = self.render_dictionary(cx).into_any_element();
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_5()
-                    .child(
-                        div()
-                            .flex()
-                            .row_dir()
-                            .items_center()
-                            .gap_3()
-                            .child(
-                                TextField::new(&self.search).flex_1().prefix(
-                                    icon("search")
-                                        .size(rems(1.))
-                                        .text_color(p.text.a(0.4))
-                                        .me(rems(0.5)),
-                                ),
-                            )
-                            .child(
-                                Button::new("add-new")
-                                    .gap(rems(0.375))
-                                    .py_2()
-                                    .child(icon("plus").size(rems(1.)))
-                                    .child(t("settings.dictionary.addNew"))
-                                    .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
-                            ),
-                    )
-                    .child(list)
-                    .into_any_element()
-            }
-        };
-
-        div()
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap_5()
-            .child(tabs)
-            .child(body)
+            Tab::Dictionary => self.render_dictionary(cx).into_any_element(),
+        }
     }
 }
 
