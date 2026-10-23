@@ -15,6 +15,9 @@ use crate::ui::theme::{palette, radius, Alpha};
 pub const SIDEBAR_WIDTH: f32 = 220.;
 /// The gap between the title bar, where the traffic lights sit, and the logo.
 const LOGO_TOP: f32 = 26.;
+/// The sidebar wordmark's width. `bespoke-logo-clay.png` is drawn at twice
+/// this size, with a bevel and shadow tuned for it.
+const LOGO_WIDTH: f32 = 120.;
 
 /// The Bespoke wordmark, `width` pixels wide.
 pub fn logo(width: f32, cx: &App) -> impl IntoElement {
@@ -27,6 +30,33 @@ pub fn logo(width: f32, cx: &App) -> impl IntoElement {
         .w(px(width))
         .h(px(width * 544. / 1965.))
         .flex_none()
+}
+
+/// The grey clay wordmark for the dark sidebar, `LOGO_WIDTH` pixels wide. The
+/// PNG pads the 1965 by 544 wordmark so its drop shadow isn't clipped, so the
+/// image spills past the element's bounds by that padding.
+fn clay_logo() -> impl IntoElement {
+    // The padding, in the wordmark's 1965 by 544 units.
+    const LEFT: f32 = 80.;
+    const TOP: f32 = 50.;
+    const RIGHT: f32 = 140.;
+    const BOTTOM: f32 = 170.;
+    let scale = LOGO_WIDTH / 1965.;
+    div()
+        .relative()
+        .w(px(LOGO_WIDTH))
+        .h(px(544. * scale))
+        .flex_none()
+        .child(
+            img(ImageSource::Resource(Resource::Embedded(
+                "bespoke-logo-clay.png".into(),
+            )))
+            .absolute()
+            .left(px(-LEFT * scale))
+            .top(px(-TOP * scale))
+            .w(px((LEFT + 1965. + RIGHT) * scale))
+            .h(px((TOP + 544. + BOTTOM) * scale)),
+        )
 }
 
 fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> impl IntoElement {
@@ -95,13 +125,13 @@ pub fn render(
             .pb_3()
             .rounded(radius::PANEL)
             .child(glass("sidebar", GlassStyle::Regular, radius::PANEL))
-            .child(
-                div()
-                    .mx(px(10.))
-                    .mt(px(LOGO_TOP))
-                    .mb_4()
-                    .child(logo(92., cx)),
-            )
+            .child(div().mx(px(10.)).mt(px(LOGO_TOP)).mb_4().map(|el| {
+                if palette(cx).is_dark {
+                    el.child(clay_logo())
+                } else {
+                    el.child(logo(LOGO_WIDTH, cx))
+                }
+            }))
             .child(div().flex().flex_col().gap(px(2.)).children(primary))
             .child(
                 div()
