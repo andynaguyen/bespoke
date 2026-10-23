@@ -275,6 +275,7 @@
         "cleanup": "Cleanup",
         "pasting": "Pasting",
         "submitting": "Submitting",
+        "overlay": "Overlay",
         "startup": "Startup",
         "memory": "Memory",
         "updates": "Updates",
@@ -515,7 +516,8 @@
       "tabs": {
         "dictionary": "Dictionary",
         "style": "Style",
-        "history": "History"
+        "history": "History",
+        "settings": "Settings"
       },
       "addNew": "Add new",
       "searchPlaceholder": "Search",

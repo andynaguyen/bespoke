@@ -6,6 +6,7 @@ mod annotate;
 pub mod captures;
 mod debug;
 mod dictate;
+mod dictate_settings;
 mod history;
 mod keyword_field;
 mod language_picker;
@@ -121,7 +122,7 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
         #[cfg(not(target_os = "macos"))]
         Section::Annotate | Section::Mcp => PageHandle::new(cx.new(|_| EmptyPage)),
         Section::Debug => PageHandle::new(cx.new(debug::DebugPage::new)),
-        Section::Settings => PageHandle::new(cx.new(|cx| settings::SettingsPage::new(window, cx))),
+        Section::Settings => PageHandle::new(cx.new(|cx| settings::SettingsPage::new(cx))),
     }
 }
 
