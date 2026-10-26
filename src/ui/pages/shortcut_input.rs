@@ -22,13 +22,14 @@ use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_or, t_with};
 use crate::settings::KeyboardImplementation;
 use crate::shortcut::handy_keys::FrontendKeyEvent;
+use crate::ui::clay::Clay;
 use crate::ui::components::{
     reset_button, KeyboardFocus, RowDirection, SettingContainer, Typography,
 };
 use crate::ui::event_bus::event_bus;
 use crate::ui::keyboard::format_key_combination;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{mix, palette, Alpha};
 use crate::ui::toast;
 
 const MODIFIERS: &[&str] = &[
@@ -498,17 +499,19 @@ impl ShortcutInput {
             .items_center()
             .text_px(12.5)
             .font_weight(FontWeight::MEDIUM)
-            .whitespace_nowrap()
-            .rounded(px(6.))
-            .bg(p.background)
-            .border_1();
+            .whitespace_nowrap();
+        // At rest the shortcut is a clay keycap; while recording it turns
+        // into a field ringed in the accent.
         let chip = if self.recording {
             let text: SharedString = if self.current.is_empty() {
                 t("settings.general.shortcut.pressKeysOrMouse")
             } else {
                 format_key_combination(&self.current).into()
             };
-            chip.border_color(p.accent)
+            chip.rounded(px(6.))
+                .bg(p.background)
+                .border_1()
+                .border_color(p.accent)
                 .shadow(vec![gpui::BoxShadow {
                     color: p.accent.a(0.15),
                     offset: gpui::point(gpui::px(0.), gpui::px(0.)),
@@ -523,8 +526,8 @@ impl ShortcutInput {
                 )
                 .child(text)
         } else {
-            chip.border_color(p.line)
-                .hover(|s| s.border_color(p.mid_gray.a(0.5)))
+            chip.clay(p.clay, 26., px(6.), p.is_dark)
+                .hover(|s| s.bg(mix(p.clay, p.text, 0.05)))
                 .cursor_pointer()
                 .keyboard_focus(cx)
                 .on_click(cx.listener(move |this, _, window, cx| this.start(disabled, window, cx)))

@@ -42,8 +42,8 @@ pub struct Palette {
     pub shell: Hsla,
     /// Setting groups, list rows and other surfaces on the content pane.
     pub card: Hsla,
-    /// A selected sidebar item or segment.
-    pub raised: Hsla,
+    /// Neutral clay (`ui::clay`): keycaps and the resting segmented thumb.
+    pub clay: Hsla,
     /// Hairline borders and dividers.
     pub line: Hsla,
     /// Primary actions and selection.
@@ -75,7 +75,7 @@ impl Palette {
             surface: rgba(0xffffffb8).into(),
             shell: hex(0xf5f5f7),
             card: rgba(0x0000000a).into(),
-            raised: rgba(0xffffffeb).into(),
+            clay: background,
             line: rgba(0x00000017).into(),
             accent: hex(0x3b5cf6),
             accent_contrast: hex(0xffffff),
@@ -100,7 +100,7 @@ impl Palette {
             surface: rgba(0x121216a8).into(),
             shell: hex(0x111113),
             card: rgba(0xffffff0f).into(),
-            raised: rgba(0xffffff26).into(),
+            clay: mix(background, hex(0xf5f5f7), 0.16),
             line: rgba(0xffffff17).into(),
             accent: hex(0x3b5cf6),
             accent_contrast: hex(0xffffff),
@@ -115,6 +115,19 @@ impl Palette {
             glass_clear: rgba(0x1e1e24cc).into(),
         }
     }
+}
+
+/// `from` moved `amount` (0 to 1) of the way to `to`, alpha included.
+pub fn mix(from: Hsla, to: Hsla, amount: f32) -> Hsla {
+    let a: Rgba = from.into();
+    let b: Rgba = to.into();
+    Rgba {
+        r: a.r + (b.r - a.r) * amount,
+        g: a.g + (b.g - a.g) * amount,
+        b: a.b + (b.b - a.b) * amount,
+        a: a.a + (b.a - a.a) * amount,
+    }
+    .into()
 }
 
 fn mix_black(color: Hsla, amount: f32) -> Hsla {
@@ -351,11 +364,6 @@ pub fn shadow_xl() -> Vec<gpui::BoxShadow> {
         shadow(0., 20., 25., -5., 0.1),
         shadow(0., 8., 10., -6., 0.1),
     ]
-}
-
-/// Tailwind's `shadow-sm`.
-pub fn shadow_sm() -> Vec<gpui::BoxShadow> {
-    vec![shadow(0., 1., 3., 0., 0.1), shadow(0., 1., 2., -1., 0.1)]
 }
 
 /// A soft glow under a tinted control, in `color` at `alpha` opacity.

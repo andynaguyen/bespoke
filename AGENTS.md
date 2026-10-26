@@ -56,6 +56,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `stores/` - Shared UI state as GPUI entities
 - `overlay.rs` - Recording overlay window and view
 - `capsule.rs` - The capsule dictation and Annotate share: its glass surface, live dot, spinner, chips and colors
+- `clay.rs` - Clay for small solid objects (the live dot, the done check, keycaps, the toggle knob, the resting segmented thumb): `.clay(color, size, radius, dark)` layers gradients, rims, a specular spot and shadows over a solid fill, and `keycap()` builds a shortcut hint from it. Glass stays on cards and panels
 - `glass.rs` - Liquid Glass behind GPUI elements: `glass(id, style, radius)` keeps an `NSGlassEffectView` under an element's bounds, below GPUI's Metal view. Anything GPUI paints over that area covers the glass, so leave it unpainted
 - `hover_card.rs` - A hover card on Liquid Glass, like a heatmap day's. Glass can't float over GPUI's drawing in the same window, so the card is one shared transparent window that `show` moves over the anchor
 - `theme.rs` - Palette for light and dark mode, and the corner radii (`radius`)

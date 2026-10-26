@@ -16,18 +16,51 @@ use gpui_component::scroll::ScrollableElement;
 use scrawl::host::KeyframeRow;
 
 use crate::i18n::{t, t_count};
+use crate::ui::clay::keycap;
 use crate::ui::components::{
     icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, SegmentedControl,
     Typography,
 };
 use crate::ui::dates;
 use crate::ui::shell::Toolbar;
+use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, radius, Alpha};
 
 /// The most captures the page lists.
 const LIMIT: usize = 120;
 const INSPECTOR_WIDTH: f32 = 320.;
 const COLUMNS: usize = 3;
+
+/// The empty library's hint, with the record shortcut as a clay keycap where
+/// the translation puts `{{record}}`.
+fn empty_hint(cx: &App) -> impl IntoElement {
+    let p = palette(cx);
+    let hint = t("annotate.library.emptyHint");
+    let line = div()
+        .flex()
+        .row_dir()
+        .items_center()
+        .gap(px(5.))
+        .text_px(13.)
+        .text_color(p.mid_gray);
+    let Some((before, after)) = hint.split_once("{{record}}") else {
+        return line.child(hint);
+    };
+    let record = SettingsStore::get(cx)
+        .bindings
+        .get(crate::annotate::RECORD_BINDING)
+        .and_then(|b| scrawl::host::shortcut_from_binding(&b.current_binding))
+        .map_or_else(|| "⌥⇧S".to_owned(), |c| c.label);
+    // The gap stands in for the spaces around the placeholder.
+    let (before, after) = (before.trim_end(), after.trim_start());
+    line.when(!before.is_empty(), |el| {
+        el.child(SharedString::from(before.to_owned()))
+    })
+    .child(keycap(record, 20., p.clay, p.text, p.is_dark))
+    .when(!after.is_empty(), |el| {
+        el.child(SharedString::from(after.to_owned()))
+    })
+}
 
 /// A capture Scrawl asked to inspect, waiting for the page to open it.
 #[derive(Default)]
@@ -403,7 +436,6 @@ impl Captures {
     }
 
     fn render_library(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        let p = palette(cx);
         let Some(items) = self.items.clone() else {
             return div().into_any_element();
         };
@@ -421,12 +453,7 @@ impl Captures {
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(t("annotate.library.empty")),
                 )
-                .child(
-                    div()
-                        .text_px(13.)
-                        .text_color(p.mid_gray)
-                        .child(t("annotate.library.emptyHint")),
-                )
+                .child(empty_hint(cx))
                 .into_any_element();
         }
         let rows: Vec<AnyElement> = items

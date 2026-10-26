@@ -4,6 +4,7 @@
 pub mod assets;
 pub mod audio_player;
 pub mod capsule;
+pub mod clay;
 pub mod components;
 pub mod dates;
 #[cfg(debug_assertions)]

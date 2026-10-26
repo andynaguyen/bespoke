@@ -26,9 +26,10 @@ use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_count};
 use crate::settings::{get_settings, OverlayPosition};
 use crate::ui::capsule::{self, ChipKind, Colors};
+use crate::ui::clay::keycap;
 use crate::ui::components::icon;
 use crate::ui::platform::capsule::{self as native, CapsuleWindow};
-use crate::ui::theme::Alpha;
+use crate::ui::theme::{mix, Alpha};
 
 /// Wide enough for the widest form, recording with the switch chips open.
 const WINDOW_W: f32 = 720.;
@@ -353,13 +354,15 @@ impl AnnotateCapsule {
             .child(text.into())
     }
 
-    fn hint(&self, text: &str, color: gpui::Hsla) -> impl IntoElement {
-        div()
-            .flex_none()
-            .text_size(px(11.))
-            .font_weight(FontWeight::MEDIUM)
-            .text_color(color)
-            .child(SharedString::from(text.to_string()))
+    /// A shortcut hint on a chip: a clay keycap in `color` labeled in `label`.
+    fn hint(
+        &self,
+        text: &str,
+        color: gpui::Hsla,
+        label: gpui::Hsla,
+        c: &Colors,
+    ) -> impl IntoElement {
+        keycap(text.to_string(), 18., color, label, c.dark)
     }
 
     /// The Area, Window and Screen chips as a segmented control. `active`
@@ -508,7 +511,7 @@ impl AnnotateCapsule {
                             cx,
                         )
                         .child(t("annotate.capsule.cancel"))
-                        .child(self.hint("esc", c.secondary))
+                        .child(self.hint("esc", c.keycap, c.text.a(0.75), c))
                         .into_any_element(),
                     );
                     items.push(
@@ -521,7 +524,12 @@ impl AnnotateCapsule {
                         )
                         .child(icon("check").size(px(14.)))
                         .child(t("annotate.capsule.finish"))
-                        .child(self.hint(&snapshot.shortcut, gpui::white().a(0.7)))
+                        .child(self.hint(
+                            &snapshot.shortcut,
+                            mix(c.accent, gpui::white(), 0.2),
+                            gpui::white(),
+                            c,
+                        ))
                         .into_any_element(),
                     );
                 }
