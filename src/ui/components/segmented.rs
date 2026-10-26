@@ -1,9 +1,9 @@
 //! A segmented control: a few options side by side in a track, the selected
-//! one raised. Reads as a filter, where `Tabs` reads as navigation.
+//! one raised in clay. Reads as a filter, where `Tabs` reads as navigation.
 //!
 //! Picking another option slides the thumb over like Liquid Glass: it lifts
 //! into a clear lens that swells and stretches as it travels, overshoots a
-//! little, and settles back into the raised thumb.
+//! little, and settles back into the clay thumb.
 
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -15,7 +15,8 @@ use gpui::{
 
 use super::RowDirection;
 use super::{KeyboardFocus, Typography};
-use crate::ui::theme::{palette, shadow, Alpha, Palette, CONTROL_HEIGHT};
+use crate::ui::clay::Clay;
+use crate::ui::theme::{palette, Alpha, Palette, CONTROL_HEIGHT};
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 
@@ -247,13 +248,12 @@ impl RenderOnce for SegmentedControl {
                                     .cursor_pointer()
                                     .keyboard_focus(cx)
                                     .when(raised, |el| {
-                                        el.bg(p.raised).shadow(vec![shadow(
-                                            0.,
-                                            1.,
-                                            2.,
-                                            0.,
-                                            if p.is_dark { 0.25 } else { 0.08 },
-                                        )])
+                                        el.clay(
+                                            p.clay,
+                                            THUMB_HEIGHT,
+                                            px(THUMB_HEIGHT / 2.),
+                                            p.is_dark,
+                                        )
                                     })
                                     .when(selected, |el| el.text_color(p.text))
                                     .when(!selected, |el| {
@@ -268,12 +268,15 @@ impl RenderOnce for SegmentedControl {
     }
 }
 
-/// The thumb in flight: the raised fill thins into clear glass with a
+/// The thumb in flight: the clay thumb thins into clear glass with a
 /// bright rim and a sheen across its top, and it grows past the track.
 fn lens(span: Span, lift: f32, p: &Palette) -> impl IntoElement {
     let height = THUMB_HEIGHT * (1. + 0.42 * lift);
+    // The clay is gone by 40% of the lift, since its drop shadow would show
+    // through the glass.
+    let clay = (1. - lift / 0.4).clamp(0., 1.);
     // Glass brightens what is under it, so the lens never goes darker than
-    // the track. A drop shadow would show through it, so it fades out.
+    // the track.
     let fill: Hsla = if p.is_dark {
         gpui::white().a(0.15 - 0.05 * lift)
     } else {
@@ -294,13 +297,19 @@ fn lens(span: Span, lift: f32, p: &Palette) -> impl IntoElement {
         .bg(fill)
         .border_1()
         .border_color(rim)
-        .shadow(vec![shadow(
-            0.,
-            1.,
-            2.,
-            0.,
-            (if p.is_dark { 0.25 } else { 0.08 }) * (1. - lift),
-        )])
+        .when(clay > 0., |el| {
+            // Over the rim too, so at rest it matches the thumb it becomes.
+            el.child(
+                div()
+                    .absolute()
+                    .top(px(-1.))
+                    .left(px(-1.))
+                    .right(px(-1.))
+                    .bottom(px(-1.))
+                    .clay(p.clay, height, px(height / 2.), p.is_dark)
+                    .opacity(clay),
+            )
+        })
         .child(
             div()
                 .absolute()

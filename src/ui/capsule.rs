@@ -11,6 +11,7 @@ use gpui::{
     div, prelude::*, px, Animation, AnimationExt, App, Div, Hsla, Pixels, SharedString, Stateful,
 };
 
+use super::clay::Clay;
 use super::glass::{glass_with, GlassSpec, GlassStyle};
 use super::theme::{palette, shadow, Alpha};
 
@@ -41,6 +42,10 @@ pub struct Colors {
     pub tint: Hsla,
     /// The hairline rim.
     pub rim: Hsla,
+    /// A keycap hint's clay.
+    pub keycap: Hsla,
+    /// Whether the theme is dark, which deepens clay's shadows.
+    pub dark: bool,
 }
 
 impl Colors {
@@ -58,6 +63,8 @@ impl Colors {
                 done: p.done,
                 tint: gpui::rgba(0x14141873).into(),
                 rim: gpui::white().a(0.16),
+                keycap: p.clay,
+                dark: true,
             }
         } else {
             Self {
@@ -71,6 +78,8 @@ impl Colors {
                 done: p.done,
                 tint: gpui::rgba(0xffffff80).into(),
                 rim: gpui::white().a(0.6),
+                keycap: p.clay,
+                dark: false,
             }
         }
     }
@@ -103,10 +112,11 @@ pub fn surface(id: impl Into<SharedString>, radius: Pixels, c: &Colors) -> Div {
         ))
 }
 
-/// The live dot. Once capture starts, a halo ripples out and fades while the
-/// dot breathes, both on one 1.6s cycle. Before that it rests muted.
+/// The live dot, in clay. Once capture starts, a halo ripples out and fades
+/// while the dot breathes, both on one 1.6s cycle. Before that it rests
+/// muted and flat.
 pub fn live_dot(ready: bool, c: &Colors) -> impl IntoElement {
-    let live = c.live;
+    let (live, dark) = (c.live, c.dark);
     let cycle = Duration::from_millis(1600);
     div()
         .relative()
@@ -124,14 +134,20 @@ pub fn live_dot(ready: bool, c: &Colors) -> impl IntoElement {
                         .bg(live.a(0.34 * (1. - ripple).powi(2)))
                 },
             ))
-            .child(div().absolute().inset_0().rounded_full().with_animation(
-                "capsule-dot-breath",
-                Animation::new(cycle).repeat(),
-                move |dot, t| {
-                    let breath = 0.5 + 0.5 * (std::f32::consts::TAU * t).cos();
-                    dot.bg(live.a(0.8 + 0.2 * breath))
-                },
-            ))
+            .child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .clay(live, 10., px(5.), dark)
+                    .with_animation(
+                        "capsule-dot-breath",
+                        Animation::new(cycle).repeat(),
+                        move |dot, t| {
+                            let breath = 0.5 + 0.5 * (std::f32::consts::TAU * t).cos();
+                            dot.opacity(0.8 + 0.2 * breath)
+                        },
+                    ),
+            )
         })
         .when(!ready, |el| {
             el.child(div().absolute().inset_0().rounded_full().bg(c.text.a(0.3)))
@@ -165,16 +181,15 @@ pub fn spinner(c: &Colors) -> impl IntoElement {
         }))
 }
 
-/// A green check in a circle, for a finished paste or capture.
+/// A white check on a green clay disc, for a finished paste or capture.
 pub fn done_mark(c: &Colors) -> impl IntoElement {
     div()
         .size(px(22.))
         .flex_none()
-        .rounded_full()
+        .clay(c.done, 22., px(11.), c.dark)
         .flex()
         .items_center()
         .justify_center()
-        .bg(c.done)
         .text_color(gpui::white())
         .child(super::components::icon("check").size(px(13.)))
 }

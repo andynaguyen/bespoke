@@ -880,7 +880,7 @@
       "folder": "Captures Folder",
       "record": "Record",
       "empty": "No captures yet",
-      "emptyHint": "Tap ⌥⇧S to record the screen under the pointer while you talk.",
+      "emptyHint": "Tap {{record}} to record the screen under the pointer while you talk.",
       "back": "Back to captures",
       "contactSheet": "Contact Sheet",
       "keyframe": "Keyframe",

@@ -3,13 +3,14 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, px, rems, Animation, AnimationExt, App, ElementId, Hsla, SharedString, Window,
+    div, prelude::*, px, rems, Animation, AnimationExt, App, ElementId, SharedString, Window,
 };
 
 use super::KeyboardFocus;
 use super::RowDirection;
 use super::{misc::Spinner, SettingContainer};
-use crate::ui::theme::{palette, shadow_sm, Alpha};
+use crate::ui::clay::Clay;
+use crate::ui::theme::{mix, palette, Alpha};
 
 type ChangeHandler = Box<dyn Fn(bool, &mut Window, &mut App)>;
 
@@ -20,7 +21,7 @@ struct SwitchMemory {
 }
 
 /// The 37.5 x 22.5 switch: mid-gray track and white knob when off, accent
-/// track and contrast knob when on. The knob slides over 150ms.
+/// track and contrast knob when on. The knob is clay and slides over 150ms.
 #[derive(IntoElement)]
 pub struct ToggleSwitch {
     id: ElementId,
@@ -51,18 +52,6 @@ impl ToggleSwitch {
     }
 }
 
-fn lerp_color(from: Hsla, to: Hsla, t: f32) -> Hsla {
-    let a: gpui::Rgba = from.into();
-    let b: gpui::Rgba = to.into();
-    gpui::Rgba {
-        r: a.r + (b.r - a.r) * t,
-        g: a.g + (b.g - a.g) * t,
-        b: a.b + (b.b - a.b) * t,
-        a: a.a + (b.a - a.a) * t,
-    }
-    .into()
-}
-
 impl RenderOnce for ToggleSwitch {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = palette(cx);
@@ -91,15 +80,18 @@ impl RenderOnce for ToggleSwitch {
         let rtl = crate::i18n::is_rtl();
         let paint = move |el: gpui::Div, t: f32| {
             let offset = if rtl { 1. - t } else { t };
-            el.bg(lerp_color(off_track, on_track, t)).child(
+            el.bg(mix(off_track, on_track, t)).child(
                 div()
                     .absolute()
                     .top(px(2.))
                     .left(px(2. + 14. * offset))
                     .size(px(14.))
-                    .rounded_full()
-                    .bg(if checked { on_knob } else { off_knob })
-                    .shadow(shadow_sm()),
+                    .clay(
+                        if checked { on_knob } else { off_knob },
+                        14.,
+                        px(7.),
+                        p.is_dark,
+                    ),
             )
         };
         let track = div()
