@@ -295,6 +295,72 @@ mod imp {
                 }
             }
 
+            /// Makes the window a child of `parent` at `parent`'s level, so it
+            /// stays just above it and moves with it, then orders it in at
+            /// `alpha` opacity. With `key` it also takes keyboard focus. While
+            /// `parent` is hidden the window stays out too. Runs on the next
+            /// main-thread turn like `move_to`.
+            pub fn show_attached(
+                &self,
+                parent: &CapsuleWindow,
+                alpha: f64,
+                key: bool,
+                cx: &gpui::App,
+            ) {
+                let (window, parent) = (self.0.clone(), parent.0.clone());
+                cx.foreground_executor()
+                    .spawn(async move {
+                        window.setAlphaValue(alpha);
+                        if window.parentWindow().as_deref() != Some(&*parent) {
+                            window.setLevel(parent.level());
+                            // SAFETY: both are live windows; AppKit retains the child.
+                            unsafe {
+                                parent.addChildWindow_ordered(
+                                    &window,
+                                    objc2_app_kit::NSWindowOrderingMode::Above,
+                                )
+                            };
+                        }
+                        if !parent.isVisible() {
+                            return;
+                        }
+                        if key {
+                            window.makeKeyAndOrderFront(None);
+                        } else {
+                            window.orderFront(None);
+                        }
+                    })
+                    .detach();
+            }
+
+            /// Detaches the window from its parent and orders it out. A child
+            /// window that stays attached comes back whenever its parent is
+            /// ordered in. Runs on the next main-thread turn like `move_to`.
+            pub fn hide_detached(&self, cx: &gpui::App) {
+                let window = self.0.clone();
+                cx.foreground_executor()
+                    .spawn(async move {
+                        if let Some(parent) = window.parentWindow() {
+                            parent.removeChildWindow(&window);
+                        }
+                        window.orderOut(None);
+                    })
+                    .detach();
+            }
+
+            pub fn is_visible(&self) -> bool {
+                self.0.isVisible()
+            }
+
+            /// Sets the window's opacity, on the next main-thread turn like
+            /// `move_to`.
+            pub fn set_alpha(&self, alpha: f64, cx: &gpui::App) {
+                let window = self.0.clone();
+                cx.foreground_executor()
+                    .spawn(async move { window.setAlphaValue(alpha) })
+                    .detach();
+            }
+
             /// Orders the window in or out, on the next main-thread turn like
             /// `move_to`.
             pub fn set_visible(&self, visible: bool, cx: &gpui::App) {

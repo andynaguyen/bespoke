@@ -21,6 +21,7 @@ use crate::ui::event_bus::event_bus;
 use crate::ui::glass::{glass_with, GlassSpec, GlassStyle};
 use crate::ui::onboarding::{AccessibilityOnboarding, ModelOnboarding, OnboardingPreview};
 use crate::ui::pages::{self, PageHandle, PageLayout};
+use crate::ui::popup::DialogWindow;
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, radius, Alpha};
 use crate::ui::toast;
@@ -30,6 +31,15 @@ use banners::{AccessibilityBanner, SecureInputWarning};
 pub use inspector::inspector;
 pub use sidebar::logo;
 pub use toolbar::Toolbar;
+
+/// The open modal dialog.
+#[derive(Clone)]
+enum OpenDialog {
+    /// In a window of its own over the main window (macOS).
+    Window(DialogWindow),
+    /// Drawn in the main window.
+    Inline(AnyView),
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Section {
@@ -106,7 +116,7 @@ pub struct MainWindow {
     whats_new: Entity<WhatsNewGate>,
     accessibility_onboarding: Option<Entity<AccessibilityOnboarding>>,
     model_onboarding: Option<Entity<ModelOnboarding>>,
-    dialog: Option<AnyView>,
+    dialog: Option<OpenDialog>,
     previous_focus: Option<FocusHandle>,
 }
 
@@ -307,20 +317,31 @@ impl MainWindow {
     }
 
     /// Shows a modal dialog over the window. The view closes it with
-    /// [`close_dialog`].
+    /// [`close_dialog`]. On macOS the dialog gets a window of its own, so it
+    /// can sit on glass, and `build` gets that window.
     pub fn open_dialog(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
-        build: impl FnOnce(&mut Window, &mut App) -> AnyView,
+        build: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static,
     ) {
+        if let Some(OpenDialog::Window(dialog)) = self.dialog.take() {
+            dialog.close(cx);
+        }
         self.previous_focus = window.focused(cx);
-        self.dialog = Some(build(window, cx));
+        self.dialog = if cfg!(target_os = "macos") {
+            DialogWindow::open(window, build, cx).map(OpenDialog::Window)
+        } else {
+            Some(OpenDialog::Inline(build(window, cx)))
+        };
         cx.notify();
     }
 
     pub fn close_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.dialog = None;
+        if let Some(OpenDialog::Window(dialog)) = self.dialog.take() {
+            dialog.close(cx);
+            window.activate_window();
+        }
         match self.previous_focus.take() {
             Some(focus) => focus.focus(window),
             None => self.focus.focus(window),
@@ -529,18 +550,20 @@ fn initial_onboarding_step(cx: &App) -> (OnboardingStep, bool) {
     (OnboardingStep::Done, true)
 }
 
-/// Closes the open dialog, if any.
+/// Closes the open dialog, if any. `window` may be the dialog's own.
 pub fn close_dialog(window: &mut Window, cx: &mut App) {
     if let Some(main) = crate::ui::main_view(cx) {
-        main.update(cx, |main, cx| main.close_dialog(window, cx));
+        crate::ui::popup::in_host(window, cx, move |window, cx| {
+            main.update(cx, |main, cx| main.close_dialog(window, cx))
+        });
     }
 }
 
-/// Opens `build`'s view as a modal dialog in the settings window.
+/// Opens `build`'s view as a modal dialog over the settings window.
 pub fn open_dialog(
     window: &mut Window,
     cx: &mut App,
-    build: impl FnOnce(&mut Window, &mut App) -> AnyView,
+    build: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static,
 ) {
     if let Some(main) = crate::ui::main_view(cx) {
         main.update(cx, |main, cx| main.open_dialog(window, cx, build));
@@ -657,6 +680,8 @@ impl Render for MainWindow {
                     window.remove_window();
                 }
             })
+            // Paints first, so popups whose anchor this frame skips hide.
+            .child(crate::ui::popup::frame_marker())
             .when(cfg!(target_os = "macos"), |el| {
                 // The title strip (`data-tauri-drag-region`): AppKit drags
                 // the window from it, and a double click zooms or minimizes
@@ -678,7 +703,28 @@ impl Render for MainWindow {
                 )
             })
             .child(content)
-            .children(self.dialog.clone())
+            .children(self.dialog.clone().map(|dialog| {
+                match dialog {
+                    OpenDialog::Inline(view) => view.into_any_element(),
+                    // The dialog draws in its own window over this one. Dim this
+                    // one under it, and keep that window over this one as it
+                    // resizes.
+                    OpenDialog::Window(dialog) => div()
+                        .absolute()
+                        .inset_0()
+                        .occlude()
+                        .bg(gpui::black().a(0.5))
+                        .child(
+                            gpui::canvas(
+                                |_, _, _| {},
+                                move |_, _, window, cx| dialog.sync(window.bounds(), cx),
+                            )
+                            .absolute()
+                            .size_full(),
+                        )
+                        .into_any_element(),
+                }
+            }))
             .child(crate::ui::toast::toasts(cx))
     }
 }

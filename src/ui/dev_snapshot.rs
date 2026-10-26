@@ -8,7 +8,10 @@
 //! `debug`, `settings`), `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, or
 //! `onboarding:accessibility|model`. A `@<px>` suffix, like `debug@900`,
 //! scrolls the page down before capture, and a `#<n>` suffix presses Tab n
-//! times with focus rings shown.
+//! times with focus rings shown. After those, `!<key>` presses a key, like
+//! `settings:appearance#2!down` to open the second control's menu.
+//! `toast:<error|info|warning>` shows a sample toast over the current page,
+//! and `dialog:entry` or `dialog:whatsnew` opens that dialog.
 //! `overlay:<kind>` shows the recording overlay with sample data and
 //! captures its window instead (see `ui::overlay::dev_preview`), and
 //! `capsule:<kind>` does the same for Annotate's capsule (see
@@ -16,11 +19,12 @@
 //! picker and `scrawl:latest` its latest capture, and both capture the main
 //! display. `annotate:latest` opens the newest capture on the Annotate page.
 //! `BESPOKE_DEV_DESKTOP=1` keeps the desktop and windows behind the target
-//! window in the capture, so glass shows what it refracts.
+//! window in the capture, so glass shows what it refracts. The capture
+//! includes the window's popups and dialogs (`ui::popup`).
 //! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
 //! the UI language, without saving either.
 //!
-//! macOS only: it captures the window with `CGWindowListCreateImage`, which
+//! macOS only: it captures the window with `CGWindowListCreateImageFromArray`, which
 //! needs no Screen Recording permission for the app's own windows.
 
 use std::cell::Cell;
@@ -82,7 +86,8 @@ pub fn start(cx: &mut App) {
     cx.spawn(async move |cx| {
         wait(cx, 1500).await;
         for page in pages {
-            let (target, tabs) = page.split_once('#').unwrap_or((page.as_str(), ""));
+            let (rest, key) = page.split_once('!').unwrap_or((page.as_str(), ""));
+            let (target, tabs) = rest.split_once('#').unwrap_or((rest, ""));
             let _ = cx.update(|cx| navigate(target, cx));
             // A locked or covered screen stops GPUI's display link, so draw
             // by hand, twice, to pick up images that finish loading.
@@ -98,7 +103,14 @@ pub fn start(cx: &mut App) {
                     force_draw(cx);
                 }
             }
-            let path = dir.join(format!("{}.png", page.replace([':', '@', '#'], "-")));
+            if !key.is_empty() {
+                let _ = cx.update(|cx| press_key(key, cx));
+                for _ in 0..2 {
+                    wait(cx, 200).await;
+                    force_draw(cx);
+                }
+            }
+            let path = dir.join(format!("{}.png", page.replace([':', '@', '#', '!'], "-")));
             let saved = cx.update(|cx| capture(&path, cx)).unwrap_or(false);
             log::info!("snapshot {} -> {} ({})", page, path.display(), saved);
         }
@@ -140,6 +152,14 @@ fn navigate(page: &str, cx: &mut App) {
     if CAPTURE_OVERLAY.replace(false) {
         crate::ui::overlay::hide(cx);
     }
+    if let Some(kind) = page.strip_prefix("toast:") {
+        sample_toast(kind, cx);
+        return;
+    }
+    if let Some(kind) = page.strip_prefix("dialog:") {
+        open_dialog(kind, cx);
+        return;
+    }
     if page == "annotate:latest" {
         if let Some(capture) = scrawl::host::recent_captures(1).first() {
             crate::ui::pages::captures::inspect(capture.dir().to_path_buf(), cx);
@@ -161,6 +181,56 @@ fn navigate(page: &str, cx: &mut App) {
     if let Err(e) = result {
         log::warn!("snapshot: navigation failed: {e}");
     }
+}
+
+fn sample_toast(kind: &str, cx: &mut App) {
+    use crate::ui::toast::{show, ToastAction, ToastKind};
+    let kind = match kind {
+        "info" => ToastKind::Info,
+        "warning" => ToastKind::Warning,
+        _ => ToastKind::Error,
+    };
+    let action = ToastAction {
+        label: "How to fix".into(),
+        on_click: std::rc::Rc::new(|_, _| {}),
+    };
+    show(
+        kind,
+        "Microphone unavailable",
+        Some("Bespoke could not open the selected microphone.".into()),
+        Some(action),
+        cx,
+    );
+}
+
+fn open_dialog(kind: &str, cx: &mut App) {
+    let Some(handle) = crate::ui::main_window_handle(cx) else {
+        return;
+    };
+    let kind = kind.to_string();
+    let _ = handle.update(cx, move |_, window, cx| match kind.as_str() {
+        "whatsnew" => {
+            if let Some(note) = crate::ui::whats_new::latest_release_note() {
+                crate::ui::whats_new::open_modal(note, false, window, cx);
+            }
+        }
+        _ => crate::ui::pages::open_entry_dialog(window, cx),
+    });
+}
+
+/// Presses `key`, like `down` or `space`, in the target window.
+fn press_key(key: &str, cx: &mut App) {
+    let Some(handle) = target_window(cx) else {
+        return;
+    };
+    let Ok(keystroke) = gpui::Keystroke::parse(key) else {
+        log::warn!("snapshot: unknown key {key}");
+        return;
+    };
+    let _ = handle.update(cx, |_, window, cx| {
+        crate::ui::components::set_keyboard_modality(true, window, cx);
+        window.dispatch_keystroke(keystroke, cx);
+    });
 }
 
 /// Moves keyboard focus `count` tab stops forward with focus rings shown.
@@ -243,13 +313,13 @@ fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
 
     #[link(name = "CoreGraphics", kind = "framework")]
     unsafe extern "C" {
-        fn CGWindowListCreateImage(
+        fn CGImageRelease(image: *mut c_void);
+        fn CGWindowListCreate(list: u32, window: u32) -> *const c_void;
+        fn CGWindowListCreateImageFromArray(
             bounds: CGRect,
-            list: u32,
-            window: u32,
+            windows: *const c_void,
             image: u32,
         ) -> *mut c_void;
-        fn CGImageRelease(image: *mut c_void);
     }
     #[link(name = "ImageIO", kind = "framework")]
     unsafe extern "C" {
@@ -276,9 +346,16 @@ fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
             encoding: u32,
         ) -> *const c_void;
         fn CFRelease(value: *const c_void);
+        fn CFArrayGetCount(array: *const c_void) -> isize;
+        fn CFArrayGetValueAtIndex(array: *const c_void, index: isize) -> *const c_void;
+        fn CFArrayCreate(
+            alloc: *const c_void,
+            values: *const *const c_void,
+            count: isize,
+            callbacks: *const c_void,
+        ) -> *const c_void;
     }
 
-    const INCLUDING_WINDOW: u32 = 1 << 3;
     const ON_SCREEN_BELOW_WINDOW: u32 = 1 << 2;
     const BOUNDS_IGNORE_FRAMING: u32 = 1 << 0;
     const UTF8: u32 = 0x0800_0100;
@@ -304,33 +381,66 @@ fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
                 w: frame.size.width,
                 h: frame.size.height,
             };
-            Some((ns_window.windowNumber() as u32, rect))
+            // Popups and dialogs are child windows (`ui::popup`).
+            let children: Vec<u32> = ns_window
+                .childWindows()
+                .map(|children| {
+                    children
+                        .iter()
+                        .filter(|child| child.isVisible())
+                        .map(|child| child.windowNumber() as u32)
+                        .collect()
+                })
+                .unwrap_or_default();
+            Some((ns_window.windowNumber() as u32, rect, children))
         })
         .ok()
         .flatten();
-    let Some((number, frame)) = found else {
+    let Some((number, frame, children)) = found else {
         return false;
     };
 
     // `BESPOKE_DEV_DESKTOP=1` keeps what is on screen below the window, so
     // glass shows what it refracts. It needs the Screen Recording permission.
-    let (list, bounds) = if std::env::var_os("BESPOKE_DEV_DESKTOP").is_some() {
-        (INCLUDING_WINDOW | ON_SCREEN_BELOW_WINDOW, frame)
-    } else {
-        let null_rect = CGRect {
-            x: f64::INFINITY,
-            y: f64::INFINITY,
-            w: 0.,
-            h: 0.,
-        };
-        (INCLUDING_WINDOW, null_rect)
+    let desktop = std::env::var_os("BESPOKE_DEV_DESKTOP").is_some();
+    let null_rect = CGRect {
+        x: f64::INFINITY,
+        y: f64::INFINITY,
+        w: 0.,
+        h: 0.,
     };
     let path_bytes = path.to_string_lossy().into_owned();
     let kind = CString::new("public.png").unwrap();
     // SAFETY: plain CoreGraphics/ImageIO calls; every created object is
     // released before returning.
     unsafe {
-        let image = CGWindowListCreateImage(bounds, list, number, BOUNDS_IGNORE_FRAMING);
+        // The window's popups above it, the window, then (with
+        // `BESPOKE_DEV_DESKTOP`) everything below it, front to back.
+        let below = if desktop {
+            CGWindowListCreate(ON_SCREEN_BELOW_WINDOW, number)
+        } else {
+            std::ptr::null()
+        };
+        let mut ids: Vec<*const c_void> = children
+            .iter()
+            .chain(std::iter::once(&number))
+            .map(|&id| id as usize as *const c_void)
+            .collect();
+        if !below.is_null() {
+            for index in 0..CFArrayGetCount(below) {
+                ids.push(CFArrayGetValueAtIndex(below, index));
+            }
+            CFRelease(below);
+        }
+        let windows = CFArrayCreate(
+            std::ptr::null(),
+            ids.as_ptr(),
+            ids.len() as isize,
+            std::ptr::null(),
+        );
+        let bounds = if desktop { frame } else { null_rect };
+        let image = CGWindowListCreateImageFromArray(bounds, windows, BOUNDS_IGNORE_FRAMING);
+        CFRelease(windows);
         if image.is_null() {
             return false;
         }

@@ -802,6 +802,12 @@ fn open_entry_dialog(editing: Option<EntryRef>, window: &mut Window, cx: &mut Ap
     });
 }
 
+/// Opens the Add new dialog, for dev snapshots.
+#[cfg(debug_assertions)]
+pub(super) fn dev_open_entry_dialog(window: &mut Window, cx: &mut App) {
+    open_entry_dialog(None, window, cx);
+}
+
 /// Adds or edits a dictionary entry. With "Write instead" empty it saves a
 /// word, otherwise a snippet, and an edit that changes the kind moves the
 /// entry to the other list. Enter in the phrase field saves.

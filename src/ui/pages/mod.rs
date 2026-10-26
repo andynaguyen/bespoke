@@ -125,6 +125,12 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
     }
 }
 
+/// Opens the dictionary's Add new dialog, for dev snapshots.
+#[cfg(debug_assertions)]
+pub fn open_entry_dialog(window: &mut Window, cx: &mut App) {
+    dictate::dev_open_entry_dialog(window, cx);
+}
+
 /// Switches a page's tab by id (Settings, Dictate and Stats tabs), for dev
 /// snapshots.
 #[cfg(debug_assertions)]

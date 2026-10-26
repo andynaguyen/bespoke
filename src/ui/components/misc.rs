@@ -231,7 +231,8 @@ pub fn width_tracker<T: 'static>(
 
 type TooltipBuilder = std::rc::Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 
-/// Hover tooltip, styled like `ui/Tooltip.tsx`.
+/// Hover tooltip, styled like `ui/Tooltip.tsx`. In the main window it is a
+/// glass popup (`ui::popup`).
 pub struct Tooltip {
     build: TooltipBuilder,
 }
@@ -259,6 +260,32 @@ impl Tooltip {
 impl Render for Tooltip {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
+        if crate::ui::popup::hosts(window, cx) {
+            // GPUI places this element at the pointer; the tooltip itself is a
+            // glass popup there that lets clicks through.
+            let build = self.build.clone();
+            let spec = crate::ui::popup::Spec {
+                placement: crate::ui::popup::Placement::At,
+                width: None,
+                frame_radius: Some(crate::ui::theme::radius::ROW),
+                interactive: false,
+            };
+            return div()
+                .size(px(1.))
+                .child(crate::ui::popup::anchor(
+                    "tooltip",
+                    spec,
+                    move |window, cx| {
+                        crate::ui::popup::surface("tooltip", crate::ui::theme::radius::ROW)
+                            .max_w(px(200.))
+                            .px_3()
+                            .py_2()
+                            .child(build(window, cx))
+                            .into_any_element()
+                    },
+                ))
+                .into_any_element();
+        }
         let content = (self.build)(window, cx);
         div()
             .max_w(px(200.))
@@ -271,5 +298,6 @@ impl Render for Tooltip {
             .shadow(shadow_lg())
             .text_color(p.text)
             .child(content)
+            .into_any_element()
     }
 }

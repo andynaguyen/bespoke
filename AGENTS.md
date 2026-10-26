@@ -57,6 +57,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `overlay.rs` - Recording overlay window and view
 - `capsule.rs` - The capsule dictation and Annotate share: its glass surface, live dot, spinner, chips and colors
 - `glass.rs` - Liquid Glass behind GPUI elements: `glass(id, style, radius)` keeps an `NSGlassEffectView` under an element's bounds, below GPUI's Metal view. Anything GPUI paints over that area covers the glass, so leave it unpainted
+- `popup.rs` - Dropdown menus, toasts, tooltips and dialogs on Liquid Glass. Each gets a borderless child window of the main window, because glass can't show through GPUI's drawing in the same window. The main window paints an `anchor` for each menu, toast or tooltip every frame, and a frame without one hides it. These popups never take keyboard focus, so their click handlers reach the main window through `in_host`. A dialog is a key window over the whole main window (`DialogWindow`)
 - `hover_card.rs` - A hover card on Liquid Glass, like a heatmap day's. Glass can't float over GPUI's drawing in the same window, so the card is one shared transparent window that `show` moves over the anchor
 - `theme.rs` - Palette for light and dark mode, and the corner radii (`radius`)
 
