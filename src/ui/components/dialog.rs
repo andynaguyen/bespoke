@@ -1,5 +1,9 @@
 //! `ui/Dialog.tsx`: a modal panel over a dimmed backdrop. Escape, the close
 //! button and a click on the backdrop all dismiss it.
+//!
+//! On macOS a dialog has a window of its own over the main window
+//! (`ui::popup::DialogWindow`), and the panel sits on glass there. The main
+//! window dims itself under it, so the backdrop here stays clear.
 
 use std::rc::Rc;
 
@@ -10,7 +14,8 @@ use gpui::{
 
 use super::RowDirection;
 use super::{icon, KeyboardFocus, Typography};
-use crate::ui::theme::{palette, shadow_xl, Alpha};
+use crate::ui::glass::{glass, GlassStyle};
+use crate::ui::theme::{palette, radius, shadow_xl, Alpha};
 
 type CloseHandler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -81,6 +86,7 @@ impl RenderOnce for Dialog {
         let wide = viewport.width >= px(640.);
         let margin = if wide { rems(1.5) } else { rems(1.) };
         let max_height = viewport.height - margin.to_pixels(window.rem_size()) * 2.;
+        let on_glass = cfg!(target_os = "macos") && !crate::ui::popup::hosts(window, cx);
 
         let close_backdrop = self.on_close.clone();
         let close_key = self.on_close.clone();
@@ -107,7 +113,7 @@ impl RenderOnce for Dialog {
             .row_dir()
             .items_center()
             .justify_center()
-            .bg(gpui::black().a(0.5))
+            .when(!on_glass, |el| el.bg(gpui::black().a(0.5)))
             .p(margin)
             .occlude()
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
@@ -129,12 +135,18 @@ impl RenderOnce for Dialog {
                     .w_full()
                     .max_w(self.max_width)
                     .max_h(max_height)
+                    .relative()
                     .overflow_hidden()
-                    .rounded(crate::ui::theme::radius::PANEL)
-                    .border_1()
-                    .border_color(p.line)
-                    .bg(p.background)
-                    .shadow(shadow_xl())
+                    .rounded(radius::PANEL)
+                    .when(on_glass, |el| {
+                        el.child(glass("dialog", GlassStyle::Regular, radius::PANEL))
+                    })
+                    .when(!on_glass, |el| {
+                        el.border_1()
+                            .border_color(p.line)
+                            .bg(p.background)
+                            .shadow(shadow_xl())
+                    })
                     .text_color(p.text)
                     .child(
                         div()

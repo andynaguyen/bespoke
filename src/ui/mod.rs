@@ -19,6 +19,7 @@ pub mod onboarding;
 pub mod overlay;
 pub mod pages;
 pub mod platform;
+pub mod popup;
 pub mod shell;
 pub mod stores;
 pub mod theme;
