@@ -460,7 +460,7 @@ pub fn target_label(target: &TargetInfo) -> String {
 
 pub fn summary_markdown(bundle: &ScrawlBundle, bundle_dir: &std::path::Path) -> String {
     let mut out = format!(
-        "[scrawl {} · {} · {}]\n",
+        "[Bespoke annotation {} · {} · {}]\n",
         format_clock(bundle.duration_ms),
         target_label(&bundle.target),
         bundle_dir.display()
@@ -1283,7 +1283,7 @@ mod tests {
         assert!(tl.contains("— frame #1"));
 
         let summary = summary_markdown(&bundle, std::path::Path::new("/recordings/test"));
-        assert!(summary.starts_with("[scrawl 0:14 · App “Window” · /recordings/test]"));
+        assert!(summary.starts_with("[Bespoke annotation 0:14 · App “Window” · /recordings/test]"));
         assert!(summary.contains("Note: Simplify it."));
         assert!(summary.contains("- #1 (0:05) “This row is too dense.”"));
         assert!(!summary.contains("No transcript"));

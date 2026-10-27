@@ -595,7 +595,7 @@ mod tests {
         assert!(content[0]["text"]
             .as_str()
             .unwrap()
-            .starts_with("[scrawl 0:07 · Slack · scrawl-1-a]"));
+            .starts_with("[Bespoke annotation 0:07 · Slack · scrawl-1-a]"));
         assert_eq!(content[1]["mimeType"], "image/png");
         let png = base64::engine::general_purpose::STANDARD
             .decode(content[1]["data"].as_str().unwrap())

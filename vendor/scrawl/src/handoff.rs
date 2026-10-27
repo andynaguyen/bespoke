@@ -683,7 +683,7 @@ mod tests {
         fs::write(dir.join("contact-sheet.png"), b"sheet").unwrap();
         let capture = Capture::find(&fixture.0, "scrawl-1-a").unwrap();
 
-        assert!(capture.summary().starts_with("[scrawl 0:07 · Display · scrawl-1-a]"));
+        assert!(capture.summary().starts_with("[Bespoke annotation 0:07 · Display · scrawl-1-a]"));
         assert!(capture.contact_sheet(false).unwrap().ends_with("contact-sheet.png"));
         // Without autocrop the frames are already full size.
         assert!(capture.contact_sheet(true).unwrap().ends_with("contact-sheet.png"));

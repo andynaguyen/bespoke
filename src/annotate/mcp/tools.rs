@@ -30,7 +30,7 @@ pub fn list() -> Value {
         {
             "name": "get_capture",
             "title": "Get capture",
-            "description": "Read an Annotate capture: the summary of its keyframes, with what was said and done at each, and the contact sheet showing every keyframe. Start here when a message contains a capture or mentions something the user just recorded.",
+            "description": "Read an Annotate capture: the summary of its keyframes, with what was said and done at each, and the contact sheet showing every keyframe. Start here when a message contains a capture/Bespoke annotation or mentions something the user just recorded.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
