@@ -1,28 +1,25 @@
 //! A segmented control: a few options side by side in a track, the selected
-//! one raised in clay. Reads as a filter, where `Tabs` reads as navigation.
+//! one raised in muted clay. Reads as a filter, where `Tabs` reads as
+//! navigation.
 //!
-//! Picking another option slides the thumb over like Liquid Glass: it lifts
-//! into a clear lens that swells and stretches as it travels, overshoots a
-//! little, and settles back into the clay thumb.
+//! Picking another option slides the thumb over to it, a little past it and
+//! back, while it takes on the new option's width.
 
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use gpui::{
-    div, linear_color_stop, linear_gradient, prelude::*, px, App, Bounds, ElementId, FontWeight,
-    Hsla, Pixels, SharedString, Window,
-};
+use gpui::{div, prelude::*, px, App, Bounds, ElementId, FontWeight, Pixels, SharedString, Window};
 
 use super::RowDirection;
 use super::{KeyboardFocus, Typography};
 use crate::ui::clay::Clay;
-use crate::ui::theme::{palette, Alpha, Palette, CONTROL_HEIGHT};
+use crate::ui::theme::{palette, Alpha, CONTROL_HEIGHT};
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 
 /// The gap between the track's edge and the thumb.
 const TRACK_PADDING: f32 = 3.;
-/// The thumb's height when it rests.
+/// The thumb's height.
 const THUMB_HEIGHT: f32 = 26.;
 /// How long the thumb takes to move to another option.
 const SLIDE: Duration = Duration::from_millis(250);
@@ -75,43 +72,27 @@ impl Slide {
         self.spans.last().map_or(0., |span| span.left + span.width)
     }
 
-    /// Where the thumb is `progress` of the way from `from` to `to`, with
-    /// how much it has lifted off the track (0 at rest, 1 at the peak). It
-    /// may swell a few points past the row's ends, `0..end`, but no further.
-    fn at(from: Span, to: Span, end: f32, progress: f32) -> (Span, f32) {
+    /// Where the thumb is `progress` of the way from `from` to `to`. Its
+    /// overshoot stays inside the row of options, `0..end`.
+    fn at(from: Span, to: Span, end: f32, progress: f32) -> Span {
         let travel = travel(progress);
-        // Lifts while it travels and is back on the track before it settles.
-        let lift = (std::f32::consts::PI * (progress / 0.85).min(1.))
-            .sin()
-            .max(0.);
-        let distance = (to.left - from.left).abs();
         let width = from.width + (to.width - from.width) * travel;
-        // Swells, and stretches along its path while it moves fastest.
-        let width = width * (1. + 0.14 * lift) + distance * 0.18 * lift;
         let center = from.left
             + from.width / 2.
             + (to.left + to.width / 2. - from.left - from.width / 2.) * travel;
-        let reach = 5. * lift;
-        let left = (center - width / 2.).max(-reach);
-        let right = (center + width / 2.).min(end + reach);
-        (
-            Span {
-                left,
-                width: (right - left).max(0.),
-            },
-            lift,
-        )
+        let left = (center - width / 2.).max(0.);
+        let right = (center + width / 2.).min(end);
+        Span {
+            left,
+            width: (right - left).max(0.),
+        }
     }
 }
 
 /// Debug builds: `BESPOKE_DEV_SLIDE=<0..1>` holds every thumb that far along
 /// a slide from the first option to the selected one, for dev snapshots.
 #[cfg(debug_assertions)]
-fn dev_slide(
-    state: &gpui::Entity<Slide>,
-    selected: Option<usize>,
-    cx: &App,
-) -> Option<(Span, f32)> {
+fn dev_slide(state: &gpui::Entity<Slide>, selected: Option<usize>, cx: &App) -> Option<Span> {
     let progress: f32 = std::env::var("BESPOKE_DEV_SLIDE").ok()?.parse().ok()?;
     let spans = &state.read(cx).spans;
     let to = *spans.get(selected?)?;
@@ -157,7 +138,7 @@ impl RenderOnce for SegmentedControl {
                     (Some((from, started)), Some(previous)) => {
                         let progress =
                             now.duration_since(started).as_secs_f32() / SLIDE.as_secs_f32();
-                        (progress < 1.).then(|| Slide::at(from, previous, slide.end(), progress).0)
+                        (progress < 1.).then(|| Slide::at(from, previous, slide.end(), progress))
                     }
                     _ => None,
                 }
@@ -224,7 +205,14 @@ impl RenderOnce for SegmentedControl {
                         });
                     })
                     .child(match thumb {
-                        Some((span, lift)) => lens(span, lift, &p).into_any_element(),
+                        Some(span) => div()
+                            .absolute()
+                            .top_0()
+                            .left(px(span.left))
+                            .w(px(span.width))
+                            .h(px(THUMB_HEIGHT))
+                            .muted_clay(p.clay, THUMB_HEIGHT, px(THUMB_HEIGHT / 2.), p.is_dark)
+                            .into_any_element(),
                         None => div().absolute().size_0().into_any_element(),
                     })
                     .children(
@@ -233,7 +221,7 @@ impl RenderOnce for SegmentedControl {
                             .enumerate()
                             .map(|(index, (id, label))| {
                                 let selected = id == self.selected;
-                                // While the lens travels it stands in for the thumb.
+                                // While the thumb slides, it draws apart from the options.
                                 let raised = selected && thumb.is_none();
                                 let on_select = self.on_select.clone();
                                 div()
@@ -248,7 +236,7 @@ impl RenderOnce for SegmentedControl {
                                     .cursor_pointer()
                                     .keyboard_focus(cx)
                                     .when(raised, |el| {
-                                        el.clay(
+                                        el.muted_clay(
                                             p.clay,
                                             THUMB_HEIGHT,
                                             px(THUMB_HEIGHT / 2.),
@@ -268,61 +256,6 @@ impl RenderOnce for SegmentedControl {
     }
 }
 
-/// The thumb in flight: the clay thumb thins into clear glass with a
-/// bright rim and a sheen across its top, and it grows past the track.
-fn lens(span: Span, lift: f32, p: &Palette) -> impl IntoElement {
-    let height = THUMB_HEIGHT * (1. + 0.42 * lift);
-    // The clay is gone by 40% of the lift, since its drop shadow would show
-    // through the glass.
-    let clay = (1. - lift / 0.4).clamp(0., 1.);
-    // Glass brightens what is under it, so the lens never goes darker than
-    // the track.
-    let fill: Hsla = if p.is_dark {
-        gpui::white().a(0.15 - 0.05 * lift)
-    } else {
-        gpui::white().a(0.92 - 0.55 * lift)
-    };
-    let rim = gpui::white().a(if p.is_dark {
-        0.14 + 0.5 * lift
-    } else {
-        0.6 + 0.4 * lift
-    });
-    div()
-        .absolute()
-        .left(px(span.left))
-        .top(px((THUMB_HEIGHT - height) / 2.))
-        .w(px(span.width))
-        .h(px(height))
-        .rounded_full()
-        .bg(fill)
-        .border_1()
-        .border_color(rim)
-        .when(clay > 0., |el| {
-            // Over the rim too, so at rest it matches the thumb it becomes.
-            el.child(
-                div()
-                    .absolute()
-                    .top(px(-1.))
-                    .left(px(-1.))
-                    .right(px(-1.))
-                    .bottom(px(-1.))
-                    .clay(p.clay, height, px(height / 2.), p.is_dark)
-                    .opacity(clay),
-            )
-        })
-        .child(
-            div()
-                .absolute()
-                .inset_0()
-                .rounded_full()
-                .bg(linear_gradient(
-                    180.,
-                    linear_color_stop(gpui::white().a(0.35 * lift), 0.),
-                    linear_color_stop(gpui::white().a(0.), 0.55),
-                )),
-        )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,20 +271,20 @@ mod tests {
 
     #[test]
     fn slide_starts_and_ends_on_the_options() {
-        let (start, lift) = Slide::at(FROM, TO, 210., 0.);
-        assert!((start.left - FROM.left).abs() < 0.01 && lift.abs() < 0.01);
-        let (end, lift) = Slide::at(FROM, TO, 210., 1.);
+        let start = Slide::at(FROM, TO, 210., 0.);
+        assert!((start.left - FROM.left).abs() < 0.01);
+        assert!((start.width - FROM.width).abs() < 0.01);
+        let end = Slide::at(FROM, TO, 210., 1.);
         assert!((end.left - TO.left).abs() < 0.01);
         assert!((end.width - TO.width).abs() < 0.01);
-        assert!(lift.abs() < 0.01);
     }
 
     #[test]
-    fn lens_swells_mid_slide_but_stays_near_the_track() {
-        let (span, lift) = Slide::at(FROM, TO, 210., 0.4);
-        assert!(lift > 0.9);
-        assert!(span.width > TO.width.max(FROM.width));
-        assert!(span.left >= -5. && span.left + span.width <= 215.);
+    fn overshoot_stays_inside_the_row() {
+        for i in 0..=100 {
+            let span = Slide::at(FROM, TO, 210., i as f32 / 100.);
+            assert!(span.left >= 0. && span.left + span.width <= 210.01);
+        }
     }
 
     #[test]

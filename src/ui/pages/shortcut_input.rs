@@ -526,7 +526,7 @@ impl ShortcutInput {
                 )
                 .child(text)
         } else {
-            chip.clay(p.clay, 26., px(6.), p.is_dark)
+            chip.muted_clay(p.clay, 26., px(6.), p.is_dark)
                 .hover(|s| s.bg(mix(p.clay, p.text, 0.05)))
                 .cursor_pointer()
                 .keyboard_focus(cx)
