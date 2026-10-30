@@ -1,92 +1,137 @@
-# Bespoke
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/bespoke-logo-clay-dark.png">
+    <img src="assets/bespoke-logo-clay-light.png" alt="Bespoke" width="240">
+  </picture>
+</p>
 
-Bespoke is a speech-to-text dictation app for macOS. It records while you hold or tap a shortcut, transcribes on your machine with a local model, and pastes the text into the app in front. It is written in Rust with [GPUI](https://www.gpui.rs/), Zed's UI framework.
+Bespoke is a speech-to-text dictation app for macOS. It records while you hold or tap a shortcut, transcribes on your Mac with a local model, and pastes the text into the app in front. Audio never leaves your Mac. It is written in Rust with [GPUI](https://www.gpui.rs/), Zed's UI framework.
 
-## Build and run
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/history-dark.png">
+  <img src="docs/screenshots/history-light.png" alt="The History tab: past transcriptions, with the selected one's transcript, recording and actions in the inspector">
+</picture>
 
-```bash
-cargo run                        # debug build
-cargo run -- --start-hidden      # pass CLI flags after --
-cargo test
-```
+## Screenshots
 
-If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`. GPUI uses the `runtime_shaders` feature, so the build does not need Xcode's Metal compiler.
-
-Development builds keep file and line numbers in Bespoke backtraces and full debug information for the vendored `handy-keys` crate. Other dependencies build without debug information, which shortens clean builds. Run `CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a debugger. Dependency backtraces have no file or line numbers. To step through dependency source or inspect its local variables, remove the `[profile.dev.package."*"]` section from `Cargo.toml`.
-
-`scripts/benchmark-build.py` times a clean development build, then a rebuild after touching `src/startup.rs`:
-
-```bash
-cargo fetch --locked
-python3 scripts/benchmark-build.py --output target/build-times/my-run
-```
-
-The output directory must not exist yet. The script builds offline in a new, empty target directory, checks that Cargo compiled the `bespoke` binary, and runs it with `--help`. It writes timings and compiler output to the output directory, then deletes the target directory. Pass `--keep-target` to keep it.
-
-## Annotate
-
-Annotate is [Scrawl](https://github.com/kitlangton/scrawl) inside Bespoke (macOS only). Tap `⌥⇧S` to record the screen under the pointer while you talk, hold `⇧` and move to draw, and tap `⌥⇧S` again to finish. Hold `⌥⇧S` to pick an area, a window or the screen instead. The capture's contact sheet and `summary.md` go to the clipboard, and `⌥⇧V` pastes them into the app in front. The Annotate page holds both shortcuts, the microphone, how long captures are kept, and the Screen Recording, Microphone and Accessibility permissions.
-
-The build compiles `scrawl-helper` (Swift: Apple Speech transcription, keyframe decoding, the permission checks) beside the `bespoke` binary, and `scripts/install-local.sh` copies it into the app.
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overlay-dark.png">
+        <img src="docs/screenshots/overlay-light.png" alt="The recording overlay showing words as they are spoken">
+      </picture>
+      The overlay shows the words as you speak, with streaming models.
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/capsule-dark.png">
+        <img src="docs/screenshots/capsule-light.png" alt="Annotate's capsule while recording, with Undo, Cancel and Finish">
+      </picture>
+      Annotate's capsule while it records your screen, voice and marks.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dictionary-dark.png">
+        <img src="docs/screenshots/dictionary-light.png" alt="The Dictionary tab with replacements and words">
+      </picture>
+      Replacements and words fix what the model gets wrong.
+    </td>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/style-dark.png">
+        <img src="docs/screenshots/style-light.png" alt="The Style tab with Formal, Casual and Very casual styles and per-app rules">
+      </picture>
+      Style sets capitalization and punctuation per app.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stats-dark.png">
+        <img src="docs/screenshots/stats-light.png" alt="Stats with words per minute, words dictated, dictations and a daily heatmap">
+      </picture>
+      Stats counts your words, dictations and streaks.
+    </td>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/models-dark.png">
+        <img src="docs/screenshots/models-light.png" alt="The Models page with downloaded and available transcription models">
+      </picture>
+      Models downloads and switches local transcription models.
+    </td>
+  </tr>
+</table>
 
 ## Install
 
-`scripts/install-local.sh` builds a release, bundles `Bespoke.app`, signs it, and installs it to `/Applications`. It signs with the "Bespoke Local Signing" identity. Set `BESPOKE_SIGNING_IDENTITY` to sign with another codesign identity. A stable identity keeps the Accessibility and Microphone grants across reinstalls.
+Bespoke runs on macOS with Apple Silicon. Annotate needs macOS 26.
 
-Run `scripts/create-signing-identity.sh` once per Mac to add that self-signed identity to the login keychain. `--no-build` reinstalls the last build.
+1. Download `Bespoke-<version>.zip` from the [latest release](https://github.com/andynaguyen/bespoke/releases/latest).
+2. Open the zip and drag Bespoke to Applications.
+3. Open Bespoke. macOS says it can't check the app for malicious software, because the app isn't notarized.
+4. Open System Settings > Privacy & Security, scroll down, and click Open Anyway.
 
-## Where things live
+You only do this once. Bespoke checks for updates and installs them itself.
 
-| Path | Contents |
-| --- | --- |
-| `src/main.rs`, `src/startup.rs` | CLI parsing, logging, and app setup |
-| `src/app_handle.rs` | App state, events, data paths, and the settings store |
-| `src/managers/` | Audio recording, model downloads, transcription, and history |
-| `src/audio_toolkit/` | Device enumeration, recording, resampling, and voice activity detection |
-| `src/shortcut/` | Global shortcuts (`handy-keys` and `global-hotkey` backends) |
-| `src/annotate.rs`, `vendor/scrawl/` | Annotate: the parts of Scrawl's screen, voice and ink capture that Annotate runs. `vendor/scrawl/BESPOKE.md` lists what was kept and changed |
-| `src/overlay.rs`, `src/ui/overlay.rs` | The recording overlay: backend entry points, then the window and view |
-| `src/tray.rs` | The menu bar icon and menu |
-| `src/ui/shell/` | The main window: sidebar, footer, and banners |
-| `src/ui/glass.rs`, `src/ui/capsule.rs` | Liquid Glass under GPUI elements, and the capsule dictation and Annotate share |
-| `src/ui/pages/` | Sidebar pages, with single-setting rows in `rows.rs` |
-| `src/ui/components/` | Buttons, toggles, sliders, dropdowns, dialogs, and other controls |
-| `src/ui/onboarding/` | First-run permission and model screens |
-| `src/ui/stores/` | Shared UI state as GPUI entities |
+On first launch Bespoke asks for two permissions:
 
-Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
+- **Microphone**, to record you.
+- **Accessibility**, for the global shortcut and to paste into the app in front.
 
-## Translations
+Then pick a transcription model. Bespoke downloads it from Hugging Face, and transcription runs offline after that. Annotate also asks for Screen Recording the first time you use it.
 
-UI and tray strings live in `locales/<language>/translation.json`. `build.rs` embeds every locale. English is the source: add new keys to `locales/en/translation.json`.
+### Build from source
 
-## Release notes
-
-What's New reads `release-notes/<version>.md`. Put images in `release-notes/images/` and reference them as `/release-notes/images/<file>`. `build.rs` embeds both folders, and either may be missing.
-
-## Dev snapshots
-
-Debug builds can render pages to PNG files without clicking through the app:
+You need Rust, cmake (`brew install cmake`) and Xcode 26 or its Command Line Tools.
 
 ```bash
-BESPOKE_DEV_SNAPSHOT=/tmp/shots \
-BESPOKE_DEV_PAGES=dictate:history,settings:system,debug@900,onboarding:model,overlay:streaming \
-BESPOKE_DEV_THEME=dark \
-cargo run
+git clone https://github.com/andynaguyen/bespoke.git
+cd bespoke
+scripts/create-signing-identity.sh   # once per Mac
+scripts/install-local.sh
 ```
 
-Pages are sidebar sections, `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, `onboarding:accessibility|model`, `overlay:<state>` (see `ui::overlay::dev_preview`), `capsule:<form>` for Annotate's capsule (see `annotate::capsule::dev_preview`), and `annotate:latest`, which opens the newest capture. `scrawl:choose` opens Annotate's picker and captures the whole main display, which needs the Screen Recording permission. An `@<px>` suffix scrolls the page first. `#<n>` presses Tab n times with focus rings shown, and focus carries over between pages. `!<key>` then presses a key, so `settings:appearance#12!down` opens the language menu. `toast:error|info|warning` shows a sample toast over the current page, `dialog:entry` opens the dictionary's Add replacement dialog, and `dialog:word` its Add word dialog. Captures include the main window's popups and dialog windows. `BESPOKE_DEV_LANGUAGE=ar` renders in another language, which checks right-to-left layout. A window capture has nothing behind its glass, so glass looks flat in it. `BESPOKE_DEV_BACKDROP=<png>` fills each window behind its glass with an image, and `BESPOKE_DEV_DESKTOP=1` keeps what is on screen behind the window in the capture. `BESPOKE_DEV_SLIDE=0.5` holds every segmented control's thumb halfway through its slide from the first option to the selected one. `BESPOKE_DEV_UPDATE=1.1.0` shows the sidebar's update card for that version. Snapshots work on macOS only, and they keep working with the screen locked.
+`install-local.sh` builds a release, signs it with a self-signed identity in your login keychain, and installs it to `/Applications/Bespoke.app`. A stable signing identity keeps the Microphone and Accessibility grants when you reinstall. A local build doesn't update itself. Pull and run the script again to update.
 
-## GPUI layout notes
+## Use it
 
-The UI sets a 15px root size, so GPUI's rem-based helpers (`p_4`, `gap_3`, `rounded_lg`) follow Tailwind's spacing scale at 15px per rem. GPUI differs from a browser in these ways:
+Hold `⌥Space` and talk, then let go. Bespoke transcribes what you said and pastes it into the app in front. Tap `⌥Space` instead to start recording, and tap it again to stop. Change the shortcut, or make it hold-only or tap-only, in Settings.
 
-- Block layout does not reliably stretch flex children. Lists and wrappers whose rows must span the full width use `.flex().flex_col()`.
-- Text reports its unwrapped width as its minimum, so a text column in a flex row needs `.flex_1().min_w_0()` to wrap.
-- `Window::refresh` does nothing while a frame draws. Layouts that depend on their own width use `components::width_tracker`, which re-renders after the frame.
-- `svg()` paints nothing without an explicit color. Use `components::icon`, which paints with the inherited text color.
-- A glyph drawn in a zero-alpha color comes out dark. Hide text by painting it in the background color.
-- AppKit calls that can call back into GPUI (showing, hiding or activating windows, changing the appearance) run on the next main-thread turn through `cx.foreground_executor()`, or GPUI panics on a re-entrant borrow.
+The Dictate page has three tabs:
+
+- **Dictionary.** Words are names and terms Bespoke gets wrong. A replacement writes your text whenever you say a phrase, like your email address for "my email".
+- **Style.** How much capitalization and punctuation each app gets. Apps without a rule get Formal.
+- **History.** Each transcription, with its recording.
+
+Post-processing is off by default. Turn it on to send each transcript, never the audio, to an OpenAI-compatible API with a prompt of your choice.
+
+### Annotate
+
+Annotate is [Scrawl](https://github.com/kitlangton/scrawl) inside Bespoke. It records a bug report for a coding agent: your screen, what you say, and what you draw on it.
+
+- Tap `⌥⇧S` to record the screen under the pointer while you talk. Hold `⇧` and move the pointer to draw. Tap `⌥⇧S` again to finish.
+- Hold `⌥⇧S` to pick an area, a window or the screen instead.
+- `⌥⇧V` pastes the capture's contact sheet and `summary.md` into the app in front.
+
+The Annotate page holds both shortcuts, the microphone, and how long Bespoke keeps captures. The MCP page turns on Agent Access, an MCP server that lets Claude Code and Codex read your captures, and shows the setup to copy.
+
+### Command line
+
+A second `bespoke` launch sends its flags to the running app, so you can bind these to other tools:
+
+```bash
+/Applications/Bespoke.app/Contents/MacOS/bespoke --toggle-transcription
+/Applications/Bespoke.app/Contents/MacOS/bespoke --cancel
+```
+
+`--transcribe-file <WAV>` transcribes a 16 kHz mono WAV and exits. `--help` lists every flag.
+
+## Data
+
+Settings, history, recordings and Annotate captures live in `~/Library/Application Support/com.andynguyen.bespoke`, and logs in `~/Library/Logs/com.andynguyen.bespoke`. Delete those folders to reset Bespoke. Downloaded models go to the Hugging Face cache, `~/.cache/huggingface/hub`, which other tools that use Hugging Face models share.
 
 ## Known limitations
 
@@ -97,8 +142,12 @@ The UI sets a 15px root size, so GPUI's rem-based helpers (`p_4`, `gap_3`, `roun
 - **Overlay window lifetime.** The overlay window opens on each show and closes 300ms after hiding. Its pop-in fades without a scale effect, because GPUI cannot scale an element.
 - **Right-to-left languages.** Rows, margins and the toggle knob mirror. Text inputs keep left-aligned text, the slider and the recording seek bar stay left to right, and long wrapped Arabic or Hebrew lines can clip at the left edge (GPUI's bidi line wrapping).
 - **Shortcut recorder on Windows and Linux.** Key names come from the logical key, so numpad keys and non-US layouts can store different names than the physical key.
-- **Packaging.** There are no installers or release signing. `scripts/install-local.sh` builds a locally signed app for this machine.
+- **Signing.** Releases are signed with a self-signed identity and aren't notarized, so macOS asks you to approve the first launch.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) to set up a build, find your way around the code, and send a pull request.
 
 ## License
 
-MIT. Bespoke started as a fork of Handy by CJ Pais; see LICENSE.
+MIT. Bespoke started as a fork of [Handy](https://github.com/cjpais/Handy) by CJ Pais; see [LICENSE](LICENSE).
