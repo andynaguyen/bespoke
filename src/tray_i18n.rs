@@ -19,6 +19,9 @@ pub struct TrayStrings {
     pub annotate_record: String,
     pub annotate_choose: String,
     pub annotate_open_latest: String,
+    pub check_for_updates: String,
+    /// "Update to {{version}}…"
+    pub update_to: String,
 }
 
 /// Get localized tray menu strings for `locale` (the `app_language` setting).
@@ -54,6 +57,8 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
         annotate_record: get_or_en("annotateRecord"),
         annotate_choose: get_or_en("annotateChoose"),
         annotate_open_latest: get_or_en("annotateOpenLatest"),
+        check_for_updates: get_or_en("checkForUpdates"),
+        update_to: get_or_en("updateTo"),
     }
 }
 

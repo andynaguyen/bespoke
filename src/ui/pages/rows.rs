@@ -881,6 +881,57 @@ pub fn show_whats_new(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
+/// The running version, and Update or Check Now (`crate::updater`).
+pub fn update_status() -> AnyElement {
+    let version = env!("CARGO_PKG_VERSION");
+    let enabled = crate::updater::is_enabled();
+    let pending = crate::updater::pending_version();
+    let description = match (&pending, enabled) {
+        (Some(new), _) => t_with("settings.updates.available", &[("version", new)]),
+        (None, false) => t("settings.updates.disabled"),
+        (None, true) => match crate::updater::last_checked() {
+            Some(time) => {
+                let time = chrono::DateTime::<chrono::Local>::from(time);
+                let when = format!(
+                    "{}, {}",
+                    crate::ui::dates::day_label(time.date_naive()),
+                    crate::ui::dates::time_label(time)
+                );
+                t_with("settings.updates.lastChecked", &[("when", &when)])
+            }
+            None => t("settings.updates.neverChecked"),
+        },
+    };
+    let (variant, label) = if pending.is_some() {
+        (ButtonVariant::Primary, "settings.updates.update")
+    } else {
+        (ButtonVariant::Secondary, "settings.updates.checkNow")
+    };
+    SettingContainer::new(t_with("settings.updates.version", &[("version", &version)]))
+        .description(description)
+        .child(
+            Button::new("update-check")
+                .variant(variant)
+                .size(ButtonSize::Sm)
+                .disabled(!enabled)
+                .on_click(|_, _, _| crate::updater::check_now())
+                .child(t(label)),
+        )
+        .into_any_element()
+}
+
+/// Whether Sparkle checks once a day. Sparkle stores the choice itself.
+pub fn automatic_updates() -> AnyElement {
+    ToggleSwitchRow::new(
+        "automatic_updates",
+        t("settings.updates.automatic.label"),
+        t("settings.updates.automatic.description"),
+        crate::updater::automatically_checks(),
+    )
+    .on_change(|value, _, _| crate::updater::set_automatically_checks(value))
+    .into_any_element()
+}
+
 pub fn experimental(s: &AppSettings, cx: &App) -> AnyElement {
     toggle(
         "experimental_enabled",

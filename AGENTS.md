@@ -13,6 +13,7 @@ cargo test
 cargo clippy
 cargo fmt
 scripts/install-local.sh     # release build, signed Bespoke.app in /Applications
+npm run build-release        # the zip you share, with Sparkle, in dist/<version>/ (scripts/release.sh)
 ```
 
 If cmake fails on an old policy version, prefix the command with `CMAKE_POLICY_VERSION_MINIMUM=3.5`.
@@ -44,6 +45,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `tray.rs`, `tray_i18n.rs` - Menu bar icon and menu
 - `single_instance.rs` - A second launch forwards its arguments to the running instance over a local socket, then exits
 - `signal_handle.rs` - `send_transcription_input()`, shared by Unix signal handlers and CLI flags
+- `updater.rs` - Self-updates through Sparkle (macOS). Only builds from `scripts/release.sh` embed `Sparkle.framework`, so `cargo run` and `install-local.sh` builds hide the update UI. A found update shows as a card in the sidebar, a row in Settings > System and an item in the tray menu. `release.sh --publish` posts each release, with its `appcast.xml`, to the public `andynaguyen/bespoke-releases` repo that `SUFeedURL` in `Info.plist` reads
 - `headless.rs` - `--transcribe-file`, `--list-devices`, and `--list-models` without a window
 - `utils.rs` - Platform helpers
 

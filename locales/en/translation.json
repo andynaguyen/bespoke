@@ -10,7 +10,9 @@
     "annotate": "Annotate",
     "annotateRecord": "Record Screen",
     "annotateChoose": "Choose What to Record…",
-    "annotateOpenLatest": "Open Latest Capture"
+    "annotateOpenLatest": "Open Latest Capture",
+    "checkForUpdates": "Check for Updates…",
+    "updateTo": "Update to {{version}}…"
   },
   "sidebar": {
     "models": "Models",
@@ -19,7 +21,12 @@
     "dictate": "Dictate",
     "debug": "Debug",
     "annotate": "Annotate",
-    "mcp": "MCP"
+    "mcp": "MCP",
+    "update": {
+      "available": "Update available",
+      "version": "Version {{version}}",
+      "button": "Update"
+    }
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
@@ -725,6 +732,19 @@
       "appDataDirectory": {
         "title": "App Data Directory",
         "description": "Location where Bespoke stores its data"
+      }
+    },
+    "updates": {
+      "version": "Version {{version}}",
+      "available": "Bespoke {{version}} is available",
+      "lastChecked": "Up to date. Last checked {{when}}",
+      "neverChecked": "Up to date",
+      "disabled": "This build doesn't update itself",
+      "update": "Update",
+      "checkNow": "Check Now",
+      "automatic": {
+        "label": "Check for Updates Automatically",
+        "description": "Bespoke checks once a day"
       }
     }
   },

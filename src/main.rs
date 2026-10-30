@@ -37,6 +37,7 @@ mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
 mod ui;
+mod updater;
 mod utils;
 mod voice_submit;
 mod writing_style;

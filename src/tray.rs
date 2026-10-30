@@ -94,6 +94,10 @@ struct MenuInputs {
     /// `(id, name)` of downloaded models, sorted by name.
     downloaded_models: Vec<(String, String)>,
     locale: String,
+    /// Sparkle is running (`updater::is_enabled`).
+    updates_enabled: bool,
+    /// The version a scheduled check found (`updater::pending_version`).
+    pending_update: Option<String>,
 }
 
 /// Complete description of what the tray should look like.
@@ -361,6 +365,8 @@ fn compute_desired(app: &AppHandle, icon_state: TrayIconState) -> TrayDesired {
             selected_model: settings.selected_model,
             downloaded_models,
             locale: settings.app_language,
+            updates_enabled: crate::updater::is_enabled(),
+            pending_update: crate::updater::pending_version(),
         },
     }
 }
@@ -598,6 +604,13 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         ])?
     };
 
+    // Check for Updates goes right below Settings.
+    if inputs.updates_enabled {
+        let check_i =
+            MenuItem::with_id("check_for_updates", &strings.check_for_updates, true, None);
+        menu.insert(&check_i, annotate_at + 1)?;
+    }
+
     // Annotate's items, which Scrawl kept in its own menu bar item.
     #[cfg(target_os = "macos")]
     {
@@ -619,8 +632,13 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     #[cfg(not(target_os = "macos"))]
     let _ = annotate_at;
 
-    // Both layouts start with [title, separator, ...]; slot the warning in
-    // right below the title line so it's the first actionable thing seen.
+    // Both layouts start with [title, separator, ...]. A found update goes
+    // right below the title, and the warning above it.
+    if let Some(version) = &inputs.pending_update {
+        let label = strings.update_to.replace("{{version}}", version);
+        menu.insert(&MenuItem::with_id("install_update", &label, true, None), 2)?;
+        menu.insert(&separator(), 3)?;
+    }
     let mut tooltip = title_label;
     if let Some(warning_item) = secure_input_warning {
         menu.insert(&warning_item, 2)?;
@@ -746,6 +764,12 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
             crate::ui::show_main_window(cx);
         }
         "copy_last_transcript" => copy_last_transcript(app),
+        // Sparkle's window opens over Bespoke's, which brings the app forward
+        // when it was only in the menu bar.
+        "check_for_updates" | "install_update" => {
+            crate::ui::show_main_window(cx);
+            crate::updater::check_now();
+        }
         #[cfg(target_os = "macos")]
         "annotate_record" => scrawl::host::menu(scrawl::MenuAction::ToggleCapture),
         #[cfg(target_os = "macos")]
@@ -841,6 +865,8 @@ mod tests {
             selected_model: "small".to_string(),
             downloaded_models: vec![("small".to_string(), "Small".to_string())],
             locale: "en".to_string(),
+            updates_enabled: true,
+            pending_update: None,
         }
     }
 

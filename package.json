@@ -1,0 +1,7 @@
+{
+  "name": "bespoke",
+  "private": true,
+  "scripts": {
+    "build-release": "scripts/release.sh"
+  }
+}

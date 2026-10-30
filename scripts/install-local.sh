@@ -5,13 +5,13 @@
 # Signs with $BESPOKE_SIGNING_IDENTITY (default "Bespoke Local Signing", made
 # by scripts/create-signing-identity.sh). A stable identity keeps the
 # Accessibility grant across reinstalls. Pass --no-build to reinstall the last
-# build without rebuilding.
+# build without rebuilding. The app doesn't embed Sparkle, so it never updates
+# itself; scripts/release.sh builds the copy you share.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 APP_NAME="Bespoke"
-IDENTITY="${BESPOKE_SIGNING_IDENTITY:-Bespoke Local Signing}"
 STAGED_APP="target/release/bundle/$APP_NAME.app"
 INSTALLED_APP="/Applications/$APP_NAME.app"
 
@@ -19,35 +19,9 @@ if [[ "${1:-}" != "--no-build" ]]; then
   CMAKE_POLICY_VERSION_MINIMUM=3.5 cargo build --release
 fi
 
-if [[ ! -x target/release/bespoke ]]; then
-  echo "No build found at target/release/bespoke" >&2
-  exit 1
-fi
+scripts/bundle-app.sh
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-
-rm -rf "$STAGED_APP"
-mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
-cp target/release/bespoke "$STAGED_APP/Contents/MacOS/bespoke"
-# Annotate's Swift helper (speech, keyframe decoding, permission checks), built by
-# vendor/scrawl/build.rs beside the binary.
-cp target/release/scrawl-helper "$STAGED_APP/Contents/MacOS/scrawl-helper"
-cp icons/Bespoke.icns "$STAGED_APP/Contents/Resources/Bespoke.icns"
-# The app looks for its sounds, icons and VAD model in Contents/Resources/resources.
-ditto resources "$STAGED_APP/Contents/Resources/resources"
-cp Info.plist "$STAGED_APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy \
-  -c "Set :CFBundleShortVersionString $VERSION" \
-  -c "Set :CFBundleVersion $VERSION" \
-  "$STAGED_APP/Contents/Info.plist"
-
-# Nested code is signed first, or the app's signature fails --strict.
-codesign --force --options runtime --entitlements Entitlements.plist \
-  --identifier com.andynguyen.bespoke.scrawl-helper \
-  --sign "$IDENTITY" "$STAGED_APP/Contents/MacOS/scrawl-helper"
-codesign --force --options runtime --entitlements Entitlements.plist \
-  --sign "$IDENTITY" "$STAGED_APP"
-codesign --verify --strict "$STAGED_APP"
 
 if pgrep -xq bespoke; then
   echo "Quitting $APP_NAME..."
