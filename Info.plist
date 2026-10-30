@@ -33,7 +33,7 @@
   <key>SUFeedURL</key>
   <string>https://github.com/andynaguyen/bespoke/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key>
-  <string>7pVk1ihjBcfpjr4plSDCNAEVzDjtcJ3sjYk6PyOpjuc=</string>
+  <string>W0QlCIjbkE8YBl+URnNkDsyDY/m6uQjStw11bd7VSQM=</string>
   <key>SUEnableAutomaticChecks</key>
   <true/>
   <key>SUScheduledCheckInterval</key>
