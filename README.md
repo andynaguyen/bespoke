@@ -14,7 +14,7 @@ Bespoke is a speech-to-text dictation app for macOS. It records while you hold o
 
 ## Demo
 
-[![A 39-second demo: dictating into a chat, the dictionary, per-app styles, and Annotate sending a bug to a coding agent](docs/screenshots/bespoke-launch-poster.png)](docs/screenshots/bespoke-launch.mp4)
+https://github.com/user-attachments/assets/a4b411af-51da-4ade-a893-a0ed57915ded
 
 ## Install
 
