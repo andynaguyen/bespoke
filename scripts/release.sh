@@ -10,10 +10,11 @@
 # feed's version is newer than the running app's. release-notes/<version>.md,
 # if present, becomes the notes in Sparkle's update window.
 #
-# The release goes to the public repo $BESPOKE_RELEASES_REPO (default
-# andynaguyen/bespoke-releases). Every release attaches appcast.xml, so
+# The release goes to $BESPOKE_RELEASES_REPO (default andynaguyen/bespoke),
+# tagged at HEAD, which must be pushed. Every release attaches appcast.xml, so
 # Info.plist's SUFeedURL, .../releases/latest/download/appcast.xml, always
-# serves the newest one.
+# serves the newest one. The repo must be public, or installed copies can't
+# download the feed.
 #
 # Sparkle signs each zip with the EdDSA key in your login keychain, made by
 # Sparkle's generate_keys. Back it up with
@@ -25,7 +26,7 @@ cd "$(dirname "$0")/.."
 
 SPARKLE_VERSION="2.10.1"
 SPARKLE_SHA256="1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27"
-RELEASES_REPO="${BESPOKE_RELEASES_REPO:-andynaguyen/bespoke-releases}"
+RELEASES_REPO="${BESPOKE_RELEASES_REPO:-andynaguyen/bespoke}"
 
 PUBLISH=false
 BUILD=true
@@ -46,6 +47,10 @@ DOWNLOAD_BASE="${BESPOKE_DOWNLOAD_BASE:-https://github.com/$RELEASES_REPO/releas
 if $PUBLISH; then
   if [[ -n "$(git status --porcelain)" ]]; then
     echo "Commit or stash your changes before publishing, so $TAG matches a commit." >&2
+    exit 1
+  fi
+  if ! git branch -r --contains HEAD | grep -q .; then
+    echo "Push HEAD first: the release tags it on GitHub." >&2
     exit 1
   fi
   if gh release view "$TAG" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
@@ -140,6 +145,7 @@ EOF
 gh release create "$TAG" \
   --repo "$RELEASES_REPO" \
   --title "Bespoke $VERSION" \
+  --target "$(git rev-parse HEAD)" \
   --notes-file "$GH_NOTES" \
   "$DIST/$ZIP_NAME" "$DIST/appcast.xml"
 echo "Published $TAG on $RELEASES_REPO."
