@@ -50,7 +50,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 ### UI (`src/ui/`)
 
 - `shell/` - Main window: sidebar, toolbar, banners, inspector. The window sits on AppKit's window material tinted to the content surface, and the sidebar floats on it as a glass panel inset 8pt. A page's inspector (`Page::inspector`, built with `shell::inspector`) is a glass panel flush with the window's trailing edge at full height, with the inspected item's actions in its top row
-- `pages/` - Sidebar pages. Each implements `pages::Page`, which puts its tabs and actions in the toolbar and picks a layout (`Padded`, `Flush` or `Fill`). `rows.rs` holds the single-setting rows
+- `pages/` - Sidebar pages. Each implements `pages::Page`, which puts its tabs and actions in the toolbar and picks a layout (`Padded` or `Fill`). `rows.rs` holds the single-setting rows
 - `components/` - Shared controls (buttons, toggles, sliders, dropdowns, dialogs)
 - `onboarding/` - First-run permission and model screens
 - `stores/` - Shared UI state as GPUI entities

@@ -459,10 +459,6 @@
         "dictionary": "Woordenboek",
         "history": "Geschiedenis"
       },
-      "addNew": "Toevoegen",
-      "searchPlaceholder": "Zoeken",
-      "dialogTitle": "Toevoegen aan woordenboek",
-      "addSnippet": "Tekstfragment toevoegen",
       "save": "Opslaan",
       "cancel": "Annuleren",
       "remove": "{{word}} verwijderen",

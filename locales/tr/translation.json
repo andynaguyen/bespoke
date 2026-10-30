@@ -459,10 +459,6 @@
         "dictionary": "Sözlük",
         "history": "Geçmiş"
       },
-      "addNew": "Yeni ekle",
-      "searchPlaceholder": "Ara",
-      "dialogTitle": "Sözlüğe ekle",
-      "addSnippet": "Parçacık ekle",
       "save": "Kaydet",
       "cancel": "İptal",
       "remove": "{{word}} Kaldır",

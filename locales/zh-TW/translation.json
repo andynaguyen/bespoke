@@ -459,10 +459,6 @@
         "dictionary": "詞典",
         "history": "歷史紀錄"
       },
-      "addNew": "新增",
-      "searchPlaceholder": "搜尋",
-      "dialogTitle": "新增至詞典",
-      "addSnippet": "新增片段",
       "save": "儲存",
       "cancel": "取消",
       "remove": "刪除 {{word}}",

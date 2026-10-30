@@ -29,8 +29,6 @@ use crate::ui::shell::{Section, Toolbar};
 pub enum PageLayout {
     /// Scrolls, with padding, at most 48rem wide and centered.
     Padded,
-    /// Scrolls, edge to edge, for lists with their own row dividers.
-    Flush,
     /// Fills the space under the toolbar and scrolls its own parts.
     Fill,
 }
@@ -125,10 +123,11 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
     }
 }
 
-/// Opens the dictionary's Add new dialog, for dev snapshots.
+/// Opens the dictionary's Add replacement dialog, or Add word for `word`,
+/// for dev snapshots.
 #[cfg(debug_assertions)]
-pub fn open_entry_dialog(window: &mut Window, cx: &mut App) {
-    dictate::dev_open_entry_dialog(window, cx);
+pub fn open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
+    dictate::dev_open_entry_dialog(word, window, cx);
 }
 
 /// Switches a page's tab by id (Settings, Dictate and Stats tabs), for dev

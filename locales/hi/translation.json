@@ -459,10 +459,6 @@
         "dictionary": "शब्दकोश",
         "history": "इतिहास"
       },
-      "addNew": "नया जोड़ें",
-      "searchPlaceholder": "खोजें",
-      "dialogTitle": "शब्दकोश में जोड़ें",
-      "addSnippet": "स्निपेट जोड़ें",
       "save": "सेव करें",
       "cancel": "रद्द करें",
       "remove": "{{word}} हटाएं",

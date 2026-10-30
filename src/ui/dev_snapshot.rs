@@ -214,7 +214,8 @@ fn open_dialog(kind: &str, cx: &mut App) {
                 crate::ui::whats_new::open_modal(note, false, window, cx);
             }
         }
-        _ => crate::ui::pages::open_entry_dialog(window, cx),
+        "word" => crate::ui::pages::open_entry_dialog(true, window, cx),
+        _ => crate::ui::pages::open_entry_dialog(false, window, cx),
     });
 }
 

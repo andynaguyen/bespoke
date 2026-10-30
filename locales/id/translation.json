@@ -459,10 +459,6 @@
         "dictionary": "Kamus",
         "history": "Riwayat"
       },
-      "addNew": "Tambah",
-      "searchPlaceholder": "Cari",
-      "dialogTitle": "Tambahkan ke kamus",
-      "addSnippet": "Tambah cuplikan",
       "save": "Simpan",
       "cancel": "Batal",
       "remove": "Hapus {{word}}",

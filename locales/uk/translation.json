@@ -463,10 +463,6 @@
         "dictionary": "Словник",
         "history": "Історія"
       },
-      "addNew": "Додати",
-      "searchPlaceholder": "Пошук",
-      "dialogTitle": "Додати до словника",
-      "addSnippet": "Додати фрагмент",
       "save": "Зберегти",
       "cancel": "Скасувати",
       "remove": "Видалити {{word}}",

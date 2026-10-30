@@ -459,10 +459,6 @@
         "dictionary": "Ordbog",
         "history": "Historik"
       },
-      "addNew": "Tilføj",
-      "searchPlaceholder": "Søg",
-      "dialogTitle": "Tilføj til ordbog",
-      "addSnippet": "Tilføj tekstbid",
       "save": "Gem",
       "cancel": "Annuller",
       "remove": "Fjern {{word}}",

@@ -495,18 +495,14 @@ impl MainWindow {
         // measured the height at the unclamped width (Taffy 0.9), so text
         // wrapped onto more lines than measured and the end of the page could
         // not scroll into view.
-        let content = if layout == PageLayout::Padded {
-            div().flex().justify_center().px_6().pt_5().pb_8().child(
-                div()
-                    .w_full()
-                    .max_w(rems(48.))
-                    .flex()
-                    .flex_col()
-                    .child(page),
-            )
-        } else {
-            div().flex().flex_col().pb_6().child(page)
-        };
+        let content = div().flex().justify_center().px_6().pt_5().pb_8().child(
+            div()
+                .w_full()
+                .max_w(rems(48.))
+                .flex()
+                .flex_col()
+                .child(page),
+        );
         div()
             .relative()
             .flex_1()

@@ -459,10 +459,6 @@
         "dictionary": "사전",
         "history": "히스토리"
       },
-      "addNew": "새로 추가",
-      "searchPlaceholder": "검색",
-      "dialogTitle": "사전에 추가",
-      "addSnippet": "스니펫 추가",
       "save": "저장",
       "cancel": "취소",
       "remove": "{{word}} 제거",

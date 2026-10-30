@@ -459,10 +459,6 @@
         "dictionary": "Ordlista",
         "history": "Historik"
       },
-      "addNew": "Lägg till",
-      "searchPlaceholder": "Sök",
-      "dialogTitle": "Lägg till i ordlistan",
-      "addSnippet": "Lägg till textsnutt",
       "save": "Spara",
       "cancel": "Avbryt",
       "remove": "Ta bort {{word}}",

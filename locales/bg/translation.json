@@ -459,10 +459,6 @@
         "dictionary": "Речник",
         "history": "История"
       },
-      "addNew": "Добави",
-      "searchPlaceholder": "Търсене",
-      "dialogTitle": "Добавяне в речника",
-      "addSnippet": "Добави фрагмент",
       "save": "Запази",
       "cancel": "Отказ",
       "remove": "Премахване на {{word}}",

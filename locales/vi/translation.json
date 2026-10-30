@@ -459,10 +459,6 @@
         "dictionary": "Từ điển",
         "history": "Lịch sử"
       },
-      "addNew": "Thêm mới",
-      "searchPlaceholder": "Tìm kiếm",
-      "dialogTitle": "Thêm vào từ điển",
-      "addSnippet": "Thêm đoạn mẫu",
       "save": "Lưu",
       "cancel": "Hủy",
       "remove": "Xóa {{word}}",

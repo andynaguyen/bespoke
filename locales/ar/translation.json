@@ -447,10 +447,6 @@
         "dictionary": "القاموس",
         "history": "السجل"
       },
-      "addNew": "إضافة جديد",
-      "searchPlaceholder": "بحث",
-      "dialogTitle": "إضافة إلى القاموس",
-      "addSnippet": "إضافة مقتطف",
       "save": "حفظ",
       "cancel": "إلغاء",
       "remove": "إزالة {{word}}",

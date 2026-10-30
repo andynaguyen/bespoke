@@ -463,10 +463,6 @@
         "dictionary": "Słownik",
         "history": "Historia"
       },
-      "addNew": "Dodaj",
-      "searchPlaceholder": "Szukaj",
-      "dialogTitle": "Dodaj do słownika",
-      "addSnippet": "Dodaj fragment",
       "save": "Zapisz",
       "cancel": "Anuluj",
       "remove": "Usuń {{word}}",

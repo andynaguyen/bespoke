@@ -461,10 +461,6 @@
         "dictionary": "Dicionário",
         "history": "Histórico"
       },
-      "addNew": "Adicionar",
-      "searchPlaceholder": "Pesquisar",
-      "dialogTitle": "Adicionar ao dicionário",
-      "addSnippet": "Adicionar trecho",
       "save": "Salvar",
       "cancel": "Cancelar",
       "remove": "Remover {{word}}",

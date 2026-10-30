@@ -461,10 +461,6 @@
         "dictionary": "Diccionari",
         "history": "Historial"
       },
-      "addNew": "Afegeix",
-      "searchPlaceholder": "Cerca",
-      "dialogTitle": "Afegeix al diccionari",
-      "addSnippet": "Afegeix el fragment",
       "save": "Desa",
       "cancel": "Cancel·la",
       "remove": "Suprimiu {{word}}",

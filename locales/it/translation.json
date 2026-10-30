@@ -461,10 +461,6 @@
         "dictionary": "Dizionario",
         "history": "Cronologia"
       },
-      "addNew": "Aggiungi",
-      "searchPlaceholder": "Cerca",
-      "dialogTitle": "Aggiungi al dizionario",
-      "addSnippet": "Aggiungi frammento",
       "save": "Salva",
       "cancel": "Annulla",
       "remove": "Rimuovi {{word}}",

@@ -12,7 +12,8 @@ use crate::settings::{AppSettings, AppStyleRule, Snippet, WritingStyle};
 use crate::shortcut;
 use crate::ui::components::{
     focus_handle_for, icon, width_tracker, Button, ButtonVariant, Dialog, Dropdown, DropdownOption,
-    FocusVisible, KeyboardFocus, RowDirection, SegmentedControl, TextArea, TextField, Typography,
+    FocusVisible, KeyboardFocus, RowDirection, SegmentedControl, SettingsGroup, TextArea,
+    TextField, Typography,
 };
 use crate::ui::shell::{close_dialog, open_dialog, Toolbar};
 use crate::ui::stores::SettingsStore;
@@ -212,7 +213,6 @@ enum Tab {
 pub struct DictatePage {
     store: Entity<SettingsStore>,
     tab: Tab,
-    search: Entity<InputState>,
     /// Built when the History tab opens and dropped when it closes, so the
     /// list reloads each time like a remounted page.
     history: Option<Entity<HistoryPage>>,
@@ -222,23 +222,12 @@ pub struct DictatePage {
 }
 
 impl DictatePage {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = SettingsStore::global(cx);
-        let search = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(t("settings.dictionary.searchPlaceholder"))
-        });
-        let subscriptions = vec![
-            cx.observe(&store, |_, _, cx| cx.notify()),
-            cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    cx.notify();
-                }
-            }),
-        ];
+        let subscriptions = vec![cx.observe(&store, |_, _, cx| cx.notify())];
         Self {
             store,
             tab: Tab::Dictionary,
-            search,
             history: None,
             running_apps: Vec::new(),
             style_cards_width: px(0.),
@@ -257,13 +246,7 @@ impl DictatePage {
         } else if self.history.is_none() {
             self.history = Some(cx.new(|cx| HistoryPage::new(window, cx)));
         }
-        // Each tab starts with an empty search.
-        self.search.update(cx, |s, cx| s.set_value("", window, cx));
         cx.notify();
-    }
-
-    fn query(&self, cx: &App) -> String {
-        self.search.read(cx).value().trim().to_lowercase()
     }
 
     fn empty_card(text: SharedString, cx: &App) -> impl IntoElement {
@@ -280,21 +263,6 @@ impl DictatePage {
             .justify_center()
             .sm_text()
             .text_color(p.text.a(0.55))
-            .child(text)
-    }
-
-    /// The message in place of an empty edge-to-edge list.
-    fn empty_list(text: SharedString, cx: &App) -> impl IntoElement {
-        let p = palette(cx);
-        div()
-            .px_8()
-            .py_16()
-            .flex()
-            .row_dir()
-            .justify_center()
-            .text_center()
-            .text_px(13.)
-            .text_color(p.mid_gray)
             .child(text)
     }
 
@@ -337,106 +305,207 @@ impl DictatePage {
         let store = self.store.read(cx);
         let updating = store.is_updating("custom_words") || store.is_updating("snippets");
         let all = entries(&store.settings);
-        if all.is_empty() {
-            return Self::empty_list(t("settings.dictionary.empty"), cx).into_any_element();
-        }
-        let query = self.query(cx);
-        let shown: Vec<Entry> = all
-            .into_iter()
-            .filter(|entry| {
-                entry.phrase.to_lowercase().contains(&query)
-                    || entry
-                        .text
-                        .as_ref()
-                        .is_some_and(|text| text.to_lowercase().contains(&query))
-            })
-            .collect();
-        if shown.is_empty() {
-            let raw = self.search.read(cx).value().trim().to_string();
-            return Self::empty_list(
-                t_with("settings.dictionary.noMatches", &[("query", &raw)]),
-                cx,
-            )
-            .into_any_element();
-        }
-        let ids: Vec<String> = shown
-            .iter()
-            .map(|entry| match entry.at {
-                EntryRef::Word(index) => format!("word-{index}"),
-                EntryRef::Snippet(index) => format!("snippet-{index}"),
-            })
-            .collect();
+        let empty = all.is_empty();
+        let (replacements, words): (Vec<Entry>, Vec<Entry>) =
+            all.into_iter().partition(|entry| entry.text.is_some());
         // `focus-visible:underline`, no ring.
         let entry_focus = FocusVisible::styled(cx, |s| s.underline());
-        let entry_handles: Vec<_> = ids
-            .iter()
-            .map(|id| focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx))
-            .collect();
+        let section_title = |key: &str| {
+            div()
+                .text_px(11.)
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(p.mid_gray)
+                .child(t(key))
+        };
+
+        let rows = replacements.into_iter().map(|entry| {
+            let at = entry.at;
+            let id = entry_id(at);
+            let group = SharedString::from(format!("entry-{id}"));
+            let handle = focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx);
+            // One line, so a multi-line snippet keeps the row short.
+            let preview = entry
+                .text
+                .unwrap_or_default()
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            div()
+                .group(group.clone())
+                .flex()
+                .row_dir()
+                .items_center()
+                .gap_3()
+                .pe(px(8.))
+                .hover(|s| s.bg(p.card))
+                .child(
+                    entry_focus
+                        .clone()
+                        .apply_with(div().id(SharedString::from(format!("edit-{id}"))), handle)
+                        .flex_1()
+                        .min_w_0()
+                        .flex()
+                        .row_dir()
+                        .items_center()
+                        .ps(px(14.))
+                        .h(px(38.))
+                        .text_px(13.)
+                        .cursor_pointer()
+                        .on_click(move |_, window, cx| {
+                            open_entry_dialog(Target::Existing(at), window, cx)
+                        })
+                        .child(
+                            div()
+                                .w(px(PHRASE_COLUMN))
+                                .flex_shrink_0()
+                                .pe(px(12.))
+                                .truncate()
+                                .child(entry.phrase.clone()),
+                        )
+                        .child(
+                            div()
+                                .w(px(ARROW_COLUMN))
+                                .flex_shrink_0()
+                                .text_color(p.mid_gray)
+                                .child("→"),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .text_color(p.text.a(0.7))
+                                .child(preview),
+                        ),
+                )
+                .child(Self::remove_button(
+                    SharedString::from(format!("remove-{id}")),
+                    group,
+                    t_with("settings.dictionary.remove", &[("word", &entry.phrase)]),
+                    updating,
+                    move |cx| remove_entry(at, cx),
+                    cx,
+                ))
+                .into_any_element()
+        });
+
+        let chips = words.into_iter().map(|entry| {
+            let at = entry.at;
+            let id = entry_id(at);
+            let group = SharedString::from(format!("chip-{id}"));
+            let handle = focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx);
+            div()
+                .group(group.clone())
+                .relative()
+                .child(
+                    entry_focus
+                        .clone()
+                        .apply_with(div().id(SharedString::from(format!("edit-{id}"))), handle)
+                        .h(px(CHIP_HEIGHT))
+                        .px(px(12.))
+                        .flex()
+                        .items_center()
+                        .rounded_full()
+                        .bg(p.card)
+                        .border_1()
+                        .border_color(p.line)
+                        .text_px(13.)
+                        .whitespace_nowrap()
+                        .cursor_pointer()
+                        .hover(|s| s.bg(p.text.a(0.08)))
+                        .on_click(move |_, window, cx| {
+                            open_entry_dialog(Target::Existing(at), window, cx)
+                        })
+                        .child(entry.phrase.clone()),
+                )
+                .child(Self::remove_badge(
+                    SharedString::from(format!("remove-{id}")),
+                    group,
+                    t_with("settings.dictionary.remove", &[("word", &entry.phrase)]),
+                    updating,
+                    move |cx| remove_entry(at, cx),
+                    cx,
+                ))
+                .into_any_element()
+        });
+
         div()
             .flex()
             .flex_col()
-            .children(
-                shown
-                    .into_iter()
-                    .zip(ids)
-                    .zip(entry_handles)
-                    .map(|((entry, id), handle)| {
-                        let at = entry.at;
-                        let group = SharedString::from(format!("entry-{id}"));
+            .gap(px(24.))
+            .when(empty, |el| {
+                el.child(
+                    div()
+                        .text_px(13.)
+                        .text_color(p.mid_gray)
+                        .child(t("settings.dictionary.empty")),
+                )
+            })
+            .child(
+                SettingsGroup::new()
+                    .title(t("settings.dictionary.replacements"))
+                    .children(rows)
+                    .child(add_replacement_row(cx)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(8.))
+                    .child(section_title("settings.dictionary.words"))
+                    .child(
                         div()
-                            .group(group.clone())
                             .flex()
                             .row_dir()
-                            .items_center()
-                            .gap_3()
-                            .pe(px(10.))
-                            .border_b_1()
-                            .border_color(p.line)
-                            .hover(|s| s.bg(p.card))
-                            .child(
-                                entry_focus
-                                    .clone()
-                                    .apply_with(
-                                        div().id(SharedString::from(format!("edit-{id}"))),
-                                        handle,
-                                    )
-                                    .flex_1()
-                                    .min_w_0()
-                                    .flex()
-                                    .row_dir()
-                                    .items_center()
-                                    .gap_2()
-                                    .ps(px(16.))
-                                    .h(px(36.))
-                                    .text_px(13.)
-                                    .cursor_pointer()
-                                    .on_click(move |_, window, cx| {
-                                        open_entry_dialog(Some(at), window, cx)
-                                    })
-                                    .child(div().flex_shrink_0().child(entry.phrase.clone()))
-                                    .when_some(entry.text, |el, text| {
-                                        // One line, so a multi-line snippet keeps the row short.
-                                        let preview =
-                                            text.split_whitespace().collect::<Vec<_>>().join(" ");
-                                        el.child(div().text_color(p.mid_gray).child("→")).child(
-                                            div()
-                                                .truncate()
-                                                .text_color(p.text.a(0.7))
-                                                .child(preview),
-                                        )
-                                    }),
-                            )
-                            .child(Self::remove_button(
-                                SharedString::from(format!("remove-{id}")),
-                                group,
-                                t_with("settings.dictionary.remove", &[("word", &entry.phrase)]),
-                                updating,
-                                move |cx| remove_entry(at, cx),
-                                cx,
-                            ))
-                    }),
+                            .flex_wrap()
+                            .gap(px(6.))
+                            .children(chips)
+                            .child(add_word_chip(cx)),
+                    ),
             )
-            .into_any_element()
+    }
+
+    /// The round remove button over a word chip's top trailing corner, shown
+    /// while the chip is hovered.
+    fn remove_badge(
+        id: SharedString,
+        group: SharedString,
+        label: SharedString,
+        disabled: bool,
+        on_click: impl Fn(&mut App) + 'static,
+        cx: &App,
+    ) -> impl IntoElement {
+        let p = palette(cx);
+        div()
+            .id(id)
+            .absolute()
+            .top(px(-5.))
+            .right(px(-5.))
+            .size(px(16.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded_full()
+            .bg(p.background)
+            .border_1()
+            .border_color(p.line)
+            .text_color(p.mid_gray)
+            .opacity(0.)
+            .group_hover(group, |s| s.opacity(1.))
+            .hover(|s| s.text_color(tw::red_500()))
+            .when(disabled, |el| el.cursor_not_allowed())
+            .when(!disabled, |el| {
+                el.cursor_pointer()
+                    .keyboard_focus_reveal(cx)
+                    .on_click(move |_, _, cx| {
+                        cx.stop_propagation();
+                        on_click(cx)
+                    })
+            })
+            .tooltip(move |window, cx| {
+                crate::ui::components::Tooltip::text(label.clone(), window, cx)
+            })
+            .child(icon("x").size(px(10.)))
     }
 
     fn render_style(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -699,7 +768,6 @@ impl DictatePage {
 
 impl super::Page for DictatePage {
     fn toolbar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
-        let p = palette(cx);
         let entity = cx.entity().downgrade();
         let tab_id = match self.tab {
             Tab::Dictionary => "dictionary",
@@ -723,29 +791,7 @@ impl super::Page for DictatePage {
             },
         ));
         match self.tab {
-            Tab::Dictionary => toolbar
-                .action(
-                    TextField::new(&self.search)
-                        .w(px(200.))
-                        .rounded_full()
-                        .prefix(
-                            icon("search")
-                                .size(px(13.))
-                                .text_color(p.mid_gray)
-                                .me(px(6.)),
-                        ),
-                )
-                .action(
-                    Button::new("add-new")
-                        .gap(px(4.))
-                        // The plus draws inside a wider box, which leaves
-                        // space before it, so the left takes less padding.
-                        .ps(px(13.5))
-                        .child(icon("plus").size(px(13.)))
-                        .child(t("settings.dictionary.addNew"))
-                        .on_click(|_, window, cx| open_entry_dialog(None, window, cx)),
-                ),
-            Tab::Style => toolbar,
+            Tab::Dictionary | Tab::Style => toolbar,
             Tab::History => match &self.history {
                 Some(history) => history.update(cx, |history, cx| {
                     history.toolbar_actions(toolbar, window, cx)
@@ -770,8 +816,7 @@ impl super::Page for DictatePage {
 
     fn layout(&self, _cx: &App) -> PageLayout {
         match self.tab {
-            Tab::Dictionary => PageLayout::Flush,
-            Tab::Style => PageLayout::Padded,
+            Tab::Dictionary | Tab::Style => PageLayout::Padded,
             Tab::History => PageLayout::Fill,
         }
     }
@@ -796,30 +841,109 @@ impl Render for DictatePage {
     }
 }
 
-fn open_entry_dialog(editing: Option<EntryRef>, window: &mut Window, cx: &mut App) {
+/// The replacements card's phrase column, wide enough for most triggers.
+const PHRASE_COLUMN: f32 = 200.;
+const ARROW_COLUMN: f32 = 28.;
+const CHIP_HEIGHT: f32 = 28.;
+
+/// A dictionary entry's id for its focus handle and buttons.
+fn entry_id(at: EntryRef) -> String {
+    match at {
+        EntryRef::Word(index) => format!("word-{index}"),
+        EntryRef::Snippet(index) => format!("snippet-{index}"),
+    }
+}
+
+/// The last chip in the words, which adds a word.
+fn add_word_chip(cx: &App) -> impl IntoElement {
+    let p = palette(cx);
+    div()
+        .id("add-word")
+        .h(px(CHIP_HEIGHT))
+        .flex()
+        .items_center()
+        .gap(px(4.))
+        .ps(px(9.))
+        .pe(px(12.))
+        .rounded_full()
+        .border_1()
+        .border_dashed()
+        .border_color(p.mid_gray.a(0.45))
+        .text_px(13.)
+        .text_color(p.mid_gray)
+        .whitespace_nowrap()
+        .cursor_pointer()
+        .keyboard_focus(cx)
+        .hover(|s| s.text_color(p.text).border_color(p.mid_gray))
+        .on_click(|_, window, cx| open_entry_dialog(Target::NewWord, window, cx))
+        .child(icon("plus").size(px(12.)))
+        .child(t("settings.dictionary.addWord"))
+}
+
+/// The last row of the replacements card, which adds a replacement.
+fn add_replacement_row(cx: &App) -> impl IntoElement {
+    let p = palette(cx);
+    div()
+        .id("add-replacement")
+        .flex()
+        .row_dir()
+        .items_center()
+        .gap(px(6.))
+        .h(px(38.))
+        .px(px(14.))
+        .text_px(13.)
+        .text_color(p.mid_gray)
+        .cursor_pointer()
+        .keyboard_focus(cx)
+        .hover(|s| s.bg(p.card).text_color(p.text))
+        .on_click(|_, window, cx| open_entry_dialog(Target::NewSnippet, window, cx))
+        .child(icon("plus").size(px(13.)))
+        .child(t("settings.dictionary.addReplacement"))
+}
+
+/// What the entry dialog opens on.
+#[derive(Clone, Copy)]
+enum Target {
+    NewWord,
+    NewSnippet,
+    Existing(EntryRef),
+}
+
+fn open_entry_dialog(target: Target, window: &mut Window, cx: &mut App) {
     open_dialog(window, cx, move |window, cx| -> AnyView {
-        cx.new(|cx| EntryDialog::new(editing, window, cx)).into()
+        cx.new(|cx| EntryDialog::new(target, window, cx)).into()
     });
 }
 
-/// Opens the Add new dialog, for dev snapshots.
+/// Opens the Add replacement dialog, or Add word for `word`, for dev
+/// snapshots.
 #[cfg(debug_assertions)]
-pub(super) fn dev_open_entry_dialog(window: &mut Window, cx: &mut App) {
-    open_entry_dialog(None, window, cx);
+pub(super) fn dev_open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
+    let target = if word {
+        Target::NewWord
+    } else {
+        Target::NewSnippet
+    };
+    open_entry_dialog(target, window, cx);
 }
 
-/// Adds or edits a dictionary entry. With "Write instead" empty it saves a
-/// word, otherwise a snippet, and an edit that changes the kind moves the
-/// entry to the other list. Enter in the phrase field saves.
+/// Adds or edits a word, which has only its spelling, or a snippet, which
+/// also needs the text to write. Enter in the phrase field saves.
 pub struct EntryDialog {
     editing: Option<EntryRef>,
+    snippet: bool,
     phrase: Entity<InputState>,
     text: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl EntryDialog {
-    fn new(editing: Option<EntryRef>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    fn new(target: Target, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let (editing, snippet) = match target {
+            Target::NewWord => (None, false),
+            Target::NewSnippet => (None, true),
+            Target::Existing(at) => (Some(at), matches!(at, EntryRef::Snippet(_))),
+        };
         let settings = SettingsStore::get(cx);
         let (phrase, text) = match editing {
             Some(EntryRef::Word(index)) => (
@@ -839,14 +963,18 @@ impl EntryDialog {
         };
         let phrase = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder(t("settings.dictionary.phrasePlaceholder"))
+                .placeholder(if snippet {
+                    t("settings.dictionary.phrasePlaceholder")
+                } else {
+                    t("settings.dictionary.wordPlaceholder")
+                })
                 .validate(|text, _| text.chars().count() <= MAX_PHRASE_LENGTH)
                 .default_value(phrase)
         });
         let text = cx.new(|cx| {
             InputState::new(window, cx)
                 .multi_line(true)
-                .placeholder(t("settings.dictionary.textPlaceholder"))
+                .placeholder(t("settings.dictionary.writeInsteadPlaceholder"))
                 .default_value(text)
         });
         phrase.update(cx, |input, cx| input.focus(window, cx));
@@ -868,32 +996,30 @@ impl EntryDialog {
         ];
         Self {
             editing,
+            snippet,
             phrase,
             text,
             _subscriptions: subscriptions,
         }
     }
 
-    fn is_snippet(&self, cx: &App) -> bool {
-        !self.text.read(cx).value().trim().is_empty()
-    }
-
     /// What the fields would save, or `None` while they can't be saved, and
     /// whether the phrase is already taken.
     fn draft(&self, cx: &App) -> (Option<Draft>, bool) {
         let phrase = self.phrase.read(cx).value();
-        let snippet = self.is_snippet(cx);
+        let snippet = self.snippet;
         let duplicate = !phrase.trim().is_empty()
             && is_duplicate(&phrase, snippet, self.editing, SettingsStore::get(cx));
         let draft = if snippet {
             let trigger = phrase.split_whitespace().collect::<Vec<_>>().join(" ");
             // Checked here, not with `validate`: gpui-component allows that on
             // single-line inputs only and asserts it in debug builds.
-            let fits = self.text.read(cx).value().chars().count() <= MAX_TEXT_LENGTH;
-            (!trigger_key(&trigger).is_empty() && fits).then(|| {
+            let text = self.text.read(cx).value();
+            let fits = text.chars().count() <= MAX_TEXT_LENGTH;
+            (!trigger_key(&trigger).is_empty() && !text.trim().is_empty() && fits).then(|| {
                 Draft::Snippet(Snippet {
                     trigger,
-                    text: self.text.read(cx).value().to_string(),
+                    text: text.to_string(),
                 })
             })
         } else {
@@ -931,18 +1057,17 @@ impl Render for EntryDialog {
         let phrase = self.phrase.read(cx).value().trim().to_string();
         let count = self.text.read(cx).value().chars().count();
         let focus = gpui::Focusable::focus_handle(self.phrase.read(cx), cx);
-        let title = if self.editing.is_some() {
-            t("settings.dictionary.editTitle")
-        } else {
-            t("settings.dictionary.dialogTitle")
+        let snippet = self.snippet;
+        let title = match (self.editing.is_some(), snippet) {
+            (true, true) => t("settings.dictionary.editReplacement"),
+            (true, false) => t("settings.dictionary.editWord"),
+            (false, true) => t("settings.dictionary.addReplacement"),
+            (false, false) => t("settings.dictionary.addWord"),
         };
-        // The button names the kind, so it's clear which one the fields make.
         let action = if self.editing.is_some() {
             t("settings.dictionary.save")
-        } else if self.is_snippet(cx) {
-            t("settings.dictionary.addSnippet")
         } else {
-            t("settings.dictionary.addWord")
+            title.clone()
         };
         let label = |key: &str| {
             div()
@@ -959,7 +1084,9 @@ impl Render for EntryDialog {
                     .gap_4()
                     .child(
                         div()
-                            .child(label("settings.dictionary.phraseLabel"))
+                            .when(snippet, |el| {
+                                el.child(label("settings.dictionary.phraseLabel"))
+                            })
                             .child(TextField::new(&self.phrase).w_full())
                             .when(duplicate, |el| {
                                 el.child(div().mt_2().text_px(13.).text_color(tw::red_500()).child(
@@ -967,28 +1094,30 @@ impl Render for EntryDialog {
                                 ))
                             }),
                     )
-                    .child(
-                        div()
-                            .child(label("settings.dictionary.textLabel"))
-                            .child(TextArea::new(&self.text).min_height(px(96.)).w_full())
-                            .when(count > 0, |el| {
-                                el.child(
-                                    div()
-                                        .mt_1()
-                                        .flex()
-                                        .row_dir()
-                                        .justify_flex_end()
-                                        .xs_text()
-                                        .when(count <= MAX_TEXT_LENGTH, |el| {
-                                            el.text_color(p.text.a(0.45))
-                                        })
-                                        .when(count > MAX_TEXT_LENGTH, |el| {
-                                            el.text_color(tw::red_500())
-                                        })
-                                        .child(format!("{count}/{MAX_TEXT_LENGTH}")),
-                                )
-                            }),
-                    ),
+                    .when(snippet, |el| {
+                        el.child(
+                            div()
+                                .child(label("settings.dictionary.writeInsteadLabel"))
+                                .child(TextArea::new(&self.text).min_height(px(96.)).w_full())
+                                .when(count > 0, |el| {
+                                    el.child(
+                                        div()
+                                            .mt_1()
+                                            .flex()
+                                            .row_dir()
+                                            .justify_flex_end()
+                                            .xs_text()
+                                            .when(count <= MAX_TEXT_LENGTH, |el| {
+                                                el.text_color(p.text.a(0.45))
+                                            })
+                                            .when(count > MAX_TEXT_LENGTH, |el| {
+                                                el.text_color(tw::red_500())
+                                            })
+                                            .child(format!("{count}/{MAX_TEXT_LENGTH}")),
+                                    )
+                                }),
+                        )
+                    }),
             )
             .footer(
                 Button::new("cancel-entry")

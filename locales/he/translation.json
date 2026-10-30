@@ -461,10 +461,6 @@
         "dictionary": "מילון",
         "history": "היסטוריה"
       },
-      "addNew": "הוסף",
-      "searchPlaceholder": "חיפוש",
-      "dialogTitle": "הוספה למילון",
-      "addSnippet": "הוסף קטע",
       "save": "שמור",
       "cancel": "ביטול",
       "remove": "הסר את {{word}}",

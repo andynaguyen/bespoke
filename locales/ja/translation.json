@@ -459,10 +459,6 @@
         "dictionary": "辞書",
         "history": "履歴"
       },
-      "addNew": "新規追加",
-      "searchPlaceholder": "検索",
-      "dialogTitle": "辞書に追加",
-      "addSnippet": "スニペットを追加",
       "save": "保存",
       "cancel": "キャンセル",
       "remove": "{{word}}を削除",

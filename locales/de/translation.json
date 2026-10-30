@@ -459,10 +459,6 @@
         "dictionary": "Wörterbuch",
         "history": "Verlauf"
       },
-      "addNew": "Hinzufügen",
-      "searchPlaceholder": "Suchen",
-      "dialogTitle": "Zum Wörterbuch hinzufügen",
-      "addSnippet": "Textbaustein hinzufügen",
       "save": "Speichern",
       "cancel": "Abbrechen",
       "remove": "{{word}} entfernen",

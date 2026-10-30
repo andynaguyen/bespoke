@@ -463,10 +463,6 @@
         "dictionary": "Slovník",
         "history": "Historie"
       },
-      "addNew": "Přidat",
-      "searchPlaceholder": "Hledat",
-      "dialogTitle": "Přidat do slovníku",
-      "addSnippet": "Přidat úryvek",
       "save": "Uložit",
       "cancel": "Zrušit",
       "remove": "Odebrat {{word}}",
