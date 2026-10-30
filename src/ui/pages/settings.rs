@@ -4,7 +4,7 @@
 use gpui::{div, prelude::*, rems, AnyElement, App, Context, Entity, SharedString, Window};
 use gpui_component::input::{InputEvent, InputState};
 
-use crate::app_handle::AppHandle;
+use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_with};
 use crate::managers::transcription::AvailableAccelerators;
 use crate::settings::{AppSettings, PasteMethod, TranscribeAcceleratorSetting, TypingTool};
@@ -13,6 +13,7 @@ use crate::ui::components::{
     reset_button, Dropdown, DropdownOption, RowDirection, SegmentedControl, SettingContainer,
     SettingsGroup, Spinner, TextField,
 };
+use crate::ui::event_bus::event_bus;
 use crate::ui::languages::{
     language_label, recognition_language, selectable_languages, supports_language_code,
     unique_capability_languages, CHINESE_LANGUAGE_CODE,
@@ -109,6 +110,12 @@ impl SettingsPage {
         cx.observe(&models, |this, _, cx| {
             this.sync_language(cx);
             cx.notify();
+        })
+        .detach();
+        cx.subscribe(&event_bus(cx), |_, _, event: &AppEvent, cx| {
+            if event.name == crate::updater::STATE_CHANGED {
+                cx.notify();
+            }
         })
         .detach();
 
@@ -783,6 +790,8 @@ impl SettingsPage {
                         .into_any_element(),
                     SettingsGroup::new()
                         .title(t("settings.advanced.groups.updates"))
+                        .child(rows::update_status())
+                        .children(crate::updater::is_enabled().then(rows::automatic_updates))
                         .child(rows::show_whats_new(&s, cx))
                         .into_any_element(),
                     about.into_any_element(),

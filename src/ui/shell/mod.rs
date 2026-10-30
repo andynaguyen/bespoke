@@ -406,6 +406,8 @@ impl MainWindow {
                     }
                 }
             }
+            // The sidebar's update card.
+            crate::updater::STATE_CHANGED => cx.notify(),
             _ => {}
         }
     }

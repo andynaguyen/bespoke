@@ -15,7 +15,7 @@ use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{self, get_settings};
 use crate::single_instance;
 use crate::{
-    autostart, managers, overlay, secure_input, shortcut, signal_handle, tray, ui, utils,
+    autostart, managers, overlay, secure_input, shortcut, signal_handle, tray, ui, updater, utils,
     voice_submit, TranscriptionCoordinator, FILE_LOG_LEVEL, LOG_STREAMING,
 };
 
@@ -53,6 +53,7 @@ pub fn run(
     app.manage(TranscriptionCoordinator::new(app.clone()));
     initialize_core_logic(&app);
     ui::init_stores(cx);
+    updater::start();
 
     // Secure Input monitor (macOS): detects stuck secure input that silently
     // blocks keyed shortcuts, warns the user, and activates the Carbon
@@ -230,11 +231,13 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         tray::set_tray_visibility(app_handle, false);
     }
 
-    // Refresh tray menu when model state changes
-    let app_handle_for_listener = app_handle.clone();
-    app_handle.listen("model-state-changed", move |_| {
-        tray::update_tray_menu(&app_handle_for_listener);
-    });
+    // Refresh tray menu when model state changes or an update appears
+    for event in ["model-state-changed", updater::STATE_CHANGED] {
+        let app_handle_for_listener = app_handle.clone();
+        app_handle.listen(event, move |_| {
+            tray::update_tray_menu(&app_handle_for_listener);
+        });
+    }
 
     // Apply the autostart preference (SMAppService login item on macOS 13+,
     // the auto-launch crate elsewhere)

@@ -5,8 +5,10 @@ use gpui::{
 };
 
 use super::{MainWindow, Section, TITLEBAR_HEIGHT};
-use crate::i18n::t;
-use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
+use crate::i18n::{t, t_with};
+use crate::ui::components::{
+    icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Typography,
+};
 use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, radius, Alpha};
@@ -86,6 +88,54 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
         .child(div().text_px(15.).min_w_0().truncate().child(label))
 }
 
+/// Offers the update a scheduled check found (`updater::pending_version`).
+/// Update opens Sparkle's window, which downloads, installs and relaunches.
+fn update_card(version: &str, cx: &App) -> impl IntoElement {
+    let p = palette(cx);
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(8.))
+        .mb(px(6.))
+        .p(px(12.))
+        .rounded(radius::ROW)
+        .bg(p.accent.a(if p.is_dark { 0.16 } else { 0.08 }))
+        .border_1()
+        .border_color(p.accent.a(0.22))
+        .child(
+            div()
+                .flex()
+                .row_dir()
+                .items_center()
+                .gap(px(8.))
+                .child(div().size(px(7.)).flex_none().rounded_full().bg(p.accent))
+                .child(
+                    div()
+                        .text_px(13.)
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .min_w_0()
+                        .truncate()
+                        .child(t("sidebar.update.available")),
+                ),
+        )
+        .child(
+            div()
+                .text_px(12.)
+                .text_color(p.mid_gray)
+                .min_w_0()
+                .truncate()
+                .child(t_with("sidebar.update.version", &[("version", &version)])),
+        )
+        .child(
+            Button::new("sidebar-update")
+                .variant(ButtonVariant::Primary)
+                .size(ButtonSize::Sm)
+                .w_full()
+                .on_click(|_, _, _| crate::updater::check_now())
+                .child(t("sidebar.update.button")),
+        )
+}
+
 pub fn render(
     main: &MainWindow,
     _window: &mut Window,
@@ -95,6 +145,9 @@ pub fn render(
     let active = main.section;
 
     let mut secondary = Vec::new();
+    if let Some(version) = crate::updater::pending_version() {
+        secondary.push(update_card(&version, cx).into_any_element());
+    }
     if debug_mode {
         secondary.push(nav_item(Section::Debug, active == Section::Debug, cx).into_any_element());
     }
