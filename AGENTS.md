@@ -2,7 +2,7 @@
 
 This file provides guidance to AI coding assistants working with code in this repository.
 
-Bespoke is a speech-to-text dictation app for macOS, written in Rust with [GPUI](https://www.gpui.rs/). Read [README.md](README.md) for dev snapshots and GPUI layout notes before changing UI code.
+Bespoke is a speech-to-text dictation app for macOS, written in Rust with [GPUI](https://www.gpui.rs/). Read [CONTRIBUTING.md](CONTRIBUTING.md) for dev snapshots and GPUI layout notes before changing UI code.
 
 ## Development commands
 
