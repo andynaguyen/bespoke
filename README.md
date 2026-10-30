@@ -12,58 +12,9 @@ Bespoke is a speech-to-text dictation app for macOS. It records while you hold o
   <img src="docs/screenshots/history-light.png" alt="The History tab: past transcriptions, with the selected one's transcript, recording and actions in the inspector">
 </picture>
 
-## Screenshots
+## Demo
 
-<table>
-  <tr>
-    <td width="50%">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overlay-dark.png">
-        <img src="docs/screenshots/overlay-light.png" alt="The recording overlay showing words as they are spoken">
-      </picture>
-      The overlay shows the words as you speak, with streaming models.
-    </td>
-    <td width="50%">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/capsule-dark.png">
-        <img src="docs/screenshots/capsule-light.png" alt="Annotate's capsule while recording, with Undo, Cancel and Finish">
-      </picture>
-      Annotate's capsule while it records your screen, voice and marks.
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dictionary-dark.png">
-        <img src="docs/screenshots/dictionary-light.png" alt="The Dictionary tab with replacements and words">
-      </picture>
-      Replacements and words fix what the model gets wrong.
-    </td>
-    <td>
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/style-dark.png">
-        <img src="docs/screenshots/style-light.png" alt="The Style tab with Formal, Casual and Very casual styles and per-app rules">
-      </picture>
-      Style sets capitalization and punctuation per app.
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stats-dark.png">
-        <img src="docs/screenshots/stats-light.png" alt="Stats with words per minute, words dictated, dictations and a daily heatmap">
-      </picture>
-      Stats counts your words, dictations and streaks.
-    </td>
-    <td>
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/models-dark.png">
-        <img src="docs/screenshots/models-light.png" alt="The Models page with downloaded and available transcription models">
-      </picture>
-      Models downloads and switches local transcription models.
-    </td>
-  </tr>
-</table>
+<video src="https://github.com/andynaguyen/bespoke/raw/main/docs/screenshots/bespoke-launch.mp4" controls muted width="100%"></video>
 
 ## Install
 
