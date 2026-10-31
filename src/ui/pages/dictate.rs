@@ -1,5 +1,5 @@
 //! The Dictate page (`customize/`): the dictionary of custom words and text
-//! snippets, per-app writing style, and the History tab.
+//! snippets, per-app writing style, the History tab, and the Settings tab.
 
 use gpui::{
     div, prelude::*, px, rems, AnyView, App, Context, Entity, FontWeight, Pixels, SharedString,
@@ -19,6 +19,7 @@ use crate::ui::shell::{close_dialog, open_dialog, Toolbar};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, tw, Alpha};
 
+use super::dictation_settings::DictationSettings;
 use super::history::HistoryPage;
 use super::rows::set;
 use super::PageLayout;
@@ -208,6 +209,7 @@ enum Tab {
     Dictionary,
     Style,
     History,
+    Settings,
 }
 
 pub struct DictatePage {
@@ -216,6 +218,8 @@ pub struct DictatePage {
     /// Built when the History tab opens and dropped when it closes, so the
     /// list reloads each time like a remounted page.
     history: Option<Entity<HistoryPage>>,
+    /// Built when the Settings tab opens and dropped when it closes.
+    settings: Option<Entity<DictationSettings>>,
     running_apps: Vec<crate::utils::RunningApp>,
     style_cards_width: Pixels,
     _subscriptions: Vec<Subscription>,
@@ -229,6 +233,7 @@ impl DictatePage {
             store,
             tab: Tab::Dictionary,
             history: None,
+            settings: None,
             running_apps: Vec::new(),
             style_cards_width: px(0.),
             _subscriptions: subscriptions,
@@ -239,12 +244,18 @@ impl DictatePage {
         self.tab = match id {
             "style" => Tab::Style,
             "history" => Tab::History,
+            "settings" => Tab::Settings,
             _ => Tab::Dictionary,
         };
         if self.tab != Tab::History {
             self.history = None;
         } else if self.history.is_none() {
             self.history = Some(cx.new(|cx| HistoryPage::new(window, cx)));
+        }
+        if self.tab != Tab::Settings {
+            self.settings = None;
+        } else if self.settings.is_none() {
+            self.settings = Some(cx.new(|cx| DictationSettings::new(window, cx)));
         }
         cx.notify();
     }
@@ -773,6 +784,7 @@ impl super::Page for DictatePage {
             Tab::Dictionary => "dictionary",
             Tab::Style => "style",
             Tab::History => "history",
+            Tab::Settings => "settings",
         };
         let toolbar = Toolbar::new().tabs(SegmentedControl::new(
             "dictate-tabs",
@@ -783,6 +795,7 @@ impl super::Page for DictatePage {
                 ),
                 ("style".into(), t("settings.dictionary.tabs.style")),
                 ("history".into(), t("settings.dictionary.tabs.history")),
+                ("settings".into(), t("settings.dictionary.tabs.settings")),
             ],
             tab_id,
             move |id, window, cx| {
@@ -791,7 +804,7 @@ impl super::Page for DictatePage {
             },
         ));
         match self.tab {
-            Tab::Dictionary | Tab::Style => toolbar,
+            Tab::Dictionary | Tab::Style | Tab::Settings => toolbar,
             Tab::History => match &self.history {
                 Some(history) => history.update(cx, |history, cx| {
                     history.toolbar_actions(toolbar, window, cx)
@@ -816,7 +829,7 @@ impl super::Page for DictatePage {
 
     fn layout(&self, _cx: &App) -> PageLayout {
         match self.tab {
-            Tab::Dictionary | Tab::Style => PageLayout::Padded,
+            Tab::Dictionary | Tab::Style | Tab::Settings => PageLayout::Padded,
             Tab::History => PageLayout::Fill,
         }
     }
@@ -835,6 +848,11 @@ impl Render for DictatePage {
                 .history
                 .clone()
                 .map(|history| history.into_any_element())
+                .unwrap_or_else(|| div().into_any_element()),
+            Tab::Settings => self
+                .settings
+                .clone()
+                .map(|settings| settings.into_any_element())
                 .unwrap_or_else(|| div().into_any_element()),
             Tab::Dictionary => self.render_dictionary(cx).into_any_element(),
         }

@@ -522,7 +522,8 @@
       "tabs": {
         "dictionary": "Dictionary",
         "style": "Style",
-        "history": "History"
+        "history": "History",
+        "settings": "Settings"
       },
       "empty": "No words or replacements yet. Add names and jargon that Bespoke gets wrong, or a phrase that pastes text you type often.",
       "replacements": "Replacements",

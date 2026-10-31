@@ -6,6 +6,7 @@ mod annotate;
 pub mod captures;
 mod debug;
 mod dictate;
+mod dictation_settings;
 mod history;
 mod keyword_field;
 mod language_picker;
