@@ -1,0 +1,80 @@
+# Pushing a v<version> tag, or creating a release with a new tag in GitHub's
+# UI, runs scripts/release.sh --publish: it builds Bespoke.app, signs it with
+# the same identity and Sparkle key as a local release, and attaches the zip and
+# appcast.xml to the release. Running it by hand from the Actions tab builds and
+# signs without publishing, and keeps the zip as a workflow artifact.
+#
+# Secrets:
+#   BESPOKE_SIGNING_P12           base64 of "Bespoke Local Signing" as .p12
+#   BESPOKE_SIGNING_P12_PASSWORD  the password the .p12 was exported with
+#   SPARKLE_PRIVATE_KEY           the file `generate_keys -x` writes
+# scripts/export-signing-identity.sh sets the first two.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+
+jobs:
+  release:
+    # scrawl-helper needs the macOS 26 SDK.
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # release.sh checks that a remote branch contains the tagged commit.
+          fetch-depth: 0
+
+      - name: Check the tag matches Cargo.toml
+        if: github.event_name == 'push'
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match version $version in Cargo.toml."
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # macOS keeps the Accessibility and Microphone grants across updates only
+      # when the new copy is signed with the same identity as the old one.
+      - name: Import the signing identity
+        env:
+          SIGNING_P12: ${{ secrets.BESPOKE_SIGNING_P12 }}
+          SIGNING_P12_PASSWORD: ${{ secrets.BESPOKE_SIGNING_P12_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(uuidgen)
+          printf '%s' "$SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/signing.p12" -k "$keychain" \
+            -P "$SIGNING_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" \
+            $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/signing.p12"
+          security find-identity -p codesigning "$keychain" | grep -q '"Bespoke Local Signing"'
+
+      - name: Build, sign and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          PUBLISH: ${{ github.event_name == 'push' && '--publish' || '' }}
+        run: scripts/release.sh $PUBLISH
+
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bespoke-release
+          path: dist/

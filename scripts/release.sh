@@ -16,10 +16,14 @@
 # serves the newest one. The repo must be public, or installed copies can't
 # download the feed.
 #
+# If the release already exists without a zip, as when you create it in
+# GitHub's UI, --publish attaches the zip and appcast.xml to it.
+#
 # Sparkle signs each zip with the EdDSA key in your login keychain, made by
 # Sparkle's generate_keys. Back it up with
 # `target/sparkle/<version>/bin/generate_keys -x <file>`. Without it, installed
-# copies reject every future update.
+# copies reject every future update. $SPARKLE_PRIVATE_KEY, the contents of that
+# file, signs in its place: .github/workflows/release.yml passes it.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -30,6 +34,7 @@ RELEASES_REPO="${BESPOKE_RELEASES_REPO:-andynaguyen/bespoke}"
 
 PUBLISH=false
 BUILD=true
+EXISTING_RELEASE=false
 for arg in "$@"; do
   case "$arg" in
     --publish) PUBLISH=true ;;
@@ -54,8 +59,12 @@ if $PUBLISH; then
     exit 1
   fi
   if gh release view "$TAG" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
-    echo "$RELEASES_REPO already has $TAG. Bump the version in Cargo.toml." >&2
-    exit 1
+    if gh release view "$TAG" --repo "$RELEASES_REPO" --json assets -q '.assets[].name' \
+      | grep -qxF "$ZIP_NAME"; then
+      echo "$RELEASES_REPO already has $TAG. Bump the version in Cargo.toml." >&2
+      exit 1
+    fi
+    EXISTING_RELEASE=true
   fi
 fi
 
@@ -73,12 +82,26 @@ if [[ ! -d "$SPARKLE_DIR/Sparkle.framework" ]]; then
 fi
 
 # Updates signed with any other key fail on every installed copy.
-KEYCHAIN_KEY=$("$SPARKLE_DIR/bin/generate_keys" -p)
+if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+  KEY_SOURCE="SPARKLE_PRIVATE_KEY"
+  SIGNING_KEY=$(xcrun swift scripts/sparkle-public-key.swift)
+else
+  KEY_SOURCE="The keychain's Sparkle key"
+  SIGNING_KEY=$("$SPARKLE_DIR/bin/generate_keys" -p)
+fi
 PLIST_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Info.plist)
-if [[ "$KEYCHAIN_KEY" != "$PLIST_KEY" ]]; then
-  echo "The keychain's Sparkle key doesn't match SUPublicEDKey in Info.plist." >&2
+if [[ "$SIGNING_KEY" != "$PLIST_KEY" ]]; then
+  echo "$KEY_SOURCE doesn't match SUPublicEDKey in Info.plist." >&2
   exit 1
 fi
+
+sign_update() {
+  if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+    printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_DIR/bin/sign_update" --ed-key-file - "$@"
+  else
+    "$SPARKLE_DIR/bin/sign_update" "$@"
+  fi
+}
 
 if $BUILD; then
   CMAKE_POLICY_VERSION_MINIMUM=3.5 cargo build --release
@@ -89,7 +112,7 @@ rm -rf "$DIST"
 mkdir -p "$DIST"
 ditto -c -k --sequesterRsrc --keepParent target/release/bundle/Bespoke.app "$DIST/$ZIP_NAME"
 # Prints `sparkle:edSignature="..." length="..."`.
-SIGNATURE=$("$SPARKLE_DIR/bin/sign_update" "$DIST/$ZIP_NAME")
+SIGNATURE=$(sign_update "$DIST/$ZIP_NAME")
 MIN_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" Info.plist)
 
 NOTES_FILE="release-notes/$VERSION.md"
@@ -122,6 +145,12 @@ echo "Wrote $DIST/$ZIP_NAME and $DIST/appcast.xml"
 
 if ! $PUBLISH; then
   echo "Run again with --publish to release $TAG on $RELEASES_REPO."
+  exit 0
+fi
+
+if $EXISTING_RELEASE; then
+  gh release upload "$TAG" --repo "$RELEASES_REPO" "$DIST/$ZIP_NAME" "$DIST/appcast.xml"
+  echo "Attached $ZIP_NAME and appcast.xml to $TAG on $RELEASES_REPO."
   exit 0
 fi
 
