@@ -30,7 +30,6 @@ core-video = "0.4.3"
 gpui = { version = "0.2.2", features = ["runtime_shaders"] }
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSPasteboardItem"] }
-objc2-core-foundation = "0.3"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSData", "NSString"] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
 raw-window-handle = "0.6"
