@@ -115,7 +115,7 @@ impl Render for AccessibilityBanner {
 /// Warns that macOS Secure Input is blocking shortcuts. Dismissing hides it
 /// until the episode ends; the next episode warns again.
 pub struct SecureInputWarning {
-    status: Option<SecureInputStatus>,
+    status: SecureInputStatus,
     dismissed: bool,
 }
 
@@ -129,25 +129,21 @@ impl SecureInputWarning {
             }
         })
         .detach();
-        let status = crate::secure_input::get_secure_input_status(AppHandle::global().clone());
-        let mut this = Self {
-            status: None,
+        Self {
+            status: crate::secure_input::get_secure_input_status(AppHandle::global().clone()),
             dismissed: false,
-        };
-        this.status = Some(status);
-        this
+        }
     }
 
     fn impacted(&self) -> bool {
-        self.status.as_ref().is_some_and(|status| {
-            (status.sustained
-                && (!status.degraded_bindings.is_empty() || !status.uncovered_bindings.is_empty()))
-                || status.recorder_blocked
-        })
+        let status = &self.status;
+        (status.sustained
+            && (!status.degraded_bindings.is_empty() || !status.uncovered_bindings.is_empty()))
+            || status.recorder_blocked
     }
 
     fn set_status(&mut self, status: SecureInputStatus, cx: &mut Context<Self>) {
-        self.status = Some(status);
+        self.status = status;
         // A new episode warns again.
         if !self.impacted() {
             self.dismissed = false;
@@ -156,9 +152,7 @@ impl SecureInputWarning {
     }
 
     fn message(&self) -> SharedString {
-        let Some(status) = &self.status else {
-            return SharedString::default();
-        };
+        let status = &self.status;
         let affected: BTreeSet<&String> = status
             .uncovered_bindings
             .iter()

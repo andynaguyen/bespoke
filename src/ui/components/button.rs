@@ -115,7 +115,6 @@ struct Colors {
     border: Hsla,
     hover_text: Option<Hsla>,
     hover_bg: Hsla,
-    hover_border: Option<Hsla>,
 }
 
 impl RenderOnce for Button {
@@ -130,7 +129,6 @@ impl RenderOnce for Button {
                 border: gpui::white().a(0.18),
                 hover_text: None,
                 hover_bg: p.accent.a(0.85),
-                hover_border: None,
             },
             ButtonVariant::Live => Colors {
                 text: gpui::white(),
@@ -138,7 +136,6 @@ impl RenderOnce for Button {
                 border: gpui::white().a(0.18),
                 hover_text: None,
                 hover_bg: p.ink.a(0.85),
-                hover_border: None,
             },
             ButtonVariant::Secondary => Colors {
                 text: p.text,
@@ -146,7 +143,6 @@ impl RenderOnce for Button {
                 border: p.line,
                 hover_text: None,
                 hover_bg: p.text.a(if p.is_dark { 0.12 } else { 0.07 }),
-                hover_border: None,
             },
             ButtonVariant::DangerGhost => Colors {
                 text: tw::red_400(),
@@ -154,7 +150,6 @@ impl RenderOnce for Button {
                 border: transparent,
                 hover_text: Some(tw::red_300()),
                 hover_bg: tw::red_500().a(0.1),
-                hover_border: None,
             },
             ButtonVariant::Ghost => Colors {
                 text: p.text,
@@ -162,7 +157,6 @@ impl RenderOnce for Button {
                 border: transparent,
                 hover_text: None,
                 hover_bg: p.mid_gray.a(0.1),
-                hover_border: None,
             },
         };
 
@@ -207,10 +201,6 @@ impl RenderOnce for Button {
                 let s = s.bg(c.hover_bg);
                 let s = match c.hover_text {
                     Some(color) => s.text_color(color),
-                    None => s,
-                };
-                let s = match c.hover_border {
-                    Some(color) => s.border_color(color),
                     None => s,
                 };
                 match &extra {

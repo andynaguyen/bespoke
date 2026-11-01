@@ -9,6 +9,25 @@ use crate::ui::components::{RowDirection, Typography};
 use crate::ui::theme::palette;
 
 pub const TOOLBAR_HEIGHT: f32 = 56.;
+
+/// An area filling its parent that moves the window when dragged and
+/// zooms it on double-click, like a title bar. Controls drawn over it must
+/// occlude it.
+pub fn drag_region(id: impl Into<gpui::ElementId>) -> impl IntoElement {
+    div()
+        .id(id)
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .on_mouse_down(MouseButton::Left, |event, window, _| {
+            if event.click_count == 2 {
+                window.titlebar_double_click();
+            } else {
+                window.start_window_move();
+            }
+        })
+}
 /// The width the macOS traffic lights cover at the window's top left.
 const TRAFFIC_LIGHTS_WIDTH: f32 = 84.;
 
@@ -65,21 +84,7 @@ pub fn render(title: SharedString, toolbar: Toolbar, _window: &mut Window, cx: &
         .when(cfg!(target_os = "macos") && crate::i18n::is_rtl(), |bar| {
             bar.pl(px(TRAFFIC_LIGHTS_WIDTH))
         })
-        .child(
-            div()
-                .id("toolbar-drag")
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .on_mouse_down(MouseButton::Left, |event, window, _| {
-                    if event.click_count == 2 {
-                        window.titlebar_double_click();
-                    } else {
-                        window.start_window_move();
-                    }
-                }),
-        )
+        .child(drag_region("toolbar-drag"))
         .child(
             div()
                 .flex_1()

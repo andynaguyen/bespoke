@@ -45,14 +45,15 @@ const POLL: Duration = Duration::from_millis(33);
 /// A Paste press that moves this far drags the capture to where it ends.
 const PASTE_DRAG: f64 = 24.;
 
-/// Registers Bespoke as the host that draws Annotate's capsules. Call before
-/// `scrawl::start`.
 /// The window of the capsule opened last, for dev snapshots.
+#[cfg(debug_assertions)]
 #[derive(Default)]
 struct LastWindow(Option<gpui::AnyWindowHandle>);
 
+#[cfg(debug_assertions)]
 impl gpui::Global for LastWindow {}
 
+#[cfg(debug_assertions)]
 pub fn window_handle(cx: &App) -> Option<gpui::AnyWindowHandle> {
     cx.try_global::<LastWindow>().and_then(|last| last.0)
 }
@@ -97,6 +98,8 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
     let _ = cx;
 }
 
+/// Registers Bespoke as the host that draws Annotate's capsules. Call before
+/// `scrawl::start`.
 pub fn init(app: &AppHandle) {
     let ui = app.clone();
     scrawl::host::on_capsule(move |link| {
@@ -154,7 +157,10 @@ fn open(link: CapsuleLink, cx: &mut App) {
             .push(number);
     }
     view.update(cx, |capsule, _| capsule.window = native);
-    cx.default_global::<LastWindow>().0 = Some(handle.into());
+    #[cfg(debug_assertions)]
+    {
+        cx.default_global::<LastWindow>().0 = Some(handle.into());
+    }
 
     // The link closes when the coordinator drops the capsule; the window goes
     // with it.
@@ -422,10 +428,12 @@ impl AnnotateCapsule {
             }))
     }
 
-    fn render_form(&mut self, c: &Colors, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        let Some(snapshot) = self.snapshot.clone() else {
-            return Vec::new();
-        };
+    fn render_form(
+        &mut self,
+        snapshot: PillSnapshot,
+        c: &Colors,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
         let close = |this: &Self, action: PillAction, cx: &mut Context<Self>| {
             this.action_chip("capsule-close", ChipKind::Icon, action, c, cx)
                 .child(icon("overlay-cancel").size(px(12.)))
@@ -599,11 +607,11 @@ impl Render for AnnotateCapsule {
             .pb(px(PAD_BOTTOM))
             .when(at_top, |el| el.items_start())
             .when(!at_top, |el| el.items_end());
-        if *self.pres() == Pres::Hidden {
+        let Some(snapshot) = self.snapshot.clone().filter(|s| s.pres != Pres::Hidden) else {
             return stage;
-        }
+        };
         let c = Colors::current(cx);
-        let items = self.render_form(&c, cx);
+        let items = self.render_form(snapshot, &c, cx);
         let tracked = cx.entity().downgrade();
         let card = capsule::surface("annotate-capsule", px(capsule::RADIUS), &c)
             .h(px(capsule::HEIGHT))

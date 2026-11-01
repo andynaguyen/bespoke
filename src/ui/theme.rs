@@ -269,7 +269,7 @@ pub fn sync_title_bar(cx: &mut App) {
     }
     cx.defer(|cx| {
         let dark = effective_is_dark();
-        if let Some(handle) = crate::ui::main_window_handle(cx) {
+        if let Some(handle) = crate::ui::main_window(cx) {
             let _ = handle.update(cx, |_, window, _| {
                 crate::ui::platform::set_title_bar_dark(window, dark)
             });

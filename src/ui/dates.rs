@@ -138,8 +138,8 @@ pub fn time_label(time: DateTime<Local>) -> String {
 pub fn long_date(date: NaiveDate) -> String {
     let pattern = match crate::i18n::language() {
         "en" => "%B %-d, %Y",
-        "de" | "da" | "cs" | "nb" | "no" => "%-d. %B %Y",
-        "es" | "pt" | "pt-BR" => "%-d de %B de %Y",
+        "de" | "da" | "cs" => "%-d. %B %Y",
+        "es" | "pt" => "%-d de %B de %Y",
         "zh" | "zh-TW" | "ja" => "%Y年%-m月%-d日",
         "ko" => "%Y년 %-m월 %-d일",
         "vi" => "%-d tháng %-m, %Y",

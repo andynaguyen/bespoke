@@ -51,36 +51,38 @@ pub struct Colors {
 impl Colors {
     pub fn current(cx: &App) -> Self {
         let p = palette(cx);
-        if p.is_dark {
-            Self {
-                text: gpui::rgb(0xf5f5f7).into(),
-                secondary: gpui::rgba(0xebebf59e).into(),
-                divider: gpui::white().a(0.14),
-                chip: gpui::white().a(0.12),
-                chip_hover: gpui::white().a(0.2),
-                live: p.ink,
-                accent: p.accent,
-                done: p.done,
-                tint: gpui::rgba(0x14141873).into(),
-                rim: gpui::white().a(0.16),
-                keycap: p.clay,
-                dark: true,
-            }
+        let (secondary, divider, chip, chip_hover, tint, rim) = if p.is_dark {
+            (
+                gpui::rgba(0xebebf59e).into(),
+                gpui::white().a(0.14),
+                gpui::white().a(0.12),
+                gpui::white().a(0.2),
+                gpui::rgba(0x14141873).into(),
+                gpui::white().a(0.16),
+            )
         } else {
-            Self {
-                text: gpui::rgb(0x1d1d1f).into(),
-                secondary: gpui::rgba(0x3c3c43a6).into(),
-                divider: gpui::black().a(0.1),
-                chip: gpui::black().a(0.06),
-                chip_hover: gpui::black().a(0.11),
-                live: p.ink,
-                accent: p.accent,
-                done: p.done,
-                tint: gpui::rgba(0xffffff80).into(),
-                rim: gpui::white().a(0.6),
-                keycap: p.clay,
-                dark: false,
-            }
+            (
+                gpui::rgba(0x3c3c43a6).into(),
+                gpui::black().a(0.1),
+                gpui::black().a(0.06),
+                gpui::black().a(0.11),
+                gpui::rgba(0xffffff80).into(),
+                gpui::white().a(0.6),
+            )
+        };
+        Self {
+            text: p.text,
+            secondary,
+            divider,
+            chip,
+            chip_hover,
+            live: p.ink,
+            accent: p.accent,
+            done: p.done,
+            tint,
+            rim,
+            keycap: p.clay,
+            dark: p.is_dark,
         }
     }
 }

@@ -51,7 +51,7 @@ fn target_window(cx: &App) -> Option<AnyWindowHandle> {
     if CAPTURE_OVERLAY.get() {
         crate::ui::overlay::window_handle(cx)
     } else {
-        crate::ui::main_window_handle(cx).map(Into::into)
+        crate::ui::main_window(cx).map(Into::into)
     }
 }
 
@@ -170,7 +170,7 @@ fn navigate(page: &str, cx: &mut App) {
         log::warn!("snapshot: no main view");
         return;
     };
-    let Some(handle) = crate::ui::main_window_handle(cx) else {
+    let Some(handle) = crate::ui::main_window(cx) else {
         log::warn!("snapshot: no main window");
         return;
     };
@@ -184,27 +184,22 @@ fn navigate(page: &str, cx: &mut App) {
 }
 
 fn sample_toast(kind: &str, cx: &mut App) {
-    use crate::ui::toast::{show, ToastAction, ToastKind};
+    use crate::ui::toast::{show, ToastKind};
     let kind = match kind {
         "info" => ToastKind::Info,
         "warning" => ToastKind::Warning,
         _ => ToastKind::Error,
     };
-    let action = ToastAction {
-        label: "How to fix".into(),
-        on_click: std::rc::Rc::new(|_, _| {}),
-    };
     show(
         kind,
         "Microphone unavailable",
         Some("Bespoke could not open the selected microphone.".into()),
-        Some(action),
         cx,
     );
 }
 
 fn open_dialog(kind: &str, cx: &mut App) {
-    let Some(handle) = crate::ui::main_window_handle(cx) else {
+    let Some(handle) = crate::ui::main_window(cx) else {
         return;
     };
     let kind = kind.to_string();

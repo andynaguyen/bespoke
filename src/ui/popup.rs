@@ -72,14 +72,14 @@ pub struct Spec {
 /// callers draw the surface inside the window, on an opaque background.
 pub fn hosts(window: &Window, cx: &App) -> bool {
     cfg!(target_os = "macos")
-        && super::main_window_handle(cx)
+        && super::main_window(cx)
             .is_some_and(|handle| handle.window_id() == window.window_handle().window_id())
 }
 
 /// Runs `f` with the main window. A click handler in a popup gets the
 /// popup's window, and most handlers expect the window the control lives in.
 pub fn in_host(window: &mut Window, cx: &mut App, f: impl FnOnce(&mut Window, &mut App)) {
-    match super::main_window_handle(cx) {
+    match super::main_window(cx) {
         Some(handle) if handle.window_id() != window.window_handle().window_id() => {
             let _ = handle.update(cx, |_, window, cx| f(window, cx));
         }
@@ -250,7 +250,7 @@ fn show(
     if appearing {
         #[cfg(target_os = "macos")]
         {
-            let parent = super::main_window_handle(cx).and_then(|handle| {
+            let parent = super::main_window(cx).and_then(|handle| {
                 handle
                     .update(cx, |_, window, _| {
                         super::platform::capsule::CapsuleWindow::of(window)

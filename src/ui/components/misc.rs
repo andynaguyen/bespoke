@@ -78,9 +78,9 @@ pub fn badge(variant: BadgeVariant, cx: &App) -> gpui::Div {
         .text_color(fg)
 }
 
-/// `ui/Alert.tsx` with `variant="error"`, the only variant the app uses.
-/// `contained` drops the rounded corners for use inside a card.
-pub fn error_alert(contained: bool, text: impl Into<SharedString>) -> impl IntoElement {
+/// `ui/Alert.tsx` with `variant="error"`, the only variant the app uses,
+/// square-cornered for use inside a card.
+pub fn error_alert(text: impl Into<SharedString>) -> impl IntoElement {
     div()
         .flex()
         .row_dir()
@@ -88,7 +88,6 @@ pub fn error_alert(contained: bool, text: impl Into<SharedString>) -> impl IntoE
         .gap_3()
         .p_4()
         .bg(tw::red_500().a(0.1))
-        .when(!contained, |el| el.rounded_lg())
         .child(
             icon("circle-alert")
                 .size(rems(1.25))

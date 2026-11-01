@@ -633,10 +633,9 @@ impl Render for PostProcessingApi {
         if is_apple {
             if self.apple_unavailable {
                 rows.push(
-                    error_alert(
-                        true,
-                        t("settings.postProcessing.api.appleIntelligence.unavailable"),
-                    )
+                    error_alert(t(
+                        "settings.postProcessing.api.appleIntelligence.unavailable",
+                    ))
                     .into_any_element(),
                 );
             }

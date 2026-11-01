@@ -4,9 +4,9 @@
 //! Composer. Its top row, level with the toolbar, holds the actions for what
 //! it shows.
 
-use gpui::{div, prelude::*, px, AnyElement, MouseButton};
+use gpui::{div, prelude::*, px, AnyElement};
 
-use super::toolbar::TOOLBAR_HEIGHT;
+use super::toolbar::{drag_region, TOOLBAR_HEIGHT};
 use crate::ui::components::RowDirection;
 use crate::ui::glass::{glass, GlassStyle};
 
@@ -40,21 +40,7 @@ pub fn inspector(
                 .justify_end()
                 .gap_2()
                 // Like the toolbar, empty space in the row drags the window.
-                .child(
-                    div()
-                        .id(id)
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .size_full()
-                        .on_mouse_down(MouseButton::Left, |event, window, _| {
-                            if event.click_count == 2 {
-                                window.titlebar_double_click();
-                            } else {
-                                window.start_window_move();
-                            }
-                        }),
-                )
+                .child(drag_region(id))
                 .children(
                     actions
                         .into_iter()

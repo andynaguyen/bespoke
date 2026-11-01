@@ -400,7 +400,6 @@ impl MainWindow {
                             toast::ToastKind::Error,
                             t_with("errors.modelLoadFailed", &[("model", &model)]),
                             state.error.map(Into::into),
-                            None,
                             cx,
                         );
                     }

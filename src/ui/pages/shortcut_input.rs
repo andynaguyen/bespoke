@@ -184,13 +184,7 @@ impl ShortcutInput {
                 Ok(()) => {}
                 Err(error) => {
                     if error.contains("secure-input-active") {
-                        toast::show(
-                            toast::ToastKind::Error,
-                            t("secureInput.recorderBlocked"),
-                            None,
-                            None,
-                            cx,
-                        );
+                        toast::error(t("secureInput.recorderBlocked"), cx);
                     } else {
                         toast::error(
                             t_with("settings.general.shortcut.errors.set", &[("error", &error)]),

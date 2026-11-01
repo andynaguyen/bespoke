@@ -156,7 +156,7 @@ impl RenderOnce for ToggleSwitch {
 pub struct ToggleSwitchRow {
     toggle: ToggleSwitch,
     title: SharedString,
-    description: Option<SharedString>,
+    description: SharedString,
 }
 
 impl ToggleSwitchRow {
@@ -169,7 +169,7 @@ impl ToggleSwitchRow {
         Self {
             toggle: ToggleSwitch::new(id, checked),
             title: title.into(),
-            description: Some(description.into()),
+            description: description.into(),
         }
     }
 
@@ -186,10 +186,8 @@ impl ToggleSwitchRow {
 
 impl RenderOnce for ToggleSwitchRow {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        let mut row = SettingContainer::new(self.title);
-        if let Some(description) = self.description {
-            row = row.description(description);
-        }
-        row.child(self.toggle)
+        SettingContainer::new(self.title)
+            .description(self.description)
+            .child(self.toggle)
     }
 }

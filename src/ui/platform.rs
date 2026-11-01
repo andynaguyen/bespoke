@@ -2,27 +2,15 @@
 //! the macOS activation policy and appearance, permission checks, and the
 //! screen geometry the overlay is placed against.
 
-use gpui::{App, Window};
+use gpui::Window;
 
-/// Hides `window` without destroying it, so its views keep their state.
-/// Returns false when the platform cannot hide windows (the caller closes
-/// the window instead).
-///
-/// The native call runs on the next main-thread turn: AppKit notifies GPUI
-/// synchronously when key status changes, and GPUI cannot handle that while
-/// the caller holds the app.
-pub fn hide_window(window: &Window, cx: &App) -> bool {
-    imp::hide_window(window, cx)
-}
-
-/// Shows a window hidden with [`hide_window`] and gives it focus.
-pub fn show_window(window: &Window, cx: &App) {
-    imp::show_window(window, cx)
-}
-
-pub fn is_window_visible(window: &Window) -> bool {
-    imp::is_window_visible(window)
-}
+// `hide_window` hides a window without destroying it, so its views keep
+// their state. It returns false when the platform cannot hide windows (the
+// caller closes the window instead). The native call runs on the next
+// main-thread turn: AppKit notifies GPUI synchronously when key status
+// changes, and GPUI cannot handle that while the caller holds the app.
+// `show_window` shows a hidden window and gives it focus.
+pub use imp::{hide_window, is_window_visible, show_window};
 
 /// Windows: a dark or light native title bar (`DWMWA_USE_IMMERSIVE_DARK_MODE`),
 /// what tao's `set_theme` did for the Tauri window. Other platforms theme

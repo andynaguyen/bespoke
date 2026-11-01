@@ -401,9 +401,7 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
         if kind != "arming" {
             overlay.capture_ready = true;
         }
-        overlay.smoothed = [
-            0.2, 0.5, 0.8, 0.6, 0.9, 0.4, 0.7, 0.3, 0.5, 0., 0., 0., 0., 0., 0., 0.,
-        ];
+        overlay.smoothed = [0.2, 0.5, 0.8, 0.6, 0.9, 0.4, 0.7, 0.3, 0.5];
         match kind {
             "streaming" | "streaming-working" => {
                 overlay.text = StreamTextEvent {
@@ -440,7 +438,7 @@ pub struct RecordingOverlay {
     /// False until the recorder delivers its first samples; the card shows a
     /// muted arming pulse until then.
     capture_ready: bool,
-    smoothed: [f32; 16],
+    smoothed: [f32; WAVE_BARS],
     text: StreamTextEvent,
     phase: StreamPhase,
     work_kind: StreamWorkKind,
@@ -473,7 +471,7 @@ impl RecordingOverlay {
             state: OverlayState::Recording,
             position: OverlayPosition::Bottom,
             capture_ready: false,
-            smoothed: [0.; 16],
+            smoothed: [0.; WAVE_BARS],
             text: StreamTextEvent {
                 committed: String::new(),
                 tentative: String::new(),
@@ -541,7 +539,7 @@ impl RecordingOverlay {
         }
         if matches!(state, OverlayState::Recording | OverlayState::Streaming) {
             self.capture_ready = false;
-            self.smoothed = [0.; 16];
+            self.smoothed = [0.; WAVE_BARS];
             self.text = StreamTextEvent {
                 committed: String::new(),
                 tentative: String::new(),
@@ -633,44 +631,35 @@ impl RecordingOverlay {
             .items_center()
             .gap(px(3.))
             .h(px(18.))
-            .children(
-                self.smoothed[..WAVE_BARS]
-                    .iter()
-                    .enumerate()
-                    .map(move |(i, level)| {
-                        let bar = div().w(px(4.)).rounded(px(2.)).flex_none();
-                        if ready {
-                            let height = (3. + level.max(0.).powf(0.7) * 15.).clamp(3., 18.);
-                            bar.h(px(height)).bg(text).into_any_element()
-                        } else {
-                            // `swave-arming`: a dim pulse travelling out from the
-                            // middle bar.
-                            let delay = [0., 75., 150., 225., 300., 225., 150., 75., 0.][i] / 900.;
-                            bar.h(px(6.))
-                                .bg(text)
-                                .with_animation(
-                                    SharedString::from(format!("swave-arming-{i}")),
-                                    Animation::new(Duration::from_millis(900)).repeat(),
-                                    move |bar, delta| {
-                                        let t = (delta - delay).rem_euclid(1.);
-                                        let (scale, opacity) = if t < 0.5 {
-                                            let e = ease_in_out(t * 2.);
-                                            (0.55 + 0.95 * e, 0.25 + 0.45 * e)
-                                        } else {
-                                            let e = ease_in_out((t - 0.5) * 2.);
-                                            (1.5 - 0.95 * e, 0.7 - 0.45 * e)
-                                        };
-                                        bar.h(px(6. * scale)).opacity(opacity)
-                                    },
-                                )
-                                .into_any_element()
-                        }
-                    }),
-            )
-    }
-
-    fn dot(&self, c: &Colors) -> impl IntoElement {
-        capsule::live_dot(self.capture_ready, c)
+            .children(self.smoothed.iter().enumerate().map(move |(i, level)| {
+                let bar = div().w(px(4.)).rounded(px(2.)).flex_none();
+                if ready {
+                    let height = (3. + level.max(0.).powf(0.7) * 15.).clamp(3., 18.);
+                    bar.h(px(height)).bg(text).into_any_element()
+                } else {
+                    // `swave-arming`: a dim pulse travelling out from the
+                    // middle bar.
+                    let delay = [0., 75., 150., 225., 300., 225., 150., 75., 0.][i] / 900.;
+                    bar.h(px(6.))
+                        .bg(text)
+                        .with_animation(
+                            SharedString::from(format!("swave-arming-{i}")),
+                            Animation::new(Duration::from_millis(900)).repeat(),
+                            move |bar, delta| {
+                                let t = (delta - delay).rem_euclid(1.);
+                                let (scale, opacity) = if t < 0.5 {
+                                    let e = ease_in_out(t * 2.);
+                                    (0.55 + 0.95 * e, 0.25 + 0.45 * e)
+                                } else {
+                                    let e = ease_in_out((t - 0.5) * 2.);
+                                    (1.5 - 0.95 * e, 0.7 - 0.45 * e)
+                                };
+                                bar.h(px(6. * scale)).opacity(opacity)
+                            },
+                        )
+                        .into_any_element()
+                }
+            }))
     }
 
     /// The close chip: a bare icon that gains a circle on hover.
@@ -683,14 +672,6 @@ impl RecordingOverlay {
                 });
             })
             .child(icon("overlay-cancel").size(px(12.)))
-    }
-
-    fn spinner(&self, c: &Colors) -> impl IntoElement {
-        capsule::spinner(c)
-    }
-
-    fn divider(&self, c: &Colors) -> impl IntoElement {
-        capsule::divider(c)
     }
 
     /// The 40px control row, laid out like Annotate's capsule: the lead fills
@@ -715,7 +696,7 @@ impl RecordingOverlay {
                     .when(rtl, |el| el.flex_row_reverse()),
             )
             .children(extra)
-            .child(self.divider(c))
+            .child(capsule::divider(c))
             .child(self.cancel_button(c))
     }
 
@@ -725,7 +706,7 @@ impl RecordingOverlay {
             .gap(px(10.))
             .when(rtl, |el| el.pr(px(12.)).pl(px(10.)))
             .when(!rtl, |el| el.pl(px(12.)).pr(px(10.)))
-            .child(self.dot(c))
+            .child(capsule::live_dot(self.capture_ready, c))
             .child(self.waveform(c));
         let timer = show_timer.then(|| {
             let secs = self.elapsed;
@@ -752,7 +733,7 @@ impl RecordingOverlay {
             .gap(px(12.))
             .when(rtl, |el| el.pr(px(8.)).pl(px(12.)))
             .when(!rtl, |el| el.pl(px(8.)).pr(px(12.)))
-            .child(self.spinner(c))
+            .child(capsule::spinner(c))
             .child(
                 div()
                     .min_w_0()

@@ -49,11 +49,10 @@ impl DropdownOption {
     }
 }
 
-#[derive(Default)]
 struct DropdownState {
     open: bool,
     trigger: Bounds<Pixels>,
-    trigger_focus: Option<FocusHandle>,
+    trigger_focus: FocusHandle,
     /// The option the arrow keys are on while the menu is open.
     highlight: Option<usize>,
 }
@@ -231,20 +230,16 @@ fn menu_items(
 impl RenderOnce for Dropdown {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = palette(cx);
-        let state = window.use_keyed_state(self.id.clone(), cx, |_, _| DropdownState::default());
-        state.update(cx, |state, cx| {
-            if state.trigger_focus.is_none() {
-                state.trigger_focus = Some(cx.focus_handle().tab_stop(true));
-            }
+        let state = window.use_keyed_state(self.id.clone(), cx, |_, cx| DropdownState {
+            open: false,
+            trigger: Bounds::default(),
+            trigger_focus: cx.focus_handle().tab_stop(true),
+            highlight: None,
         });
         let open = state.read(cx).open && !self.disabled;
         let trigger_bounds = state.read(cx).trigger;
         let highlight = state.read(cx).highlight;
-        let trigger_focus = state
-            .read(cx)
-            .trigger_focus
-            .clone()
-            .unwrap_or_else(|| cx.focus_handle());
+        let trigger_focus = state.read(cx).trigger_focus.clone();
         let focus = FocusVisible::ring(cx);
         let options = Rc::new(self.options);
         // The option the keyboard lands on when the menu opens.

@@ -158,11 +158,7 @@ pub fn init_stores(cx: &mut App) {
     stores::ModelStore::init(cx);
 }
 
-pub fn main_window_handle(cx: &App) -> Option<WindowHandle<Root>> {
-    main_window(cx)
-}
-
-fn main_window(cx: &App) -> Option<WindowHandle<Root>> {
+pub fn main_window(cx: &App) -> Option<WindowHandle<Root>> {
     cx.global::<MainWindowSlot>().handle
 }
 
