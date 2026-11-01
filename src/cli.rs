@@ -60,4 +60,10 @@ pub struct CliArgs {
     /// Emit --transcribe-file results as JSON.
     #[arg(long)]
     pub json: bool,
+
+    /// Write a triage session (the playbook and this Mac's facts) for a
+    /// coding agent, print how to start it, and exit. Works when the app
+    /// won't launch.
+    #[arg(long)]
+    pub triage: bool,
 }

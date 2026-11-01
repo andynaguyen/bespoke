@@ -46,7 +46,7 @@ pub fn reduce_motion() -> bool {
 
 #[cfg(target_os = "macos")]
 pub use imp::{
-    accessibility_granted, launch_as_accessory, microphone_granted,
+    accessibility_granted, launch_as_accessory, microphone_authorization, microphone_granted,
     prevent_panels_from_taking_focus, request_accessibility, request_microphone,
     set_activation_policy_regular, set_app_appearance, CursorScreen,
 };
@@ -504,14 +504,18 @@ mod imp {
     }
 
     pub fn microphone_granted() -> bool {
+        microphone_authorization() == 3
+    }
+
+    /// `AVAuthorizationStatus` for audio: 0 not determined, 1 restricted, 2 denied, 3 granted.
+    /// -1 when AVFoundation is missing.
+    pub fn microphone_authorization() -> isize {
         let Some(class) = capture_device_class() else {
-            return false;
+            return -1;
         };
         let media_type = audio_media_type();
         // SAFETY: class method returning an NSInteger status.
-        let status: isize =
-            unsafe { msg_send![class, authorizationStatusForMediaType: &*media_type] };
-        status == 3
+        unsafe { msg_send![class, authorizationStatusForMediaType: &*media_type] }
     }
 
     /// Shows the microphone permission prompt (only the first time; later

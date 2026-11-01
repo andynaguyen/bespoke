@@ -448,6 +448,7 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         true,
         None,
     );
+    let triage_i = MenuItem::with_id("triage", &strings.triage, true, None);
     let quit_i = MenuItem::with_id("quit", &strings.quit, true, accelerator(quit_accelerator));
     let separator = PredefinedMenuItem::separator;
 
@@ -462,6 +463,7 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             &copy_last_transcript_i,
             &separator(),
             &settings_i,
+            &triage_i,
             &separator(),
             &quit_i,
         ])?
@@ -497,6 +499,7 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             &unload_model_i,
             &separator(),
             &settings_i,
+            &triage_i,
             &separator(),
             &quit_i,
         ])?
@@ -653,6 +656,7 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
             crate::ui::show_main_window(cx);
         }
         "copy_last_transcript" => copy_last_transcript(app),
+        "triage" => crate::ui::show_section_tab(crate::ui::shell::Section::Settings, "system", cx),
         // Sparkle's window opens over Bespoke's, which brings the app forward
         // when it was only in the menu bar.
         "check_for_updates" | "install_update" => {
