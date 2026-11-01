@@ -1,4 +1,4 @@
-use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, SharedString, Window};
+use gpui::{div, prelude::*, px, rems, AnyElement, App, FontWeight, SharedString, Window};
 
 use super::RowDirection;
 use super::Typography;
@@ -81,13 +81,10 @@ impl RenderOnce for SettingContainer {
                 .min_h(px(48.))
                 .px_3()
                 .py(px(10.))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .max_w(gpui::relative(2. / 3.))
-                        .child(header),
-                )
+                // A percentage `max_w` here made Taffy measure descriptions at
+                // a wider width than it painted them, so long pages ended
+                // their scroll range before the last rows. Keep this definite.
+                .child(div().flex_1().min_w_0().max_w(rems(26.)).child(header))
                 .child(div().relative().flex_shrink_0().children(self.children)),
             SettingLayout::Stacked => div()
                 .w_full()
