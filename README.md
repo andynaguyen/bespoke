@@ -82,7 +82,7 @@ A second `bespoke` launch sends its flags to the running app, so you can bind th
 
 ### Triage an issue
 
-Settings > System > Triage an Issue, also in the menu bar menu, starts a coding agent on your Mac to investigate a problem. Bespoke writes its version, permissions, key settings and the paths to its logs into a new folder, then opens Claude (the Claude app), Claude Code (a terminal window) or Codex with a prompt pointing there. Copy Prompt puts that prompt on the clipboard for any other agent. Say what went wrong after the prompt and send it. The agent follows [`.github/triage/PLAYBOOK.md`](.github/triage/PLAYBOOK.md): it reads the logs, checks the source for your version and the open issues, and can draft a GitHub issue. It asks before it changes anything or posts.
+Settings > System > Triage an Issue, also in the menu bar menu, starts a coding agent on your Mac to investigate a problem. Bespoke writes its version, permissions, key settings and the paths to its logs into a new folder, then opens Claude (the Claude app), Claude Code (a terminal window) or Codex with a prompt pointing there. Copy Prompt puts that prompt on the clipboard for any other agent. Send the prompt, and the agent asks what went wrong. The agent follows [`.github/triage/PLAYBOOK.md`](.github/triage/PLAYBOOK.md): it reads the logs, checks the source for your version and the open issues, and can draft a GitHub issue. It asks before it changes anything or posts.
 
 ## Data
 

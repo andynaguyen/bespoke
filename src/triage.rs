@@ -110,10 +110,11 @@ pub struct Session {
     pub context: PathBuf,
 }
 
-/// The text a handoff puts in the agent's composer. The user writes what went wrong after it.
+/// The text a handoff puts in the agent's composer. The playbook has the agent ask what went wrong
+/// unless the user adds it to this message.
 pub fn launch_prompt(prompt_file: &Path) -> String {
     format!(
-        "Read the file \"{}\" and follow it: it is your Bespoke triage playbook. What went wrong: ",
+        "Read the file \"{}\" and follow it: it is your Bespoke triage playbook.",
         prompt_file.display()
     )
 }
@@ -168,7 +169,7 @@ pub fn run_cli(app: &AppHandle) -> i32 {
     let prompt = launch_prompt(&session.prompt);
     let mut out = format!(
         "Wrote the triage playbook and this Mac's facts to:\n  {}\n  {}\n\n\
-         Paste this into a coding agent on this Mac, then say what went wrong:\n  {prompt}\n",
+         Paste this into a coding agent on this Mac:\n  {prompt}\n",
         session.prompt.display(),
         session.context.display(),
     );

@@ -762,7 +762,7 @@
       "codexMissing": "No app on this Mac opens Codex links",
       "copy": "Copy Prompt",
       "copyDescription": "Paste it into any coding agent on this Mac",
-      "opened": "Triage started. Say what went wrong after the prompt, then send it.",
+      "opened": "Triage started. Send the prompt, and the agent asks what went wrong.",
       "copied": "Copied the triage prompt. Paste it into a coding agent on this Mac.",
       "failed": "Couldn't start triage"
     }
