@@ -122,7 +122,6 @@
     "active": "सक्रिय",
     "switching": "बदलिँदैछ...",
     "verifyingGeneric": "प्रमाणित गरिँदैछ...",
-    "extractingGeneric": "एक्स्ट्र्याक्ट गरिँदैछ...",
     "downloading": "डाउनलोड गरिँदैछ {{percentage}}%",
     "deleteModel": "{{modelName}} मेटाउनुहोस्",
     "downloadSpeed": "{{speed}} MB/s",

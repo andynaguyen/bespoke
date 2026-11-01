@@ -121,7 +121,6 @@
     "active": "פעיל",
     "switching": "מחליף...",
     "verifyingGeneric": "מאמת...",
-    "extractingGeneric": "מחלץ...",
     "downloading": "מוריד {{percentage}}%",
     "deleteModel": "מחק את {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

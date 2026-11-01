@@ -122,7 +122,6 @@
     "active": "Actief",
     "switching": "Wisselen...",
     "verifyingGeneric": "Verifiëren...",
-    "extractingGeneric": "Uitpakken...",
     "downloading": "Downloaden {{percentage}}%",
     "deleteModel": "{{modelName}} verwijderen",
     "downloadSpeed": "{{speed}} MB/s",

@@ -121,7 +121,6 @@
     "active": "Aktywny",
     "switching": "Przełączanie...",
     "verifyingGeneric": "Weryfikacja...",
-    "extractingGeneric": "Rozpakowywanie...",
     "downloading": "Pobieranie {{percentage}}%",
     "deleteModel": "Usuń {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

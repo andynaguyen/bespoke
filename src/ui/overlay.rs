@@ -678,7 +678,9 @@ impl RecordingOverlay {
         capsule::chip("overlay-cancel", ChipKind::Icon, c)
             .on_click(|_, _, _| {
                 let app = AppHandle::global().clone();
-                crate::runtime::spawn_blocking(move || crate::commands::cancel_operation(app));
+                crate::runtime::spawn_blocking(move || {
+                    crate::utils::cancel_current_operation(&app)
+                });
             })
             .child(icon("overlay-cancel").size(px(12.)))
     }

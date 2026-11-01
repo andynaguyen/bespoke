@@ -122,7 +122,6 @@
     "active": "Aktiv",
     "switching": "Skifter...",
     "verifyingGeneric": "Verificerer...",
-    "extractingGeneric": "Udpakker...",
     "downloading": "Downloader {{percentage}}%",
     "deleteModel": "Slet {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

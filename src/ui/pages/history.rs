@@ -134,7 +134,7 @@ impl HistoryPage {
         }
         cx.spawn(async move |this, cx| {
             let result = crate::runtime::run(async move {
-                manager().get_history_entries(cursor, Some(PAGE_SIZE)).await
+                manager().get_history_entries(cursor, PAGE_SIZE).await
             })
             .await;
             let _ = this.update(cx, |this, cx| {

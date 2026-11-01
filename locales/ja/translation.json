@@ -121,7 +121,6 @@
     "active": "アクティブ",
     "switching": "切替中…",
     "verifyingGeneric": "検証中…",
-    "extractingGeneric": "展開中…",
     "downloading": "ダウンロード中 {{percentage}}%",
     "deleteModel": "{{modelName}}を削除",
     "downloadSpeed": "{{speed}} MB/s",

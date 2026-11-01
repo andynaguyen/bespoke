@@ -121,7 +121,6 @@
     "active": "使用中",
     "switching": "切換中...",
     "verifyingGeneric": "正在驗證...",
-    "extractingGeneric": "解壓中...",
     "downloading": "下載中 {{percentage}}%",
     "deleteModel": "刪除 {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

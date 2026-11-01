@@ -121,7 +121,6 @@
     "active": "Aktiv",
     "switching": "Byter...",
     "verifyingGeneric": "Verifierar...",
-    "extractingGeneric": "Extraherar...",
     "downloading": "Laddar ner {{percentage}}%",
     "deleteModel": "Ta bort {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

@@ -122,7 +122,6 @@
     "active": "इस्तेमाल में",
     "switching": "बदला जा रहा है...",
     "verifyingGeneric": "पुष्टि हो रही है...",
-    "extractingGeneric": "एक्सट्रैक्ट हो रहा है...",
     "downloading": "{{percentage}}% डाउनलोड हो रहा है",
     "deleteModel": "{{modelName}} हटाएं",
     "downloadSpeed": "{{speed}} MB/s",

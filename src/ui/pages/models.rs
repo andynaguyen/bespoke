@@ -96,12 +96,8 @@ impl ModelsPage {
 
     fn status(&self, model: &ModelInfo, store: &ModelStore) -> CardStatus {
         let id = &model.id;
-        if store.extracting.contains(id) {
-            CardStatus::Extracting
-        } else if store.verifying.contains(id) {
-            CardStatus::Verifying
-        } else if store.downloading.contains(id) {
-            CardStatus::Downloading
+        if let Some(status) = store.download_status(id) {
+            status
         } else if self.switching.as_ref() == Some(id) {
             CardStatus::Switching
         } else if !model.is_downloaded {
@@ -250,17 +246,6 @@ impl Render for ModelsPage {
         let p = palette(cx);
         let root = div().w_full().flex().flex_col().gap_4();
         let store = self.store.read(cx);
-        if store.loading {
-            return root.child(
-                div()
-                    .flex()
-                    .row_dir()
-                    .items_center()
-                    .justify_center()
-                    .py_16()
-                    .child(Spinner::ring(rems(2.), p.accent)),
-            );
-        }
 
         let query = self.search.read(cx).value().trim().to_lowercase();
         let language = self.language_filter.to_string();
@@ -282,13 +267,10 @@ impl Render for ModelsPage {
             .cloned()
             .collect();
 
-        let (mut downloaded, available): (Vec<ModelInfo>, Vec<ModelInfo>) =
-            filtered.iter().cloned().partition(|m| {
-                m.is_custom
-                    || m.is_downloaded
-                    || store.downloading.contains(&m.id)
-                    || store.extracting.contains(&m.id)
-            });
+        let (mut downloaded, available): (Vec<ModelInfo>, Vec<ModelInfo>) = filtered
+            .iter()
+            .cloned()
+            .partition(|m| m.is_custom || m.is_downloaded || store.downloading.contains(&m.id));
         let current = store.current_model.clone();
         // Active first, then catalog models, then custom ones.
         downloaded.sort_by_key(|m| (m.id != current, m.is_custom));

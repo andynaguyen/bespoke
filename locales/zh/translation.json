@@ -121,7 +121,6 @@
     "active": "活跃",
     "switching": "切换中...",
     "verifyingGeneric": "正在验证...",
-    "extractingGeneric": "解压中...",
     "downloading": "下载中 {{percentage}}%",
     "deleteModel": "删除 {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

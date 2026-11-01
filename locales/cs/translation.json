@@ -120,7 +120,6 @@
     "streaming": "Streaming",
     "active": "Aktivní",
     "verifyingGeneric": "Ověřování...",
-    "extractingGeneric": "Rozbalování...",
     "downloading": "Stahování {{percentage}}%",
     "deleteModel": "Smazat {{modelName}}",
     "switching": "Přepínání...",

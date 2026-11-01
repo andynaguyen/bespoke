@@ -122,7 +122,6 @@
     "active": "Aktif",
     "switching": "Beralih...",
     "verifyingGeneric": "Memverifikasi...",
-    "extractingGeneric": "Mengekstrak...",
     "downloading": "Mengunduh {{percentage}}%",
     "deleteModel": "Hapus {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

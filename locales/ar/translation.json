@@ -120,7 +120,6 @@
     "streaming": "البث",
     "active": "نشط",
     "verifyingGeneric": "جارٍ التحقق...",
-    "extractingGeneric": "...جاري الاستخراج",
     "downloading": "جاري التنزيل {{percentage}}%",
     "deleteModel": "حذف {{modelName}}",
     "switching": "جارٍ التبديل...",

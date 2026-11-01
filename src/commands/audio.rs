@@ -1,6 +1,8 @@
 use crate::app_handle::AppHandle;
 use crate::audio_feedback;
-use crate::audio_toolkit::audio::{list_input_devices, list_output_devices, AudioRecorder};
+use crate::audio_toolkit::audio::{
+    list_input_devices, list_output_devices, AudioRecorder, CpalDeviceInfo,
+};
 use crate::managers::audio::{AudioRecordingManager, MicrophoneMode};
 use crate::settings::{get_settings, write_settings};
 use log::warn;
@@ -175,10 +177,17 @@ pub async fn update_microphone_mode(app: AppHandle, always_on: bool) -> Result<(
 }
 
 pub async fn get_available_microphones() -> Result<Vec<AudioDevice>, String> {
-    // cpal device enumeration can stall — run it off the webview/main run loop.
-    tokio::task::spawn_blocking(|| {
-        let devices =
-            list_input_devices().map_err(|e| format!("Failed to list audio devices: {}", e))?;
+    list_devices(list_input_devices, "Failed to list audio devices").await
+}
+
+/// Runs a cpal enumeration on a blocking thread, since it can stall, and puts
+/// a "Default" entry first.
+async fn list_devices(
+    list: fn() -> Result<Vec<CpalDeviceInfo>, Box<dyn std::error::Error>>,
+    failure: &'static str,
+) -> Result<Vec<AudioDevice>, String> {
+    tokio::task::spawn_blocking(move || {
+        let devices = list().map_err(|e| format!("{failure}: {e}"))?;
 
         let mut result = vec![AudioDevice {
             index: "default".to_string(),
@@ -218,27 +227,7 @@ pub async fn set_selected_microphone(app: AppHandle, device_name: String) -> Res
 }
 
 pub async fn get_available_output_devices() -> Result<Vec<AudioDevice>, String> {
-    // cpal device enumeration can stall — run it off the webview/main run loop.
-    tokio::task::spawn_blocking(|| {
-        let devices =
-            list_output_devices().map_err(|e| format!("Failed to list output devices: {}", e))?;
-
-        let mut result = vec![AudioDevice {
-            index: "default".to_string(),
-            name: "Default".to_string(),
-            is_default: true,
-        }];
-
-        result.extend(devices.into_iter().map(|d| AudioDevice {
-            index: d.index,
-            name: d.name,
-            is_default: false, // The explicit default is handled separately
-        }));
-
-        Ok::<_, String>(result)
-    })
-    .await
-    .map_err(|e| format!("audio task join failed: {}", e))?
+    list_devices(list_output_devices, "Failed to list output devices").await
 }
 
 pub fn set_selected_output_device(app: AppHandle, device_name: String) -> Result<(), String> {
@@ -273,11 +262,6 @@ pub fn set_clamshell_microphone(app: AppHandle, device_name: String) -> Result<(
     };
     write_settings(&app, settings);
     Ok(())
-}
-
-pub fn is_recording(app: AppHandle) -> bool {
-    let audio_manager = app.state::<Arc<AudioRecordingManager>>();
-    audio_manager.is_recording()
 }
 
 pub async fn get_microphone_channels(device_name: String) -> Result<u16, String> {

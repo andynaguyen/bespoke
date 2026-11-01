@@ -21,7 +21,6 @@ pub enum CardStatus {
     Downloadable,
     Downloading,
     Verifying,
-    Extracting,
     Switching,
     Active,
     Available,
@@ -173,7 +172,7 @@ fn chip(
         .child(text)
 }
 
-/// A full-width accent bar pulsing while verifying or extracting.
+/// A full-width accent bar pulsing while verifying.
 fn busy_block(label: SharedString, id: String, cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
@@ -532,14 +531,6 @@ impl RenderOnce for ModelCard {
                 busy_block(
                     t("modelSelector.verifyingGeneric"),
                     format!("verify-{}", model.id),
-                    cx,
-                )
-                .into_any_element(),
-            ),
-            CardStatus::Extracting => Some(
-                busy_block(
-                    t("modelSelector.extractingGeneric"),
-                    format!("extract-{}", model.id),
                     cx,
                 )
                 .into_any_element(),

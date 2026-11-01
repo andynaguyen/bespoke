@@ -131,13 +131,16 @@
     }
   },
   "modelSelector": {
+    "errors": {
+      "rescan": "Failed to rescan models",
+      "delete": "Failed to delete model"
+    },
     "custom": "Custom",
     "legacy": "Legacy",
     "streaming": "Streaming",
     "active": "Active",
     "switching": "Switching...",
     "verifyingGeneric": "Verifying...",
-    "extractingGeneric": "Extracting...",
     "downloading": "Downloading {{percentage}}%",
     "deleteModel": "Delete {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

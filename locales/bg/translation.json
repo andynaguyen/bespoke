@@ -121,7 +121,6 @@
     "active": "Активен",
     "switching": "Превключване...",
     "verifyingGeneric": "Проверка...",
-    "extractingGeneric": "Разархивиране...",
     "downloading": "Изтегляне {{percentage}}%",
     "deleteModel": "Изтриване на {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

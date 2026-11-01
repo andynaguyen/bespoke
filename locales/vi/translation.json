@@ -121,7 +121,6 @@
     "active": "Đang hoạt động",
     "switching": "Đang chuyển...",
     "verifyingGeneric": "Đang xác minh...",
-    "extractingGeneric": "Đang giải nén...",
     "downloading": "Đang tải xuống {{percentage}}%",
     "deleteModel": "Xóa {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",

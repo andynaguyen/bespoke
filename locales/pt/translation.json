@@ -120,7 +120,6 @@
     "streaming": "Streaming",
     "active": "Ativo",
     "verifyingGeneric": "Verificando...",
-    "extractingGeneric": "Extraindo...",
     "downloading": "Baixando {{percentage}}%",
     "deleteModel": "Excluir {{modelName}}",
     "switching": "Alternando...",

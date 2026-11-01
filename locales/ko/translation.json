@@ -121,7 +121,6 @@
     "active": "활성",
     "switching": "전환 중...",
     "verifyingGeneric": "검증 중...",
-    "extractingGeneric": "압축 해제 중...",
     "downloading": "다운로드 중 {{percentage}}%",
     "deleteModel": "{{modelName}} 삭제",
     "downloadSpeed": "{{speed}} MB/s",

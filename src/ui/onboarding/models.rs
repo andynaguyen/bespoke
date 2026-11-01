@@ -19,7 +19,6 @@ use crate::ui::model_card::{is_legacy, CardStatus, ModelCard};
 use crate::ui::shell::logo;
 use crate::ui::stores::ModelStore;
 use crate::ui::theme::{palette, Alpha};
-use crate::ui::toast;
 use crate::ui::WindowCallback;
 
 pub struct ModelOnboarding {
@@ -76,8 +75,7 @@ impl ModelOnboarding {
         let store = self.store.read(cx);
         let ready = store.model(&id).is_some_and(|m| m.is_downloaded)
             && !store.downloading.contains(&id)
-            && !store.verifying.contains(&id)
-            && !store.extracting.contains(&id);
+            && !store.verifying.contains(&id);
         if !ready || self.started_selection {
             return;
         }
@@ -93,7 +91,7 @@ impl ModelOnboarding {
                     if ok {
                         let _ = handle.update(cx, |_, window, cx| on_done(window, cx));
                     } else {
-                        toast::error(t("onboarding.errors.selectModel"), cx);
+                        // The store shows the error toast.
                         let _ = weak.update(cx, |this, cx| {
                             this.started_selection = false;
                             this.selected = None;
@@ -161,16 +159,10 @@ impl ModelOnboarding {
     }
 
     fn download_status(&self, id: &str, cx: &App) -> CardStatus {
-        let store = self.store.read(cx);
-        if store.extracting.contains(id) {
-            CardStatus::Extracting
-        } else if store.verifying.contains(id) {
-            CardStatus::Verifying
-        } else if store.downloading.contains(id) {
-            CardStatus::Downloading
-        } else {
-            CardStatus::Downloadable
-        }
+        self.store
+            .read(cx)
+            .download_status(id)
+            .unwrap_or(CardStatus::Downloadable)
     }
 
     fn download_card(
@@ -182,17 +174,13 @@ impl ModelOnboarding {
         let store = self.store.read(cx);
         let progress = store.progress.get(&model.id).map(|p| p.percentage);
         let speed = store.stats.get(&model.id).map(|s| s.speed);
-        let select = cx.entity().downgrade();
-        let download = select.clone();
-        let cancel = select.clone();
+        let download = cx.entity().downgrade();
+        let cancel = download.clone();
         ModelCard::new(model.clone(), self.download_status(&model.id, cx))
             .featured(featured)
             .disabled(self.selected.is_some())
             .show_recommended(false)
             .progress(progress, speed)
-            .on_select(move |id, _, cx| {
-                let _ = select.update(cx, |this, cx| this.download(id, cx));
-            })
             .on_download(move |id, _, cx| {
                 let _ = download.update(cx, |this, cx| this.download(id, cx));
             })

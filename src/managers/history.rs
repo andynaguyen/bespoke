@@ -573,14 +573,15 @@ impl HistoryManager {
     pub async fn get_history_entries(
         &self,
         cursor: Option<i64>,
-        limit: Option<usize>,
+        limit: usize,
     ) -> Result<PaginatedHistory> {
         let conn = self.get_connection()?;
-        let limit = limit.map(|l| l.min(100));
+        let limit = limit.min(100);
+        // One extra row tells whether another page follows.
+        let fetch_count = (limit + 1) as i64;
 
-        let mut entries: Vec<HistoryEntry> = match (cursor, limit) {
-            (Some(cursor_id), Some(lim)) => {
-                let fetch_count = (lim + 1) as i64;
+        let mut entries: Vec<HistoryEntry> = match cursor {
+            Some(cursor_id) => {
                 let mut stmt = conn.prepare(
                     "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
                      FROM transcription_history
@@ -593,8 +594,7 @@ impl HistoryManager {
                     .collect::<std::result::Result<Vec<_>, _>>()?;
                 result
             }
-            (None, Some(lim)) => {
-                let fetch_count = (lim + 1) as i64;
+            None => {
                 let mut stmt = conn.prepare(
                     "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
                      FROM transcription_history
@@ -606,47 +606,14 @@ impl HistoryManager {
                     .collect::<std::result::Result<Vec<_>, _>>()?;
                 result
             }
-            (_, None) => {
-                let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
-                     FROM transcription_history
-                     ORDER BY id DESC",
-                )?;
-                let result = stmt
-                    .query_map([], Self::map_history_entry)?
-                    .collect::<std::result::Result<Vec<_>, _>>()?;
-                result
-            }
         };
 
-        let has_more = limit.is_some_and(|lim| entries.len() > lim);
+        let has_more = entries.len() > limit;
         if has_more {
             entries.pop();
         }
 
         Ok(PaginatedHistory { entries, has_more })
-    }
-
-    #[cfg(test)]
-    fn get_latest_entry_with_conn(conn: &Connection) -> Result<Option<HistoryEntry>> {
-        let mut stmt = conn.prepare(
-            "SELECT
-                id,
-                file_name,
-                timestamp,
-                saved,
-                title,
-                transcription_text,
-                post_processed_text,
-                post_process_prompt,
-                post_process_requested
-             FROM transcription_history
-             ORDER BY timestamp DESC
-             LIMIT 1",
-        )?;
-
-        let entry = stmt.query_row([], Self::map_history_entry).optional()?;
-        Ok(entry)
     }
 
     /// Get the latest entry with non-empty transcription text.
@@ -1115,19 +1082,20 @@ mod tests {
     }
 
     #[test]
-    fn get_latest_entry_returns_none_when_empty() {
+    fn get_latest_completed_entry_returns_none_when_empty() {
         let conn = setup_conn();
-        let entry = HistoryManager::get_latest_entry_with_conn(&conn).expect("fetch latest entry");
+        let entry = HistoryManager::get_latest_completed_entry_with_conn(&conn)
+            .expect("fetch latest entry");
         assert!(entry.is_none());
     }
 
     #[test]
-    fn get_latest_entry_returns_newest_entry() {
+    fn get_latest_completed_entry_returns_newest_entry() {
         let conn = setup_conn();
         insert_entry(&conn, 100, "first", None);
         insert_entry(&conn, 200, "second", Some("processed"));
 
-        let entry = HistoryManager::get_latest_entry_with_conn(&conn)
+        let entry = HistoryManager::get_latest_completed_entry_with_conn(&conn)
             .expect("fetch latest entry")
             .expect("entry exists");
 

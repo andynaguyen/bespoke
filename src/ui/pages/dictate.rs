@@ -749,7 +749,7 @@ impl DictatePage {
                             .disabled(updating)
                             .w(rems(14.))
                             .on_open(move |_, cx| {
-                                let apps = crate::commands::get_running_apps();
+                                let apps = crate::utils::running_apps();
                                 let _ = entity.update(cx, |this, cx| {
                                     this.running_apps = apps;
                                     cx.notify();

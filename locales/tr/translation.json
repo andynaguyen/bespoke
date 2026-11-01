@@ -120,7 +120,6 @@
     "streaming": "Akış",
     "active": "Aktif",
     "verifyingGeneric": "Doğrulanıyor...",
-    "extractingGeneric": "Çıkarılıyor...",
     "downloading": "%{{percentage}} indiriliyor",
     "deleteModel": "{{modelName}} Sil",
     "switching": "Değiştiriliyor...",

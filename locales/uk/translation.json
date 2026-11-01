@@ -120,7 +120,6 @@
     "streaming": "Потокове",
     "active": "Активна",
     "verifyingGeneric": "Перевірка...",
-    "extractingGeneric": "Розпакування...",
     "downloading": "Завантаження {{percentage}}%",
     "deleteModel": "Видалити {{modelName}}",
     "switching": "Перемикання...",

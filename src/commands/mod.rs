@@ -5,16 +5,6 @@ pub mod transcription;
 
 use crate::app_handle::AppHandle;
 use crate::settings::{get_settings, write_settings, LogLevel};
-use crate::utils::cancel_current_operation;
-
-pub fn cancel_operation(app: AppHandle) {
-    cancel_current_operation(&app);
-}
-
-/// Running apps the user can add a writing style rule for. Empty off macOS.
-pub fn get_running_apps() -> Vec<crate::utils::RunningApp> {
-    crate::utils::running_apps()
-}
 
 pub fn get_app_dir_path(app: AppHandle) -> Result<String, String> {
     let app_data_dir = crate::portable::app_data_dir(&app)

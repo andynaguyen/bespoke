@@ -122,7 +122,6 @@
     "active": "Actiu",
     "switching": "S'està canviant...",
     "verifyingGeneric": "S'està verificant...",
-    "extractingGeneric": "S'està extraient...",
     "downloading": "S'està baixant: {{percentage}}%",
     "deleteModel": "Suprimiu {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
