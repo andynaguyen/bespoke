@@ -139,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Sneltoetsen",
-        "description": "Configureer sneltoetsen om spraak-naar-tekst-opnames te starten",
-        "loading": "Sneltoetsen laden...",
-        "none": "Geen sneltoetsen geconfigureerd",
-        "notFound": "Sneltoets niet gevonden",
-        "pressKeys": "Druk op toetsen...",
         "bindings": {
           "transcribe": {
             "name": "Sneltoets voor dicteren",

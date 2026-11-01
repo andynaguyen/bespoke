@@ -139,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Bespoke-genveje",
-        "description": "Konfigurer tastaturgenveje til at udløse tale-til-tekst-optagelse",
-        "loading": "Indlæser genveje...",
-        "none": "Ingen genveje konfigureret",
-        "notFound": "Genvej ikke fundet",
-        "pressKeys": "Tryk på ønskede taster...",
         "bindings": {
           "transcribe": {
             "name": "Transskriptionsgenvej",

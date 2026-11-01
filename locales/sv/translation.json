@@ -139,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Bespoke-kortkommandon",
-        "description": "Konfigurera kortkommandon för att starta tal-till-text-inspelning",
-        "loading": "Laddar kortkommandon...",
-        "none": "Inga kortkommandon konfigurerade",
-        "notFound": "Kortkommando hittades inte",
-        "pressKeys": "Tryck på tangenter...",
         "bindings": {
           "transcribe": {
             "name": "Kortkommando för transkribering",

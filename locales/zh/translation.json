@@ -159,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Bespoke 快捷键",
-        "description": "配置启动语音转文字录制的键盘快捷键",
-        "loading": "加载快捷键中...",
-        "none": "未配置快捷键",
-        "notFound": "未找到快捷键",
-        "pressKeys": "请按键...",
         "bindings": {
           "transcribe": {
             "name": "转录快捷键",

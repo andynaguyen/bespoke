@@ -139,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "קיצורי מקשים של Bespoke",
-        "description": "הגדר קיצורי מקשים כדי להפעיל הקלטה ותמלול דיבור",
-        "loading": "טוען קיצורי מקשים...",
-        "none": "לא הוגדרו קיצורי מקשים",
-        "notFound": "קיצור הדרך לא נמצא",
-        "pressKeys": "לחץ על המקשים...",
         "bindings": {
           "transcribe": {
             "name": "קיצור מקשים לתמלול",

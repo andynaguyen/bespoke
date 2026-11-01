@@ -103,15 +103,13 @@ fn mouse_shortcut(button: MouseButton, modifiers: &Modifiers) -> Option<String> 
 fn key_token(key: &str) -> String {
     match key {
         "escape" => "esc".into(),
-        "pageup" => "pageup".into(),
-        "pagedown" => "pagedown".into(),
-        "capslock" => "capslock".into(),
         other => other.to_lowercase(),
     }
 }
 
+/// Only the global-hotkey recorder calls this, and it never runs on macOS,
+/// so the names are the Windows and Linux ones.
 fn modifier_tokens(modifiers: &Modifiers) -> Vec<&'static str> {
-    let mac = cfg!(target_os = "macos");
     let mut tokens = Vec::new();
     if modifiers.shift {
         tokens.push("shift");
@@ -120,10 +118,10 @@ fn modifier_tokens(modifiers: &Modifiers) -> Vec<&'static str> {
         tokens.push("ctrl");
     }
     if modifiers.alt {
-        tokens.push(if mac { "option" } else { "alt" });
+        tokens.push("alt");
     }
     if modifiers.platform {
-        tokens.push(if mac { "command" } else { "super" });
+        tokens.push("super");
     }
     tokens
 }
@@ -165,8 +163,8 @@ impl ShortcutInput {
         AppHandle::global().clone()
     }
 
-    fn start(&mut self, disabled: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if self.recording || disabled {
+    fn start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.recording {
             return;
         }
         self.committing = false;
@@ -437,35 +435,14 @@ impl ShortcutInput {
         }
     }
 
-    fn render_row(&self, disabled: bool, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_row(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
         let p = palette(cx);
         let store = self.store.read(cx);
-        // Settings load before the first frame, so React's loading state
-        // never shows here; an empty binding list still can.
-        let none = |description: SharedString| {
-            SettingContainer::new(t("settings.general.shortcut.title"))
-                .description(description)
-                .child(
-                    div()
-                        .sm_text()
-                        .text_color(p.mid_gray)
-                        .child(t("settings.general.shortcut.none")),
-                )
-                .into_any_element()
-        };
-        if store.settings.bindings.is_empty() {
-            return none(t("settings.general.shortcut.description"));
-        }
+        // get_settings merges in every default binding, and every
+        // ShortcutInput names a default one, so the lookup only fails on a
+        // programming error.
         let Some(binding) = store.settings.bindings.get(&self.binding_id).cloned() else {
-            return SettingContainer::new(t("settings.general.shortcut.title"))
-                .description(t("settings.general.shortcut.notFound"))
-                .child(
-                    div()
-                        .sm_text()
-                        .text_color(p.mid_gray)
-                        .child(t("settings.general.shortcut.none")),
-                )
-                .into_any_element();
+            return div().into_any_element();
         };
         let updating = store.is_updating(&format!("binding_{}", self.binding_id));
         let title = t_or(
@@ -522,7 +499,7 @@ impl ShortcutInput {
                 .hover(|s| s.bg(mix(p.clay, p.text, 0.05)))
                 .cursor_pointer()
                 .keyboard_focus(cx)
-                .on_click(cx.listener(move |this, _, window, cx| this.start(disabled, window, cx)))
+                .on_click(cx.listener(move |this, _, window, cx| this.start(window, cx)))
                 .child(format_key_combination(&binding.current_binding))
         };
 
@@ -560,7 +537,6 @@ impl ShortcutInput {
         let store = self.store.clone();
         SettingContainer::new(title)
             .description(description)
-            .disabled(disabled)
             .child(
                 div()
                     .flex()
@@ -584,6 +560,6 @@ impl ShortcutInput {
 
 impl Render for ShortcutInput {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.render_row(false, cx)
+        self.render_row(cx)
     }
 }

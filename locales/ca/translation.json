@@ -139,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Dreceres del Bespoke",
-        "description": "Configura les dreceres de teclat per iniciar l'enregistrament de veu per a la transcripció",
-        "loading": "S'estan carregant les dreceres...",
-        "none": "No hi ha cap drecera configurada",
-        "notFound": "No s'ha trobat la drecera",
-        "pressKeys": "Premeu les tecles...",
         "bindings": {
           "transcribe": {
             "name": "Drecera de transcripció",

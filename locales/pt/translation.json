@@ -139,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Atalhos do Bespoke",
-        "description": "Configure atalhos de teclado para iniciar a gravação de voz para texto",
-        "loading": "Carregando atalhos...",
-        "none": "Nenhum atalho configurado",
-        "notFound": "Atalho não encontrado",
-        "pressKeys": "Pressione as teclas...",
         "bindings": {
           "transcribe": {
             "name": "Atalho de Transcrição",

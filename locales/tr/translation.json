@@ -159,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Bespoke Kısayolları",
-        "description": "Sesle yazma kaydını başlatmak için klavye kısayollarını yapılandırın",
-        "loading": "Kısayollar yükleniyor...",
-        "none": "Kısayol yapılandırılmadı",
-        "notFound": "Kısayol bulunamadı",
-        "pressKeys": "Tuşlara basın...",
         "bindings": {
           "transcribe": {
             "name": "Transkripsiyon Kısayolu",

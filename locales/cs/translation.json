@@ -159,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Zkratky Bespoke",
-        "description": "Nastavte klávesové zkratky pro spuštění nahrávání řeči na text",
-        "loading": "Načítám zkratky...",
-        "none": "Žádné zkratky nejsou nastavené",
-        "notFound": "Zkratka nenalezena",
-        "pressKeys": "Stiskněte klávesy...",
         "bindings": {
           "transcribe": {
             "name": "Zkratka přepisu",

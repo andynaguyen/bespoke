@@ -155,30 +155,22 @@ enum Draft {
     Snippet(Snippet),
 }
 
-/// Puts `draft` in place of the entry at `editing`: in the same slot when it
-/// keeps its kind, otherwise at the end of the other list.
+/// Puts `draft` in place of the entry at `editing`, or at the end of its
+/// list for a new entry. A dialog edits one kind of entry, so `draft` and
+/// `editing` always name the same list.
 fn place(
     draft: Draft,
     editing: Option<EntryRef>,
     words: &mut Vec<String>,
     snippets: &mut Vec<Snippet>,
 ) {
-    match editing {
-        Some(EntryRef::Word(index)) if index < words.len() => {
-            words.remove(index);
-        }
-        Some(EntryRef::Snippet(index)) if index < snippets.len() => {
-            snippets.remove(index);
-        }
-        _ => {}
-    }
     match (draft, editing) {
-        (Draft::Word(word), Some(EntryRef::Word(index))) => {
-            words.insert(index.min(words.len()), word)
+        (Draft::Word(word), Some(EntryRef::Word(index))) if index < words.len() => {
+            words[index] = word
         }
         (Draft::Word(word), _) => words.push(word),
-        (Draft::Snippet(snippet), Some(EntryRef::Snippet(index))) => {
-            snippets.insert(index.min(snippets.len()), snippet)
+        (Draft::Snippet(snippet), Some(EntryRef::Snippet(index))) if index < snippets.len() => {
+            snippets[index] = snippet
         }
         (Draft::Snippet(snippet), _) => snippets.push(snippet),
     }
@@ -1207,7 +1199,7 @@ mod tests {
     }
 
     #[test]
-    fn an_edit_keeps_its_slot_or_moves_to_the_other_list() {
+    fn an_edit_keeps_its_slot_and_a_new_entry_goes_last() {
         let mut words = vec!["IntraFi".to_string(), "Karat".to_string()];
         let mut snippets = vec![snippet("my email", "a@example.com")];
 
@@ -1221,11 +1213,10 @@ mod tests {
 
         place(
             Draft::Snippet(snippet("intrafi", "IntraFi Network")),
-            Some(EntryRef::Word(0)),
+            None,
             &mut words,
             &mut snippets,
         );
-        assert_eq!(words, ["Carat"]);
         assert_eq!(
             snippets,
             [
@@ -1235,12 +1226,12 @@ mod tests {
         );
 
         place(
-            Draft::Word("my email".into()),
+            Draft::Snippet(snippet("my email", "b@example.com")),
             Some(EntryRef::Snippet(0)),
             &mut words,
             &mut snippets,
         );
-        assert_eq!(words, ["Carat", "my email"]);
-        assert_eq!(snippets, [snippet("intrafi", "IntraFi Network")]);
+        assert_eq!(snippets[0], snippet("my email", "b@example.com"));
+        assert_eq!(words, ["IntraFi", "Carat"]);
     }
 }
