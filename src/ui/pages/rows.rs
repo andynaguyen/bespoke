@@ -282,9 +282,7 @@ fn device_row(
                             row.placeholder
                         }))
                         .disabled(blocked)
-                        .on_open(move |_, cx| {
-                            SettingsStore::global(cx).update(cx, |s, cx| refresh(s, cx))
-                        })
+                        .on_open(move |_, cx| SettingsStore::global(cx).update(cx, refresh))
                         .on_select(move |name, _, cx| select(name.to_string(), cx)),
                 )
                 .child(reset_button(

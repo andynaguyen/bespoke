@@ -15,8 +15,8 @@
 
 use std::collections::HashMap;
 
-use once_cell::sync::Lazy;
 use serde::Deserialize;
+use std::sync::LazyLock;
 
 use crate::managers::model::{
     default_quant_file, EngineType, ModelDescriptor, ModelSource, QuantFile,
@@ -114,14 +114,14 @@ impl From<&CatalogModel> for ModelDescriptor {
 
 /// The raw parsed catalog. Kept alive (not consumed) so mirror metadata that
 /// deliberately stays out of [`ModelDescriptor`] can be looked up separately.
-static ROOT: Lazy<CatalogRoot> = Lazy::new(|| {
+static ROOT: LazyLock<CatalogRoot> = LazyLock::new(|| {
     serde_json::from_str(include_str!("catalog.json"))
         .expect("bundled catalog.json is valid JSON matching the catalog schema")
 });
 
 /// The bundled catalog, parsed once and normalised into descriptors.
-pub static CATALOG: Lazy<Vec<ModelDescriptor>> =
-    Lazy::new(|| ROOT.models.iter().map(ModelDescriptor::from).collect());
+pub static CATALOG: LazyLock<Vec<ModelDescriptor>> =
+    LazyLock::new(|| ROOT.models.iter().map(ModelDescriptor::from).collect());
 
 /// A mirror copy of a catalog model's default file, with the expected content
 /// hash for end-to-end verification. Mirrors are untrusted bit-pipes: the
@@ -181,7 +181,7 @@ pub fn file_in_catalog(
     filename: &str,
     repo_id: Option<&str>,
 ) -> Option<(&'static ModelDescriptor, &'static QuantFile)> {
-    let catalog: &'static Vec<ModelDescriptor> = Lazy::force(&CATALOG);
+    let catalog: &'static Vec<ModelDescriptor> = LazyLock::force(&CATALOG);
     catalog.iter().find_map(|d| {
         if let Some(repo) = repo_id {
             match &d.source {
@@ -198,7 +198,7 @@ pub fn file_in_catalog(
 
 /// Editorial recommended rank keyed by descriptor id (the same id the model
 /// registry uses). Built once from the catalog.
-static RANK_BY_ID: Lazy<HashMap<String, u32>> = Lazy::new(|| {
+static RANK_BY_ID: LazyLock<HashMap<String, u32>> = LazyLock::new(|| {
     CATALOG
         .iter()
         .filter_map(|d| d.recommended_rank.map(|r| (d.id.clone(), r)))

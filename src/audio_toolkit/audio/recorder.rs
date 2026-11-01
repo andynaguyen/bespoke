@@ -114,6 +114,12 @@ pub struct AudioRecorder {
     stream_error: Arc<AtomicBool>,
 }
 
+impl Default for AudioRecorder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioRecorder {
     pub fn new() -> Self {
         AudioRecorder {
