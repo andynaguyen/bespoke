@@ -121,7 +121,6 @@
     "active": "使用中",
     "switching": "切換中...",
     "verifyingGeneric": "正在驗證...",
-    "extractingGeneric": "解壓中...",
     "downloading": "下載中 {{percentage}}%",
     "deleteModel": "刪除 {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
@@ -140,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Bespoke 快捷鍵",
-        "description": "設定啟動語音轉文字錄製的鍵盤快捷鍵",
-        "loading": "載入快捷鍵中...",
-        "none": "未設定快捷鍵",
-        "notFound": "未找到快捷鍵",
-        "pressKeys": "請按鍵...",
         "bindings": {
           "transcribe": {
             "name": "轉錄快捷鍵",

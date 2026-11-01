@@ -1,10 +1,3 @@
-//! App settings as the UI sees them, ported from `settingsStore.ts`.
-//!
-//! Writes are optimistic: [`SettingsStore::update`] applies the change to the
-//! local copy at once, runs the backend command on a worker thread, then
-//! reloads the persisted settings. A failed write therefore rolls back to the
-//! stored value instead of lingering until the next refresh.
-
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 
@@ -20,12 +13,9 @@ pub struct SettingsStore {
     pub settings: AppSettings,
     pub defaults: AppSettings,
     updating: HashSet<SharedString>,
-    /// Inputs, with "Default" first. Empty until first refreshed.
     pub audio_devices: Vec<AudioDevice>,
-    /// Outputs, with "Default" first. Empty until first refreshed.
     pub output_devices: Vec<AudioDevice>,
     pub custom_sounds: CustomSounds,
-    /// Cached `/models` results per post-processing provider.
     pub post_process_models: HashMap<String, Vec<String>>,
 }
 
@@ -41,7 +31,6 @@ fn default_device() -> AudioDevice {
     }
 }
 
-/// Prepends "Default" and drops any backend entry with that name.
 fn with_default_device(devices: Vec<AudioDevice>) -> Vec<AudioDevice> {
     std::iter::once(default_device())
         .chain(
@@ -62,7 +51,6 @@ impl SettingsStore {
         cx.global::<GlobalSettingsStore>().0.clone()
     }
 
-    /// The current settings snapshot.
     pub fn get(cx: &App) -> &AppSettings {
         &cx.global::<GlobalSettingsStore>().0.read(cx).settings
     }
@@ -125,8 +113,6 @@ impl SettingsStore {
         cx.notify();
     }
 
-    /// Applies `apply` to the local settings now, runs `command` on a worker
-    /// thread, then reloads the stored settings.
     pub fn update(
         &mut self,
         key: &str,
@@ -138,8 +124,6 @@ impl SettingsStore {
         self.update_async(key, apply, async move { command(app) }, cx);
     }
 
-    /// Like [`update`](Self::update) for commands that are `async` (they may
-    /// use tokio internally, so they run on the tokio runtime).
     pub fn update_async(
         &mut self,
         key: &str,
@@ -196,8 +180,6 @@ impl SettingsStore {
         .detach();
     }
 
-    /// Writes a shortcut binding. On failure the old binding is restored and
-    /// `on_done` receives the error.
     pub fn update_binding(
         &mut self,
         id: String,
@@ -255,8 +237,6 @@ impl SettingsStore {
         .detach();
     }
 
-    /// Fetches the model list for a post-processing provider and caches it.
-    /// Errors are logged and leave the cache untouched.
     pub fn fetch_post_process_models(&mut self, provider_id: String, cx: &mut Context<Self>) {
         let key = format!("post_process_models_fetch:{provider_id}");
         self.set_updating(key.clone(), true, cx);

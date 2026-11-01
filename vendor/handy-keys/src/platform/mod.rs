@@ -1,5 +1,3 @@
-//! Platform-specific keyboard utilities
-
 pub(crate) mod state;
 
 #[cfg(target_os = "macos")]

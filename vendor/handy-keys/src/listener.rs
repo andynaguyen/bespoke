@@ -1,7 +1,3 @@
-//! Keyboard listener for streaming raw key events
-//!
-//! This module provides a `KeyboardListener` that streams all keyboard events,
-//! useful for implementing "record hotkey" UI flows.
 //!
 //! # Platform Notes
 //!

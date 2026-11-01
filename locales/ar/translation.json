@@ -120,7 +120,6 @@
     "streaming": "البث",
     "active": "نشط",
     "verifyingGeneric": "جارٍ التحقق...",
-    "extractingGeneric": "...جاري الاستخراج",
     "downloading": "جاري التنزيل {{percentage}}%",
     "deleteModel": "حذف {{modelName}}",
     "switching": "جارٍ التبديل...",
@@ -140,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "اختصارات Bespoke",
-        "description": "إعداد اختصارات لوحة المفاتيح لبدء تسجيل التفريغ الصوتي",
-        "loading": "...جاري تحميل الاختصارات",
-        "none": "لا توجد اختصارات مجهزة",
-        "notFound": "الاختصار غير موجود",
-        "pressKeys": "...اضغط على المفاتيح",
         "bindings": {
           "transcribe": {
             "name": "اختصار التفريغ الصوتي",

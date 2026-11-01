@@ -1,7 +1,3 @@
-//! The settings window (`App.tsx`): onboarding until it is done, then the
-//! sidebar and the content panel for the selected section. Also hosts the
-//! dialog layer and toasts.
-
 mod banners;
 mod inspector;
 mod sidebar;
@@ -32,24 +28,18 @@ pub use inspector::inspector;
 pub use sidebar::logo;
 pub use toolbar::Toolbar;
 
-/// The open modal dialog.
 #[derive(Clone)]
 enum OpenDialog {
-    /// In a window of its own over the main window (macOS).
     Window(DialogWindow),
-    /// Drawn in the main window.
     Inline(AnyView),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Section {
-    /// The dictionary, snippets, writing style and history tabs.
     Dictate,
     Stats,
     Models,
-    /// Scrawl's capture (macOS only).
     Annotate,
-    /// Agent Access, the MCP server for Annotate's captures (macOS only).
     Mcp,
     Debug,
     Settings,
@@ -99,7 +89,6 @@ enum OnboardingStep {
     Done,
 }
 
-/// macOS window chrome height reserved above the content.
 pub const TITLEBAR_HEIGHT: f32 = if cfg!(target_os = "macos") { 28. } else { 0. };
 
 pub struct MainWindow {
@@ -140,8 +129,6 @@ impl MainWindow {
         } else {
             step
         };
-        // A returning user who lost a permission sees the permission step
-        // even when Bespoke starts hidden.
         if is_returning_user && step == OnboardingStep::Accessibility {
             cx.defer(crate::ui::show_main_window);
         }
@@ -217,8 +204,6 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Enigo and shortcuts start only after onboarding, so the macOS
-    /// permission prompts never appear before the user is ready.
     fn run_post_onboarding_init(&mut self, cx: &mut Context<Self>) {
         if self.post_onboarding_done {
             return;
@@ -274,7 +259,6 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Dev snapshots: opens `page` (see `ui::dev_snapshot`).
     #[cfg(debug_assertions)]
     pub fn dev_navigate(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
         let (page, scroll) = page.split_once('@').unwrap_or((page, ""));
@@ -316,9 +300,6 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Shows a modal dialog over the window. The view closes it with
-    /// [`close_dialog`]. On macOS the dialog gets a window of its own, so it
-    /// can sit on glass, and `build` gets that window.
     pub fn open_dialog(
         &mut self,
         window: &mut Window,
@@ -400,13 +381,11 @@ impl MainWindow {
                             toast::ToastKind::Error,
                             t_with("errors.modelLoadFailed", &[("model", &model)]),
                             state.error.map(Into::into),
-                            None,
                             cx,
                         );
                     }
                 }
             }
-            // The sidebar's update card.
             crate::updater::STATE_CHANGED => cx.notify(),
             _ => {}
         }
@@ -432,10 +411,6 @@ impl MainWindow {
         let toolbar = self.page.toolbar(window, cx);
         let toolbar = toolbar::render(t(self.section.label_key()), toolbar, window, cx);
         let inspector = self.page.inspector(window, cx);
-        // The window is glass tinted to the content surface, so the content
-        // runs behind the sidebar, which floats on it as its own glass panel.
-        // A page's inspector runs the window's height along its trailing
-        // edge, beside the toolbar.
         div()
             .relative()
             .size_full()
@@ -479,7 +454,6 @@ impl MainWindow {
             )
     }
 
-    /// The page under the toolbar, laid out as the page asks.
     fn render_body(&self, cx: &App) -> impl IntoElement {
         let page = self.page.view.clone();
         let layout = self.page.layout(cx);
@@ -522,8 +496,6 @@ impl MainWindow {
     }
 }
 
-/// Decides where onboarding starts, like `checkOnboardingStatus` in App.tsx.
-/// Returns the step and whether this is a returning user.
 fn initial_onboarding_step(cx: &App) -> (OnboardingStep, bool) {
     let settings = SettingsStore::get(cx);
     if !settings.onboarding_completed {
@@ -538,9 +510,7 @@ fn initial_onboarding_step(cx: &App) -> (OnboardingStep, bool) {
     #[cfg(target_os = "windows")]
     {
         let status = crate::commands::audio::get_windows_microphone_permission_status();
-        if status.supported
-            && status.overall_access == crate::commands::audio::PermissionAccess::Denied
-        {
+        if status.overall_access == crate::commands::audio::PermissionAccess::Denied {
             return (OnboardingStep::Accessibility, true);
         }
     }
@@ -548,7 +518,6 @@ fn initial_onboarding_step(cx: &App) -> (OnboardingStep, bool) {
     (OnboardingStep::Done, true)
 }
 
-/// Closes the open dialog, if any. `window` may be the dialog's own.
 pub fn close_dialog(window: &mut Window, cx: &mut App) {
     if let Some(main) = crate::ui::main_view(cx) {
         crate::ui::popup::in_host(window, cx, move |window, cx| {
@@ -557,7 +526,6 @@ pub fn close_dialog(window: &mut Window, cx: &mut App) {
     }
 }
 
-/// Opens `build`'s view as a modal dialog over the settings window.
 pub fn open_dialog(
     window: &mut Window,
     cx: &mut App,
@@ -638,8 +606,6 @@ impl Render for MainWindow {
             .track_focus(&self.focus)
             .size_full()
             .relative()
-            // The app draws on glass. Onboarding, and machines without native
-            // glass, get the opaque shell color instead.
             .when(
                 self.preview.is_some()
                     || self.step != OnboardingStep::Done
@@ -649,7 +615,6 @@ impl Render for MainWindow {
             .text_color(p.text)
             .text_size(px(13.))
             .line_height(px(18.))
-            // `dir="rtl"` makes start-aligned text right-aligned.
             .when(crate::i18n::is_rtl(), |el| el.text_right())
             .on_action(
                 cx.listener(|this, _: &crate::ui::ToggleDebugMode, _, cx| {
@@ -658,14 +623,11 @@ impl Render for MainWindow {
             )
             .on_action(
                 cx.listener(|this, _: &crate::ui::OpenSettings, window, cx| {
-                    // During an onboarding preview this picks the section
-                    // shown once the preview closes, like App.tsx.
                     if this.step == OnboardingStep::Done {
                         this.select_section(Section::Settings, window, cx);
                     }
                 }),
             )
-            // `focus-visible`: rings show after keyboard input only.
             .capture_key_down(|_, window, cx| {
                 crate::ui::components::set_keyboard_modality(true, window, cx)
             })
@@ -678,13 +640,8 @@ impl Render for MainWindow {
                     window.remove_window();
                 }
             })
-            // Paints first, so popups whose anchor this frame skips hide.
             .child(crate::ui::popup::frame_marker())
             .when(cfg!(target_os = "macos"), |el| {
-                // The title strip (`data-tauri-drag-region`): AppKit drags
-                // the window from it, and a double click zooms or minimizes
-                // per the system setting. It sits under the content so
-                // controls drawn over it keep their clicks.
                 el.child(
                     div()
                         .id("title-strip")
@@ -704,9 +661,6 @@ impl Render for MainWindow {
             .children(self.dialog.clone().map(|dialog| {
                 match dialog {
                     OpenDialog::Inline(view) => view.into_any_element(),
-                    // The dialog draws in its own window over this one. Dim this
-                    // one under it, and keep that window over this one as it
-                    // resizes.
                     OpenDialog::Window(dialog) => div()
                         .absolute()
                         .inset_0()

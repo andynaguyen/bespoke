@@ -1,6 +1,3 @@
-//! The tools Annotate's MCP server offers. Each reads captures from the captures folder and
-//! answers with MCP content: text, and PNG images no larger than `MAX_IMAGE_EDGE` on a side.
-
 use std::io::Cursor;
 use std::path::Path;
 
@@ -11,15 +8,10 @@ use image::{imageops::FilterType, ImageFormat, ImageReader};
 use scrawl::host::Capture;
 use serde_json::{json, Value};
 
-/// The longest side of an image sent to an agent. Contact sheets are already this wide, and full
-/// Retina frames shrink to it.
 const MAX_IMAGE_EDGE: u32 = 1600;
-/// The most keyframes one `get_frames` call returns.
 const MAX_FRAMES: usize = 8;
-/// Manifest fields `get_manifest` leaves out unless asked.
 const MANIFEST_EXTRAS: [&str; 3] = ["cursor", "windows", "strokes"];
 
-/// The `tools/list` result.
 pub fn list() -> Value {
     let capture = json!({
         "type": "string",
@@ -99,8 +91,6 @@ pub fn list() -> Value {
     ])
 }
 
-/// Runs tool `name` against the captures in `captures`. `None` for a tool that doesn't exist;
-/// `Some(Err)` for one that failed, which the agent sees as a tool error.
 pub fn call(captures: &Path, name: &str, arguments: &Value) -> Option<Result<Vec<Value>>> {
     Some(match name {
         "get_capture" => get_capture(captures, arguments),
@@ -224,8 +214,6 @@ fn image(path: &Path) -> Result<Value> {
     }))
 }
 
-/// Shrinks a PNG whose longest side passes `MAX_IMAGE_EDGE`. Smaller ones pass through as they
-/// are, without decoding.
 fn shrink(png: Vec<u8>) -> Result<Vec<u8>> {
     let (width, height) =
         ImageReader::with_format(Cursor::new(&png), ImageFormat::Png).into_dimensions()?;

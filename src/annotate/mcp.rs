@@ -1,9 +1,3 @@
-//! Agent access to Annotate's captures: an MCP server on `127.0.0.1:PORT` that coding agents
-//! call for a capture's summary, contact sheet, keyframes and manifest. An agent on another
-//! machine reaches it through an SSH `RemoteForward`, or through this Mac's Tailscale address
-//! when the reach is `McpReach::Tailnet`. A capture leaves this Mac only when an agent asks for it.
-//! Every request needs the bearer token kept in `annotate/mcp-token`.
-//!
 //! The server speaks MCP's Streamable HTTP transport without sessions or server-sent events:
 //! each POST carries one JSON-RPC message and gets one JSON reply.
 
@@ -33,29 +27,21 @@ use tokio::task::{JoinHandle, JoinSet};
 use crate::app_handle::AppHandle;
 use crate::settings::{get_settings, write_settings, McpReach};
 
-/// The port on this Mac, and the one the `RemoteForward` line opens on the remote machine.
 pub const PORT: u16 = 47790;
-/// MCP revisions this server answers to, newest first. It uses nothing that changed between
-/// them.
 const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const INSTRUCTIONS: &str = include_str!("mcp/instructions.md");
-/// The largest request body read. Requests are small JSON-RPC messages.
 const MAX_BODY: usize = 1 << 20;
-/// How often the server checks whether this Mac's Tailscale address has changed.
 const TAILSCALE_POLL: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Status {
     Off,
     Listening,
-    /// The server didn't start, usually because another app holds the port.
     Failed(String),
 }
 
 static STATUS: parking_lot::Mutex<Status> = parking_lot::Mutex::new(Status::Off);
 
-/// The running server's accept loop. Locked across a restart so two syncs can't race for the
-/// port.
 fn server() -> &'static tokio::sync::Mutex<Option<JoinHandle<()>>> {
     static SERVER: OnceLock<tokio::sync::Mutex<Option<JoinHandle<()>>>> = OnceLock::new();
     SERVER.get_or_init(Default::default)
@@ -69,8 +55,6 @@ fn url(host: impl std::fmt::Display) -> String {
     format!("http://{host}:{PORT}/mcp")
 }
 
-/// The URL agents add: this Mac's Tailscale address while the server listens there, otherwise
-/// loopback, which `ssh_forward` carries to remote machines.
 fn agent_url(app: &AppHandle) -> Result<String> {
     if get_settings(app).annotate_mcp_reach != McpReach::Tailnet {
         return Ok(url(Ipv4Addr::LOCALHOST));
@@ -121,12 +105,10 @@ fn is_tailscale(address: Ipv4Addr) -> bool {
     first == 100 && (64..128).contains(&second)
 }
 
-/// The `~/.ssh/config` line that opens `PORT` on a remote machine and forwards it here.
 pub fn ssh_forward() -> String {
     format!("RemoteForward {PORT} 127.0.0.1:{PORT}")
 }
 
-/// Adds the server to Claude Code for every project on the machine it runs on.
 pub fn claude_command(app: &AppHandle) -> Result<String> {
     Ok(format!(
         "claude mcp add --transport http --scope user bespoke {} --header \"Authorization: Bearer {}\"",
@@ -145,7 +127,6 @@ pub fn codex_config(app: &AppHandle) -> Result<String> {
     ))
 }
 
-/// Saves where the server listens and starts, stops or restarts it to match.
 pub fn set_reach(app: AppHandle, reach: McpReach) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.annotate_mcp_reach = reach;
@@ -154,7 +135,6 @@ pub fn set_reach(app: AppHandle, reach: McpReach) -> Result<(), String> {
     Ok(())
 }
 
-/// Replaces the token and restarts the server with it. Agents need the new command.
 pub fn renew_token(app: &AppHandle) -> Result<()> {
     let path = token_path(app)?;
     match fs::remove_file(&path) {
@@ -168,15 +148,12 @@ pub fn renew_token(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-/// Starts, stops or restarts the server to match the setting and the token. Returns at once;
-/// `status` reports how it went.
 pub fn sync(app: &AppHandle) {
     let app = app.clone();
     crate::runtime::spawn(async move {
         let mut running = server().lock().await;
         if let Some(task) = running.take() {
             task.abort();
-            // The listener closes when its task is dropped, which frees the port to bind again.
             let _ = task.await;
         }
         if get_settings(&app).annotate_mcp_reach == McpReach::Off {
@@ -218,9 +195,6 @@ async fn listen(app: &AppHandle) -> Result<impl Future<Output = ()>> {
     })
 }
 
-/// Serves on this Mac's Tailscale address and follows it as Tailscale connects, disconnects or
-/// changes address. Runs until the task is aborted, which drops the `JoinSet` and closes the
-/// listener with it.
 async fn serve_tailscale(service: Arc<Service>) {
     let mut current = None;
     let mut serving = JoinSet::new();
@@ -236,7 +210,6 @@ async fn serve_tailscale(service: Arc<Service>) {
                         log::info!("Annotate MCP server listening on {}", url(address));
                         serving.spawn(serve(listener, service.clone()));
                     }
-                    // Tried again when the address changes or the switch restarts the server.
                     Err(error) => {
                         log::warn!("Annotate MCP server couldn't listen on {address}: {error}")
                     }
@@ -247,8 +220,6 @@ async fn serve_tailscale(service: Arc<Service>) {
     }
 }
 
-/// Accepts connections until the task is aborted. Dropping the `JoinSet` with it closes every
-/// open connection too.
 async fn serve(listener: TcpListener, service: Arc<Service>) {
     let mut connections = JoinSet::new();
     loop {
@@ -283,8 +254,6 @@ fn token_path(app: &AppHandle) -> Result<PathBuf> {
         .join("mcp-token"))
 }
 
-/// The bearer token agents send, made on first use. It has its own file, readable only by this
-/// user, so it stays out of the settings and the logs.
 fn token(app: &AppHandle) -> Result<String> {
     let path = token_path(app)?;
     if let Ok(token) = fs::read_to_string(&path) {
@@ -341,7 +310,6 @@ impl Service {
             return response;
         }
         if request.method() != Method::POST {
-            // No server-sent event stream (GET) and no sessions to end (DELETE).
             let mut response = empty(StatusCode::METHOD_NOT_ALLOWED);
             response
                 .headers_mut()
@@ -372,7 +340,6 @@ impl Service {
         else {
             return false;
         };
-        // Compares every byte, so the time taken doesn't tell how much of the token matched.
         presented.len() == self.token.len()
             && presented
                 .bytes()
@@ -381,7 +348,6 @@ impl Service {
                 == 0
     }
 
-    /// Answers one JSON-RPC message. `None` for notifications and replies, which get no answer.
     async fn rpc(&self, message: Value) -> Option<Value> {
         let id = message.get("id")?.clone();
         let method = message.get("method")?.as_str()?.to_owned();
@@ -401,8 +367,6 @@ impl Service {
         })
     }
 
-    /// A failing tool is a result with `isError`, which the agent reads. Only a tool that doesn't
-    /// exist is a protocol error.
     async fn call(&self, params: Value) -> Result<Value, (i64, String)> {
         let name = params
             .get("name")
@@ -485,7 +449,6 @@ mod tests {
 
     const TOKEN: &str = "secret";
 
-    /// A captures folder with one capture whose contact sheet is wider than agents get.
     fn captures() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         let bundle = dir.path().join("scrawl-1-a.scrawl");
@@ -583,7 +546,6 @@ mod tests {
             ["get_capture", "get_frames", "list_captures", "get_manifest"]
         );
 
-        // The path from a paste on this Mac, as an agent elsewhere passes it.
         let capture = call(
             &url,
             3,
@@ -621,7 +583,6 @@ mod tests {
             .unwrap()
             .contains("\"keyframes\""));
 
-        // A failing tool is a result the agent reads; a missing tool or method is an error.
         let missing = call(&url, 7, "get_frames", json!({"keyframes": [9]})).await;
         assert_eq!(missing["result"]["isError"], true);
         assert!(missing["result"]["content"][0]["text"]

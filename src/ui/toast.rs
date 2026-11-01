@@ -1,21 +1,16 @@
-//! Toast notifications, styled like the React app's Sonner toaster:
-//! bottom-right, newest at the bottom, gone after four seconds. In the main
-//! window each toast sits on its own glass, in a popup window (`ui::popup`).
-
 use std::time::Duration;
 
 use gpui::{
     div, prelude::*, px, svg, App, Context, Entity, Global, IntoElement, SharedString, Window,
 };
 
-use crate::ui::components::{KeyboardFocus, RowDirection};
+use crate::ui::components::RowDirection;
 use crate::ui::popup::{self, Placement, Spec};
 use crate::ui::theme::{palette, radius, shadow_lg, Alpha};
 
 const DURATION: Duration = Duration::from_millis(4000);
 const MAX_VISIBLE: usize = 3;
 const WIDTH: f32 = 356.;
-/// The gap between the stack and the window's bottom-right corner.
 const MARGIN: f32 = 24.;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -25,20 +20,12 @@ pub enum ToastKind {
     Warning,
 }
 
-/// A button shown on the toast, e.g. "How to fix".
-#[derive(Clone)]
-pub struct ToastAction {
-    pub label: SharedString,
-    pub on_click: crate::ui::WindowCallback,
-}
-
 #[derive(Clone)]
 struct Toast {
     id: usize,
     kind: ToastKind,
     title: SharedString,
     description: Option<SharedString>,
-    action: Option<ToastAction>,
 }
 
 pub struct Toasts {
@@ -66,7 +53,6 @@ pub fn show(
     kind: ToastKind,
     title: impl Into<SharedString>,
     description: Option<SharedString>,
-    action: Option<ToastAction>,
     cx: &mut App,
 ) {
     let title = title.into();
@@ -78,7 +64,6 @@ pub fn show(
             kind,
             title,
             description,
-            action,
         });
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -93,7 +78,7 @@ pub fn show(
 }
 
 pub fn error(title: impl Into<SharedString>, cx: &mut App) {
-    show(ToastKind::Error, title, None, None, cx);
+    show(ToastKind::Error, title, None, cx);
 }
 
 pub fn error_with(
@@ -101,15 +86,15 @@ pub fn error_with(
     description: impl Into<SharedString>,
     cx: &mut App,
 ) {
-    show(ToastKind::Error, title, Some(description.into()), None, cx);
+    show(ToastKind::Error, title, Some(description.into()), cx);
 }
 
 pub fn info(title: impl Into<SharedString>, cx: &mut App) {
-    show(ToastKind::Info, title, None, None, cx);
+    show(ToastKind::Info, title, None, cx);
 }
 
 pub fn warning(title: impl Into<SharedString>, cx: &mut App) {
-    show(ToastKind::Warning, title, None, None, cx);
+    show(ToastKind::Warning, title, None, cx);
 }
 
 impl Render for Toasts {
@@ -123,7 +108,6 @@ impl Render for Toasts {
             let spec = Spec {
                 placement: Placement::BottomRight { margin: px(MARGIN) },
                 width: Some(px(WIDTH)),
-                // Each toast has its own glass and corners.
                 frame_radius: None,
                 interactive: true,
             };
@@ -145,9 +129,6 @@ impl Render for Toasts {
     }
 }
 
-/// The toasts, newest last. `on_glass` draws each on glass in a popup
-/// window, whose clicks run against the main window; otherwise each gets an
-/// opaque card.
 fn stack(toasts: &[Toast], on_glass: bool, cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
@@ -206,33 +187,5 @@ fn stack(toasts: &[Toast], on_glass: bool, cx: &App) -> impl IntoElement {
                             el.child(div().text_color(p.mid_gray).child(description))
                         }),
                 )
-                .when_some(toast.action.clone(), |el, action| {
-                    let on_click = action.on_click.clone();
-                    let button = div()
-                        .id(("toast-action", toast.id))
-                        .px_2()
-                        .py_1()
-                        .text_xs()
-                        .font_weight(gpui::FontWeight::MEDIUM)
-                        .rounded_lg()
-                        .border_1()
-                        .bg(p.mid_gray.a(0.1))
-                        .border_color(p.mid_gray.a(0.2))
-                        .hover(|s| s.bg(p.mid_gray.a(0.2)))
-                        .cursor_pointer()
-                        .whitespace_nowrap()
-                        .child(action.label.clone())
-                        .on_click(move |_, window, cx| {
-                            let on_click = on_click.clone();
-                            popup::in_host(window, cx, move |window, cx| on_click(window, cx));
-                        });
-                    // A popup never takes the keyboard, so only the inline
-                    // toast is a tab stop.
-                    el.child(if on_glass {
-                        button
-                    } else {
-                        button.keyboard_focus(cx)
-                    })
-                })
         }))
 }

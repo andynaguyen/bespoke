@@ -1,7 +1,3 @@
-//! Build steps:
-//! - embeds the locale files, release notes and assets, and
-//! - compiles the Swift bridge for Apple Intelligence on Apple Silicon.
-
 use std::path::{Path, PathBuf};
 
 fn main() {
@@ -13,8 +9,6 @@ fn main() {
     embed_assets();
 }
 
-/// Writes `assets.rs`: every file under `assets/` keyed by its relative path
-/// (`icons/check.svg`), served to GPUI by `ui::assets::Assets`.
 fn embed_assets() {
     let assets_dir = manifest_dir().join("assets");
     println!("cargo:rerun-if-changed={}", assets_dir.display());
@@ -40,8 +34,6 @@ fn embed_assets() {
     write_out("assets.rs", &out);
 }
 
-/// Writes `locales.rs`: one `(code, json)` pair per folder under `locales/`,
-/// the single source of truth for both the UI strings and the tray menu.
 fn embed_locales() {
     let locales_dir = manifest_dir().join("locales");
     println!("cargo:rerun-if-changed={}", locales_dir.display());
@@ -70,9 +62,6 @@ fn embed_locales() {
     write_out("locales.rs", &out);
 }
 
-/// Writes `release_notes.rs`: the markdown notes in `release-notes/<version>.md`
-/// keyed by version, and the images under `release-notes/images/` keyed by
-/// their `/release-notes/images/...` URL path. Either folder may be missing.
 fn embed_release_notes() {
     let notes_dir = manifest_dir().join("release-notes");
     let images_dir = notes_dir.join("images");
@@ -181,13 +170,8 @@ fn build_apple_intelligence_bridge() {
         .to_string()
     });
 
-    // Check if the SDK supports FoundationModels (required for Apple Intelligence)
     let framework_path =
         Path::new(&sdk_path).join("System/Library/Frameworks/FoundationModels.framework");
-    // BESPOKE_FORCE_AI_STUB=1 is an explicit escape hatch: force the stub even when
-    // the active toolchain could build the real path (e.g. to skip the Swift
-    // compile, or if the auto-detection below misfires). The common CLT-only case
-    // is detected automatically just below, so this flag is rarely needed.
     let force_stub = env::var("BESPOKE_FORCE_AI_STUB").as_deref() == Ok("1");
 
     // Auto-detect a Command-Line-Tools-only toolchain. The CLT SDK contains
@@ -214,10 +198,6 @@ fn build_apple_intelligence_bridge() {
         println!("cargo:warning=Building with Apple Intelligence support.");
         REAL_SWIFT_FILE
     } else {
-        // The SDK genuinely lacking FoundationModels is only one reason we build
-        // stubs — CLT-only detection and BESPOKE_FORCE_AI_STUB (each warned about
-        // above) also land here, and for those the framework does exist. Only
-        // claim it's "not found" when that's actually true.
         if framework_path.exists() {
             println!("cargo:warning=Building Apple Intelligence with stubs.");
         } else {
@@ -230,7 +210,6 @@ fn build_apple_intelligence_bridge() {
         panic!("Source file {} is missing!", source_file);
     }
 
-    // See SDKROOT note above — same env-override pattern for non-Xcode toolchains.
     let swiftc_path = env::var("SWIFTC").unwrap_or_else(|_| {
         String::from_utf8(
             Command::new("xcrun")
@@ -251,9 +230,6 @@ fn build_apple_intelligence_bridge() {
         .expect("Unable to determine Swift toolchain lib directory");
     let sdk_swift_lib = Path::new(&sdk_path).join("usr/lib/swift");
 
-    // Use macOS 11.0 as deployment target for compatibility
-    // The @available(macOS 26.0, *) checks in Swift handle runtime availability
-    // Weak linking for FoundationModels is handled via cargo:rustc-link-arg below
     let status = Command::new(&swiftc_path)
         .args([
             // Without this flag swiftc treats single-file input as script
@@ -314,7 +290,6 @@ fn build_apple_intelligence_bridge() {
     println!("cargo:rustc-link-lib=framework=Foundation");
 
     if has_foundation_models {
-        // Use weak linking so the app can launch on systems without FoundationModels
         println!("cargo:rustc-link-arg=-weak_framework");
         println!("cargo:rustc-link-arg=FoundationModels");
     }

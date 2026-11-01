@@ -1,5 +1,3 @@
-//! Linux key conversion utilities for evdev key codes
-//!
 //! Maps kernel input event codes (`include/uapi/linux/input-event-codes.h`,
 //! exposed as `evdev::KeyCode` constants) to the cross-platform `Key` and
 //! `Modifiers` types. Codes are layout-independent: they describe the
@@ -10,10 +8,8 @@ use evdev::KeyCode;
 
 use crate::types::{Key, Modifiers};
 
-/// Convert an evdev key code to our Key type
 pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
     match code {
-        // Letters
         KeyCode::KEY_A => Some(Key::A),
         KeyCode::KEY_B => Some(Key::B),
         KeyCode::KEY_C => Some(Key::C),
@@ -41,7 +37,6 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         KeyCode::KEY_Y => Some(Key::Y),
         KeyCode::KEY_Z => Some(Key::Z),
 
-        // Numbers
         KeyCode::KEY_0 => Some(Key::Num0),
         KeyCode::KEY_1 => Some(Key::Num1),
         KeyCode::KEY_2 => Some(Key::Num2),
@@ -53,8 +48,6 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         KeyCode::KEY_8 => Some(Key::Num8),
         KeyCode::KEY_9 => Some(Key::Num9),
 
-        // Function keys. F13-F24 (codes 183-194) matter for dictation
-        // hotkeys: foot pedals and macro pads emit them.
         KeyCode::KEY_F1 => Some(Key::F1),
         KeyCode::KEY_F2 => Some(Key::F2),
         KeyCode::KEY_F3 => Some(Key::F3),
@@ -80,7 +73,6 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         KeyCode::KEY_F23 => Some(Key::F23),
         KeyCode::KEY_F24 => Some(Key::F24),
 
-        // Special keys
         KeyCode::KEY_SPACE => Some(Key::Space),
         KeyCode::KEY_ENTER => Some(Key::Return),
         KeyCode::KEY_TAB => Some(Key::Tab),
@@ -97,13 +89,11 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         KeyCode::KEY_PAGEUP => Some(Key::PageUp),
         KeyCode::KEY_PAGEDOWN => Some(Key::PageDown),
 
-        // Arrow keys
         KeyCode::KEY_LEFT => Some(Key::LeftArrow),
         KeyCode::KEY_RIGHT => Some(Key::RightArrow),
         KeyCode::KEY_UP => Some(Key::UpArrow),
         KeyCode::KEY_DOWN => Some(Key::DownArrow),
 
-        // Punctuation and symbols
         KeyCode::KEY_MINUS => Some(Key::Minus),
         KeyCode::KEY_EQUAL => Some(Key::Equal),
         KeyCode::KEY_LEFTBRACE => Some(Key::LeftBracket),
@@ -119,11 +109,9 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         // the same physical key as Section on its ISO keyboards.
         KeyCode::KEY_102ND => Some(Key::Section),
 
-        // JIS keyboard keys
         KeyCode::KEY_YEN => Some(Key::JisYen),
         KeyCode::KEY_RO => Some(Key::JisUnderscore),
 
-        // Keypad
         KeyCode::KEY_KP0 => Some(Key::Keypad0),
         KeyCode::KEY_KP1 => Some(Key::Keypad1),
         KeyCode::KEY_KP2 => Some(Key::Keypad2),
@@ -143,7 +131,6 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         KeyCode::KEY_KPEQUAL => Some(Key::KeypadEquals),
         KeyCode::KEY_KPCOMMA | KeyCode::KEY_KPJPCOMMA => Some(Key::KeypadComma),
 
-        // Lock keys
         KeyCode::KEY_CAPSLOCK => Some(Key::CapsLock),
         KeyCode::KEY_SCROLLLOCK => Some(Key::ScrollLock),
         KeyCode::KEY_NUMLOCK => Some(Key::NumLock),
@@ -151,10 +138,8 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
         // PrintScreen (the kernel names its event code after SysRq)
         KeyCode::KEY_SYSRQ => Some(Key::PrintScreen),
 
-        // Context-menu (Application) key
         KeyCode::KEY_COMPOSE => Some(Key::ContextMenu),
 
-        // Mouse buttons
         KeyCode::BTN_LEFT => Some(Key::MouseLeft),
         KeyCode::BTN_RIGHT => Some(Key::MouseRight),
         KeyCode::BTN_MIDDLE => Some(Key::MouseMiddle),
@@ -168,7 +153,6 @@ pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
     }
 }
 
-/// Convert an evdev modifier key to our side-specific Modifiers type
 pub fn key_code_to_modifier(code: KeyCode) -> Option<Modifiers> {
     match code {
         KeyCode::KEY_LEFTSHIFT => Some(Modifiers::SHIFT_LEFT),
@@ -203,8 +187,6 @@ mod tests {
 
     #[test]
     fn delete_keys_follow_mac_naming() {
-        // Backspace is Key::Delete, Delete is Key::ForwardDelete (macOS
-        // convention used across all backends).
         assert_eq!(key_code_to_key(KeyCode::KEY_BACKSPACE), Some(Key::Delete));
         assert_eq!(
             key_code_to_key(KeyCode::KEY_DELETE),
@@ -214,12 +196,10 @@ mod tests {
 
     #[test]
     fn maps_extended_function_keys() {
-        // F13-F24 were unreachable with the old rdev backend.
         assert_eq!(key_code_to_key(KeyCode::KEY_F13), Some(Key::F13));
         assert_eq!(key_code_to_key(KeyCode::KEY_F20), Some(Key::F20));
         assert_eq!(key_code_to_key(KeyCode::KEY_F21), Some(Key::F21));
         assert_eq!(key_code_to_key(KeyCode::KEY_F24), Some(Key::F24));
-        // Raw code sanity check: KEY_F13..KEY_F24 are 183..194.
         assert_eq!(KeyCode::KEY_F13.0, 183);
         assert_eq!(KeyCode::KEY_F24.0, 194);
     }
@@ -234,8 +214,6 @@ mod tests {
 
     #[test]
     fn modifier_keys_are_not_keys() {
-        // Modifier keys must map through key_code_to_modifier only, so the
-        // listener never emits them as regular key events.
         for code in [
             KeyCode::KEY_LEFTSHIFT,
             KeyCode::KEY_RIGHTSHIFT,

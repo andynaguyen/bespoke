@@ -4,10 +4,6 @@ use super::{VadFrame, VoiceActivityDetector};
 
 pub const EARSHOT_FRAME_SAMPLES: usize = 256;
 
-/// Pure-Rust Earshot VAD adapter.
-///
-/// Earshot expects exactly 16 ms of mono 16 kHz audio per prediction. The
-/// recorder uses `frame_samples()` to configure its resampler accordingly.
 pub struct EarshotVad {
     engine: Box<earshot::Detector>,
     threshold: f32,
@@ -21,8 +17,6 @@ impl EarshotVad {
         }
 
         Ok(Self {
-            // Construct directly on the heap: Detector keeps roughly 8 KiB of
-            // model state and scratch buffers.
             engine: earshot::Detector::default_boxed(),
             threshold,
             clamped_frame: [0.0; EARSHOT_FRAME_SAMPLES],

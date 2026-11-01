@@ -1,7 +1,3 @@
-//! Notices at the top of every page: the macOS Accessibility permission
-//! request (`AccessibilityPermissions.tsx`) and the Secure Input warning
-//! (`SecureInputWarning.tsx`).
-
 use std::collections::BTreeSet;
 
 use gpui::{div, prelude::*, px, rems, Context, FontWeight, SharedString, Window};
@@ -20,7 +16,6 @@ enum PermissionState {
     Granted,
 }
 
-/// Asks for Accessibility access until it is granted. macOS only.
 pub struct AccessibilityBanner {
     state: PermissionState,
 }
@@ -64,7 +59,6 @@ impl Render for AccessibilityBanner {
             return div().into_any_element();
         }
         let p = palette(cx);
-        // A strip under the toolbar, as wide as the page.
         div()
             .w_full()
             .flex_none()
@@ -112,10 +106,8 @@ impl Render for AccessibilityBanner {
     }
 }
 
-/// Warns that macOS Secure Input is blocking shortcuts. Dismissing hides it
-/// until the episode ends; the next episode warns again.
 pub struct SecureInputWarning {
-    status: Option<SecureInputStatus>,
+    status: SecureInputStatus,
     dismissed: bool,
 }
 
@@ -129,26 +121,21 @@ impl SecureInputWarning {
             }
         })
         .detach();
-        let status = crate::secure_input::get_secure_input_status(AppHandle::global().clone());
-        let mut this = Self {
-            status: None,
+        Self {
+            status: crate::secure_input::get_secure_input_status(AppHandle::global().clone()),
             dismissed: false,
-        };
-        this.status = Some(status);
-        this
+        }
     }
 
     fn impacted(&self) -> bool {
-        self.status.as_ref().is_some_and(|status| {
-            (status.sustained
-                && (!status.degraded_bindings.is_empty() || !status.uncovered_bindings.is_empty()))
-                || status.recorder_blocked
-        })
+        let status = &self.status;
+        (status.sustained
+            && (!status.degraded_bindings.is_empty() || !status.uncovered_bindings.is_empty()))
+            || status.recorder_blocked
     }
 
     fn set_status(&mut self, status: SecureInputStatus, cx: &mut Context<Self>) {
-        self.status = Some(status);
-        // A new episode warns again.
+        self.status = status;
         if !self.impacted() {
             self.dismissed = false;
         }
@@ -156,9 +143,7 @@ impl SecureInputWarning {
     }
 
     fn message(&self) -> SharedString {
-        let Some(status) = &self.status else {
-            return SharedString::default();
-        };
+        let status = &self.status;
         let affected: BTreeSet<&String> = status
             .uncovered_bindings
             .iter()

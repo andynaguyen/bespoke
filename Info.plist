@@ -28,8 +28,6 @@
   <true/>
   <key>NSMicrophoneUsageDescription</key>
   <string>Request microphone access to transcribe audio locally</string>
-  <!-- Sparkle (src/updater.rs). Only builds from scripts/release.sh embed
-       Sparkle.framework, so other builds ignore these keys. -->
   <key>SUFeedURL</key>
   <string>https://github.com/andynaguyen/bespoke/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key>

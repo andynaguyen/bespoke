@@ -122,7 +122,6 @@
     "active": "Aktif",
     "switching": "Beralih...",
     "verifyingGeneric": "Memverifikasi...",
-    "extractingGeneric": "Mengekstrak...",
     "downloading": "Mengunduh {{percentage}}%",
     "deleteModel": "Hapus {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
@@ -140,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Pintasan Bespoke",
-        "description": "Atur pintasan keyboard untuk memulai perekaman ucapan-ke-teks",
-        "loading": "Memuat pintasan...",
-        "none": "Belum ada pintasan yang diatur",
-        "notFound": "Pintasan tidak ditemukan",
-        "pressKeys": "Tekan tombol...",
         "bindings": {
           "transcribe": {
             "name": "Pintasan Transkripsi",

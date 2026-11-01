@@ -1,4 +1,3 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod actions;
@@ -84,18 +83,14 @@ fn main() {
     // instead of accumulating in malloc arenas (#1792). No-op off Linux/glibc.
     memory::init_allocator();
 
-    // Detect portable mode before anything else
     portable::init();
 
-    // Before logging starts, which would create the new log folder.
     let migration_notes = if portable::is_portable() {
         Vec::new()
     } else {
         app_handle::migrate_legacy_dirs()
     };
 
-    // The headless path must run as its own instance, not forward to an
-    // already-running app.
     let headless_mode =
         cli_args.transcribe_file.is_some() || cli_args.list_devices || cli_args.list_models;
 
@@ -110,15 +105,12 @@ fn main() {
 
     if headless_mode {
         let code = headless::run(&app, &cli_args);
-        // process::exit runs no destructors or buffer flushes.
         use std::io::Write;
         let _ = std::io::stdout().flush();
         let _ = std::io::stderr().flush();
         std::process::exit(code);
     }
 
-    // A second launch forwards its arguments to the running instance and
-    // exits; remote-control flags (--toggle-transcription, ...) rely on it.
     let args: Vec<String> = std::env::args().collect();
     let listener = match single_instance::acquire(&args) {
         Instance::Forwarded => return,
@@ -141,8 +133,17 @@ fn main() {
             ui::platform::launch_as_accessory();
         }
     }
-    // Fired when the running bundle is launched again from Spotlight/Finder
-    // or its Dock icon is clicked.
     application.on_reopen(startup::on_reopen);
     application.run(move |cx| startup::run(app, ui_messages, listener, cx));
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn release_builds_hide_the_windows_console() {
+        assert_eq!(
+            include_str!("main.rs").lines().next(),
+            Some(r#"#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]"#)
+        );
+    }
 }

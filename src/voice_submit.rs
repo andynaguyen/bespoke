@@ -1,8 +1,3 @@
-//! Hands-free submit keyword. While a recording is armed, this watches for a
-//! pause after speech, checks whether the audio before the pause ends with the
-//! keyword, and asks the coordinator to stop the recording. The final
-//! transcript then decides whether to remove the keyword and press submit.
-
 use crate::app_handle::AppHandle;
 use crate::audio_toolkit::FrameObserver;
 use crate::managers::transcription::TranscriptionManager;
@@ -14,12 +9,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
 const SAMPLES_PER_MS: usize = 16;
-/// Silence after speech that ends an utterance.
 const PAUSE_SAMPLES: usize = 600 * SAMPLES_PER_MS;
-/// Voiced audio needed in a row to count as speech, so one noisy frame
-/// neither starts speech nor resets the pause.
 const ONSET_SAMPLES: usize = 60 * SAMPLES_PER_MS;
-/// Audio kept for a check; enough for a sentence ending in the keyword.
 const TAIL_SAMPLES: usize = 8_000 * SAMPLES_PER_MS;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -29,7 +20,6 @@ enum FrameEvent {
     Paused,
 }
 
-/// Speech and pause state for one recording, fed one frame at a time.
 #[derive(Default)]
 struct PauseTracker {
     tail: VecDeque<f32>,
@@ -70,12 +60,9 @@ impl PauseTracker {
 struct Session {
     id: u64,
     keyword: String,
-    /// The model streams, so the live transcript is checked instead of
-    /// decoding the audio tail (the stream holds the engine).
     streaming: bool,
 }
 
-/// A pause worth checking. `revision` identifies the speech before it.
 struct Pause {
     session: u64,
     revision: u64,
@@ -86,8 +73,6 @@ pub struct VoiceSubmit {
     app: AppHandle,
     armed: AtomicBool,
     session_id: AtomicU64,
-    /// Bumped whenever speech starts. A check that began before the user kept
-    /// talking carries an older revision and can no longer stop recording.
     revision: AtomicU64,
     session: Mutex<Option<Session>>,
     tracker: Mutex<PauseTracker>,
@@ -111,8 +96,6 @@ impl VoiceSubmit {
         voice_submit
     }
 
-    /// Start watching a new recording. Call before capture begins so the
-    /// recorder resets its detector for this session.
     pub fn arm(&self, keyword: &str, streaming: bool) {
         let id = self.session_id.fetch_add(1, Ordering::AcqRel) + 1;
         *self.tracker.lock().unwrap() = PauseTracker::default();
@@ -126,14 +109,11 @@ impl VoiceSubmit {
         debug!("Voice submit armed (streaming={streaming})");
     }
 
-    /// Stop watching. Pending and in-flight checks become stale.
     pub fn disarm(&self) {
         self.armed.store(false, Ordering::Release);
         *self.session.lock().unwrap() = None;
     }
 
-    /// Whether a check for `session` at `revision` may still stop recording:
-    /// the same recording is armed and no speech has started since.
     pub fn is_current(&self, session: u64, revision: u64) -> bool {
         self.armed.load(Ordering::Acquire)
             && self.session_id.load(Ordering::Acquire) == session
@@ -149,8 +129,6 @@ impl VoiceSubmit {
             .map(|s| s.keyword.clone())
     }
 
-    /// The keyword was heard before a pause; ask the coordinator to stop. The
-    /// coordinator checks `is_current` again on its own thread before acting.
     pub fn request_stop(&self, session: u64, revision: u64) {
         if !self.is_current(session, revision) {
             return;
@@ -163,7 +141,6 @@ impl VoiceSubmit {
 
     fn run(&self, rx: mpsc::Receiver<Pause>) {
         while let Ok(mut pause) = rx.recv() {
-            // Only the newest pause matters; older ones are superseded.
             while let Ok(newer) = rx.try_recv() {
                 pause = newer;
             }
@@ -197,7 +174,6 @@ impl FrameObserver for VoiceSubmit {
     }
 
     fn observe(&self, frame: &[f32], voiced: Option<bool>) {
-        // Without a speech decision there is no pause to detect.
         let Some(voiced) = voiced else {
             return;
         };
@@ -222,7 +198,7 @@ impl FrameObserver for VoiceSubmit {
 mod tests {
     use super::*;
 
-    const FRAME: usize = 480; // 30 ms
+    const FRAME: usize = 480;
 
     fn push_ms(tracker: &mut PauseTracker, ms: usize, voiced: bool) -> Vec<FrameEvent> {
         let frame = vec![0.0; FRAME];

@@ -1,27 +1,7 @@
-//! System tray icon and menu.
-//!
-//! The tray is driven by a single *desired state* snapshot ([`TrayDesired`])
-//! that callers update through [`set_tray_state`], [`refresh_tray_icon`] and
-//! [`update_tray_menu`]. Every such call just records intent and schedules a
-//! single applier on the main thread, which diffs the desired snapshot against
-//! what is currently displayed and touches the native tray only for the parts
-//! that actually changed. Requests that arrive while an apply is pending are
-//! coalesced into it, so bursts of state changes never queue up native work.
-//!
 //! Why: native tray updates are the lever we control for the macOS tray
 //! disappearance bug (tauri-apps/tauri#12060, Handy #1948). Before this, every
 //! recording cycle rebuilt the full menu 3-6 times from several threads, and
 //! concurrent rebuilds could interleave and leave a stale menu behind.
-//!
-//! Exception: [`set_tray_visibility`] and [`recreate_tray_icon`] call the tray
-//! directly. Visibility is a separate attribute that never participates in the
-//! icon/menu diff, both are rare and user-initiated, and they run on the main
-//! thread so they serialize with the applier anyway. Re-showing a hidden tray
-//! relies on tray-icon recreating it from the last applied icon/menu/tooltip,
-//! so those must only ever be set through the applier.
-//!
-//! The native `TrayIcon` is not `Send`, so it lives in a main-thread
-//! thread-local and is only touched from closures queued with `with_ui`.
 
 use crate::app_handle::AppHandle;
 use crate::managers::history::{HistoryEntry, HistoryManager};
@@ -42,7 +22,6 @@ use tray_icon::menu::{
 };
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
-/// Decoded RGBA pixels for a tray icon.
 #[derive(Clone)]
 struct TrayImage {
     rgba: Vec<u8>,
@@ -57,11 +36,9 @@ impl TrayImage {
 }
 
 thread_local! {
-    /// The native tray. Only ever touched on the main thread.
     static TRAY: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
 }
 
-/// Set once the native tray exists, so background threads can check for it.
 static TRAY_BUILT: AtomicBool = AtomicBool::new(false);
 
 fn with_tray<R>(f: impl FnOnce(&TrayIcon) -> R) -> Option<R> {
@@ -76,31 +53,23 @@ pub enum TrayIconState {
 }
 
 impl TrayIconState {
-    /// Recording and Transcribing share the same menu ("Cancel" instead of the
-    /// model submenu), so only the idle/busy distinction matters for the menu.
     fn is_busy(self) -> bool {
         self != TrayIconState::Idle
     }
 }
 
-/// Everything the tray *menu* (and tooltip) depends on. When two snapshots
-/// compare equal the menu is not rebuilt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct MenuInputs {
     busy: bool,
     warning: bool,
     model_loaded: bool,
     selected_model: String,
-    /// `(id, name)` of downloaded models, sorted by name.
     downloaded_models: Vec<(String, String)>,
     locale: String,
-    /// Sparkle is running (`updater::is_enabled`).
     updates_enabled: bool,
-    /// The version a scheduled check found (`updater::pending_version`).
     pending_update: Option<String>,
 }
 
-/// Complete description of what the tray should look like.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TrayDesired {
     icon_path: &'static str,
@@ -108,29 +77,16 @@ struct TrayDesired {
 }
 
 struct TrayInner {
-    /// Intent set by [`set_tray_state`].
     icon_state: TrayIconState,
-    /// Latest computed snapshot, waiting to be (or just) applied.
     desired: Option<TrayDesired>,
-    /// Icon the native tray currently shows. Only updated when `set_icon`
-    /// succeeds, so a failed update is retried on the next sync.
     applied_icon: Option<&'static str>,
-    /// Inputs the native menu was last successfully built from. The tooltip
-    /// is derived from the same inputs and set best-effort alongside the menu;
-    /// it is not tracked separately.
     applied_menu: Option<MenuInputs>,
-    /// An apply is scheduled on the main thread.
     pending: bool,
-    /// Decoded icons by resource path so the main thread never touches disk.
     icons: HashMap<&'static str, TrayImage>,
-    /// Handed out to each sync request in trigger order, so a slow request
-    /// can't overwrite the snapshot of one that was triggered after it.
     next_seq: u64,
-    /// Sequence number of the request that produced `desired`.
     desired_seq: u64,
 }
 
-/// Managed state owning the tray's desired/applied snapshots.
 pub struct TrayState(Mutex<TrayInner>);
 
 impl TrayState {
@@ -165,13 +121,11 @@ impl Default for TrayState {
 pub enum AppTheme {
     Dark,
     Light,
-    Colored, // Pink/colored theme for Linux
+    Colored,
 }
 
-/// Gets the current app theme, with Linux defaulting to Colored theme
 pub fn get_current_theme(app: &AppHandle) -> AppTheme {
     if cfg!(target_os = "linux") {
-        // On Linux, always use the colored theme
         AppTheme::Colored
     } else {
         // On Windows the tray icon sits on the taskbar, which follows the
@@ -184,7 +138,6 @@ pub fn get_current_theme(app: &AppHandle) -> AppTheme {
             return theme;
         }
 
-        // On other platforms, follow the app's effective appearance
         let _ = app;
         if crate::ui::theme::effective_is_dark() {
             AppTheme::Dark
@@ -194,11 +147,6 @@ pub fn get_current_theme(app: &AppHandle) -> AppTheme {
     }
 }
 
-/// Reads the Windows taskbar theme from the registry.
-///
-/// Returns None if the value is missing (older Windows 10 builds default to a
-/// dark taskbar there, but falling back to the window theme is safer than
-/// guessing).
 #[cfg(target_os = "windows")]
 fn windows_taskbar_theme() -> Option<AppTheme> {
     use winreg::enums::HKEY_CURRENT_USER;
@@ -215,61 +163,39 @@ fn windows_taskbar_theme() -> Option<AppTheme> {
     })
 }
 
-/// Gets the appropriate icon path for the given theme and state.
-///
-/// `warning` overlays a badge on the idle icon while keyboard shortcuts are
-/// blocked (macOS Secure Input); recording/transcribing states keep their
-/// normal icons so in-flight activity stays recognizable.
 pub fn get_icon_path(theme: AppTheme, state: TrayIconState, warning: bool) -> &'static str {
     if warning && state == TrayIconState::Idle {
         return match theme {
             AppTheme::Dark => "resources/tray_idle_warning.png",
             AppTheme::Light => "resources/tray_idle_warning_dark.png",
-            // Linux never sets the warning flag (Secure Input is macOS-only),
-            // but fall back to the normal icon just in case.
             AppTheme::Colored => "resources/bespoke.png",
         };
     }
     match (theme, state) {
-        // Dark theme uses light icons
         (AppTheme::Dark, TrayIconState::Idle) => "resources/tray_idle.png",
         (AppTheme::Dark, TrayIconState::Recording) => "resources/tray_recording.png",
         (AppTheme::Dark, TrayIconState::Transcribing) => "resources/tray_transcribing.png",
-        // Light theme uses dark icons
         (AppTheme::Light, TrayIconState::Idle) => "resources/tray_idle_dark.png",
         (AppTheme::Light, TrayIconState::Recording) => "resources/tray_recording_dark.png",
         (AppTheme::Light, TrayIconState::Transcribing) => "resources/tray_transcribing_dark.png",
-        // Colored theme uses pink icons (for Linux)
         (AppTheme::Colored, TrayIconState::Idle) => "resources/bespoke.png",
         (AppTheme::Colored, TrayIconState::Recording) => "resources/recording.png",
         (AppTheme::Colored, TrayIconState::Transcribing) => "resources/transcribing.png",
     }
 }
 
-/// Sets the recording state shown by the tray (icon + Cancel/model menu).
 pub fn set_tray_state(app: &AppHandle, state: TrayIconState) {
     sync_tray_with(app, |inner| inner.icon_state = state);
 }
 
-/// Re-syncs the tray after something other than the recording state changed
-/// (theme, Secure Input warning). The recording state itself is preserved.
 pub fn refresh_tray_icon(app: &AppHandle) {
     sync_tray(app);
 }
 
-/// Re-syncs the tray after something the menu depends on changed (model
-/// list/selection/loaded state, language, settings).
 pub fn update_tray_menu(app: &AppHandle) {
     sync_tray(app);
 }
 
-/// Records the current desired tray state and schedules one apply on the main
-/// thread (or lets an already-pending apply pick it up). Never blocks on the
-/// main thread.
-///
-/// The snapshot (settings, model list, loaded state) is computed on the
-/// *calling* thread on purpose: the main-thread applier must not take manager
-/// locks that a worker may hold across slow work (see #1716).
 pub fn sync_tray(app: &AppHandle) {
     sync_tray_with(app, |_| {});
 }
@@ -279,8 +205,6 @@ fn sync_tray_with(app: &AppHandle, update: impl FnOnce(&mut TrayInner)) {
         return;
     };
 
-    // Record intent and claim a sequence number in one critical section, so
-    // sequence order == the order in which state changes were requested.
     let (seq, icon_state) = {
         let mut inner = state.lock();
         update(&mut inner);
@@ -288,15 +212,12 @@ fn sync_tray_with(app: &AppHandle, update: impl FnOnce(&mut TrayInner)) {
         (inner.next_seq, inner.icon_state)
     };
 
-    // Tray not built yet (early secure-input monitor callbacks). The intent
-    // is kept and picked up by the first sync after the tray exists.
     if !TRAY_BUILT.load(Ordering::Acquire) {
         return;
     }
 
     let desired = compute_desired(app, icon_state);
 
-    // Decode the icon off the main thread, once per path, outside the lock.
     let needs_icon = !state.lock().icons.contains_key(desired.icon_path);
     let loaded_icon = if needs_icon {
         match load_tray_icon(app.path().resolve(
@@ -319,8 +240,6 @@ fn sync_tray_with(app: &AppHandle, update: impl FnOnce(&mut TrayInner)) {
             inner.icons.insert(desired.icon_path, image);
         }
         if seq < inner.desired_seq {
-            // A request triggered after this one already stored its snapshot
-            // (and scheduled an apply). Ours is stale; drop it.
             trace!(
                 "tray sync: request {seq} superseded by {}",
                 inner.desired_seq
@@ -329,8 +248,6 @@ fn sync_tray_with(app: &AppHandle, update: impl FnOnce(&mut TrayInner)) {
         }
         inner.desired = Some(desired);
         inner.desired_seq = seq;
-        // If an apply is already pending it will read the snapshot we just
-        // stored; otherwise schedule one.
         !std::mem::replace(&mut inner.pending, true)
     };
 
@@ -376,7 +293,6 @@ fn post_apply(app: &AppHandle) {
     app.with_ui(move |_| apply_on_main(&handle));
 }
 
-/// The single writer to the native tray. Runs on the main thread.
 fn apply_on_main(app: &AppHandle) {
     let Some(state) = app.try_state::<TrayState>() else {
         return;
@@ -402,9 +318,6 @@ fn apply_on_main(app: &AppHandle) {
         (desired, icon, icon_changed, menu_changed)
     };
 
-    // Each part is recorded as applied only if its native call succeeded, so a
-    // transient failure is retried on the next sync instead of being
-    // remembered as displayed.
     let mut icon_ok = false;
     if icon_changed {
         match icon.map(|image| image.to_icon()) {
@@ -425,11 +338,6 @@ fn apply_on_main(app: &AppHandle) {
             Ok((menu, tooltip)) => {
                 with_tray(|tray| {
                     tray.set_menu(Some(Box::new(menu)));
-                    // Best-effort: logged, not retried. The tooltip is cosmetic
-                    // and can only fail on Windows, where a failing
-                    // Shell_NotifyIcon call means the icon is failing too.
-                    // Gating `menu_ok` on it would re-run the full menu
-                    // rebuild on every sync for the cheapest mutation.
                     if let Err(err) = tray.set_tooltip(Some(tooltip)) {
                         error!("Failed to set tray tooltip: {err}");
                     }
@@ -501,15 +409,9 @@ fn title_label() -> String {
     }
 }
 
-/// Builds the tray menu and tooltip for the given inputs. Pure with respect
-/// to app state: everything it depends on is in `inputs`.
 fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Error> {
     let strings = get_tray_translations(Some(inputs.locale.clone()));
 
-    // Secure Input warning entry (macOS): clicking opens the settings window
-    // where the full warning banner explains the situation. Locales that
-    // haven't translated the key yet get the English string rather than a
-    // blank menu item.
     let secure_input_warning = if inputs.warning {
         let label = if strings.secure_input_warning.is_empty() {
             get_tray_translations(Some("en".to_string())).secure_input_warning
@@ -526,14 +428,12 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         None
     };
 
-    // Platform-specific accelerators
     #[cfg(target_os = "macos")]
     let (settings_accelerator, quit_accelerator) = ("Cmd+,", "Cmd+Q");
     #[cfg(not(target_os = "macos"))]
     let (settings_accelerator, quit_accelerator) = ("Ctrl+,", "Ctrl+Q");
     let accelerator = |s: &str| Accelerator::from_str(s).ok();
 
-    // Create common menu items
     let title_label = title_label();
     let title_i = MenuItem::with_id("title", &title_label, false, None);
     let settings_i = MenuItem::with_id(
@@ -551,7 +451,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     let quit_i = MenuItem::with_id("quit", &strings.quit, true, accelerator(quit_accelerator));
     let separator = PredefinedMenuItem::separator;
 
-    // Where Annotate's submenu goes: just above Settings.
     let annotate_at = if inputs.busy { 6 } else { 7 };
     let menu = if inputs.busy {
         let cancel_i = MenuItem::with_id("cancel", &strings.cancel, true, None);
@@ -567,7 +466,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             &quit_i,
         ])?
     } else {
-        // Build model submenu — label is the active model name
         let submenu_label = inputs
             .downloaded_models
             .iter()
@@ -604,14 +502,12 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         ])?
     };
 
-    // Check for Updates goes right below Settings.
     if inputs.updates_enabled {
         let check_i =
             MenuItem::with_id("check_for_updates", &strings.check_for_updates, true, None);
         menu.insert(&check_i, annotate_at + 1)?;
     }
 
-    // Annotate's items, which Scrawl kept in its own menu bar item.
     #[cfg(target_os = "macos")]
     {
         let annotate = Submenu::with_id("annotate_submenu", &strings.annotate, true);
@@ -632,8 +528,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
     #[cfg(not(target_os = "macos"))]
     let _ = annotate_at;
 
-    // Both layouts start with [title, separator, ...]. A found update goes
-    // right below the title, and the warning above it.
     if let Some(version) = &inputs.pending_update {
         let label = strings.update_to.replace("{{version}}", version);
         menu.insert(&MenuItem::with_id("install_update", &label, true, None), 2)?;
@@ -691,9 +585,6 @@ pub fn recreate_tray_icon(app: &AppHandle) {
     });
 }
 
-/// Builds the native tray on the main thread and routes its menu events.
-/// Mirrors the Tauri setup: menu on left click everywhere except Windows,
-/// where left click opens the settings window and right click shows the menu.
 pub fn create_tray(app: &AppHandle) {
     let initial_icon_path = get_icon_path(get_current_theme(app), TrayIconState::Idle, false);
     let icon = load_tray_icon(app.path().resolve(
@@ -759,8 +650,6 @@ pub fn create_tray(app: &AppHandle) {
 fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
     match id {
         "settings" | "secure_input_warning" => {
-            // The secure input entry opens the window, where the full
-            // explanation lives in the settings banner.
             crate::ui::show_main_window(cx);
         }
         "copy_last_transcript" => copy_last_transcript(app),
@@ -782,10 +671,8 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
                 warn!("No model is currently loaded.");
                 return;
             }
-            match transcription_manager.unload_model() {
-                Ok(()) => info!("Model unloaded via tray."),
-                Err(e) => error!("Failed to unload model via tray: {}", e),
-            }
+            transcription_manager.unload_model();
+            info!("Model unloaded via tray.");
         }
         "cancel" => crate::utils::cancel_current_operation(app),
         "quit" => cx.quit(),
@@ -896,8 +783,6 @@ mod tests {
 
     #[test]
     fn recording_and_transcribing_share_a_menu() {
-        // The icon differs but the menu inputs are identical, so a
-        // Recording -> Transcribing transition must not rebuild the menu.
         let recording = TrayDesired {
             icon_path: "resources/tray_recording.png",
             menu: inputs(TrayIconState::Recording.is_busy()),

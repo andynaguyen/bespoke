@@ -9,7 +9,6 @@ use gpui::{
     WindowKind, WindowOptions, div, img, point, prelude::*, px, relative, rgb, rgba, size,
 };
 
-// AppKit window levels, styles and placement for the picker and review windows.
 #[path = "ui/macos.rs"]
 mod platform;
 use platform::{install_status_bar, reduce_motion};
@@ -80,13 +79,10 @@ fn clock_template(clock: &str) -> String {
         .collect()
 }
 
-/// The switch chips' clock: the animation clock, so they stay open as long in slow motion
-/// (`motion::time_scale`). The held switcher keeps the real clock: it times key presses.
 fn reveal_clock_ms() -> u64 {
     (motion::now() * 1000.0) as u64
 }
 
-/// What Bespoke's tray menu asks for (`crate::host::menu`).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MenuAction {
     ToggleCapture,
@@ -99,7 +95,6 @@ pub enum MenuAction {
 pub enum SelectionMode {
     Area,
     Window,
-    /// The whole display the picker covers.
     Screen,
 }
 
@@ -124,7 +119,6 @@ impl SelectionMode {
             .map(|dir| dir.join("last-mode"))
     }
 
-    /// The mode the last recording used; the picker opens on it.
     fn load_last_used() -> Self {
         Self::last_used_path()
             .and_then(|path| std::fs::read_to_string(path).ok())
@@ -138,7 +132,6 @@ impl SelectionMode {
         }
     }
 
-    /// Modes shown in the HUD, in order.
     pub fn available() -> &'static [SelectionMode] {
         &Self::ALL
     }
@@ -151,18 +144,15 @@ impl SelectionMode {
         }
     }
 
-    /// Screen needs no pointer gesture, so the HUD offers a Record chip for it.
     pub fn shows_record(self) -> bool {
         self == Self::Screen
     }
 
-    /// `1`–`3` pick a mode by its position in the HUD.
     fn from_digit(key: &str) -> Option<Self> {
         let index = key.parse::<usize>().ok()?.checked_sub(1)?;
         Self::available().get(index).copied()
     }
 
-    /// The neighbouring mode in HUD order, wrapping at either end.
     fn cycled(self, forward: bool) -> Self {
         let modes = Self::available();
         let Some(index) = modes.iter().position(|m| *m == self) else {
@@ -201,7 +191,6 @@ enum CaptureSource {
     Screen {
         session: ScreenCaptureSession,
         audio: Option<AudioRecorder>,
-        /// Screen mode only: which windows were where, for `scrawl autocrop`.
         windows: Option<crate::windows::WindowLogger>,
     },
 }
@@ -222,18 +211,14 @@ impl ActiveRecording {
     }
 }
 
-/// Shared coordinator owned by the GPUI app.
 pub struct ScrawlCoordinator {
     telemetry: Arc<SharedCaptureTelemetry>,
     active_recording: Option<ActiveRecording>,
     picker_metal_overlay: Option<LaserOverlay>,
     native_pill: Option<crate::native::pill::NativePill>,
     island_phase: IslandPhase,
-    /// Switch chips on a tap-started recording (`crate::hold::Reveal`).
     reveal: crate::hold::Reveal,
-    /// macOS Reduce motion, read when a reveal starts.
     reduced_motion: bool,
-    /// The recording clock last shown, so the lead keeps its time while it leaves.
     last_elapsed_ms: u64,
     selectable_windows: Vec<TargetInfo>,
     selection_generation: u64,
@@ -242,26 +227,17 @@ pub struct ScrawlCoordinator {
     hovered_window: Option<TargetInfo>,
     animated_window_rect: Option<[f32; 4]>,
     selection_drag: Option<([f32; 2], [f32; 2])>,
-    /// Global frame of the display the picker covers, highlighted in `SelectionMode::Screen`.
     display_rect: [f32; 4],
     review_bundle: Option<(PathBuf, ScrawlBundle)>,
     review_status: Option<String>,
     selected_tab: ReviewTab,
     selected_keyframe: usize,
-    /// The bundle the Completed island is showing.
     completed_dir: Option<PathBuf>,
-    /// The mode the last recording used; the picker opens on it.
     last_mode: SelectionMode,
-    /// The last fresh read of what macOS has granted (at launch, then when a permission is
-    /// missing).
     grants: Option<crate::permissions::Grants>,
-    /// Holds Bespoke's Annotate page until the shortcut's modifiers are up.
     gate: crate::permissions::Gate,
-    /// ⌥⇧S held as a ⌘Tab-style switcher (`crate::hold`).
     switcher: crate::hold::Switcher,
-    /// The modifiers held when the shortcut went down; releasing any of them commits.
     hold_mods: u64,
-    /// The open picker is the held switcher, not the menu bar's picker.
     hold_picker: bool,
     clock: Instant,
 }
@@ -306,7 +282,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// Remembers the mode a recording is starting in, so the next picker opens on it.
     fn remember_mode(&mut self, mode: SelectionMode) {
         if self.last_mode != mode {
             self.last_mode = mode;
@@ -314,7 +289,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// What the paste shortcut pastes: the bundle on the Completed island, else the latest.
     fn paste_target(&self) -> PathBuf {
         matches!(self.island_phase, IslandPhase::Completed { .. })
             .then(|| self.completed_dir.clone())
@@ -354,24 +328,19 @@ impl ScrawlCoordinator {
         matches!(self.island_phase, IslandPhase::Selecting { .. })
     }
 
-    /// Opens Bespoke's Annotate page, where Scrawl's settings and permissions live.
     pub fn open_settings(&mut self) {
         crate::host::open_settings();
     }
 
-    /// Keeps a fresh read of the grants. (The key tap follows Accessibility by itself, in the
-    /// HID poller.)
     fn note_grants(&mut self, grants: crate::permissions::Grants) {
         self.grants = Some(grants);
     }
 
-    /// Required permissions that keep a capture from starting now.
     fn missing_to_record(&mut self) -> Vec<crate::permissions::Permission> {
         use crate::permissions::{Permission, missing_to_record};
         let screen = crate::capture::screen_capture_usable(false);
         let accessibility = crate::capture::accessibility_granted();
         let missing = missing_to_record(self.grants.as_ref(), screen, accessibility);
-        // The last read may be old; read again before standing in the way.
         if missing.contains(&Permission::Microphone)
             && let Some(fresh) = crate::permissions::read_grants()
         {
@@ -381,8 +350,6 @@ impl ScrawlCoordinator {
         missing
     }
 
-    /// Whether this may go on: with a required permission off it starts nothing, and the
-    /// Annotate page comes forward once the modifiers are up.
     fn ready_to_record(&mut self) -> bool {
         let missing = self.missing_to_record();
         if missing.is_empty() {
@@ -395,7 +362,6 @@ impl ScrawlCoordinator {
         false
     }
 
-    /// Polled while the gate holds a request: shows the Annotate page once ⌥⇧ is up.
     pub fn tick_gate(&mut self) {
         if self
             .gate
@@ -425,7 +391,6 @@ impl ScrawlCoordinator {
         self.clock.elapsed().as_millis() as u64
     }
 
-    /// The capture shortcut went down (from Carbon, the event tap or the HID poller).
     pub fn press_shortcut(&mut self, cx: &mut Context<Self>) {
         let activity = self.activity();
         if self.gate.is_pending() {
@@ -440,7 +405,6 @@ impl ScrawlCoordinator {
                 return;
             }
             self.hold_mods = crate::capture::modifier_flags();
-            // An Esc from before this hold doesn't cancel it.
             self.telemetry.take_escape();
         }
         if let Some(mode) = self.selection_mode() {
@@ -450,14 +414,11 @@ impl ScrawlCoordinator {
         self.apply_switcher(action, cx);
     }
 
-    /// Polled from the UI loop while the shortcut is held: watches for ⌥⇧ coming up and Esc,
-    /// whichever app or window has focus.
     pub fn tick_switcher(&mut self, cx: &mut Context<Self>) {
         if !self.switcher.is_held() {
             return;
         }
         if self.switcher.is_switching() && !self.is_selecting() {
-            // Closed some other way (✕, a click on a chip).
             self.switcher.reset();
             return;
         }
@@ -497,7 +458,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// The menu's Record Screen item, the review window's Record button and `app --record`.
     pub fn record_or_finish(&mut self, cx: &mut Context<Self>) {
         if self.is_recording() {
             self.finish_recording(cx);
@@ -512,8 +472,6 @@ impl ScrawlCoordinator {
         self.set_selection_mode(mode, cx);
     }
 
-    /// ⌥⇧ released: record what the switcher shows. A drag too small for an area records
-    /// nothing.
     fn commit_switcher(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
         match self.selection_mode().unwrap_or(mode) {
             SelectionMode::Screen => self.start_recording_full_screen(cx),
@@ -551,7 +509,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// Records the display under the cursor straight away (no picker), auto-cropped.
     pub fn record_screen_now(&mut self, cx: &mut Context<Self>) {
         self.start_recording_with_target(discover_target(None), cx);
         if self.is_recording() {
@@ -559,8 +516,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// Activity that means the user got to work: clicks, drags, scrolls and strokes. Clicks on
-    /// Scrawl's own windows (the capsule and its chips) are never recorded, so they don't count.
     fn reveal_activity(&self) -> usize {
         use std::sync::PoisonError;
         let t = &self.telemetry;
@@ -580,7 +535,6 @@ impl ScrawlCoordinator {
             )
     }
 
-    /// The recording just started from a tap: the capsule opens onto the switch chips.
     fn show_reveal(&mut self, cx: &mut Context<Self>) {
         self.reduced_motion = reduce_motion();
         let activity = self.reveal_activity();
@@ -589,7 +543,6 @@ impl ScrawlCoordinator {
         cx.notify();
     }
 
-    /// The chips fold back into the recording pill (timeout, work started, or a chip chosen).
     fn fold_reveal(&mut self) {
         if self.reveal.is_open() {
             self.reveal.close();
@@ -601,10 +554,6 @@ impl ScrawlCoordinator {
         self.sync_native_pill();
     }
 
-    /// A switch chip on a tap-started recording. Screen keeps it. Anything else drops the few
-    /// seconds recorded so far and starts over on the new target, exactly as if it had been
-    /// chosen first: Window and Area morph the capsule into the picker (hover and click a window,
-    /// or drag an area).
     pub fn switch_recording(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
         if !self.is_recording() {
             return;
@@ -618,15 +567,10 @@ impl ScrawlCoordinator {
         let Some((_, overlay)) = self.discard_recording() else {
             return;
         };
-        // Window and Area: the chips stay up while the capsule morphs into the picker.
-        // The recording's overlay becomes the picker's (moved if the picker opens on another
-        // display), so the border never swaps windows (as the picker → recording path does).
         self.picker_metal_overlay = overlay;
         self.open_picker(Some(mode), false, cx);
     }
 
-    /// Stops the active recording and deletes its bundle, leaving the island as it is. Returns
-    /// its target and overlay.
     fn discard_recording(&mut self) -> Option<(TargetInfo, Option<LaserOverlay>)> {
         let rec = self.active_recording.take()?;
         let _ = self.telemetry.finish_session();
@@ -693,7 +637,6 @@ impl ScrawlCoordinator {
     pub fn set_selection_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
         if let IslandPhase::Selecting { mode: prev_mode } = self.island_phase {
             if prev_mode != mode {
-                // Crisp tactile Dynamic Island scale micro-pulse when Space toggles camera/crosshair mode.
             }
             self.island_phase = IslandPhase::Selecting { mode };
             self.selection_drag = None;
@@ -740,7 +683,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// Switches the picker to `mode`.
     pub fn choose_selection_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
         if self.selection_mode().is_none() {
             return;
@@ -748,7 +690,6 @@ impl ScrawlCoordinator {
         self.set_selection_mode(mode, cx);
     }
 
-    /// A HUD segment click: picks the mode, or records when Screen is already selected.
     pub fn click_selection_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
         if self.selection_mode() == Some(mode) && mode.shows_record() {
             self.record_selected_mode(cx);
@@ -757,20 +698,16 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// Return, `s`, the capture shortcut, or Record: records the full screen.
     pub fn record_selected_mode(&mut self, cx: &mut Context<Self>) {
         if self.selection_mode().is_some() {
             self.start_recording_full_screen(cx);
         }
     }
 
-    /// Picker keyboard map, shared by the picker window and the HUD pill. Returns whether the
-    /// key was handled.
     /// ⌘Q and ⌘, in Scrawl's own windows: a menu bar (accessory) app has no main menu to
     /// carry them (Ctrl+Q and Ctrl+, on Windows).
     pub fn handle_app_key(&mut self, keystroke: &Keystroke, cx: &mut Context<Self>) -> bool {
         let mods = keystroke.modifiers;
-        // `secondary` is ⌘ on macOS and Ctrl elsewhere; the other of the two must be up.
         if !mods.secondary() || (mods.control && mods.platform) || mods.alt || mods.shift {
             return false;
         }
@@ -793,7 +730,6 @@ impl ScrawlCoordinator {
             return false;
         };
         let mods = keystroke.modifiers;
-        // Esc cancels even with ⌥⇧ still held from the switcher.
         if keystroke.key == "escape" {
             self.switcher.reset();
             self.cancel_recording(cx);
@@ -802,7 +738,6 @@ impl ScrawlCoordinator {
         if self.handle_app_key(keystroke, cx) {
             return true;
         }
-        // The shortcut itself, if it reaches a picker window before Bespoke's key tap.
         if let Some(cfg) = shortcut_from_key_and_mods(
             &keystroke.key,
             mods.platform,
@@ -822,7 +757,6 @@ impl ScrawlCoordinator {
         if mods.platform || mods.control || mods.alt {
             return false;
         }
-        // The record shortcut's key ("S") also records on its own while the picker is up.
         let label = self.shortcut_label();
         let record_key = crate::capture::shortcut_parts(&label).1;
         match keystroke.key.as_str() {
@@ -864,11 +798,9 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// Moves the island to `phase`; the native capsule animates the change.
     fn set_island_phase(&mut self, phase: IslandPhase) {
         let changed = std::mem::discriminant(&self.island_phase) != std::mem::discriminant(&phase);
         if changed {
-            // A new phase replaces the whole content, and the switch chips go with it.
             self.reveal.close();
         }
         let appearing = matches!(
@@ -891,8 +823,6 @@ impl ScrawlCoordinator {
         self.sync_native_pill();
     }
 
-    /// Puts the capsule on the display in use: the one being recorded, the one the picker is on,
-    /// else the one under the pointer.
     fn place_capsule(&self) {
         let centre = |[x, y, w, h]: [f64; 4]| [x + w / 2.0, y + h / 2.0];
         let anchor = match self.island_phase {
@@ -911,8 +841,6 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// While picking, the picker (its window, overlay and the capsule) follows the pointer to
-    /// whichever display it's on, unless an area is being dragged (an area stays on one display).
     fn follow_pointer_display(&mut self, pointer: [f32; 2], cx: &mut Context<Self>) {
         if self.selection_drag.is_some() {
             return;
@@ -938,16 +866,12 @@ impl ScrawlCoordinator {
         platform::move_picker_window(frame, cx);
         self.place_capsule();
         self.sync_picker_overlay();
-        // The picker draws relative to `display_rect`; with the native capsule nothing else
-        // redraws it, and a same-size display doesn't resize its window.
         cx.notify();
     }
 
-    /// The picker's mouse-up, inside its window or not: ends an area drag.
     fn picker_mouse_up(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
         let [sx, sy] = current_mouse_screen()
             .unwrap_or([f32::from(event.position.x), f32::from(event.position.y)]);
-        // The held switcher keeps the area until ⌥⇧ is released.
         if self.hold_picker {
             if self.selection_mode() == Some(SelectionMode::Area)
                 && let Some((start, _)) = self.selection_drag
@@ -975,7 +899,6 @@ impl ScrawlCoordinator {
         if self.native_pill.is_some() {
             return;
         }
-        // The host adds the capsule's window to the excluded ones once it opens.
         match crate::native::pill::NativePill::open(Arc::clone(&self.telemetry.excluded_window_ids))
         {
             Ok(pill) => {
@@ -1112,9 +1035,6 @@ impl ScrawlCoordinator {
         });
     }
 
-    /// The UI loop's tick, every few ms while the island shows: the native capsule's clicks, the
-    /// Completed island's timeout, the picker following the pointer, the switch chips folding,
-    /// and closing up once the capsule has faded out.
     pub fn island_tick(&mut self, cx: &mut Context<Self>) {
         if let Some(actions) = self.native_pill.as_ref().map(|p| p.drain_actions()) {
             for action in actions {
@@ -1183,15 +1103,12 @@ impl ScrawlCoordinator {
         }
     }
 
-    /// The menu bar's picker, opening on the mode the last recording used.
     pub fn begin_target_selection(&mut self, cx: &mut Context<Self>) {
         if self.ready_to_record() {
             self.open_picker(None, false, cx);
         }
     }
 
-    /// Opens the picker on `mode`, else on the mode the last recording used. `hold`: it is the
-    /// held switcher (`crate::hold`), which records on release.
     fn open_picker(&mut self, mode: Option<SelectionMode>, hold: bool, cx: &mut Context<Self>) {
         if self.is_recording() || self.is_processing() {
             return;
@@ -1205,8 +1122,6 @@ impl ScrawlCoordinator {
         self.hovered_window = None;
         self.animated_window_rect = None;
         self.selection_pointer = current_mouse_screen();
-        // The picker opens on the display under the pointer and follows it there
-        // (`follow_pointer_display`); Screen mode highlights all of it.
         let screens = crate::screens::current();
         if let Some(i) =
             crate::screens::pointer().and_then(|p| crate::screens::index_at(&screens, p))
@@ -1225,7 +1140,6 @@ impl ScrawlCoordinator {
                 .spawn(async { list_selectable_windows() })
                 .await;
             let _ = entity.update(cx, |coord, cx| {
-                // A previous picker request must not overwrite a reopened picker or recording.
                 if coord.selection_generation != generation || !coord.is_selecting() {
                     return;
                 }
@@ -1259,11 +1173,8 @@ impl ScrawlCoordinator {
         .detach();
         self.selection_drag = None;
         if matches!(self.island_phase, IslandPhase::Dismissing) {
-            // A capsule still fading out opens again from nothing.
             self.island_phase = IslandPhase::Hidden;
         }
-        // Open on the mode the last recording used; Window starts on Area's crosshair until the
-        // window list arrives.
         let opening = mode.unwrap_or(self.last_mode);
         self.set_island_phase(IslandPhase::Selecting { mode: opening });
         self.telemetry.begin_picker_session();
@@ -1299,7 +1210,6 @@ impl ScrawlCoordinator {
         start_metric("picker_prep_ms", started);
     }
 
-    /// From the picker: the full screen it highlights.
     pub fn start_recording_full_screen(&mut self, cx: &mut Context<Self>) {
         let [x, y, w, h] = self.display_rect;
         let centre = [f64::from(x + w / 2.0), f64::from(y + h / 2.0)];
@@ -1311,7 +1221,6 @@ impl ScrawlCoordinator {
         if self.is_recording() || self.is_processing() {
             return;
         }
-        // No surprise prompt mid-capture: the permissions are granted on the Annotate page.
         if !self.ready_to_record() {
             self.cancel_recording(cx);
             return;
@@ -1321,7 +1230,6 @@ impl ScrawlCoordinator {
             "start_recording_with_target invoked: mode={:?} frame={:?}",
             target.mode, target.frame
         ));
-        // Without the picker the start needs its own cue: the overlay flashes an edge glow.
         let quick = !self.is_selecting();
         self.telemetry.start_glow.store(
             quick && target.mode == CaptureMode::Display,
@@ -1346,9 +1254,6 @@ impl ScrawlCoordinator {
         self.telemetry.set_capture_mode(target.mode);
         self.telemetry.reset_for_session(target.frame);
         let stage = Instant::now();
-        // Reuse the continuous 120Hz Metal overlay opened in `begin_target_selection` so the
-        // cutout and border never swap windows or jump a single pixel when recording starts.
-        // It moves to the target's display if that's another one (a window picked there).
         let f = target.frame;
         let target_rect = [f.x, f.y, f.width, f.height];
         if let Some(ref pill) = self.native_pill {
@@ -1414,8 +1319,6 @@ impl ScrawlCoordinator {
         start_metric("recording_start_ms", started);
     }
 
-    /// The island turns into the recording pill: from the picker it morphs, from nothing it opens
-    /// from a compact capsule, Dynamic Island style (the native capsule animates both).
     fn present_recording_island(&mut self, cx: &mut Context<Self>) {
         self.set_island_phase(IslandPhase::Recording);
         let entity = cx.entity().clone();
@@ -1442,9 +1345,6 @@ impl ScrawlCoordinator {
         let bundle_dir = rec.bundle_dir;
         let target = rec.target;
         let source = rec.source;
-        // Drop the Metal overlay immediately on the main thread so the screen frame clears,
-        // and morph the Dynamic Island into the compact spinning "Processing…" state while
-        // media teardown, transcription, and PNG encoding run on a background worker.
         drop(rec._metal_overlay);
         self.set_island_phase(IslandPhase::Processing);
         cx.notify();
@@ -1515,7 +1415,6 @@ impl ScrawlCoordinator {
     }
 }
 
-/// CleanShot-style floating camera cursor rendered at `(x, y)` in `SelectionMode::Window`.
 fn camera_cursor_badge(x: f32, y: f32) -> Div {
     div()
         .absolute()
@@ -1537,7 +1436,6 @@ fn camera_cursor_badge(x: f32, y: f32) -> Div {
             spread_radius: px(0.0),
         }])
         .child(
-            // Top viewfinder hump
             div()
                 .w(px(9.0))
                 .h(px(2.5))
@@ -1545,7 +1443,6 @@ fn camera_cursor_badge(x: f32, y: f32) -> Div {
                 .bg(rgb(0xf5f5f7)),
         )
         .child(
-            // Camera body + lens
             div()
                 .w(px(21.0))
                 .h(px(14.5))
@@ -1590,9 +1487,7 @@ impl Render for TargetPickerWindow {
         let c_key = self.coordinator.clone();
 
         let win_bounds = window.bounds();
-        // The picker covers one display; pointer, windows and areas are global points.
         let origin = [coord.display_rect[0], coord.display_rect[1]];
-        // Global coordinates are points on macOS and pixels on Windows; this window lays out in points.
         let k = platform::points_per_pixel(window);
         let screen = [
             f32::from(win_bounds.size.width),
@@ -1603,7 +1498,6 @@ impl Render for TargetPickerWindow {
         let shortcut = coord.shortcut_label();
         let (hold_mods, hold_key) = crate::capture::shortcut_parts(&shortcut);
 
-        // Selection rect in window-local coordinates, clipped to the screen, plus its badge.
         let highlight: Option<([f32; 4], String)> = match mode {
             SelectionMode::Area => drag.map(|(a, b)| {
                 let [a, b] = [a, b].map(|p| clamp_point(p, coord.display_rect));
@@ -1668,10 +1562,6 @@ impl Render for TargetPickerWindow {
             )
         });
 
-        // The 120Hz `LaserOverlay` draws the backdrop dim, selection cutout, window tint,
-        // and inset border continuously across both `Selecting` and `Recording` so there is zero
-        // window swap or border jump on recording start. `TargetPickerWindow` only provides the
-        // hit-test surface, cursor style, camera cursor follower, and tabular dimension badge.
         let mut root = div()
             .id("scrawl-target-picker")
             .track_focus(&self.focus)
@@ -1702,7 +1592,6 @@ impl Render for TargetPickerWindow {
                     .rounded(px(BADGE_H / 2.0))
                     .flex()
                     .items_center()
-                    // Bespoke's capsule style: translucent and rimmed.
                     .bg(rgba(0x16161ac7))
                     .border_1()
                     .border_color(rgba(0xffffff38))
@@ -1738,7 +1627,6 @@ impl Render for TargetPickerWindow {
                         IslandPhase::Selecting { mode } => mode,
                         _ => return,
                     };
-                    // The held switcher: a drag selects an area; releasing ⌥⇧ records.
                     if coord.hold_picker {
                         coord.selection_drag = Some(([sx, sy], [sx, sy]));
                         if cur_mode == SelectionMode::Area {
@@ -1838,8 +1726,6 @@ impl Render for TargetPickerWindow {
                 c_up.update(cx, |coord, cx| coord.picker_mouse_up(event, cx));
             }
         })
-        // A drag released past the picker's display (on another one) ends there too, at the
-        // display's edge: the window that saw the press gets the release, outside its bounds.
         .on_mouse_up_out(
             MouseButton::Left,
             move |event: &MouseUpEvent, _window, cx| {
@@ -1857,24 +1743,16 @@ const BADGE_MARGIN: f32 = 8.0;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BadgeAnchor {
-    /// Just outside the bottom-right corner (Area drags), flipping above or inside near edges.
     BelowTrailing,
-    /// Centered over the target (Window hover).
     Center,
 }
 
-/// The smallest area the picker records, points a side (`screens::MIN_AREA` is the floor
-/// after trimming).
 const MIN_AREA_SIDE: f32 = 36.0;
 
-/// A point dragged past the picker's display (global points), pulled back onto its edge: an
-/// area belongs to the display the drag started on, which the picker stays on while dragging.
 fn clamp_point([x, y]: [f32; 2], [dx, dy, dw, dh]: [f32; 4]) -> [f32; 2] {
     [x.clamp(dx, dx + dw), y.clamp(dy, dy + dh)]
 }
 
-/// A dragged area in global points, kept on the picker's `display` (so the cutout, the size
-/// badge and the recording agree), if it's big enough to record.
 fn area_rect(a: [f32; 2], b: [f32; 2], display: [f32; 4]) -> Option<[f64; 4]> {
     let [a, b] = [a, b].map(|p| clamp_point(p, display));
     let w = (a[0] - b[0]).abs();
@@ -1891,7 +1769,6 @@ fn clip_rect([x, y, w, h]: [f32; 4], [sw, sh]: [f32; 2]) -> [f32; 4] {
     [x0, y0, x1 - x0, y1 - y0]
 }
 
-/// Positions a badge of `size` relative to `rect`, keeping it fully on screen.
 fn place_badge(
     [x, y, w, h]: [f32; 4],
     [bw, bh]: [f32; 2],
@@ -2098,7 +1975,6 @@ impl Render for BundleReviewWindow {
                             .items_center()
                             .gap_3()
                             .child(
-                                // Segmented control: R_outer 8 = R_tab 6 + border 1 + pad 1.
                                 div()
                                     .flex_none()
                                     .h(px(28.0))
@@ -2167,7 +2043,6 @@ impl Render for BundleReviewWindow {
                             .items_center()
                             .gap_2()
                             .child(
-                                // Bespoke's Annotate page changes it.
                                 hint_button(
                                     "btn-shortcut",
                                     "Shortcut",
@@ -2218,7 +2093,6 @@ impl Render for BundleReviewWindow {
                     .children(platform::caption_buttons()),
             )
             .child(
-                // Main Workspace: Stage on Left + Timeline Sidebar on Right
                 div()
                     .flex_1()
                     .min_h_0()
@@ -2319,7 +2193,6 @@ impl BundleReviewWindow {
         selected_kf: usize,
         stage_w: f32,
     ) -> AnyElement {
-        // Card: border 1 + pad 8 around the frame, so R_card 12 = R_frame 3 + 9.
         let card_img_w = (stage_w - 18.0).max(240.0);
         let cards = bundle
             .keyframes
@@ -2417,8 +2290,6 @@ fn sidebar_heading(label: &'static str) -> Div {
         .child(label)
 }
 
-/// Splits a `sketch::timeline` line ("0:03 · Clicked…", "0:04 ✎ Circle…", "0:05 “said”") into
-/// a time column and a body, flagging annotation marks.
 fn split_timeline_line(line: &str) -> (&str, &str, bool) {
     let (time, rest) = line.split_once(' ').unwrap_or(("", line));
     if let Some(body) = rest.strip_prefix("✎ ") {
@@ -2532,7 +2403,6 @@ fn action_button(id: &'static str, label: &str, primary: bool) -> gpui::Stateful
     button_base(id, primary).child(SharedString::from(label.to_string()))
 }
 
-/// Button with a trailing muted hint, e.g. a keyboard shortcut.
 fn hint_button(
     id: &'static str,
     label: &str,
@@ -2581,7 +2451,6 @@ fn open_picker_windows(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
             ..Default::default()
         },
         move |window, cx| {
-            // The display the picker was opened for, or has since followed the pointer to.
             let frame = picker_coord.read(cx).display_rect.map(f64::from);
             if let Some(num) = platform::configure_picker_window(window, frame, cx) {
                 picker_coord
@@ -2614,7 +2483,6 @@ fn open_picker_windows(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
     ensure_pill_open(coord_entity, cx);
 }
 
-/// Opens the native capsule if it isn't up, and brings it to the coordinator's state.
 fn ensure_pill_open(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
     coord_entity.update(cx, |coord, _| {
         coord.ensure_native_pill();
@@ -2642,7 +2510,6 @@ fn close_review_window(cx: &mut App) {
 /// its menu is used, and the cooperative `NSApp.activate()` may leave the window behind the app
 /// in front, so it activates ignoring other apps once the window exists.
 fn open_review_window(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
-    // Bespoke shows captures in its own window.
     let dir = coord_entity
         .read(cx)
         .review_bundle
@@ -2669,7 +2536,6 @@ fn open_review_window(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
         WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             titlebar: Some(gpui::TitlebarOptions {
-                // The taskbar and Alt+Tab show it on Windows; macOS draws no title here.
                 title: cfg!(target_os = "windows").then(|| "Scrawl".into()),
                 appears_transparent: true,
                 traffic_light_position: Some(point(px(16.0), px(16.0))),
@@ -2704,12 +2570,8 @@ pub(crate) fn start_metric(name: &str, started: Instant) {
     }
 }
 
-/// Starts Scrawl inside the host app (Bespoke): the key tap, retention, the speech model, and
-/// the loop that drives the capsule, picker and review windows. Bespoke owns the shortcuts, the
-/// tray menu and the settings, and reaches Scrawl through `crate::host`.
 pub fn start(cx: &mut App) {
     scrawl_log(format!("start pid={}", std::process::id()));
-    // ⌘W, Esc, the close button or Scrawl itself: every way a window closes ends up here.
     cx.on_window_closed(|cx| cx.defer(platform::hand_back_keys))
         .detach();
     let (ui_sender, ui_receiver) = flume::unbounded();
@@ -2720,7 +2582,6 @@ pub fn start(cx: &mut App) {
     crate::speech_model::ensure();
     let menu_rx = install_status_bar();
 
-    // The permission check runs once, so the first shortcut press knows what's missing.
     {
         let sender = telemetry.ui_sender.clone();
         std::thread::spawn(move || {
@@ -2795,8 +2656,6 @@ pub fn start(cx: &mut App) {
                 } else if loop_coord.read(cx).telemetry.take_escape()
                     && loop_coord.read(cx).is_selecting()
                 {
-                    // The picker may not have the keys (another app is active), but the
-                    // key tap sees Esc anyway.
                     loop_coord.update(cx, |coord, cx| coord.cancel_recording(cx));
                 }
                 if loop_coord.read(cx).gate.is_pending() {
@@ -2826,8 +2685,6 @@ mod tests {
         assert_eq!(area_rect([0.0, 0.0], [30.0, 200.0], laptop), None);
     }
 
-    /// Kit's review: a drag that starts at x -150 on a left display and overshoots to x 160 on
-    /// the laptop keeps to the left display, so it's recorded there (`screens::area_on_display`).
     #[test]
     fn an_area_drag_stays_on_the_display_it_started_on() {
         let left = [-1920.0, 37.0, 1920.0, 1080.0];
@@ -2835,12 +2692,10 @@ mod tests {
             area_rect([-150.0, 200.0], [160.0, 400.0], left),
             Some([-150.0, 200.0, 150.0, 200.0])
         );
-        // Past its bottom-left corner too.
         assert_eq!(
             area_rect([-1800.0, 1000.0], [-2100.0, 1300.0], left),
             Some([-1920.0, 1000.0, 120.0, 117.0])
         );
-        // What's left on the display can be too small to record.
         assert_eq!(area_rect([-20.0, 200.0], [400.0, 400.0], left), None);
         let screens = [
             crate::screens::Screen {

@@ -1,22 +1,3 @@
-//! Diagnostic event dump for hardware characterization and bug reports.
-//!
-//! Prints every event the `KeyboardListener` emits, with millisecond
-//! timestamps and raw modifier bits. Use this to answer questions like
-//! "does F13 carry the Fn modifier on this keyboard?" or "what does this
-//! layout report for the key next to 1?" — and paste the output into
-//! bug reports.
-//!
-//! Run with: cargo run --example diagnostic
-//! Exit with Ctrl+C.
-//!
-//! Notes:
-//! - Keys the platform backend cannot map are invisible here (no event is
-//!   emitted for them). If a key produces no output, that itself is a
-//!   finding — note it.
-//! - macOS requires accessibility permission for the terminal running this.
-//! - Left/right mouse buttons are only reported while a modifier is held
-//!   (by design, to avoid noise).
-
 use std::time::Instant;
 
 use handy_keys::KeyboardListener;

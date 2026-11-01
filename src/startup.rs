@@ -1,6 +1,3 @@
-//! App startup, ported from the Tauri `setup` hook and `initialize_core_logic`.
-//! Runs on the GPUI main thread once the platform app has launched.
-
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -35,7 +32,6 @@ pub fn run(
     let cli_args = app.state::<CliArgs>().inner().clone();
     let mut settings = get_settings(&app);
 
-    // CLI --debug overrides debug_mode and log level (runtime-only, not persisted)
     if cli_args.debug {
         settings.debug_mode = true;
         settings.log_level = settings::LogLevel::Trace;
@@ -43,9 +39,6 @@ pub fn run(
 
     let file_log_level: log::LevelFilter = settings.log_level.into();
     FILE_LOG_LEVEL.store(file_log_level as u8, Ordering::Relaxed);
-    // Only forward logs to the UI while debug mode is on (the live log viewer
-    // is the sole consumer and only exists in debug mode). This also honors
-    // the runtime `--debug` override applied to `settings` above.
     LOG_STREAMING.store(settings.debug_mode, Ordering::Relaxed);
 
     ui::init(&app, ui_messages, &settings, cx);
@@ -60,15 +53,8 @@ pub fn run(
     // fallback. See secure_input.rs and issue #1578.
     secure_input::init(&app);
 
-    // Populate the overlay-enabled cache from initial settings so the audio
-    // path (overlay::emit_levels, called ~24 Hz during recording) can do a
-    // single atomic load instead of reading the settings store.
     overlay::update_overlay_enabled_cache(settings.overlay_style != settings::OverlayStyle::None);
 
-    // Pre-warm GPU/accelerator enumeration on a background thread. The first
-    // get_available_accelerators call enumerates ORT execution providers and
-    // transcribe-cpp compute devices, which can take a moment; without this
-    // the cost is paid when the user first opens the acceleration setting.
     std::thread::spawn(|| {
         let _ = crate::managers::transcription::get_available_accelerators();
     });
@@ -77,9 +63,11 @@ pub fn run(
         tray::set_tray_visibility(&app, false);
     }
 
-    // Show the main window unless starting hidden. Permission onboarding
-    // always shows it.
-    let show = should_force_show_permissions_window(&app) || !starts_hidden(&app);
+    #[cfg(target_os = "windows")]
+    let force_show = should_force_show_permissions_window(&app);
+    #[cfg(not(target_os = "windows"))]
+    let force_show = false;
+    let show = force_show || !starts_hidden(&app);
     #[cfg(debug_assertions)]
     let show = show || ui::dev_snapshot::requested();
     ui::open_main_window(show, cx);
@@ -92,25 +80,16 @@ pub fn run(
     let forward_app = app.clone();
     listener.serve(move |args| handle_second_instance(&forward_app, &args));
 
-    // Teardown transcribe.cpp before exit
     let quit_app = app.clone();
     cx.on_app_quit(move |_| {
         if let Some(tm) = quit_app.try_state::<Arc<TranscriptionManager>>() {
-            let _ = tm.unload_model();
+            tm.unload_model();
         }
         async {}
     })
     .detach();
 }
 
-/// Fired when the running bundle is launched again from Spotlight/Finder or
-/// the Dock icon is clicked. If the settings window is hidden, the user is
-/// likely looking for a tray icon that vanished (#1948): recreate it. When
-/// the window is already visible this is just a focus request.
-/// Whether the app starts with its window hidden: start hidden is on (setting
-/// or `--start-hidden`) and a tray icon is available. Without a tray icon the
-/// window is the only way back in (#903). `main` reads this before launch to
-/// pick the macOS activation policy, so both decisions stay in sync.
 pub fn starts_hidden(app: &AppHandle) -> bool {
     let cli_args = app.state::<CliArgs>().inner().clone();
     let settings = get_settings(app);
@@ -119,6 +98,10 @@ pub fn starts_hidden(app: &AppHandle) -> bool {
     should_hide && tray_available
 }
 
+/// Fired when the running bundle is launched again from Spotlight/Finder or
+/// the Dock icon is clicked. If the settings window is hidden, the user is
+/// likely looking for a tray icon that vanished (#1948): recreate it. When
+/// the window is already visible this is just a focus request.
 pub fn on_reopen(cx: &mut App) {
     #[cfg(target_os = "macos")]
     if !ui::is_main_window_visible(cx) {
@@ -127,7 +110,6 @@ pub fn on_reopen(cx: &mut App) {
     ui::show_main_window(cx);
 }
 
-/// A second process was launched; it forwarded its command line here.
 fn handle_second_instance(app: &AppHandle, args: &[String]) {
     if args.iter().any(|a| a == "--toggle-transcription") {
         signal_handle::send_transcription_input(app, "transcribe", "CLI");
@@ -145,48 +127,32 @@ fn handle_second_instance(app: &AppHandle, args: &[String]) {
     }
 }
 
-#[allow(unused_variables)]
+#[cfg(target_os = "windows")]
 fn should_force_show_permissions_window(app: &AppHandle) -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        let model_manager = app.state::<Arc<ModelManager>>();
-        let has_downloaded_models = model_manager
-            .get_available_models()
-            .iter()
-            .any(|model| model.is_downloaded);
-
-        if !has_downloaded_models {
-            return false;
-        }
-
-        let status = crate::commands::audio::get_windows_microphone_permission_status();
-        if status.supported
-            && status.overall_access == crate::commands::audio::PermissionAccess::Denied
-        {
-            log::info!(
-                "Windows microphone permissions are denied; forcing main window visible for onboarding"
-            );
-            return true;
-        }
+    let has_downloaded_models = app
+        .state::<Arc<ModelManager>>()
+        .get_available_models()
+        .iter()
+        .any(|model| model.is_downloaded);
+    if !has_downloaded_models {
+        return false;
     }
 
+    let status = crate::commands::audio::get_windows_microphone_permission_status();
+    if status.overall_access == crate::commands::audio::PermissionAccess::Denied {
+        log::info!(
+            "Windows microphone permissions are denied; forcing main window visible for onboarding"
+        );
+        return true;
+    }
     false
 }
 
 fn initialize_core_logic(app_handle: &AppHandle) {
-    // Note: Enigo (keyboard/mouse simulation) and shortcuts are NOT
-    // initialized here. The UI initializes them after onboarding completes,
-    // so macOS permission dialogs don't appear before the user is ready.
-
-    // The audio recorder receives the streaming router explicitly, so
-    // always-on microphone startup can wire live-preview frames before the
-    // managers are in managed state.
     let model_manager =
         Arc::new(ModelManager::new(app_handle).expect("Failed to initialize model manager"));
-    let transcription_manager = Arc::new(
-        TranscriptionManager::new(app_handle, model_manager.clone())
-            .expect("Failed to initialize transcription manager"),
-    );
+    let transcription_manager =
+        Arc::new(TranscriptionManager::new(app_handle, model_manager.clone()));
     let voice_submit = voice_submit::VoiceSubmit::new(app_handle);
     let recording_manager = Arc::new(
         AudioRecordingManager::new(
@@ -199,11 +165,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     let history_manager =
         Arc::new(HistoryManager::new(app_handle).expect("Failed to initialize history manager"));
 
-    // Initialize the transcribe-cpp native backend (logging + backend module
-    // registration) once, before any whisper model is loaded.
     managers::transcription::init_transcribe_backend();
 
-    // Apply accelerator preferences before any model loads
     managers::transcription::apply_accelerator_settings(app_handle);
 
     app_handle.manage(recording_manager);
@@ -213,8 +176,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(voice_submit);
     app_handle.manage(tray::TrayState::new());
 
-    // Set up signal handlers for toggling transcription. On Linux, SIGUSR1 is
-    // deliberately not handled — see signal_handle.rs.
     #[cfg(unix)]
     signal_handle::setup_signal_handler(app_handle.clone());
 
@@ -223,7 +184,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     shortcut::hotkey_impl::install(app_handle);
 
     tray::create_tray(app_handle);
-    // Initialize tray menu with idle state
     tray::update_tray_menu(app_handle);
 
     let settings = get_settings(app_handle);
@@ -231,7 +191,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         tray::set_tray_visibility(app_handle, false);
     }
 
-    // Refresh tray menu when model state changes or an update appears
     for event in ["model-state-changed", updater::STATE_CHANGED] {
         let app_handle_for_listener = app_handle.clone();
         app_handle.listen(event, move |_| {
@@ -239,9 +198,5 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         });
     }
 
-    // Apply the autostart preference (SMAppService login item on macOS 13+,
-    // the auto-launch crate elsewhere)
     autostart::apply_autostart(app_handle, settings.autostart_enabled);
-
-    utils::create_recording_overlay(app_handle);
 }

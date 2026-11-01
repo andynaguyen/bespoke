@@ -131,13 +131,16 @@
     }
   },
   "modelSelector": {
+    "errors": {
+      "rescan": "Failed to rescan models",
+      "delete": "Failed to delete model"
+    },
     "custom": "Custom",
     "legacy": "Legacy",
     "streaming": "Streaming",
     "active": "Active",
     "switching": "Switching...",
     "verifyingGeneric": "Verifying...",
-    "extractingGeneric": "Extracting...",
     "downloading": "Downloading {{percentage}}%",
     "deleteModel": "Delete {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
@@ -155,12 +158,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Bespoke Shortcuts",
-        "description": "Configure keyboard or mouse shortcuts to trigger speech-to-text recording",
-        "loading": "Loading shortcuts...",
-        "none": "No shortcuts configured",
-        "notFound": "Shortcut not found",
-        "pressKeys": "Press keys...",
         "pressKeysOrMouse": "Press keys or a mouse button...",
         "mouseButtons": {
           "mouseleft": "Left Mouse",

@@ -36,7 +36,6 @@ impl AudioRecorder {
                         crate::capture::scrawl_log(format!("Microphone startup failed: {error:#}"));
                     })?;
                 crate::ui::start_metric("audio_ready_ms", started);
-                // Stream never crosses threads. Disconnect also stops abandoned recorders.
                 let _ = stop_receiver.recv();
                 drop(stream);
                 Ok(())
@@ -50,8 +49,6 @@ impl AudioRecorder {
         })
     }
 
-    /// The chosen microphone (`mic`), else the macOS default. A chosen device that is missing or
-    /// won't open never stops the recording.
     fn open_stream(
         samples: Arc<Mutex<Vec<f32>>>,
         error: Arc<Mutex<Option<String>>>,
@@ -152,8 +149,6 @@ impl AudioRecorder {
     }
 
     pub fn stop(mut self) -> Result<RecordedAudio> {
-        // Joining drops the stream and stops its callback before taking the buffer,
-        // including a stop requested while the device was still being initialized.
         self.join_worker()?;
         let error = self
             .error
@@ -166,7 +161,6 @@ impl AudioRecorder {
                 .lock()
                 .map_err(|_| anyhow!("Microphone buffer lock poisoned"))?,
         );
-        // An overload, or a device unplugged partway, keeps what was heard before it.
         if let Some(error) = error {
             if samples_16k.is_empty() {
                 bail!("Microphone capture failed: {error}");
@@ -221,8 +215,6 @@ where
                     .sum::<f64>()
                     / channels as f64;
                 let mono = if mono.is_finite() { mono } else { 0.0 };
-                // Area averaging gives a continuous-phase downmix/decimator,
-                // including non-integer ratios such as 44.1 kHz -> 16 kHz.
                 let mut remaining = SAMPLE_RATE;
                 while remaining > 0 {
                     let weight = remaining.min(rate - phase);
@@ -246,7 +238,6 @@ where
     )?)
 }
 
-/// One sample as `audio.wav` stores it.
 pub fn pcm16(sample: f32) -> i16 {
     let sample = if sample.is_finite() {
         sample.clamp(-1.0, 1.0)
@@ -289,7 +280,6 @@ mod tests {
         let output = Arc::clone(&samples);
         let (stop_sender, stop_receiver) = std::sync::mpsc::channel();
         let worker = std::thread::spawn(move || {
-            // Model a final callback flushed while the worker drops its stream.
             assert!(matches!(
                 stop_receiver.recv_timeout(Duration::from_secs(2)),
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected)

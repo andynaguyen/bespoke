@@ -1,24 +1,6 @@
 #!/usr/bin/env bash
-# Build the Bespoke.app you share: a release build with Sparkle embedded,
-# zipped, with a Sparkle appcast for it. Writes dist/<version>/.
-#
-#   scripts/release.sh             build dist/<version>/ only
-#   scripts/release.sh --publish   also create release v<version> on GitHub
-#   scripts/release.sh --no-build  reuse the last cargo build
-#
 # Bump `version` in Cargo.toml first: Sparkle offers an update only when the
 # feed's version is newer than the running app's. release-notes/<version>.md,
-# if present, becomes the notes in Sparkle's update window.
-#
-# The release goes to $BESPOKE_RELEASES_REPO (default andynaguyen/bespoke),
-# tagged at HEAD, which must be pushed. Every release attaches appcast.xml, so
-# Info.plist's SUFeedURL, .../releases/latest/download/appcast.xml, always
-# serves the newest one. The repo must be public, or installed copies can't
-# download the feed.
-#
-# If the release already exists without a zip, as when you create it in
-# GitHub's UI, --publish attaches the zip and appcast.xml to it.
-#
 # Sparkle signs each zip with the EdDSA key in your login keychain, made by
 # Sparkle's generate_keys. Back it up with
 # `target/sparkle/<version>/bin/generate_keys -x <file>`. Without it, installed
@@ -68,7 +50,6 @@ if $PUBLISH; then
   fi
 fi
 
-# Sparkle's framework and signing tools, downloaded once per version.
 SPARKLE_DIR="target/sparkle/$SPARKLE_VERSION"
 if [[ ! -d "$SPARKLE_DIR/Sparkle.framework" ]]; then
   echo "Downloading Sparkle $SPARKLE_VERSION..."
@@ -111,7 +92,6 @@ scripts/bundle-app.sh --sparkle "$SPARKLE_DIR/Sparkle.framework"
 rm -rf "$DIST"
 mkdir -p "$DIST"
 ditto -c -k --sequesterRsrc --keepParent target/release/bundle/Bespoke.app "$DIST/$ZIP_NAME"
-# Prints `sparkle:edSignature="..." length="..."`.
 SIGNATURE=$(sign_update "$DIST/$ZIP_NAME")
 MIN_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" Info.plist)
 

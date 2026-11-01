@@ -1,4 +1,3 @@
-//! PNG output and deterministic, CPU-rendered review images.
 use crate::model::*;
 use crate::sketch::{FreehandOptions, freehand_outline, slice_laser_window, smooth_laser_points};
 use std::path::Path;
@@ -48,7 +47,6 @@ fn solid(width: u32, height: u32, color: Color) -> RgbaFrame {
     RgbaFrame::new(0, width, height, rgba)
 }
 
-/// Source-over, retaining straight alpha even when the input is transparent.
 fn blend(frame: &mut RgbaFrame, x: i32, y: i32, color: Color, coverage: f32) {
     if x < 0 || y < 0 || x >= frame.width as i32 || y >= frame.height as i32 {
         return;
@@ -94,8 +92,6 @@ fn rounded(frame: &mut RgbaFrame, rect: [f32; 4], radius: f32, color: Color) {
     }
     let r = radius.max(0.0).min(w * 0.5).min(h * 0.5);
     for py in (y.floor() as i32 - 1).max(0)..((y + h).ceil() as i32 + 1).min(frame.height as i32) {
-        // Only fully covered, opaque pixels can bypass source-over. Keep the
-        // original distance/coverage calculation on all antialiased edges.
         let (start, end) =
             if color[3] == 255 && py >= y.ceil() as i32 && py < (y + h).floor() as i32 {
                 let inset = if py >= (y + r).ceil() as i32 && py < (y + h - r).floor() as i32 {
@@ -158,7 +154,6 @@ fn ring(frame: &mut RgbaFrame, center: [f32; 2], radius: f32, thickness: f32, co
     }
 }
 
-/// Four vertical subpixel scanlines, with exact horizontal span coverage.
 fn polygon(frame: &mut RgbaFrame, points: &[[f32; 2]], color: Color) {
     if points.len() < 3 || points.iter().flatten().any(|v| !v.is_finite()) {
         return;
@@ -286,11 +281,8 @@ pub fn annotate_keyframe_marks_in_place(
     if w == 0.0 || h == 0.0 {
         return;
     }
-    // Sizes are tuned for ~1280×800 screen frames; phone frames are taller and denser.
     let k = (w.min(h) / 800.0).max(w.max(h) / 1280.0).clamp(1.0, 2.0);
     let size = (w.min(h) * 0.0065).clamp(4.2, 6.0) * k;
-    // A mark keyframe shows every mark drawn on its screen. Flags carry no ink, so a flagged
-    // keyframe still shows the strokes of its moment.
     let shown = crate::sketch::marks_on(keyframe, marks);
     for (index, stroke) in strokes.iter().enumerate() {
         if stroke.laser {
@@ -334,7 +326,6 @@ pub fn annotate_keyframe_marks_in_place(
     for stroke in strokes.iter().filter(|s| s.laser) {
         draw_laser(frame, stroke, keyframe.t);
     }
-    // Phone swipes that ended just before this moment (or produced it) leave a trail.
     for event in events {
         if let InteractionEvent::Drag {
             t,
@@ -513,7 +504,6 @@ fn draw_keyframe_badge(
         cap_r,
         [248, 249, 252, 255],
     );
-    // CoreText draws digits with optical cap-center at ~0.595 * font_size from top of mask.
     draw_text(
         dst,
         &num_label,
@@ -568,7 +558,6 @@ fn draw_laser(frame: &mut RgbaFrame, stroke: &Stroke, time: u64) {
         return;
     }
     let points = smooth_laser_points(&raw_points);
-    // Subtle, realistic optical laser trail: soft atmospheric scatter + delicate ruby beam + incandescent core.
     for (radius, alpha, power, color) in [
         (7.5, 0.08, 1.1, [255, 22, 38, 255]),
         (4.2, 0.22, 1.2, [255, 36, 48, 255]),
@@ -592,7 +581,6 @@ fn draw_laser(frame: &mut RgbaFrame, stroke: &Stroke, time: u64) {
             line(frame, a, b, w0, w1, opacity(color, seg_alpha));
         }
     }
-    // Subtle pinpoint diode head at the tip of the beam.
     if let Some(&(tip, tip_age)) = points.last()
         && tip_age > 0.20
     {
@@ -613,7 +601,6 @@ fn draw_click_ripple(frame: &mut RgbaFrame, p: [f32; 2], k: f32) {
     ring(frame, p, 17.5 * k, 1.75 * k, [0, 136, 255, 235]);
 }
 
-/// A finger's path: a haloed blue line from a small start dot to a ring where it lifted.
 fn draw_touch_trail(frame: &mut RgbaFrame, points: &[[f32; 2]], k: f32) {
     let (Some(&start), Some(&end)) = (points.first(), points.last()) else {
         return;
@@ -658,9 +645,6 @@ const SHEET_BG: Color = [28, 29, 34, 255];
 const SHEET_MAX_EDGE: f32 = 1600.0;
 const SHEET_MAX_PIXELS: f32 = 1_560_000.0;
 
-/// Partition `aspects` (in chronological order) into justified rows of 1..=6 frames so that
-/// per-frame displayed areas are balanced across wide and tall crops and the overall sheet aspect
-/// ratio sits near the vision-model sweet spot.
 fn plan_contact_sheet_rows(aspects: &[f32]) -> Vec<std::ops::Range<usize>> {
     let n = aspects.len();
     if n == 0 {
@@ -713,7 +697,6 @@ fn plan_contact_sheet_rows(aspects: &[f32]) -> Vec<std::ops::Range<usize>> {
             let sheet_aspect = 1.0 / inv_sum;
             let sheet_pen = (sheet_aspect / target_sheet).ln().powi(2) * 1.8;
 
-            // Relative displayed area of frame `i` in row `r` is `a_i / A_r^2`.
             let mut areas = [0.0f32; MAX_KEYFRAMES];
             let mut log_areas = [0.0f32; MAX_KEYFRAMES];
             let mut log_area_sum = 0.0f32;
@@ -1043,7 +1026,6 @@ fn blit_scaled(dst: &mut RgbaFrame, src: &RgbaFrame, rect: [f32; 4], radius: f32
         (y0 * src_w * 4, y1 * src_w * 4, sy - y0 as f32)
     };
 
-    // Precompute X sample taps across the horizontal span once.
     let span = (px_end - px_start) as usize;
     let mut x_taps = Vec::with_capacity(span);
     for px in px_start..px_end {
@@ -1118,7 +1100,6 @@ fn blit_scaled(dst: &mut RgbaFrame, src: &RgbaFrame, rect: [f32; 4], radius: f32
     }
 }
 
-/// Render at a stable design size, then scale to the requested capture geometry.
 pub fn render_synthetic_demo_frame(width: u32, height: u32, t_ms: u64, phase: u32) -> RgbaFrame {
     let mut frame = solid(1280, 800, [22, 23, 26, 255]);
     rounded(&mut frame, [0.0, 0.0, 244.0, 800.0], 0.0, [28, 29, 33, 255]);
@@ -1372,7 +1353,6 @@ fn wrap_text_indented(
             if !line.is_empty() {
                 lines.push(std::mem::take(&mut line));
             }
-            // Character boundaries avoid slicing inside UTF-8, including emoji.
             for ch in word.chars() {
                 let mut candidate = line.clone();
                 candidate.push(ch);
@@ -1522,7 +1502,6 @@ fn draw_text(
     }
 }
 
-/// Portable 5×7 fallback. Unsupported Unicode is a visible replacement glyph.
 fn glyph(ch: char) -> [u8; 7] {
     match ch.to_ascii_uppercase() {
         'A' => [14, 17, 17, 31, 17, 17, 17],
@@ -1727,7 +1706,6 @@ mod tests {
         assert_eq!(blue(&stale), 0, "an old swipe should not be drawn");
     }
 
-    /// Reads back what `encode_png` wrote.
     fn decode_png<R: std::io::BufRead + std::io::Seek>(source: R) -> anyhow::Result<RgbaFrame> {
         let mut decoder = png::Decoder::new(source);
         decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
@@ -1817,7 +1795,6 @@ mod tests {
     #[test]
     fn a_grouped_keyframe_shows_every_mark_drawn_on_its_screen() {
         let base = solid(320, 200, [20, 20, 20, 255]);
-        // Three strokes across the lower half, drawn long before the keyframe.
         let stroke = |y: i32| Stroke {
             t0: 100,
             t1: 300,
@@ -1904,7 +1881,6 @@ mod tests {
                     assert!(n_px > 500, "Missing card {i} of {count}");
                     centroids.push((sum_x as f32 / n_px as f32, sum_y as f32 / n_px as f32));
                 }
-                // Reading order: every frame is either to the right on the same row, or on a lower row.
                 for pair in centroids.windows(2) {
                     let (x0, y0) = pair[0];
                     let (x1, y1) = pair[1];
@@ -1920,7 +1896,6 @@ mod tests {
 
     #[test]
     fn contact_sheets_pack_mixed_aspects_and_fill_width_without_letterboxing() {
-        // Mixed aspect ratios like an auto-cropped screen capture: wide strip, landscape, square, tall portrait.
         let dims = [
             (1054, 327),
             (1183, 837),
@@ -1945,8 +1920,6 @@ mod tests {
         assert_eq!(sheet.rgba.len(), w * h * 4);
         assert!(sheet.rgba.chunks_exact(4).all(|p| p[3] == 255));
 
-        // Every non-gutter scanline inside [pad..h-pad] must start with a frame pixel at x=pad
-        // and end with a frame pixel at x=w-pad-1 (every row fills the inner width completely).
         let is_card = |p: &[u8]| p != SHEET_BG;
         let mut content_rows = 0usize;
         for y in pad..h - pad {
@@ -1958,7 +1931,6 @@ mod tests {
                     "Row y={y} did not fill full inner width"
                 );
                 content_rows += 1;
-                // Count non-gutter pixels in this scanline: only thin horizontal gutters may be SHEET_BG.
                 let bg_px = (pad..w - pad)
                     .filter(|&x| !is_card(&sheet.rgba[(y * w + x) * 4..(y * w + x + 1) * 4]))
                     .count();
@@ -1973,7 +1945,6 @@ mod tests {
 
     #[test]
     fn contact_sheet_balances_per_frame_area_across_wide_and_tall_crops() {
-        // Aspect mix from 17e3c-9: 5 landscape/square crops followed by 3 tall portrait crops.
         let dims = [
             (685, 648),
             (1183, 837),
@@ -2007,7 +1978,6 @@ mod tests {
 
     #[test]
     fn portrait_frames_scale_without_smearing_lower_rows() {
-        // Rows past the frame's width once blended with row `width - 1`.
         let mut frame = solid(100, 400, [200, 0, 0, 255]);
         frame.rgba[200 * 100 * 4..]
             .chunks_exact_mut(4)

@@ -1,6 +1,3 @@
-//! Post-processing provider and prompt settings (`post-processing/` and
-//! `PostProcessingSettingsApi/`), shown in the Experimental tab.
-
 use std::time::Duration;
 
 use gpui::{
@@ -29,7 +26,6 @@ fn selected_provider_id(s: &AppSettings) -> String {
         .unwrap_or_else(|| "openai".into())
 }
 
-/// Provider, base URL, API key and model rows.
 pub struct PostProcessingApi {
     store: Entity<SettingsStore>,
     base_url: Entity<InputState>,
@@ -80,8 +76,6 @@ impl PostProcessingApi {
                     }
                     InputEvent::Change => cx.notify(),
                     InputEvent::PressEnter { .. } => {
-                        // react-select commits its focused option: the first
-                        // match, with "Use ..." listed last.
                         let typed = this.model_query.read(cx).value().trim().to_string();
                         let lowered = typed.to_lowercase();
                         let pick = this
@@ -113,8 +107,6 @@ impl PostProcessingApi {
         this
     }
 
-    /// Reloads the inputs when the provider changes or the stored values move
-    /// under an unfocused field.
     fn sync_fields(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let settings = self.store.read(cx).settings.clone();
         let provider_id = selected_provider_id(&settings);
@@ -155,8 +147,6 @@ impl PostProcessingApi {
         if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID
             && !crate::commands::check_apple_intelligence_available()
         {
-            // The provider is still selected so the dropdown shows it; the
-            // backend handles an unavailable Apple Intelligence.
             self.apple_unavailable = true;
         }
 
@@ -172,8 +162,6 @@ impl PostProcessingApi {
             );
         });
 
-        // Fetch the provider's models when it is configured, so a stale model
-        // from another provider is easy to replace.
         if provider_id != APPLE_INTELLIGENCE_PROVIDER_ID {
             let provider = settings
                 .post_process_providers
@@ -213,7 +201,6 @@ impl PostProcessingApi {
         if value.is_empty() || value == current {
             return;
         }
-        // A new endpoint invalidates the stored model and the cached list.
         let key = format!("post_process_base_url:{provider_id}");
         let app = AppHandle::global().clone();
         self.store.update(cx, |store, cx| {
@@ -338,8 +325,6 @@ impl PostProcessingApi {
         } else {
             t("settings.postProcessing.api.model.placeholderWithOptions")
         };
-        // The stored model draws as the value (react-select's singleValue)
-        // until the user types; the placeholder shows only without one.
         let shown_placeholder: SharedString = if current.is_empty() {
             placeholder
         } else {
@@ -428,8 +413,6 @@ impl PostProcessingApi {
             .with_priority(1)
         });
 
-        // react-select's indicators: loading dots, clear, a separator and
-        // the chevron, each in an 8px-padded 20px box.
         let has_value = !current.is_empty();
         let indicator = |id: &'static str, glyph: &'static str, color: gpui::Hsla| {
             div()
@@ -633,10 +616,9 @@ impl Render for PostProcessingApi {
         if is_apple {
             if self.apple_unavailable {
                 rows.push(
-                    error_alert(
-                        true,
-                        t("settings.postProcessing.api.appleIntelligence.unavailable"),
-                    )
+                    error_alert(t(
+                        "settings.postProcessing.api.appleIntelligence.unavailable",
+                    ))
                     .into_any_element(),
                 );
             }
@@ -659,7 +641,6 @@ impl Render for PostProcessingApi {
                                         .disabled(base_url_updating)
                                         .flex_1(),
                                 )
-                                // React's `title`, hard-coded English there too.
                                 .when(base_url_updating, |el| {
                                     el.tooltip(|window, cx| {
                                         Tooltip::text(
@@ -713,7 +694,6 @@ impl Render for PostProcessingApi {
     }
 }
 
-/// The prompt picker and editor.
 pub struct PostProcessingPrompts {
     store: Entity<SettingsStore>,
     creating: bool,
@@ -772,7 +752,6 @@ impl PostProcessingPrompts {
             .cloned()
     }
 
-    /// Loads the selected prompt into the drafts when it changes.
     fn sync_drafts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.creating {
             return;
@@ -913,7 +892,6 @@ impl PostProcessingPrompts {
     }
 }
 
-/// "Tip: Use `${output}` to insert…", with the placeholder in code style.
 fn prompt_tip(color: gpui::Hsla) -> impl IntoElement {
     let template = t("settings.postProcessing.prompts.promptTip");
     let (before, rest) = template.split_once("<code>").unwrap_or((&template, ""));

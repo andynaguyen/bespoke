@@ -11,13 +11,6 @@
 
 use crate::app_handle::{AppHandle, APP_NAME};
 
-/// Apply the user's autostart preference using the best mechanism for the
-/// current platform.
-///
-/// Errors are logged rather than returned: the preference is re-applied on
-/// every launch, so a transient failure self-heals and must not block
-/// startup. This mirrors the pre-existing behavior of ignoring
-/// enable()/disable() results.
 pub fn apply_autostart(app: &AppHandle, enabled: bool) {
     #[cfg(target_os = "macos")]
     if macos::login_item_api_available() {
@@ -45,8 +38,6 @@ pub fn apply_autostart(app: &AppHandle, enabled: bool) {
     }
 }
 
-/// The launch entry for this executable. On macOS it points at the `.app`
-/// bundle rather than the binary inside it, like tauri-plugin-autostart.
 fn auto_launch() -> Result<auto_launch::AutoLaunch, auto_launch::Error> {
     let exe = std::env::current_exe()?;
     #[cfg(target_os = "macos")]
@@ -82,9 +73,6 @@ mod macos {
         AnyClass::get(c"SMAppService").is_some()
     }
 
-    /// Register or unregister the app as a login item, skipping the call when
-    /// the service is already in the requested state (unregistering a
-    /// never-registered service returns an error on every launch otherwise).
     pub fn set_login_item(enabled: bool) {
         let service = unsafe { SMAppService::mainAppService() };
         let status = unsafe { service.status() };
@@ -112,10 +100,6 @@ mod macos {
         }
     }
 
-    /// Remove the launch agent plist that tauri-plugin-autostart (via the
-    /// auto-launch crate) wrote on older versions, so login doesn't start the
-    /// app twice after migrating to `SMAppService`. Runs on every launch;
-    /// missing file is the normal case.
     pub fn remove_plugin_launch_agent(_app: &AppHandle) {
         let Some(home) = dirs::home_dir() else {
             return;
@@ -145,10 +129,6 @@ mod macos {
     mod tests {
         use super::*;
 
-        /// Validates the assumption `login_item_api_available` rests on: the
-        /// ServiceManagement framework is linked into the binary, so the
-        /// class lookup finds `SMAppService` whenever the host is macOS 13+
-        /// (which anything able to build this crate is).
         #[test]
         fn sm_app_service_class_resolves() {
             assert!(login_item_api_available());

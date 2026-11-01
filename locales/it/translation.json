@@ -121,7 +121,6 @@
     "active": "Attivo",
     "switching": "Cambio...",
     "verifyingGeneric": "Verifica...",
-    "extractingGeneric": "Estrazione...",
     "downloading": "Download {{percentage}}%",
     "deleteModel": "Elimina {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
@@ -160,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Scorciatoie di Bespoke",
-        "description": "Configura le scorciatoie per attivare la trascrizione vocale",
-        "loading": "Caricamento delle scorciatoie...",
-        "none": "Nessuna scorciatoia configurata",
-        "notFound": "Scorciatoia non trovata",
-        "pressKeys": "Premi i tasti...",
         "bindings": {
           "transcribe": {
             "name": "Scorciatoia Trascrizione",

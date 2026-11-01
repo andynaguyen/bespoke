@@ -1,7 +1,3 @@
-//! The AppKit side of the picker and review windows: window levels and styles, display
-//! placement, and handing the keys back to the app that had them. Bespoke's tray menu replaces
-//! Scrawl's menu bar item.
-
 use std::sync::Arc;
 
 use gpui::{AnyElement, App, Div, Window};
@@ -17,17 +13,13 @@ use objc2_foundation::MainThreadMarker;
 use super::{LaserOverlay, MenuAction};
 use crate::capture::SharedCaptureTelemetry;
 
-/// Where the file browser is called in buttons ("Show in Finder").
 pub(super) const FILE_MANAGER: &str = "Finder";
-/// The review header's leading inset, clear of the traffic lights.
 pub(super) const HEADER_LEAD: f32 = 78.0;
 pub(super) const HEADER_TRAIL: f32 = 16.0;
-/// Global coordinates are points, as GPUI lays out.
 pub(super) fn points_per_pixel(_window: &Window) -> f32 {
     1.0
 }
 
-/// The GPUI display that is the screen at `frame` (global points), else the primary one.
 pub(super) fn display_at(
     frame: [f32; 4],
     cx: &App,
@@ -38,7 +30,6 @@ pub(super) fn display_at(
         .or_else(|| cx.primary_display())
 }
 
-/// A window covering the screen at `frame` lays out at its size: global coordinates are points.
 pub(super) fn layout_size(
     frame: [f32; 4],
     _display: Option<&dyn gpui::PlatformDisplay>,
@@ -46,7 +37,6 @@ pub(super) fn layout_size(
     gpui::size(gpui::px(frame[2]), gpui::px(frame[3]))
 }
 
-/// Moves a window to cover the screen at `frame` (global points).
 fn move_window_to_screen(ns_win: &NSWindow, frame: [f64; 4]) {
     let Some(mtm) = MainThreadMarker::new() else {
         return;
@@ -67,7 +57,6 @@ fn move_window_to_screen(ns_win: &NSWindow, frame: [f64; 4]) {
     );
 }
 
-/// Moves the open picker to cover the screen at `frame` (global points).
 pub(super) fn move_picker_window(frame: [f64; 4], _cx: &mut App) {
     if let Some(ns_win) = find_picker_ns_window() {
         move_window_to_screen(&ns_win, frame);
@@ -81,7 +70,6 @@ pub(super) fn window_origin(
     gpui::Point::default()
 }
 
-/// Dragging a region moves its window.
 pub(super) fn window_drag_region(region: Div) -> Div {
     use gpui::{InteractiveElement, MouseButton};
     region.on_mouse_down(MouseButton::Left, |_, window, _| {
@@ -89,20 +77,14 @@ pub(super) fn window_drag_region(region: Div) -> Div {
     })
 }
 
-/// The traffic lights are native; nothing to draw.
 pub(super) fn caption_buttons() -> Option<AnyElement> {
     None
 }
 
-/// AppKit gives every window the app's icon.
 pub(super) fn decorate_app_window(_window: &mut Window) {}
 
-/// The app that was in front when Scrawl activated itself for the picker or the review window
-/// (0: none).
 static PREVIOUS_FRONT_APP: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
-/// Called just before Scrawl activates itself to take the keys. Scrawl in front already (one
-/// key window opening over another) keeps the app remembered first.
 fn remember_front_app() {
     use objc2_app_kit::NSWorkspace;
     let front = NSWorkspace::sharedWorkspace()
@@ -159,8 +141,6 @@ pub(super) fn hand_back_keys(cx: &mut App) {
         return;
     }
     let previous = PREVIOUS_FRONT_APP.swap(0, std::sync::atomic::Ordering::AcqRel);
-    // Scrawl shares the app with Bespoke's windows: only hand the keys back when Scrawl took
-    // them from another app, never when one of Bespoke's own windows closes.
     if previous == 0 {
         return;
     }
@@ -187,8 +167,6 @@ pub(super) fn open_overlay(
     LaserOverlay::open(telemetry, on)
 }
 
-/// The picker: borderless at status level + 1 over the whole screen at `frame` (global points,
-/// menu bar included), taking clicks. Returns its window number, to leave out of the recording.
 pub(super) fn configure_picker_window(
     window: &mut Window,
     frame: [f64; 4],
@@ -207,7 +185,6 @@ pub(super) fn configure_picker_window(
     (num > 0).then_some(num)
 }
 
-/// Whether macOS asks for reduced motion (Accessibility ▸ Display ▸ Reduce motion).
 pub(super) fn reduce_motion() -> bool {
     use objc2::runtime::AnyClass;
     let Some(cls) = AnyClass::get(c"NSWorkspace") else {
@@ -223,10 +200,8 @@ pub(super) fn install_status_bar() -> Option<flume::Receiver<MenuAction>> {
     Some(crate::host::menu_receiver())
 }
 
-/// The window number of the last picker `configure_picker_window` set up (0: none).
 static PICKER_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
-/// The AppKit window behind a GPUI window.
 fn ns_window(window: &Window) -> Option<Retained<NSWindow>> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     let handle = HasWindowHandle::window_handle(window).ok()?;
@@ -238,9 +213,6 @@ fn ns_window(window: &Window) -> Option<Retained<NSWindow>> {
     view.window()
 }
 
-/// The open picker, by the window number `configure_picker_window` saved. Bespoke's main window
-/// shares the app and stays in its window list while hidden, so matching windows by size would
-/// restyle it as a full-screen picker.
 fn find_picker_ns_window() -> Option<Retained<NSWindow>> {
     let number = PICKER_WINDOW.load(std::sync::atomic::Ordering::Acquire);
     if number <= 0 {

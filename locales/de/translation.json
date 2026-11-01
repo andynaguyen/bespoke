@@ -121,7 +121,6 @@
     "active": "Aktiv",
     "switching": "Wechseln...",
     "verifyingGeneric": "Überprüfung...",
-    "extractingGeneric": "Wird entpackt...",
     "downloading": "Herunterladen {{percentage}}%",
     "deleteModel": "{{modelName}} löschen",
     "downloadSpeed": "{{speed}} MB/s",
@@ -160,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Bespoke-Tastenkürzel",
-        "description": "Tastenkürzel für die Sprachaufnahme konfigurieren",
-        "loading": "Tastenkürzel werden geladen...",
-        "none": "Keine Tastenkürzel konfiguriert",
-        "notFound": "Tastenkürzel nicht gefunden",
-        "pressKeys": "Tasten drücken...",
         "bindings": {
           "transcribe": {
             "name": "Transkriptions-Tastenkürzel",

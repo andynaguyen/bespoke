@@ -121,7 +121,6 @@
     "active": "Aktywny",
     "switching": "Przełączanie...",
     "verifyingGeneric": "Weryfikacja...",
-    "extractingGeneric": "Rozpakowywanie...",
     "downloading": "Pobieranie {{percentage}}%",
     "deleteModel": "Usuń {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
@@ -160,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Skróty Bespoke",
-        "description": "Skonfiguruj skróty klawiaturowe do uruchamiania nagrywania mowy",
-        "loading": "Wczytywanie skrótów...",
-        "none": "Brak skonfigurowanych skrótów",
-        "notFound": "Nie znaleziono skrótu",
-        "pressKeys": "Naciśnij klawisze...",
         "bindings": {
           "transcribe": {
             "name": "Skrót transkrypcji",

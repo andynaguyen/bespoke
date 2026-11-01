@@ -1,8 +1,3 @@
-//! `scrawl-helper`, the Swift executable shipped beside `bespoke` (see `helper/main.swift`).
-//!
-//! It owns the Apple frameworks that are Swift-only or absent from the objc2 bindings Scrawl
-//! uses: SpeechAnalyzer transcription, AVFoundation movie decoding, and the permission card.
-
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -19,7 +14,6 @@ pub fn path() -> Result<PathBuf> {
     }
     let raw_exe = std::env::current_exe().context("Could not locate the app binary")?;
     let exe = std::fs::canonicalize(&raw_exe).unwrap_or(raw_exe);
-    // Beside the app binary, or one level up from `target/*/deps` for tests.
     exe.ancestors()
         .skip(1)
         .take(2)
@@ -28,7 +22,6 @@ pub fn path() -> Result<PathBuf> {
         .context("scrawl-helper is missing; rebuild Bespoke")
 }
 
-/// Runs a helper command to completion and parses its JSON output.
 fn run<T: for<'de> Deserialize<'de>>(args: &[&std::ffi::OsStr], timeout: Duration) -> Result<T> {
     run_program(&path()?, args, timeout)
 }
@@ -86,8 +79,6 @@ fn os(s: &str) -> &std::ffi::OsStr {
     std::ffi::OsStr::new(s)
 }
 
-/// What macOS has granted, from a fresh helper process (a long-running one can miss a Screen
-/// Recording grant).
 pub fn permissions()
 -> Result<std::collections::BTreeMap<crate::permissions::Permission, crate::permissions::Status>> {
     run(&[os("permissions")], Duration::from_secs(5))
@@ -101,15 +92,12 @@ struct Transcript {
     text: String,
     segments: Vec<TranscriptSegment>,
     words: Vec<WordTiming>,
-    /// No usable speech model: `downloading`, `unsupported` or `failed` (with `error`).
     #[serde(default)]
     missing: Option<String>,
     #[serde(default)]
     error: Option<String>,
 }
 
-/// On-device SpeechAnalyzer transcription with measured word timings. Without a speech model
-/// the transcript is empty and `missing` says why.
 pub fn transcribe(audio: &Path) -> Result<TranscriptData> {
     let transcript: Transcript = run(
         &[os("transcribe"), audio.as_os_str()],
@@ -136,7 +124,6 @@ pub fn transcribe(audio: &Path) -> Result<TranscriptData> {
     })
 }
 
-/// One line of `scrawl-helper speech-model [--install]`.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub struct SpeechModelLine {
     pub status: String,
@@ -150,8 +137,6 @@ pub struct SpeechModelLine {
     pub error: Option<String>,
 }
 
-/// Runs `scrawl-helper speech-model --install`, handing each line to `line` as it comes. The
-/// download can take minutes; the helper exits when it's done or has failed.
 pub fn install_speech_model(mut line: impl FnMut(SpeechModelLine)) -> Result<()> {
     use std::io::BufRead;
     let mut child = Command::new(path()?)
@@ -189,8 +174,6 @@ struct FrameFile {
     file: PathBuf,
 }
 
-/// Decodes the movie's frames at exactly these times into memory; `max_edge` 0 keeps native
-/// size.
 pub fn frames(movie: &Path, times: &[u64], max_edge: u32) -> Result<Vec<RgbaFrame>> {
     if times.is_empty() {
         return Ok(Vec::new());

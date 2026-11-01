@@ -21,46 +21,30 @@ use crate::audio_toolkit::{
 };
 
 enum Cmd {
-    /// Begin capturing. Carries the send timestamp so the consumer can log how
-    /// long the command sat in the channel, plus a one-shot first-sample acknowledgement.
     Start(VadPolicy, Instant, mpsc::Sender<()>),
     Stop(mpsc::Sender<Vec<f32>>),
     Shutdown,
 }
 
-// Two seconds of ring capacity absorbs consumer stalls without adding latency
-// during normal 10 ms drains.
 const AUDIO_RING_SECONDS: usize = 2;
 const CONSUMER_POLL_INTERVAL: Duration = Duration::from_millis(10);
 const MAX_DRAIN_CHUNK: Duration = Duration::from_millis(50);
 const PAUSE_ACK_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// Atomics shared by the callback and consumer; audio uses a wait-free SPSC ring.
-/// The callback must remain allocation-, lock-, logging-, and blocking-free.
 #[derive(Default)]
 struct CaptureTransportState {
     pause_requested: AtomicBool,
-    /// Set after forwarding a pause's boundary block; subsequent callbacks
-    /// remain silent until the consumer clears the request.
     pause_acknowledged: AtomicBool,
     overrun_samples: AtomicU64,
 }
 
-/// How 16 kHz mono frames should be filtered for one recording session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VadPolicy {
-    /// Bypass VAD and forward every frame.
     Disabled,
-    /// Current offline-tuned VAD profile.
     Offline,
-    /// VAD profile with a longer post-speech tail for streaming-capable models.
     Streaming,
 }
 
-/// A single VAD engine plus the two hangover-tail lengths its smoothing wrapper
-/// should use. The offline and streaming policies are never active
-/// concurrently, so one detector is reconfigured per session (see `Cmd::Start`)
-/// rather than kept as two resident engines.
 #[derive(Clone)]
 struct VadConfig {
     detector: Arc<Mutex<Box<dyn vad::VoiceActivityDetector>>>,
@@ -70,8 +54,6 @@ struct VadConfig {
 }
 
 impl VadConfig {
-    /// Post-speech hangover tail (in backend-sized frames) for the given policy.
-    /// `Disabled` never reaches the detector, so it maps to the offline value.
     fn hangover_for(&self, policy: VadPolicy) -> usize {
         match policy {
             VadPolicy::Streaming => self.streaming_hangover_frames,
@@ -80,45 +62,35 @@ impl VadConfig {
     }
 }
 
-/// Callback invoked with each 16 kHz mono frame that passes the active capture
-/// policy while recording. Used to feed a live streaming transcription as audio arrives.
 pub type AudioFrameCallback = Arc<dyn Fn(&[f32]) + Send + Sync + 'static>;
 pub type LevelCallback = Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>;
 
-/// Watches every 16 kHz capture frame during recording, before VAD filtering,
-/// together with the detector's unsmoothed speech decision for it. Runs on the
-/// consumer thread, so `observe` must stay cheap. While `is_active` is false
-/// the recorder skips the observer entirely.
 pub trait FrameObserver: Send + Sync {
     fn is_active(&self) -> bool;
     fn observe(&self, frame: &[f32], voiced: Option<bool>);
 }
 
 pub struct AudioRecorder {
-    device: Option<Device>,
     cmd_tx: Option<mpsc::Sender<Cmd>>,
     worker_handle: Option<std::thread::JoinHandle<()>>,
     vad: Option<VadConfig>,
     level_cb: Option<LevelCallback>,
     audio_cb: Option<AudioFrameCallback>,
     frame_observer: Option<Arc<dyn FrameObserver>>,
-    /// Which input channel to use. None = average all (original behavior).
     selected_channel: Option<usize>,
-    /// Preferred stream config cached per device name. The two HAL property
-    /// queries in `get_preferred_config` cost ~40-85ms per open (worse on
-    /// USB/Bluetooth), which lands on the keypress->capture path in on-demand
-    /// mode. Keyed by name so a system-default change misses naturally;
-    /// cleared whenever an open fails so a stale rate/format self-heals on the
-    /// caller's retry.
     config_cache: Arc<Mutex<Option<(String, cpal::SupportedStreamConfig)>>>,
-    /// Set by cpal when the active input stream can no longer capture.
     stream_error: Arc<AtomicBool>,
 }
 
+impl Default for AudioRecorder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioRecorder {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(AudioRecorder {
-            device: None,
+    pub fn new() -> Self {
+        AudioRecorder {
             cmd_tx: None,
             worker_handle: None,
             vad: None,
@@ -128,12 +100,9 @@ impl AudioRecorder {
             selected_channel: None,
             config_cache: Arc::new(Mutex::new(None)),
             stream_error: Arc::new(AtomicBool::new(false)),
-        })
+        }
     }
 
-    /// Attach a single VAD engine, reconfigured per session for the offline vs
-    /// streaming hangover tail. The two policies are mutually exclusive within a
-    /// recording, so one engine covers both instead of two resident instances.
     pub fn with_vad(
         mut self,
         detector: Box<dyn VoiceActivityDetector>,
@@ -159,10 +128,6 @@ impl AudioRecorder {
         self
     }
 
-    /// Register a callback that receives real-time 16 kHz frames after the active
-    /// VAD policy has been applied. Frames arrive in real time, in order, on the
-    /// recorder's consumer thread — keep the callback cheap (e.g. forward to a
-    /// channel) so it never stalls capture.
     pub fn with_audio_callback<F>(mut self, cb: F) -> Self
     where
         F: Fn(&[f32]) + Send + Sync + 'static,
@@ -188,10 +153,10 @@ impl AudioRecorder {
     pub fn open(&mut self, device: Option<Device>) -> Result<(), Box<dyn std::error::Error>> {
         if self.worker_handle.is_some() {
             if !self.needs_reopen() {
-                return Ok(()); // already open
+                return Ok(());
             }
             log::warn!("Capture stream failed; rebuilding microphone stream");
-            self.close()?;
+            self.close();
         }
 
         self.stream_error.store(false, Ordering::Relaxed);
@@ -209,9 +174,7 @@ impl AudioRecorder {
 
         let thread_device = device.clone();
         let vad = self.vad.clone();
-        // Move the optional level callback into the worker thread
         let level_cb = self.level_cb.clone();
-        // Move the optional real-time audio frame callback into the worker thread
         let audio_cb = self.audio_cb.clone();
         let frame_observer = self.frame_observer.clone();
         let selected_channel = self.selected_channel;
@@ -323,8 +286,6 @@ impl AudioRecorder {
                     play_started.elapsed()
                 );
 
-                // The device accepted this config; remember it so the next
-                // open skips the HAL property queries entirely.
                 if !config_was_cached && !device_name.is_empty() {
                     *config_cache.lock().unwrap() = Some((device_name, config));
                 }
@@ -335,8 +296,6 @@ impl AudioRecorder {
             match init_result {
                 Ok((stream, sample_rate, sample_consumer)) => {
                     let _ = init_tx.send(Ok(()));
-                    // Timestamp for the play()-returned -> first-samples gap the
-                    // init handshake can't see (hardware dependent).
                     let stream_running_at = Instant::now();
                     let mut processor = CaptureProcessor::new(
                         sample_rate,
@@ -356,9 +315,6 @@ impl AudioRecorder {
                     drop(stream);
                 }
                 Err(error_message) => {
-                    // A failed open may mean the cached config went stale
-                    // (device re-plugged, rate/format changed in the OS).
-                    // Drop it so the next attempt re-queries the device.
                     *config_cache.lock().unwrap() = None;
                     log::error!("{error_message}");
                     let _ = init_tx.send(Err(error_message));
@@ -368,7 +324,6 @@ impl AudioRecorder {
 
         match init_rx.recv() {
             Ok(Ok(())) => {
-                self.device = Some(device);
                 self.cmd_tx = Some(cmd_tx);
                 self.worker_handle = Some(worker);
                 Ok(())
@@ -391,8 +346,6 @@ impl AudioRecorder {
         }
     }
 
-    /// Queue a recording start and return a one-shot receiver that resolves only
-    /// after the first real microphone sample chunk has entered the capture path.
     /// `Stream::play()` returning is not sufficient: some Bluetooth and USB
     /// devices take much longer to begin delivering callbacks.
     pub fn start(
@@ -418,8 +371,6 @@ impl AudioRecorder {
         Ok(resp_rx.recv()?)
     }
 
-    /// True when the active capture stream must be rebuilt.
-    ///
     /// cpal may report a device disconnect asynchronously without closing its
     /// callback channel, so also honor the error callback's explicit flag.
     pub fn needs_reopen(&self) -> bool {
@@ -430,15 +381,13 @@ impl AudioRecorder {
                 .is_some_and(|handle| handle.is_finished())
     }
 
-    pub fn close(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn close(&mut self) {
         if let Some(tx) = self.cmd_tx.take() {
             let _ = tx.send(Cmd::Shutdown);
         }
         if let Some(handle) = self.worker_handle.take() {
             let _ = handle.join();
         }
-        self.device = None;
-        Ok(())
     }
 
     fn build_stream<T>(
@@ -456,8 +405,6 @@ impl AudioRecorder {
         let ring_capacity = config.sample_rate().0 as usize * AUDIO_RING_SECONDS;
         let (mut sample_producer, mut sample_consumer) = RingBuffer::new(ring_capacity);
 
-        // Touch rtrb's uninitialized pages before the stream starts to reduce
-        // callback page faults. This does not pin them.
         {
             let chunk = sample_producer
                 .write_chunk(ring_capacity)
@@ -471,8 +418,6 @@ impl AudioRecorder {
             chunk.commit_all();
         }
 
-        // Resolve the effective channel to use. If the selected channel is
-        // out of range for this device, fall back to averaging all channels.
         let use_channel = selected_channel.filter(|&channel| channel < channels);
         let callback_transport = Arc::clone(&transport);
         let stream_cb = move |data: &[T], _: &cpal::InputCallbackInfo| {
@@ -489,8 +434,6 @@ impl AudioRecorder {
             &config.clone().into(),
             stream_cb,
             move |_err| {
-                // Error callbacks may share the platform audio thread. Defer
-                // logging and recovery to the consumer/manager path.
                 stream_error.store(true, Ordering::Release);
             },
             None,
@@ -510,8 +453,6 @@ impl AudioRecorder {
         T: Sample + SizedSample + Copy,
         f32: cpal::FromSample<T>,
     {
-        // Forward the first block that observes a pause; once acknowledged,
-        // remain silent until the consumer resumes capture.
         if transport.pause_requested.load(Ordering::Acquire)
             && transport.pause_acknowledged.load(Ordering::Acquire)
         {
@@ -559,8 +500,6 @@ impl AudioRecorder {
                 .fetch_add(dropped as u64, Ordering::Relaxed);
         }
 
-        // Publish the boundary write before acknowledging, including when the
-        // pause request arrives during the write.
         acknowledge_pause_after_write(transport);
     }
 
@@ -580,7 +519,6 @@ impl AudioRecorder {
         let default_config = device.default_input_config()?;
         let target_rate = default_config.sample_rate();
 
-        // Try to find the best sample format at the device's default rate
         let supported_configs = match device.supported_input_configs() {
             Ok(configs) => configs,
             Err(e) => {
@@ -597,7 +535,6 @@ impl AudioRecorder {
                 match best_config {
                     None => best_config = Some(config_range),
                     Some(ref current) => {
-                        // Prioritize F32 > I16 > I32 > others
                         let score = |fmt: cpal::SampleFormat| match fmt {
                             cpal::SampleFormat::F32 => 4,
                             cpal::SampleFormat::I16 => 3,
@@ -617,7 +554,6 @@ impl AudioRecorder {
             return Ok(config.with_sample_rate(target_rate));
         }
 
-        // Fall back to device default if no config matched (exotic/virtual devices)
         log::warn!(
             "No supported config matched device default rate {:?}, using default config",
             target_rate
@@ -646,8 +582,6 @@ pub fn is_no_input_device_error(error_message: &str) -> bool {
             && normalized.contains("coreaudio"))
 }
 
-/// Route one 16 kHz frame through VAD to recording and live outputs.
-/// Kept free-standing to permit disjoint borrows around resampler callbacks.
 fn handle_frame(
     samples: &[f32],
     vad_policy: VadPolicy,
@@ -666,8 +600,6 @@ fn handle_frame(
 
     if vad_policy == VadPolicy::Disabled {
         emit(samples);
-        // With filtering off, the detector still runs for an active observer;
-        // its keep/drop result is ignored.
         if let Some(observer) = observer {
             let voiced = vad.as_ref().and_then(|cfg| {
                 let mut detector = cfg.detector.lock().unwrap();
@@ -723,19 +655,13 @@ fn drain_available_samples(
     available
 }
 
-/// What to do with a chunk drained from the ring.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ChunkDisposition {
-    /// Process as active recording audio, including during the final stop drain.
     Capture,
-    /// Consume idle audio without processing it.
     Discard,
 }
 
-/// Converts raw ring samples into 16 kHz frames across recording sessions.
-/// Ring transport stays outside to avoid conflicting borrows during drains.
 struct CaptureProcessor {
-    // ---- stream-scoped: fixed for the life of the input stream ---------- //
     in_sample_rate: u32,
     vad: Option<VadConfig>,
     level_cb: Option<LevelCallback>,
@@ -747,7 +673,6 @@ struct CaptureProcessor {
     max_drain_samples: usize,
     first_chunk_logged: bool,
 
-    // ---- recording-scoped: reset by `begin_recording` ------------------- //
     vad_policy: VadPolicy,
     processed_samples: Vec<f32>,
     awaiting_first_captured_chunk: Option<Instant>,
@@ -764,8 +689,6 @@ impl CaptureProcessor {
         audio_cb: Option<AudioFrameCallback>,
         stream_running_at: Instant,
     ) -> Self {
-        // Resample into frames sized for the active VAD backend (30 ms when
-        // no detector is attached) so the detector never sees a partial frame.
         let frame_samples = vad.as_ref().map_or(
             (constants::WHISPER_SAMPLE_RATE * 30 / 1000) as usize,
             |config| config.frame_samples,
@@ -809,7 +732,6 @@ impl CaptureProcessor {
         }
     }
 
-    /// Reset per-recording state and arm the first-sample acknowledgement.
     fn begin_recording(&mut self, policy: VadPolicy, ready_tx: mpsc::Sender<()>) {
         self.awaiting_first_captured_chunk = Some(Instant::now());
         self.capture_ready_tx = Some(ready_tx);
@@ -832,15 +754,11 @@ impl CaptureProcessor {
         }
     }
 
-    /// Drop a pending first-sample acknowledgement. If Stop was queued before
-    /// the first chunk, this prevents a stale ready UI event or start chime.
     fn cancel_ready_signal(&mut self) {
         self.capture_ready_tx = None;
         self.awaiting_first_captured_chunk = None;
     }
 
-    /// Drain up to one bounded chunk from the ring. Returns the number of
-    /// samples consumed so callers can tell an empty ring from a busy one.
     fn drain(&mut self, consumer: &mut Consumer<f32>, disposition: ChunkDisposition) -> usize {
         let max_samples = self.max_drain_samples;
         drain_available_samples(consumer, max_samples, |raw| {
@@ -889,14 +807,10 @@ impl CaptureProcessor {
             );
         }
         if let Some(ready_tx) = self.capture_ready_tx.take() {
-            // Silence still counts: readiness means the host is delivering samples,
-            // not that VAD has detected speech.
             let _ = ready_tx.send(());
         }
     }
 
-    /// Account for samples the callback could not fit into the ring during
-    /// the active recording. Warns once per recording.
     fn observe_overrun(&mut self, samples: u64) {
         if samples == 0 {
             return;
@@ -911,7 +825,6 @@ impl CaptureProcessor {
         }
     }
 
-    /// Flush the resampler tail and hand back the finished recording.
     fn finish_recording(&mut self) -> Vec<f32> {
         let vad_policy = self.vad_policy;
         self.frame_resampler.finish(|frame: &[f32]| {
@@ -925,8 +838,6 @@ impl CaptureProcessor {
             )
         });
 
-        // Diagnostic for VAD audio still withheld when capture stopped; it is
-        // not conclusive in either direction.
         if vad_policy != VadPolicy::Disabled {
             if let Some(cfg) = &self.vad {
                 let report = cfg.detector.lock().unwrap().tail_report();
@@ -966,8 +877,6 @@ fn run_consumer(
     let mut stream_error_logged = false;
 
     loop {
-        // Avoid sleeping with queued audio; check commands before each bounded
-        // drain so Stop cannot sit behind a multi-second backlog.
         let mut command = if sample_consumer.slots() > 0 {
             match cmd_rx.try_recv() {
                 Ok(command) => Some(command),
@@ -995,8 +904,6 @@ fn run_consumer(
                                 "the next available"
                             }
                         );
-                        // Ignore overruns accumulated while the always-on stream
-                        // was idle; only active-capture loss is relevant.
                         transport.overrun_samples.store(0, Ordering::Release);
                         processor.begin_recording(policy, ready_tx);
                         recording = true;
@@ -1007,8 +914,6 @@ fn run_consumer(
                         recording = false;
                         processor.cancel_ready_signal();
 
-                        // Request a pause that forwards one boundary block, then drain
-                        // all audio committed before the acknowledgement.
                         transport.pause_acknowledged.store(false, Ordering::Relaxed);
                         transport.pause_requested.store(true, Ordering::Release);
                         let pause_started = Instant::now();
@@ -1025,23 +930,16 @@ fn run_consumer(
                         let pause_timed_out = !transport.pause_acknowledged.load(Ordering::Acquire);
                         if pause_timed_out {
                             log::warn!("Timed out waiting for the microphone callback to pause");
-                            // Preserve the existing recovery model: finish this
-                            // stop, then rebuild the stream on the next start.
                             stream_error.store(true, Ordering::Release);
                         }
 
-                        // Everything still in the ring, including the boundary
-                        // block, belongs to this recording.
                         while processor.drain(&mut sample_consumer, ChunkDisposition::Capture) > 0 {
                         }
 
-                        // Include drops that raced with the pause request.
                         processor
                             .observe_overrun(transport.overrun_samples.swap(0, Ordering::AcqRel));
                         let samples = processor.finish_recording();
                         if !pause_timed_out {
-                            // Resume before stop() returns so an immediate recording
-                            // cannot lose its first callback to this pause request.
                             transport.pause_acknowledged.store(false, Ordering::Relaxed);
                             transport.pause_requested.store(false, Ordering::Release);
                         }
@@ -1077,8 +975,6 @@ fn run_consumer(
             processor.observe_overrun(overrun_samples);
         }
 
-        // The CPAL error callback only sets an atomic; log here and rebuild the
-        // stream on the next start.
         if stream_error.load(Ordering::Acquire) && !stream_error_logged {
             log::error!("Microphone backend reported a stream error; it will be rebuilt");
             stream_error_logged = true;

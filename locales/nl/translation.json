@@ -122,7 +122,6 @@
     "active": "Actief",
     "switching": "Wisselen...",
     "verifyingGeneric": "Verifiëren...",
-    "extractingGeneric": "Uitpakken...",
     "downloading": "Downloaden {{percentage}}%",
     "deleteModel": "{{modelName}} verwijderen",
     "downloadSpeed": "{{speed}} MB/s",
@@ -140,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Sneltoetsen",
-        "description": "Configureer sneltoetsen om spraak-naar-tekst-opnames te starten",
-        "loading": "Sneltoetsen laden...",
-        "none": "Geen sneltoetsen geconfigureerd",
-        "notFound": "Sneltoets niet gevonden",
-        "pressKeys": "Druk op toetsen...",
         "bindings": {
           "transcribe": {
             "name": "Sneltoets voor dicteren",

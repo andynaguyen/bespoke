@@ -36,7 +36,6 @@ pub async fn retry_history_entry_transcription(
         return Err("Recording contains no speech".to_string());
     }
 
-    // The app the dictation was for isn't stored, so a retry is formal.
     let processed = process_transcription_output(
         &app,
         &transcription,

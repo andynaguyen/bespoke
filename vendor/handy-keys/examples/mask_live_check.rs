@@ -1,17 +1,3 @@
-//! Automated live check for the Win menu-mask injection (PR #30).
-//!
-//! Two phases, both injecting input via SendInput on the interactive desktop:
-//!
-//!   1. CONTROL: a lone Win tap. Start must OPEN (proves the foreground-window
-//!      detector works). Esc is injected to close it again.
-//!   2. MASKED: Win down → F20 down/up (blocked Win+F20 hotkey) → Win up.
-//!      With the mask fix, Start must NOT open.
-//!
-//! Run from an interactive desktop session:
-//!   cargo run --example mask_live_check
-//!
-//! Exits 0 on pass, 1 on fail. Expect the Start menu to flash once (control).
-
 #[cfg(not(windows))]
 fn main() {
     eprintln!("mask_live_check is Windows-only");
@@ -67,9 +53,8 @@ fn foreground() -> (usize, String) {
 fn main() -> handy_keys::Result<()> {
     let manager = HotkeyManager::new_with_blocking()?;
     manager.register(Hotkey::new(Modifiers::CMD, Key::F20)?)?;
-    sleep(Duration::from_millis(300)); // let the hook thread install
+    sleep(Duration::from_millis(300));
 
-    // Phase 1 — control: lone Win tap must open Start.
     let before = foreground();
     inject(VK_LWIN, false);
     inject(VK_LWIN, true);
@@ -97,7 +82,6 @@ fn main() -> handy_keys::Result<()> {
         sleep(Duration::from_millis(800));
     }
 
-    // Phase 2 — masked: blocked Win+F20, then Win release.
     let before = foreground();
     inject(VK_LWIN, false);
     inject(VK_F20, false);
@@ -122,14 +106,10 @@ fn main() -> handy_keys::Result<()> {
         },
     );
 
-    // Phase 3 — key-up edge: F20 pressed BEFORE Win, released while Win is
-    // held. The F20-up is blocked (matches Win+F20) and its down passed
-    // before the Win hold began, so without an up-mask the shell sees a lone
-    // Win tap and opens Start.
     let before = foreground();
-    inject(VK_F20, false); // passes through: no modifier held yet
+    inject(VK_F20, false);
     inject(VK_LWIN, false);
-    inject(VK_F20, true); // blocked: Win+F20 matches on the up
+    inject(VK_F20, true);
     inject(VK_LWIN, true);
     sleep(Duration::from_millis(1200));
     let after = foreground();

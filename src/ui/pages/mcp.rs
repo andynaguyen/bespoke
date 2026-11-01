@@ -1,7 +1,3 @@
-//! The MCP page: where `annotate::mcp`, which serves Annotate's captures to coding agents,
-//! listens (off, this Mac, or this Mac and the tailnet), then, while it's on, the setup to copy
-//! into Claude Code and Codex.
-
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
@@ -19,17 +15,12 @@ use crate::ui::toast;
 use super::annotate::icon_button;
 use super::rows;
 
-/// The setting behind the Agent Access control.
 const SETTING: &str = "annotate_mcp_reach";
 
-/// How often the page re-reads the server's status and this Mac's Tailscale address.
-/// `mcp::sync` starts the server in the background, so a port that's already taken shows up
-/// after the choice has saved.
 const POLL: Duration = Duration::from_millis(500);
 
 const REACHES: [McpReach; 3] = [McpReach::Off, McpReach::Local, McpReach::Tailnet];
 
-/// The id a reach's label is under (`mcp.access.options.<id>`).
 fn reach_id(reach: McpReach) -> &'static str {
     match reach {
         McpReach::Off => "off",
@@ -38,7 +29,6 @@ fn reach_id(reach: McpReach) -> &'static str {
     }
 }
 
-/// Copies `text` and confirms with a toast.
 fn copy(text: Result<String, String>, cx: &mut App) {
     match text.and_then(|text| AppHandle::global().clipboard().write_text(text)) {
         Ok(()) => toast::info(t("mcp.copied"), cx),
@@ -136,8 +126,6 @@ impl McpPage {
         if reach == McpReach::Off {
             return vec![access];
         }
-        // Tailnet setups carry this Mac's Tailscale address, so there's nothing to copy until
-        // Tailscale connects.
         let waiting = reach == McpReach::Tailnet && self.tailscale.is_none();
         let agents = SettingContainer::new(t("mcp.agents.title"))
             .description(match reach {
@@ -171,7 +159,6 @@ impl McpPage {
                                 );
                             }),
                     )
-                    // The tunnel ends at 127.0.0.1, which only the local setup points at.
                     .when(reach == McpReach::Local, |row| {
                         row.child(
                             icon_button("mcp-copy-ssh", "copy", t("mcp.agents.ssh"))

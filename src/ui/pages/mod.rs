@@ -1,6 +1,3 @@
-//! One view per sidebar section. A page is rebuilt each time its section is
-//! opened, like the React components remounting.
-
 #[cfg(target_os = "macos")]
 mod annotate;
 pub mod captures;
@@ -25,18 +22,13 @@ use gpui::{AnyElement, AnyView, App, AppContext, Context, Entity, Render, Window
 
 use crate::ui::shell::{Section, Toolbar};
 
-/// How the shell lays out a page's body under the toolbar.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PageLayout {
-    /// Scrolls, with padding, at most 48rem wide and centered.
     Padded,
-    /// Fills the space under the toolbar and scrolls its own parts.
     Fill,
 }
 
-/// A sidebar section's view.
 pub trait Page: Render + Sized {
-    /// The page's tabs, summary and actions for the toolbar.
     fn toolbar(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> Toolbar {
         Toolbar::new()
     }
@@ -45,8 +37,6 @@ pub trait Page: Render + Sized {
         PageLayout::Padded
     }
 
-    /// A panel along the window's trailing edge, built with
-    /// `shell::inspector`. The shell puts it beside the toolbar and body.
     fn inspector(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> Option<AnyElement> {
         None
     }
@@ -56,7 +46,6 @@ type ToolbarFn = Box<dyn Fn(&mut Window, &mut App) -> Toolbar>;
 type InspectorFn = Box<dyn Fn(&mut Window, &mut App) -> Option<AnyElement>>;
 type LayoutFn = Box<dyn Fn(&App) -> PageLayout>;
 
-/// The open page, with its toolbar and layout reachable from the shell.
 pub struct PageHandle {
     pub view: AnyView,
     toolbar: ToolbarFn,
@@ -94,7 +83,6 @@ impl PageHandle {
     }
 }
 
-/// A section with nothing to show on this platform.
 #[cfg(not(target_os = "macos"))]
 struct EmptyPage;
 
@@ -124,15 +112,11 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
     }
 }
 
-/// Opens the dictionary's Add replacement dialog, or Add word for `word`,
-/// for dev snapshots.
 #[cfg(debug_assertions)]
 pub fn open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
     dictate::dev_open_entry_dialog(word, window, cx);
 }
 
-/// Switches a page's tab by id (Settings, Dictate and Stats tabs), for dev
-/// snapshots.
 #[cfg(debug_assertions)]
 pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) {
     if let Ok(settings) = page.clone().downcast::<settings::SettingsPage>() {

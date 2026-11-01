@@ -1,28 +1,3 @@
-//! Auto-crop for Screen captures: work out from the window log, the ink, clicks and the cursor
-//! where each keyframe's moment happened, and crop the keyframes to it.
-//!
-//! The algorithm in brief, per keyframe (the slice of the timeline halfway to its neighbours):
-//!
-//! 1. Collect the activity: ink, clicks, drags, scrolls, laser, cursor dwell, and the regions that
-//!    changed since the previous keyframe, each with a weight. Cursor samples far from every
-//!    deliberate input are outliers.
-//! 2. Attribute the weight to the frontmost window under each point (a menu or panel counts for
-//!    its app's window, the menu bar for the frontmost app's).
-//! 3. If one to `max_windows` windows hold `snap_threshold` of it, crop to them (plus any input
-//!    outside, and the menu). A window bigger than `big_window` of the screen is not a useful
-//!    crop, so the crop focuses on the activity inside it (input, where the cursor rested, what a
-//!    click or scroll changed), with `context` of the window as margin. With no window log, the
-//!    activity box gets the same margin against the screen.
-//! 4. Pad, grow to the minimum size, cap the zoom, normalise the aspect, keep it on screen.
-//! 5. Neighbouring crops that overlap by `merge_iou` become one, and the zoom changes at most
-//!    `zoom_step` (by area) between neighbours. Keyframes with no activity reuse the previous
-//!    crop or take the frontmost window.
-//! 6. Crops around activity move their edges into white space found in the frame (`Content`),
-//!    reach across blank space to the nearest content, and trim wide blank margins.
-//!
-//! `scrawl autocrop` opens a playground that runs this same code (through `--serve`) to tune it,
-//! and `scrawl autocrop-eval` scores it against a corpus of simulated captures with ground truth.
-
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -30,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use crate::model::{InteractionEvent, Keyframe, Mark, RgbaFrame, SCALE, Stroke, TargetFrame};
 use crate::windows::{CursorSample, WindowSnapshot};
 
-/// `[x0, y0, x1, y1]`, normalized to the capture.
 pub type Rect = [f32; 4];
 
 pub const FULL: Rect = [0.0, 0.0, 1.0, 1.0];
@@ -82,20 +56,15 @@ fn union_opt(a: Option<Rect>, b: Rect) -> Rect {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Scope {
-    /// One crop for the whole capture.
     Whole,
-    /// A crop per keyframe.
     Keyframe,
-    /// A crop per keyframe, then neighbours merged and zoom changes limited.
     Grouped,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Fallback {
-    /// The previous crop, else the frontmost window.
     Previous,
-    /// The frontmost window, else the previous crop.
     Frontmost,
     Screen,
 }
@@ -104,72 +73,41 @@ pub enum Fallback {
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub scope: Scope,
-    /// Widens each keyframe's slice of the timeline (slices meet halfway between keyframes).
     pub reach_ms: u64,
     pub snap: bool,
-    /// Share of the weighted activity the top one to `max_windows` windows must hold.
     pub snap_threshold: f32,
     pub max_windows: usize,
-    /// Each extra window in a union must hold at least this share.
     pub min_share: f32,
-    /// Windows covering more of the screen than this aren't a crop; focus inside them instead.
     pub big_window: f32,
-    /// Margin around the activity when focusing, as a fraction of the window (or screen).
     pub context: f32,
-    /// Grow the crop to keep every deliberate input (ink, clicks, drags) of the slice.
     #[serde(alias = "keepInk")]
     pub keep_input: bool,
-    /// Pull the touched part of the menu bar or Dock into the crop.
     pub chrome: bool,
-    /// Ignore agent apps' windows that cover most of the screen (Cua Driver's overlay).
     pub ignore_overlays: bool,
-    /// Points around the crop.
     pub padding: f32,
     pub min_w: f32,
     pub min_h: f32,
-    /// The crop covers at least `1 / max_zoom` of the screen along its longer side.
     pub max_zoom: f32,
-    /// `free`, `auto` (nearest common ratio), `screen`, or `W:H`.
     pub aspect: String,
     pub w_stroke: f32,
     pub w_click: f32,
     pub w_laser: f32,
     pub w_scroll: f32,
-    /// Per second of dwell.
     pub w_cursor: f32,
     pub w_change: f32,
-    /// When there is deliberate input, the cursor and changes together weigh at most this much
-    /// of it, so resting the cursor after drawing doesn't outvote the drawing.
     pub passive_cap: f32,
-    /// Cursor samples count toward the crop's box only where the cursor rested this long (s).
     pub min_dwell: f32,
-    /// Points this close (pt) outside a window count for it: underlines under a window's last
-    /// line, circles around something at its edge.
     pub hit_slop: f32,
-    /// Cursor samples farther than this (fraction of the screen diagonal) from every deliberate
-    /// input are outliers.
     pub outlier: f32,
     pub merge_iou: f32,
-    /// Max area ratio between neighbouring crops; the smaller grows. 6 or more is off.
     pub zoom_step: f32,
     pub fallback: Fallback,
-    /// Crops covering more of the screen than this aren't worth it: keep the full frame.
     pub full_above: f32,
-    /// Move crop edges (around activity, not windows) into nearby empty space so they don't cut
-    /// through text or UI: at most this far outward (pt)...
     pub snap_out: f32,
-    /// ...or this fraction of the crop's size, if more: enough to finish a column of text.
     pub snap_out_frac: f32,
-    /// ...or this far inward, dropping a sliver of context.
     pub snap_in: f32,
-    /// Then blank margins wider than this (pt) are trimmed, down to the minimum size.
     pub trim: f32,
-    /// Regions that changed on screen within this distance (pt) of a click, drag or scroll are
-    /// part of the activity: the page it scrolled, the popover it opened.
     pub cause_reach: f32,
-    /// When more than half of a crop around activity is blank rows on one side of it (a prompt
-    /// at the bottom of an empty terminal), grow that way to the nearest content within this
-    /// many points, plus `content_extra` of it.
     pub content_reach: f32,
     pub content_extra: f32,
 }
@@ -219,8 +157,6 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// From `~/.config/scrawl/config.json` `"autocrop"`: absent or `true` is the defaults,
-    /// `false` is off, an object overrides some settings.
     pub fn from_config(value: Option<&serde_json::Value>) -> Option<Self> {
         match value {
             None | Some(serde_json::Value::Bool(true)) | Some(serde_json::Value::Null) => {
@@ -250,7 +186,6 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// Input someone made on purpose, as opposed to where the cursor rested or what changed.
     pub fn deliberate(self) -> bool {
         !matches!(self, Kind::Cursor | Kind::Change)
     }
@@ -261,11 +196,8 @@ pub struct Item {
     pub kind: Kind,
     pub t0: u64,
     pub t1: u64,
-    /// `(x, y, t)`.
     pub pts: Vec<(f32, f32, u64)>,
-    /// Seconds the cursor rested here.
     pub dwell: f32,
-    /// Change regions, and grouped ink from `pin_ink`, belong to one keyframe.
     pub keyframe: Option<usize>,
 }
 
@@ -295,22 +227,18 @@ impl Win {
     }
 }
 
-/// Everything the algorithm looks at, normalized to the capture.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
-    /// The capture's size in points.
     pub screen: [f32; 2],
     pub duration: u64,
     pub keyframes: Vec<u64>,
     pub items: Vec<Item>,
     pub snapshots: Vec<(u64, Vec<Win>)>,
-    /// Where each keyframe's screen has something on it, for snapping edges.
     #[serde(skip)]
     pub content: Vec<Option<Content>>,
 }
 
-/// Which 3 pt cells of a frame have edges in them (text, borders, icons), as an integral image.
 #[derive(Clone, Debug, Default)]
 pub struct Content {
     pub cols: usize,
@@ -357,7 +285,6 @@ impl Content {
         Self { cols, rows, sum }
     }
 
-    /// Busy cells in columns `c0..c1` and rows `r0..r1`.
     pub fn count(&self, c0: usize, r0: usize, c1: usize, r1: usize) -> u32 {
         let (c1, r1) = (c1.min(self.cols), r1.min(self.rows));
         if c0 >= c1 || r0 >= r1 {
@@ -378,7 +305,6 @@ fn subsample<T: Clone>(v: &[T], max: usize) -> Vec<T> {
 }
 
 impl Input {
-    /// `changes[i]` are the regions keyframe `i` changed since keyframe `i - 1`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         frame: TargetFrame,
@@ -505,15 +431,12 @@ impl Input {
         }
     }
 
-    /// Gives the ink of every mark grouped into a keyframe to that keyframe's crop alone, however
-    /// long before it was drawn. `strokes` are the ones passed to `new`.
     pub fn pin_ink<'a>(
         &mut self,
         keyframes: impl IntoIterator<Item = &'a Keyframe>,
         strokes: &[Stroke],
         marks: &[Mark],
     ) {
-        // `new` adds an item for each stroke with points, first and in order.
         let item_of: Vec<Option<usize>> = strokes
             .iter()
             .scan(0, |next, s| {
@@ -564,17 +487,11 @@ impl Input {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CropKind {
-    /// One window (plus any ink outside it).
     Window,
-    /// Two or more windows.
     Windows,
-    /// Around the activity inside a window too big to crop to.
     Focus,
-    /// Around the activity, with no window to snap to.
     Activity,
-    /// No activity: the previous crop, the frontmost window or the screen.
     Fallback,
-    /// Not worth cropping.
     Full,
 }
 
@@ -591,24 +508,16 @@ pub struct Share {
 pub struct Crop {
     pub rect: Rect,
     pub kind: CropKind,
-    /// Why, for people (no window titles).
     pub reason: String,
-    /// The apps the crop is about.
     pub apps: Vec<String>,
-    /// The activity (and snapped windows) before padding and shaping.
     pub core: Option<Rect>,
-    /// The activity itself: deliberate input, where the cursor rested, what a click changed.
     pub need: Option<Rect>,
-    /// The window a Focus crop sits in: its edges may grow up to here to finish lines of text.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub within: Option<Rect>,
     pub slice: [u64; 2],
     pub shares: Vec<Share>,
-    /// Snapped window ids.
     pub snapped: Vec<u32>,
-    /// Cursor samples dropped as outliers.
     pub outliers: Vec<[f32; 2]>,
-    /// Items (by index into `Input::items`) that counted.
     pub used: Vec<usize>,
     #[serde(skip_serializing_if = "is_zero")]
     pub merged: usize,
@@ -691,7 +600,6 @@ impl Ctx<'_> {
         [r[0] - px, r[1] - py, r[2] + px, r[3] + py]
     }
 
-    /// `core` grown by `context` of `within`'s size (the geometric mean of its sides, in points).
     fn margin(&self, core: Rect, within: Rect) -> Rect {
         let pt = self.s.context
             * (((within[2] - within[0]) * self.sw) * ((within[3] - within[1]) * self.sh)).sqrt();
@@ -724,8 +632,6 @@ impl Ctx<'_> {
         }
     }
 
-    /// Minimum size, maximum zoom and aspect (only ever growing), then kept on screen and, when
-    /// it fits, inside `within`.
     fn shape_in(&self, r: Rect, within: Rect) -> Rect {
         let s = self.s;
         let (cx, cy) = ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0);
@@ -753,7 +659,6 @@ impl Ctx<'_> {
             } else {
                 (0.0, 1.0)
             };
-            // Not `clamp`: rounding can leave the bounds a hair out of order.
             c.max(lo + half).min(hi - half)
         };
         let cx = keep(cx, w / 2.0, within[0].max(0.0), within[2].min(1.0));
@@ -803,7 +708,6 @@ impl Ctx<'_> {
         let extra = self.s.content_extra / Content::CELL_PT;
         let (k0, k1) = ((keep[1] * rows) as usize, (keep[3] * rows).ceil() as usize);
         if best.1 <= k0 + 1 {
-            // Blank above the activity: reach up.
             let found = (r0.saturating_sub(reach)..r0)
                 .rev()
                 .find(|&row| !empty(row))?;
@@ -818,10 +722,6 @@ impl Ctx<'_> {
         }
     }
 
-    /// Widens `r` so its left and right edges don't cut through lines of text: each line that
-    /// crosses an edge is followed to its end (a 12 pt gap), and the edge moves past the
-    /// furthest end, at most as far as `snap` reaches and never out of `within`. Runs longer
-    /// than that are rules, borders or wrapped-off text, not lines to finish.
     fn finish_lines(&self, r: Rect, content: &Content, within: Rect) -> Rect {
         let cell = Content::CELL_PT;
         let (cols, rows) = (content.cols as i64, content.rows as i64);
@@ -845,10 +745,7 @@ impl Ctx<'_> {
         let r1 = ((r[3] * content.rows as f32).ceil() as i64).min(rows);
         let w0 = ((within[0].max(0.0) * content.cols as f32).floor() as i64).max(0);
         let w1 = ((within[2].min(1.0) * content.cols as f32).ceil() as i64).min(cols);
-        // Where the line on `row` that crosses boundary `edge` ends going `dir`, if it does
-        // within `limit`. `None` when nothing crosses there.
         let line_end = |row: i64, edge: i64, dir: i64, limit: i64| -> Option<Option<i64>> {
-            // Cells just inside and just outside the boundary.
             let outside = if dir > 0 { edge } else { edge - 1 };
             let inside = outside - dir;
             let near = |from: i64, step: i64| (0..gap).any(|k| busy(from + step * k, row));
@@ -868,7 +765,6 @@ impl Ctx<'_> {
                 }
                 c += dir;
             }
-            // Ending right at the window's edge is a border, not the end of a line.
             Some(((limit - last) * dir >= 2 * gap).then_some(last))
         };
         let mut right = c1;
@@ -891,8 +787,6 @@ impl Ctx<'_> {
         ])
     }
 
-    /// Moves each edge of `r` to the nearest stretch of empty screen (a column gap of 12 pt, or
-    /// any empty row) within `snap_out` outward or `snap_in` inward, never into `keep`.
     fn snap(&self, r: Rect, content: &Content, keep: Rect) -> Rect {
         let (cols, rows) = (content.cols as f32, content.rows as f32);
         let cell = Content::CELL_PT;
@@ -906,8 +800,6 @@ impl Ctx<'_> {
         if out_x <= 0 && inn <= 0 {
             return r;
         }
-        // One edge: `pos` is the edge's cell boundary, `empty(i)` whether line `i` (the cells
-        // between boundaries i and i + 1) is empty, `dir` -1 for a low edge, +1 for a high one.
         let snap_edge = |pos: i64,
                          limit: i64,
                          n: i64,
@@ -917,8 +809,6 @@ impl Ctx<'_> {
                          empty: &dyn Fn(i64) -> bool|
          -> i64 {
             let clean = |b: i64| {
-                // The `gap` lines just inside boundary b are empty, so nothing straddles it and
-                // the crop keeps a little white space at that edge.
                 (0..gap).all(|k| {
                     let line = if dir < 0 { b + k } else { b - 1 - k };
                     line < 0 || line >= n || empty(line)
@@ -950,8 +840,6 @@ impl Ctx<'_> {
             (keep[2] * cols).ceil() as i64,
             (keep[3] * rows).ceil() as i64,
         ];
-        // A line is empty when at most a tenth of it is busy: rules and borders that cross the
-        // whole crop don't make a gutter look full.
         let tol = |span: i64| ((span / 10).max(0)) as u32;
         let (rr0, rr1) = (r0.max(0) as usize, r1.max(0) as usize);
         let col_empty =
@@ -966,7 +854,6 @@ impl Ctx<'_> {
         let n = content.rows as i64;
         r0 = snap_edge(r0, k[1], n, 1, -1, out_y, &row_empty);
         r1 = snap_edge(r1, k[3], n, 1, 1, out_y, &row_empty);
-        // Trim blank margins, a line at a time from the wider side, keeping `trim` of white.
         let margin = (self.s.trim / cell).round() as i64;
         if self.s.trim > 0.0 {
             let min_c =
@@ -1021,8 +908,6 @@ impl Ctx<'_> {
             .copied()
     }
 
-    /// The crop for keyframe `k` (or the whole capture), before grouping. `None` when the slice
-    /// has no activity.
     fn crop(&self, k: Option<usize>) -> Option<Crop> {
         let s = self.s;
         let slice = self.slice(k);
@@ -1031,7 +916,6 @@ impl Ctx<'_> {
         for (i, item) in self.input.items.iter().enumerate() {
             let in_slice = item.t1 >= slice[0] && item.t0 <= slice[1];
             match (item.kind, item.keyframe) {
-                // A grouped mark's ink belongs to its keyframe alone, whenever it was drawn.
                 (Kind::Stroke, Some(_)) if k.is_some() && item.keyframe != k => continue,
                 (Kind::Stroke, Some(_)) => {}
                 (Kind::Change, Some(_)) if k.is_some() && item.keyframe != k => continue,
@@ -1130,7 +1014,6 @@ impl Ctx<'_> {
                             .1
                             .push((p.x, p.y));
                         total += p.w;
-                        // The menu bar is the frontmost app's: it counts for that app's window.
                         if w.layer == 24
                             && let Some(front) = wins.iter().find(|o| o.frontmost && !o.chrome())
                         {
@@ -1149,8 +1032,6 @@ impl Ctx<'_> {
                 Some(hit) => {
                     total += p.w;
                     kept.push(*p);
-                    // A menu or panel belongs to its app's window: it counts for that window,
-                    // and the crop grows to show it.
                     let owner = (hit.layer != 0)
                         .then(|| wins.iter().find(|o| o.layer == 0 && o.app == hit.app))
                         .flatten();
@@ -1201,8 +1082,6 @@ impl Ctx<'_> {
             v.dedup();
             v
         };
-        // The box: deliberate input and where the cursor rested; what changed on screen only
-        // when there is nothing else.
         let ink = bbox(
             kept.iter()
                 .filter(|p| p.kind.deliberate())
@@ -1215,7 +1094,6 @@ impl Ctx<'_> {
                 })
                 .map(|p| (p.x, p.y)),
         );
-        // Changes near a click, drag or scroll are what it did: the scrolled page, a popover.
         let pokes: Vec<(f32, f32)> = pts
             .iter()
             .filter(|p| matches!(p.kind, Kind::Click | Kind::Drag | Kind::Scroll))
@@ -1289,7 +1167,6 @@ impl Ctx<'_> {
                 };
                 (u, kind, reason, apps(&snapped))
             } else {
-                // The window is most of the screen: look at the activity inside it.
                 let core = activity.unwrap_or(u);
                 let r = intersect(self.margin(core, u), u);
                 within = u;
@@ -1410,7 +1287,6 @@ impl Ctx<'_> {
     }
 }
 
-/// The crop for every keyframe of `input`.
 pub fn compute(input: &Input, settings: &Settings) -> Vec<Crop> {
     let n = input.keyframes.len();
     if n == 0 {
@@ -1434,7 +1310,6 @@ pub fn compute(input: &Input, settings: &Settings) -> Vec<Crop> {
         let crop = match crop {
             Some(c) => c.clone(),
             None => {
-                // The nearest earlier crop with activity, else the next one.
                 let previous = (0..k)
                     .rev()
                     .find_map(|j| raw[j].as_ref())
@@ -1521,7 +1396,6 @@ pub fn compute(input: &Input, settings: &Settings) -> Vec<Crop> {
     out
 }
 
-/// The summary's name for what the capture was cropped to (no window titles).
 pub fn label(crops: &[Crop]) -> Option<String> {
     let cropped: Vec<&Crop> = crops.iter().filter(|c| c.kind != CropKind::Full).collect();
     if cropped.is_empty() {
@@ -1545,14 +1419,8 @@ pub fn label(crops: &[Crop]) -> Option<String> {
     })
 }
 
-// ---------------------------------------------------------------------------------------------
-// Applying a crop
-// ---------------------------------------------------------------------------------------------
-
-/// The pixel rect `[x, y, w, h]` of `r` in a `width`×`height` frame.
 pub fn pixel_rect(r: Rect, width: u32, height: u32) -> [u32; 4] {
     let (w, h) = (width as f32, height as f32);
-    // A hair of tolerance so 0.6 × 100 = 60.000004 doesn't take an extra column.
     const E: f32 = 1e-3;
     let x0 = (r[0] * w + E).floor().clamp(0.0, w - 1.0) as u32;
     let y0 = (r[1] * h + E).floor().clamp(0.0, h - 1.0) as u32;
@@ -1571,8 +1439,6 @@ pub fn crop_frame(frame: &RgbaFrame, r: Rect) -> RgbaFrame {
     RgbaFrame::new(frame.t_ms, w, h, rgba)
 }
 
-/// Strokes, marks, events and the keyframe moved into the crop's coordinates, so annotating the
-/// cropped frame draws the same ink in the same place.
 pub struct CropView {
     pub strokes: Vec<Stroke>,
     pub marks: Vec<Mark>,
@@ -1656,8 +1522,6 @@ pub fn crop_view(
     }
 }
 
-/// Coarse regions that differ between two frames (of any sizes, compared by position), as
-/// normalized `[x0, y0, x1, y1]` boxes, largest first.
 pub fn change_regions(prev: &RgbaFrame, cur: &RgbaFrame) -> Vec<Rect> {
     const COLS: usize = 64;
     const SAMPLES: usize = 8;
@@ -1686,13 +1550,11 @@ pub fn change_regions(prev: &RgbaFrame, cur: &RgbaFrame) -> Vec<Rect> {
                 }
             }
             let n = (SAMPLES * SAMPLES) as u64;
-            // Scrawl's keyframe badge sits in a top corner and differs on every frame.
             let badge =
                 row * cell < h * 6 / 100 && !(COLS * 6 / 100..COLS * 94 / 100).contains(&col);
             changed[row * COLS + col] = !badge && diff / n >= 10;
         }
     }
-    // Connected changed cells (8-neighbour) become one box; lone cells are noise.
     let mut seen = vec![false; changed.len()];
     let mut boxes = Vec::new();
     for start in 0..changed.len() {
@@ -1736,9 +1598,6 @@ pub fn change_regions(prev: &RgbaFrame, cur: &RgbaFrame) -> Vec<Rect> {
     boxes.into_iter().take(8).map(|(_, b)| b).collect()
 }
 
-/// Keyframes ready to write: annotated, and cropped when the capture is a Screen capture and the
-/// crop is worth it. The second value is the info for `scrawl.json` and the full annotated
-/// frames (for `frames-full/`), present only when something was cropped.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn annotate_and_crop(
     selected: Vec<(Keyframe, RgbaFrame)>,
@@ -1788,7 +1647,6 @@ pub fn annotate_and_crop(
                     .collect();
                 workers.into_iter().map(|w| w.join().ok()).collect()
             });
-            // A crop bug must never cost the capture: fall back to the full frames.
             let crops = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 compute(&input, settings)
             }))
@@ -1871,7 +1729,6 @@ pub fn annotate_and_crop(
     (cropped, Some((info, full)))
 }
 
-/// Writes the full keyframes and contact sheet that sit beside a cropped bundle's.
 pub fn write_full_frames(
     dir: &std::path::Path,
     info: &crate::model::AutocropInfo,
@@ -2061,8 +1918,6 @@ mod tests {
 
     #[test]
     fn content_snapping_moves_an_edge_out_of_a_line_of_text() {
-        // A text block from x 0.30 to 0.70 of the screen; a crop whose right edge cuts through
-        // it moves out to the white space after it.
         let mut frame = solid(1728, 1117, 255);
         for y in (300..600).step_by(12) {
             for x in 518..1210 {
@@ -2091,16 +1946,12 @@ mod tests {
         assert!(r[0] <= 0.30 && r[0] > 0.26, "left edge {r:?}");
     }
 
-    /// Kit's capture: a tall Focus crop whose right edge ran through a ragged paragraph,
-    /// cutting "…instead of 5 GB, a" mid-line, because each column there is only a few
-    /// percent text.
     #[test]
     fn crop_edges_finish_the_lines_they_cross() {
         let mut frame = RgbaFrame::new(0, 1728, 1117, vec![30; 1728 * 1117 * 4]);
         let mut fill = |x0: usize, x1: usize, y0: usize, h: usize| {
             for y in y0..y0 + h {
                 for x in x0..x1 {
-                    // Letters with a 4 px space between words.
                     if x % 48 < 44 {
                         let i = (y * 1728 + x) * 4;
                         frame.rgba[i..i + 3].copy_from_slice(&[220, 220, 220]);
@@ -2108,14 +1959,12 @@ mod tests {
                 }
             }
         };
-        // Paragraph lines from x 646 to between 1180 and 1300, every 26 pt.
         for (i, end) in [1300, 1250, 1290, 1180, 1300, 1270, 1240, 1300]
             .iter()
             .enumerate()
         {
             fill(646, *end, 120 + i * 26, 12);
         }
-        // A rule across the whole window.
         fill(310, 1700, 400, 2);
         let content = Content::from_frame(&frame, [1728.0, 1117.0]);
         let input = Input {
@@ -2141,8 +1990,6 @@ mod tests {
         assert!((1300.0..1330.0).contains(&right), "right edge {right}");
         assert_eq!(r[0], crop[0], "nothing crosses the left edge");
         assert_eq!((r[1], r[3]), (crop[1], crop[3]));
-        // Never past the window; lines that run to (or nearly to) its edge are left alone,
-        // like the rule.
         let narrow = [310.0 / 1728.0, 0.0, 1270.0 / 1728.0, 1.0];
         let right = ctx.finish_lines(crop, &content, narrow)[2] * 1728.0;
         assert!((1245.0..=1270.0).contains(&right), "{right}");
@@ -2204,7 +2051,6 @@ mod tests {
         assert_eq!((c.kind, info.label.as_str()), (CropKind::Window, "Finder"));
         assert!(!serde_json::to_string(&info).unwrap().contains("Secret"));
 
-        // Other capture modes and auto-crop off leave the frames alone.
         for (mode, settings) in [
             (CaptureMode::Window, Some(Settings::default())),
             (CaptureMode::Display, None),

@@ -1,6 +1,3 @@
-//! Playback for history recordings (`ui/AudioPlayer.tsx`). One recording
-//! plays at a time across the app, like `AudioPlayerGroup`.
-
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
@@ -16,7 +13,6 @@ use crate::ui::components::{icon, KeyboardFocus, Typography};
 use crate::ui::theme::{palette, Alpha};
 
 struct Playback {
-    // Kept alive while the sink plays.
     _stream: rodio::OutputStream,
     sink: rodio::Sink,
     path: PathBuf,
@@ -26,7 +22,6 @@ thread_local! {
     static PLAYBACK: RefCell<Option<Playback>> = const { RefCell::new(None) };
 }
 
-/// Duration of a WAV file from its header.
 pub fn wav_duration(path: &Path) -> Option<Duration> {
     let reader = hound::WavReader::open(path).ok()?;
     let spec = reader.spec();
@@ -51,7 +46,6 @@ fn open(path: &Path, from: Duration) -> Result<Playback, String> {
     })
 }
 
-/// Whether `path` is the recording currently playing.
 pub fn is_playing(path: &Path) -> bool {
     PLAYBACK.with(|p| {
         p.borrow()
@@ -60,7 +54,6 @@ pub fn is_playing(path: &Path) -> bool {
     })
 }
 
-/// Playback position of `path`, if it is the loaded recording.
 pub fn position(path: &Path) -> Option<Duration> {
     PLAYBACK.with(|p| {
         p.borrow()
@@ -70,7 +63,6 @@ pub fn position(path: &Path) -> Option<Duration> {
     })
 }
 
-/// Whether `path` is loaded and has played to its end.
 fn ended(path: &Path) -> bool {
     PLAYBACK.with(|p| {
         p.borrow()
@@ -79,7 +71,6 @@ fn ended(path: &Path) -> bool {
     })
 }
 
-/// Plays `path` from `from`, stopping anything else that plays.
 pub fn play(path: &Path, from: Duration) {
     PLAYBACK.with(|p| {
         let mut slot = p.borrow_mut();
@@ -108,9 +99,6 @@ pub fn pause(path: &Path) {
     });
 }
 
-/// Seeks the loaded recording without changing play/pause state. A
-/// recording that played to its end is unloaded instead, so the next play
-/// starts from the stored offset.
 pub fn seek(path: &Path, to: Duration) {
     PLAYBACK.with(|p| {
         let mut slot = p.borrow_mut();
@@ -129,15 +117,11 @@ fn format_time(duration: Duration) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
-/// State a player row keeps between frames.
 #[derive(Default)]
 pub struct PlayerState {
     pub duration: Option<Duration>,
-    /// Position shown while paused or not loaded.
     pub offset: Duration,
     track: Bounds<Pixels>,
-    /// Where the playhead is while the user drags it. The seek happens on
-    /// release, like the native range input.
     drag: Option<Duration>,
 }
 
@@ -146,8 +130,6 @@ fn time_at(x: Pixels, track: Bounds<Pixels>, duration: Duration) -> Duration {
     duration.mul_f32(fraction)
 }
 
-/// The play button, elapsed time, seek bar and duration of one recording.
-/// `path` is resolved lazily by `resolve` on first play.
 pub fn audio_player(
     id: impl Into<ElementId>,
     path: Option<PathBuf>,
@@ -209,7 +191,6 @@ pub fn audio_player(
                             (s.duration, s.offset)
                         };
                         let duration = duration.or_else(|| wav_duration(&path));
-                        // A finished recording replays from the start.
                         let from = if ended(&path) || duration.is_some_and(|d| offset >= d) {
                             Duration::ZERO
                         } else {

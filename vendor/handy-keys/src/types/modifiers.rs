@@ -1,5 +1,3 @@
-//! Modifier key definitions and parsing
-
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -15,7 +13,6 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct Modifiers: u32 {
-        // Individual side-specific flags
         const CMD_LEFT    = 1 << 0;
         const SHIFT_LEFT  = 1 << 1;
         const CTRL_LEFT   = 1 << 2;
@@ -26,7 +23,6 @@ bitflags! {
         const CTRL_RIGHT  = 1 << 7;
         const OPT_RIGHT   = 1 << 8;
 
-        // Compound aliases — "either side"
         const CMD   = Self::CMD_LEFT.bits()   | Self::CMD_RIGHT.bits();
         const SHIFT = Self::SHIFT_LEFT.bits() | Self::SHIFT_RIGHT.bits();
         const CTRL  = Self::CTRL_LEFT.bits()  | Self::CTRL_RIGHT.bits();
@@ -34,7 +30,6 @@ bitflags! {
     }
 }
 
-/// Helper: all modifier groups as (left, right, compound) triples.
 const GROUPS: [(Modifiers, Modifiers, Modifiers); 4] = [
     (Modifiers::CMD_LEFT, Modifiers::CMD_RIGHT, Modifiers::CMD),
     (
@@ -50,7 +45,6 @@ impl fmt::Display for Modifiers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = Vec::new();
 
-        // Ctrl group
         if self.contains(Modifiers::CTRL) {
             parts.push("Ctrl");
         } else if self.contains(Modifiers::CTRL_LEFT) {
@@ -59,7 +53,6 @@ impl fmt::Display for Modifiers {
             parts.push("CtrlRight");
         }
 
-        // Opt group
         if self.contains(Modifiers::OPT) {
             parts.push("Opt");
         } else if self.contains(Modifiers::OPT_LEFT) {
@@ -68,7 +61,6 @@ impl fmt::Display for Modifiers {
             parts.push("OptRight");
         }
 
-        // Shift group
         if self.contains(Modifiers::SHIFT) {
             parts.push("Shift");
         } else if self.contains(Modifiers::SHIFT_LEFT) {
@@ -77,7 +69,6 @@ impl fmt::Display for Modifiers {
             parts.push("ShiftRight");
         }
 
-        // Cmd group
         if self.contains(Modifiers::CMD) {
             parts.push("Cmd");
         } else if self.contains(Modifiers::CMD_LEFT) {
@@ -86,7 +77,6 @@ impl fmt::Display for Modifiers {
             parts.push("CmdRight");
         }
 
-        // Fn
         if self.contains(Modifiers::FN) {
             parts.push("Fn");
         }
@@ -96,17 +86,14 @@ impl fmt::Display for Modifiers {
 }
 
 impl Modifiers {
-    /// Parse a single modifier name (case-insensitive)
     pub(crate) fn parse_single(s: &str) -> Option<Modifiers> {
         match s.to_lowercase().as_str() {
-            // Compound (either side)
             "cmd" | "command" | "meta" | "super" | "win" | "windows" => Some(Modifiers::CMD),
             "shift" => Some(Modifiers::SHIFT),
             "ctrl" | "control" => Some(Modifiers::CTRL),
             "opt" | "option" | "alt" => Some(Modifiers::OPT),
             "fn" | "function" => Some(Modifiers::FN),
 
-            // Left-specific
             "cmdleft" | "cmd_left" | "lcmd" | "commandleft" | "command_left" | "lcommand"
             | "superleft" | "super_left" | "winleft" | "win_left" | "windowsleft"
             | "windows_left" | "metaleft" | "meta_left" => Some(Modifiers::CMD_LEFT),
@@ -117,7 +104,6 @@ impl Modifiers {
             "optleft" | "opt_left" | "lopt" | "optionleft" | "option_left" | "loption"
             | "altleft" | "alt_left" | "lalt" => Some(Modifiers::OPT_LEFT),
 
-            // Right-specific
             "cmdright" | "cmd_right" | "rcmd" | "commandright" | "command_right" | "rcommand"
             | "superright" | "super_right" | "winright" | "win_right" | "windowsright"
             | "windows_right" | "metaright" | "meta_right" => Some(Modifiers::CMD_RIGHT),
@@ -148,29 +134,24 @@ impl Modifiers {
             let event_has_any = event_has_left || event_has_right;
 
             if hotkey_has_left && hotkey_has_right {
-                // Compound: event must have at least one
                 if !event_has_any {
                     return false;
                 }
             } else if hotkey_has_left {
-                // Specific left: event must have left
                 if !event_has_left {
                     return false;
                 }
             } else if hotkey_has_right {
-                // Specific right: event must have right
                 if !event_has_right {
                     return false;
                 }
             } else {
-                // Hotkey doesn't use this group: event must not have it
                 if event_has_any {
                     return false;
                 }
             }
         }
 
-        // FN: exact match
         self.contains(Modifiers::FN) == event.contains(Modifiers::FN)
     }
 }
@@ -307,7 +288,6 @@ mod tests {
 
     #[test]
     fn matches_compound_hotkey() {
-        // Compound "Cmd" matches either side
         let hotkey = Modifiers::CMD;
         assert!(hotkey.matches(Modifiers::CMD_LEFT));
         assert!(hotkey.matches(Modifiers::CMD_RIGHT));
@@ -318,22 +298,18 @@ mod tests {
 
     #[test]
     fn matches_side_specific_hotkey() {
-        // Specific "CmdLeft" requires left
         let hotkey = Modifiers::CMD_LEFT;
         assert!(hotkey.matches(Modifiers::CMD_LEFT));
         assert!(!hotkey.matches(Modifiers::CMD_RIGHT));
-        // Both sides pressed: left is still present, so it matches
         assert!(hotkey.matches(Modifiers::CMD_LEFT | Modifiers::CMD_RIGHT));
         assert!(!hotkey.matches(Modifiers::empty()));
     }
 
     #[test]
     fn matches_rejects_extra_groups() {
-        // Hotkey is just Cmd, event has Cmd+Shift — should fail (extra group)
         let hotkey = Modifiers::CMD;
         assert!(!hotkey.matches(Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT));
 
-        // Hotkey is CmdLeft+ShiftLeft, event is CmdLeft+ShiftLeft — OK
         let hotkey = Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT;
         assert!(hotkey.matches(Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT));
     }
@@ -342,10 +318,10 @@ mod tests {
     fn matches_fn_exact() {
         let hotkey = Modifiers::CMD | Modifiers::FN;
         assert!(hotkey.matches(Modifiers::CMD_LEFT | Modifiers::FN));
-        assert!(!hotkey.matches(Modifiers::CMD_LEFT)); // missing FN
+        assert!(!hotkey.matches(Modifiers::CMD_LEFT));
 
         let hotkey = Modifiers::CMD;
-        assert!(!hotkey.matches(Modifiers::CMD_LEFT | Modifiers::FN)); // extra FN
+        assert!(!hotkey.matches(Modifiers::CMD_LEFT | Modifiers::FN));
     }
 
     #[test]

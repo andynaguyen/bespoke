@@ -1,12 +1,7 @@
 use natural::phonetics::soundex;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use strsim::levenshtein;
 
-/// Builds an n-gram string by cleaning and concatenating words
-///
-/// Strips punctuation from each word, lowercases, and joins without spaces.
-/// This allows matching "Charge B" against "ChargeBee".
 fn build_ngram(words: &[&str]) -> String {
     words
         .iter()
@@ -31,10 +26,6 @@ fn build_custom_word_match_keys(word: &str, word_index: usize) -> Vec<CustomWord
     let primary_key = build_match_key(word);
     let mut keys = Vec::with_capacity(2);
 
-    // The fallback matcher is intentionally limited to ASCII terms. Its
-    // whitespace tokenization and Soundex scoring are not suitable for CJK
-    // scripts. Unicode custom words remain available to models that accept
-    // them as native decode prompts; they are simply skipped by this fallback.
     if is_supported_fuzzy_key(&primary_key) {
         keys.push(CustomWordMatchKey {
             word_index,
@@ -63,19 +54,6 @@ fn supports_soundex(key: &str) -> bool {
     !key.is_empty() && key.chars().all(|c| c.is_ascii_alphabetic())
 }
 
-/// Finds the best matching custom word for a candidate string
-///
-/// Uses Levenshtein distance and Soundex phonetic matching to find
-/// the best match above the given threshold.
-///
-/// # Arguments
-/// * `candidate` - The cleaned/lowercased candidate string to match
-/// * `custom_words` - Original custom words (for returning the replacement)
-/// * `custom_word_match_keys` - Normalized custom-word keys for comparison
-/// * `threshold` - Maximum similarity score to accept
-///
-/// # Returns
-/// The best matching custom word and its score, if any match was found
 fn find_best_match<'a>(
     candidate: &str,
     custom_words: &'a [String],
@@ -90,40 +68,28 @@ fn find_best_match<'a>(
     let mut best_score = f64::MAX;
 
     for custom_word_key in custom_word_match_keys {
-        // Skip if lengths are too different (optimization + prevents over-matching)
-        // Use percentage-based check: max 25% length difference (prevents n-grams from
-        // matching significantly shorter custom words, e.g., "openaigpt" vs "openai")
         let candidate_len = candidate.chars().count();
         let custom_word_len = custom_word_key.key.chars().count();
         let len_diff = candidate_len.abs_diff(custom_word_len) as f64;
         let max_len = candidate_len.max(custom_word_len) as f64;
-        let max_allowed_diff = (max_len * 0.25).max(2.0); // At least 2 chars difference allowed
+        let max_allowed_diff = (max_len * 0.25).max(2.0);
         if len_diff > max_allowed_diff {
             continue;
         }
 
-        // Calculate Levenshtein distance (normalized by length)
         let levenshtein_dist = levenshtein(candidate, &custom_word_key.key);
-        let levenshtein_score = if max_len > 0.0 {
-            levenshtein_dist as f64 / max_len
-        } else {
-            1.0
-        };
+        let levenshtein_score = levenshtein_dist as f64 / max_len;
 
-        // Soundex is an English/ASCII phonetic algorithm. Numeric terms can
-        // still use edit distance, but must not receive a phonetic boost.
         let phonetic_match = supports_soundex(candidate)
             && supports_soundex(&custom_word_key.key)
             && soundex(candidate, &custom_word_key.key);
 
-        // Combine scores: favor phonetic matches, but also consider string similarity
         let combined_score = if phonetic_match {
-            levenshtein_score * 0.3 // Give significant boost to phonetic matches
+            levenshtein_score * 0.3
         } else {
             levenshtein_score
         };
 
-        // Accept if the score is good enough (configurable threshold)
         if combined_score < threshold && combined_score < best_score {
             best_match = Some(&custom_words[custom_word_key.word_index]);
             best_score = combined_score;
@@ -133,27 +99,11 @@ fn find_best_match<'a>(
     best_match.map(|m| (m, best_score))
 }
 
-/// Applies custom word corrections to transcribed text using fuzzy matching
-///
-/// This function corrects words in the input text by finding the best matches
-/// from a list of custom words using a combination of:
-/// - Levenshtein distance for string similarity
-/// - Soundex phonetic matching for pronunciation similarity
-/// - N-gram matching for multi-word speech artifacts (e.g., "Charge B" -> "ChargeBee")
-///
-/// # Arguments
-/// * `text` - The input text to correct
-/// * `custom_words` - List of custom words to match against
-/// * `threshold` - Maximum similarity score to accept (0.0 = exact match, 1.0 = any match)
-///
-/// # Returns
-/// The corrected text with custom words applied
 pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -> String {
     if custom_words.is_empty() {
         return text.to_string();
     }
 
-    // Pre-compute normalized comparison keys to avoid repeated allocations.
     let custom_word_match_keys: Vec<CustomWordMatchKey> = custom_words
         .iter()
         .enumerate()
@@ -167,18 +117,12 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
     while i < words.len() {
         let mut best_match: Option<(usize, &String, f64)> = None;
 
-        // Consider n-grams up to three words and choose the closest match. A
-        // longest-first match can consume a following ordinary word when both
-        // candidates happen to share a Soundex code (for example,
-        // "Charge B, che" matching "ChargeBee").
         for n in (1..=3).rev() {
             if i + n > words.len() {
                 continue;
             }
 
             let ngram_words = &words[i..i + n];
-            // Do not consume across a punctuation boundary. In
-            // "Charge B, che", the comma closes the candidate at "B,".
             if ngram_words[..n.saturating_sub(1)]
                 .iter()
                 .any(|word| !extract_punctuation(word).1.is_empty())
@@ -201,11 +145,9 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
 
         if let Some((n, replacement, _)) = best_match {
             let ngram_words = &words[i..i + n];
-            // Extract punctuation from first and last words of the n-gram.
             let (prefix, _) = extract_punctuation(ngram_words[0]);
             let (_, suffix) = extract_punctuation(ngram_words[n - 1]);
 
-            // Preserve case from first word.
             let corrected = preserve_case_pattern(ngram_words[0], replacement);
 
             result.push(format!("{}{}{}", prefix, corrected, suffix));
@@ -219,7 +161,6 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
     result.join(" ")
 }
 
-/// Preserves the case pattern of the original word when applying a replacement
 fn preserve_case_pattern(original: &str, replacement: &str) -> String {
     if original.chars().all(|c| c.is_uppercase()) {
         replacement.to_uppercase()
@@ -234,10 +175,7 @@ fn preserve_case_pattern(original: &str, replacement: &str) -> String {
     }
 }
 
-/// Extracts punctuation prefix and suffix from a word
 fn extract_punctuation(word: &str) -> (&str, &str) {
-    // String slices use byte offsets. Derive both boundaries from char_indices
-    // so multibyte punctuation such as `。` and `「」` can never be split.
     let prefix_end = word
         .char_indices()
         .find(|(_, c)| c.is_alphanumeric())
@@ -265,20 +203,11 @@ fn extract_punctuation(word: &str) -> (&str, &str) {
     (prefix, suffix)
 }
 
-/// Evidence for the language of the text being cleaned.
-///
-/// This intentionally describes the transcription output, not Bespoke's UI
-/// language. Unknown output languages fail closed: built-in filler removal is
-/// skipped rather than applying a language profile speculatively.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OutputLanguageEvidence {
     UserSelected(String),
     ModelConstrained(String),
-    /// The transcription model itself identified the language (audio-based
-    /// LID, e.g. Whisper in auto mode).
     ModelDetected(String),
-    /// Detected from the transcribed text with high confidence, constrained to
-    /// the model's supported languages. Weakest accepted evidence.
     TextDetected(String),
     TranslatedToEnglish,
     Unknown,
@@ -297,18 +226,10 @@ impl OutputLanguageEvidence {
     }
 }
 
-/// Filler tokens that are not lexical words in any language Bespoke's models can
-/// output, so removing them cannot corrupt text regardless of the (possibly
-/// unknown) output language. Kept deliberately conservative: anything that is a
-/// real word somewhere ("um" pt/de, "ha" es, "ah"/"eh" interjections, "mm"
-/// millimetres) belongs in the language-gated lists instead.
 const UNIVERSAL_FILLER_WORDS: &[&str] = &[
     "uh", "uhm", "umm", "uhh", "uhhh", "ehh", "ehm", "ahm", "hmm", "hm", "mmm", "хм", "ммм",
 ];
 
-/// Filler words that are only safe to remove with evidence for the output
-/// language, because the same token is a real word elsewhere (e.g. Portuguese
-/// "um" = "a/an", German "um" = "at/around", Spanish "ha" = "has").
 fn gated_filler_words_for_language(lang: &str) -> &'static [&'static str] {
     let base_lang = lang.split(&['-', '_'][..]).next().unwrap_or(lang);
 
@@ -320,10 +241,6 @@ fn gated_filler_words_for_language(lang: &str) -> &'static [&'static str] {
     }
 }
 
-static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
-
-/// Collapses repeated words (3+ repetitions) to a single instance.
-/// E.g., "wh wh wh wh" -> "wh", "I I I I" -> "I"
 fn collapse_stutters(text: &str) -> String {
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
@@ -338,13 +255,11 @@ fn collapse_stutters(text: &str) -> String {
         let word_lower = word.to_lowercase();
 
         if word_lower.chars().all(|c| c.is_alphabetic()) {
-            // Count consecutive repetitions (case-insensitive)
             let mut count = 1;
             while i + count < words.len() && words[i + count].to_lowercase() == word_lower {
                 count += 1;
             }
 
-            // If 3+ repetitions, collapse to single instance
             if count >= 3 {
                 result.push(word);
                 i += count;
@@ -361,25 +276,6 @@ fn collapse_stutters(text: &str) -> String {
     result.join(" ")
 }
 
-/// Removes filler words from transcription output when enabled.
-///
-/// Built-in removal is two-tiered: [`UNIVERSAL_FILLER_WORDS`] apply regardless
-/// of language evidence, while [`gated_filler_words_for_language`] tokens are
-/// only removed when the output language is known. A custom list is an
-/// explicit user override and replaces both tiers without requiring language
-/// evidence. `Some(empty vec)` disables removal, preserving the legacy
-/// power-user setting. The master toggle takes precedence over both built-in
-/// and custom lists.
-///
-/// # Arguments
-/// * `text` - The raw transcription text to filter
-/// * `language` - Evidence for the language of the transcription output
-/// * `custom_filler_words` - Optional user-provided filler word list. `Some(vec)` overrides
-///   language defaults; `Some(empty vec)` disables filtering; `None` uses language defaults.
-/// * `enabled` - Whether filler-word removal is enabled
-///
-/// # Returns
-/// The text with configured filler words removed
 pub fn remove_filler_words(
     text: &str,
     language: &OutputLanguageEvidence,
@@ -390,7 +286,6 @@ pub fn remove_filler_words(
         return text.to_string();
     }
 
-    // Build filler patterns from custom list or the built-in tiers
     let patterns: Vec<Regex> = match custom_filler_words {
         Some(words) => words
             .iter()
@@ -408,7 +303,6 @@ pub fn remove_filler_words(
             .collect(),
     };
 
-    // Remove filler words
     let mut filtered = text.to_string();
     for pattern in &patterns {
         filtered = pattern.replace_all(&filtered, "").to_string();
@@ -417,27 +311,10 @@ pub fn remove_filler_words(
     filtered
 }
 
-/// Applies non-filler transcription cleanup.
-///
-/// Kept separate from [`remove_filler_words`] so disabling filler deletion
-/// does not also disable the existing repeated-word and whitespace cleanup.
 pub fn normalize_transcription_output(text: &str) -> String {
-    let mut normalized = collapse_stutters(text);
-
-    // Clean up multiple spaces to single space
-    normalized = MULTI_SPACE_PATTERN
-        .replace_all(&normalized, " ")
-        .to_string();
-
-    // Trim leading/trailing whitespace
-    normalized.trim().to_string()
+    collapse_stutters(text).trim().to_string()
 }
 
-/// If `text` ends with the spoken `keyword` (one or more words), returns the
-/// text before it; otherwise `None`. Words compare case-insensitively on their
-/// letters and digits, so "Submit." and "submit!" match but "resubmit" and a
-/// keyword in the middle of the sentence do not. Separators left dangling
-/// before the keyword ("Hello there, submit") are trimmed from the result.
 pub fn strip_trailing_keyword(text: &str, keyword: &str) -> Option<String> {
     let keyword_keys: Vec<String> = keyword.split_whitespace().map(build_match_key).collect();
     if keyword_keys.is_empty() || keyword_keys.iter().any(String::is_empty) {
@@ -457,8 +334,6 @@ pub fn strip_trailing_keyword(text: &str, keyword: &str) -> Option<String> {
         return None;
     }
 
-    // `split_whitespace` yields subslices of `text`, so the first matched
-    // token's offset marks where the keyword begins.
     let keyword_start = tail[0].as_ptr() as usize - text.as_ptr() as usize;
     let rest = text[..keyword_start]
         .trim_end()
@@ -469,13 +344,6 @@ pub fn strip_trailing_keyword(text: &str, keyword: &str) -> Option<String> {
     Some(rest.to_string())
 }
 
-/// If `text` contains the spoken scrub `keyword`, returns only what follows its
-/// last occurrence, with leading separators trimmed and the first letter
-/// capitalized; otherwise `None`. Words match like [`strip_trailing_keyword`],
-/// so "Scrub that." and ", scrub that," both count. An empty keyword never
-/// matches. A common keyword also fires mid-sentence: with "scrub that",
-/// "Please scrub that pan tonight." becomes "Pan tonight.", which is why the
-/// keyword is configurable.
 pub fn scrub_before_keyword(text: &str, keyword: &str) -> Option<String> {
     let keyword_keys: Vec<String> = keyword.split_whitespace().map(build_match_key).collect();
     if keyword_keys.is_empty() || keyword_keys.iter().any(String::is_empty) {
@@ -488,8 +356,6 @@ pub fn scrub_before_keyword(text: &str, keyword: &str) -> Option<String> {
         .windows(keyword_keys.len())
         .rposition(|window| window == keyword_keys.as_slice())?;
 
-    // `split_whitespace` yields subslices of `text`, so the last matched
-    // token's end marks where the kept text begins.
     let last = tokens[start + keyword_keys.len() - 1];
     let keyword_end = last.as_ptr() as usize - text.as_ptr() as usize + last.len();
     let rest = text[keyword_end..].trim_start_matches(|c: char| {
@@ -504,11 +370,6 @@ pub fn scrub_before_keyword(text: &str, keyword: &str) -> Option<String> {
     })
 }
 
-/// Replaces each spoken snippet trigger in `text` with its expansion. Triggers
-/// match whole words case-insensitively on their letters and digits, like the
-/// voice-submit keyword, so "My email." matches the trigger "my email" but
-/// "my emails" does not. Punctuation around the matched words is kept, and
-/// when two triggers overlap the longer one wins.
 pub fn expand_snippets<'a>(
     text: &str,
     snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
@@ -528,7 +389,6 @@ pub fn expand_snippets<'a>(
 
     let tokens: Vec<&str> = text.split_whitespace().collect();
     let keys: Vec<String> = tokens.iter().map(|token| build_match_key(token)).collect();
-    // `split_whitespace` yields subslices of `text`, so pointer math gives offsets.
     let offset = |token: &str| token.as_ptr() as usize - text.as_ptr() as usize;
 
     let mut expanded = String::with_capacity(text.len());
@@ -763,9 +623,6 @@ mod tests {
         assert_eq!(scrub_before_keyword("Hi Bob, -- hey", "--"), None);
     }
 
-    /// Exercise the complete cleanup sequence with an explicitly selected
-    /// language. Individual tests below predate the split between filler
-    /// removal and non-filler normalization.
     fn filter_transcription_output(
         text: &str,
         language: &str,
@@ -914,7 +771,6 @@ mod tests {
 
     #[test]
     fn test_filter_portuguese_preserves_um() {
-        // "um" means "a/an" in Portuguese
         let text = "um gato bonito";
         let result = filter_transcription_output(text, "pt", &None);
         assert_eq!(result, "um gato bonito");
@@ -922,7 +778,6 @@ mod tests {
 
     #[test]
     fn test_filter_spanish_preserves_ha() {
-        // "ha" means "has" in Spanish
         let text = "ha sido un buen día";
         let result = filter_transcription_output(text, "es", &None);
         assert_eq!(result, "ha sido un buen día");
@@ -930,7 +785,6 @@ mod tests {
 
     #[test]
     fn test_filter_language_code_with_region() {
-        // "pt-BR" should normalize to "pt"
         let text = "um gato bonito";
         let result = filter_transcription_output(text, "pt-BR", &None);
         assert_eq!(result, "um gato bonito");
@@ -949,7 +803,6 @@ mod tests {
         let custom = Some(vec![]);
         let text = "So uhm I was thinking uh about this";
         let result = filter_transcription_output(text, "en", &custom);
-        // No filler words removed since custom list is empty
         assert_eq!(result, "So uhm I was thinking uh about this");
     }
 
@@ -1005,7 +858,6 @@ mod tests {
 
     #[test]
     fn test_filter_preserves_millimetre_unit() {
-        // "mm" was removed from the filler lists because it eats units.
         let text = "the screw is 5 mm long";
         let result = filter_transcription_output(text, "en", &None);
         assert_eq!(result, "the screw is 5 mm long");
@@ -1090,7 +942,6 @@ mod tests {
 
     #[test]
     fn test_apply_custom_words_ngram_with_spaces_in_custom() {
-        // Custom word with space should also match against split words
         let text = "using Mac Book Pro";
         let custom_words = vec!["MacBook Pro".to_string()];
         let result = apply_custom_words(text, &custom_words, 0.5);
@@ -1099,12 +950,9 @@ mod tests {
 
     #[test]
     fn test_apply_custom_words_trailing_number_not_doubled() {
-        // Verify that trailing non-alpha chars (like numbers) aren't double-counted
-        // between build_ngram stripping them and extract_punctuation capturing them
         let text = "use GPT4 for this";
         let custom_words = vec!["GPT-4".to_string()];
         let result = apply_custom_words(text, &custom_words, 0.5);
-        // Should NOT produce "GPT-44" (double-counting the trailing 4)
         assert!(
             !result.contains("GPT-44"),
             "got double-counted result: {}",

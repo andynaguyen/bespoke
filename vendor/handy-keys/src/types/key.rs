@@ -1,5 +1,3 @@
-//! Keyboard key and mouse button definitions and parsing
-
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -10,7 +8,6 @@ use crate::error::{Error, Result};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Key {
-    // Letters
     A,
     B,
     C,
@@ -38,7 +35,6 @@ pub enum Key {
     Y,
     Z,
 
-    // Numbers
     Num0,
     Num1,
     Num2,
@@ -50,13 +46,11 @@ pub enum Key {
     Num8,
     Num9,
 
-    // Media keys
     PlayPause,
     Stop,
     PrevTrack,
     NextTrack,
 
-    // Function keys
     F1,
     F2,
     F3,
@@ -84,7 +78,6 @@ pub enum Key {
     F23,
     F24,
 
-    // Special keys
     Space,
     Return,
     Tab,
@@ -109,13 +102,11 @@ pub enum Key {
     PageUp,
     PageDown,
 
-    // Arrow keys
     LeftArrow,
     RightArrow,
     UpArrow,
     DownArrow,
 
-    // Punctuation and symbols
     Minus,
     Equal,
     LeftBracket,
@@ -128,13 +119,11 @@ pub enum Key {
     Slash,
     Grave,
     Section,
-    // JIS keyboard keys
     JisYen,
     JisUnderscore,
     JisEisu,
     JisKana,
 
-    // Keypad
     Keypad0,
     Keypad1,
     Keypad2,
@@ -155,7 +144,6 @@ pub enum Key {
     KeypadEquals,
     KeypadComma,
 
-    // Lock keys
     CapsLock,
     ScrollLock,
     NumLock,
@@ -184,7 +172,6 @@ pub enum Key {
     /// hardware presses until FN matching is reworked).
     Dictation,
 
-    // Mouse buttons
     MouseLeft,
     MouseRight,
     MouseMiddle,
@@ -340,7 +327,6 @@ impl FromStr for Key {
     fn from_str(s: &str) -> Result<Self> {
         let s = s.trim();
         match s.to_lowercase().as_str() {
-            // Letters
             "a" => Ok(Key::A),
             "b" => Ok(Key::B),
             "c" => Ok(Key::C),
@@ -368,7 +354,6 @@ impl FromStr for Key {
             "y" => Ok(Key::Y),
             "z" => Ok(Key::Z),
 
-            // Numbers
             "0" | "num0" => Ok(Key::Num0),
             "1" | "num1" => Ok(Key::Num1),
             "2" | "num2" => Ok(Key::Num2),
@@ -380,13 +365,11 @@ impl FromStr for Key {
             "8" | "num8" => Ok(Key::Num8),
             "9" | "num9" => Ok(Key::Num9),
 
-            // Media keys
             "playpause" => Ok(Key::PlayPause),
             "stop" => Ok(Key::Stop),
             "prevtrack" => Ok(Key::PrevTrack),
             "nexttrack" => Ok(Key::NextTrack),
 
-            // Function keys
             "f1" => Ok(Key::F1),
             "f2" => Ok(Key::F2),
             "f3" => Ok(Key::F3),
@@ -412,7 +395,6 @@ impl FromStr for Key {
             "f23" => Ok(Key::F23),
             "f24" => Ok(Key::F24),
 
-            // Special keys
             "space" | " " => Ok(Key::Space),
             "return" | "enter" => Ok(Key::Return),
             "tab" => Ok(Key::Tab),
@@ -426,13 +408,11 @@ impl FromStr for Key {
             "pageup" => Ok(Key::PageUp),
             "pagedown" => Ok(Key::PageDown),
 
-            // Arrow keys
             "left" | "leftarrow" => Ok(Key::LeftArrow),
             "right" | "rightarrow" => Ok(Key::RightArrow),
             "up" | "uparrow" => Ok(Key::UpArrow),
             "down" | "downarrow" => Ok(Key::DownArrow),
 
-            // Punctuation and symbols
             "-" | "minus" => Ok(Key::Minus),
             "=" | "equal" | "equals" => Ok(Key::Equal),
             "[" | "leftbracket" => Ok(Key::LeftBracket),
@@ -450,7 +430,6 @@ impl FromStr for Key {
             "eisu" | "jiseisu" | "英数" => Ok(Key::JisEisu),
             "kana" | "jiskana" | "かな" => Ok(Key::JisKana),
 
-            // Keypad
             "keypad0" => Ok(Key::Keypad0),
             "keypad1" => Ok(Key::Keypad1),
             "keypad2" => Ok(Key::Keypad2),
@@ -471,7 +450,6 @@ impl FromStr for Key {
             "keypad=" | "keypadequals" => Ok(Key::KeypadEquals),
             "keypad," | "keypadcomma" => Ok(Key::KeypadComma),
 
-            // Lock keys
             "capslock" | "caps" => Ok(Key::CapsLock),
             "scrolllock" | "scroll" => Ok(Key::ScrollLock),
             "numlock" => Ok(Key::NumLock),
@@ -479,7 +457,6 @@ impl FromStr for Key {
             "printscreen" | "prtsc" | "sysrq" => Ok(Key::PrintScreen),
             "contextmenu" | "menu" | "apps" | "application" => Ok(Key::ContextMenu),
 
-            // Mouse buttons
             "mouseleft" | "leftclick" | "lmb" | "mouse1" => Ok(Key::MouseLeft),
             "mouseright" | "rightclick" | "rmb" | "mouse2" => Ok(Key::MouseRight),
             "mousemiddle" | "middleclick" | "mmb" | "mouse3" => Ok(Key::MouseMiddle),
@@ -566,7 +543,6 @@ mod tests {
 
     #[test]
     fn key_display_roundtrip() {
-        // Test that parsing the display output gives the same key
         let keys = [
             Key::A,
             Key::Z,
@@ -618,7 +594,6 @@ mod tests {
         assert_eq!("dictation".parse::<Key>().unwrap(), Key::Dictation);
         assert_eq!("voice".parse::<Key>().unwrap(), Key::Dictation);
         assert_eq!("globe".parse::<Key>().unwrap(), Key::Dictation);
-        // "fn" must keep parsing as the Fn *modifier*, not a key
         assert!("fn".parse::<Key>().is_err());
     }
 
@@ -635,7 +610,6 @@ mod tests {
 
     #[test]
     fn parse_media_keys() {
-        // Parsing is case-insensitive and matches the Display spelling.
         assert_eq!("playpause".parse::<Key>().unwrap(), Key::PlayPause);
         assert_eq!("PlayPause".parse::<Key>().unwrap(), Key::PlayPause);
         assert_eq!("stop".parse::<Key>().unwrap(), Key::Stop);
@@ -645,11 +619,9 @@ mod tests {
 
     #[test]
     fn parse_pause_aliases() {
-        // Pause and Break share one physical key on PC hardware.
         assert_eq!("pause".parse::<Key>().unwrap(), Key::Pause);
         assert_eq!("Pause".parse::<Key>().unwrap(), Key::Pause);
         assert_eq!("break".parse::<Key>().unwrap(), Key::Pause);
-        // "playpause" must keep parsing as the media key, not Pause
         assert_eq!("playpause".parse::<Key>().unwrap(), Key::PlayPause);
     }
 }

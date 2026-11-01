@@ -1,9 +1,3 @@
-//! The Annotate page's Captures tab: every capture in Annotate's folder as a
-//! card, and one capture open in place of Scrawl's Inspect window. An open
-//! capture shows its contact sheet or one keyframe on the content surface,
-//! and its keyframes as a timeline in a glass panel, like History's
-//! inspector.
-
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -26,13 +20,10 @@ use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, radius, Alpha};
 
-/// The most captures the page lists.
 const LIMIT: usize = 120;
 const INSPECTOR_WIDTH: f32 = 320.;
 const COLUMNS: usize = 3;
 
-/// The empty library's hint, with the record shortcut as a clay keycap where
-/// the translation puts `{{record}}`.
 fn empty_hint(cx: &App) -> impl IntoElement {
     let p = palette(cx);
     let hint = t("annotate.library.emptyHint");
@@ -51,7 +42,6 @@ fn empty_hint(cx: &App) -> impl IntoElement {
         .get(crate::annotate::RECORD_BINDING)
         .and_then(|b| scrawl::host::shortcut_from_binding(&b.current_binding))
         .map_or_else(|| "⌥⇧S".to_owned(), |c| c.label);
-    // The gap stands in for the spaces around the placeholder.
     let (before, after) = (before.trim_end(), after.trim_start());
     line.when(!before.is_empty(), |el| {
         el.child(SharedString::from(before.to_owned()))
@@ -62,19 +52,16 @@ fn empty_hint(cx: &App) -> impl IntoElement {
     })
 }
 
-/// A capture Scrawl asked to inspect, waiting for the page to open it.
 #[derive(Default)]
 struct PendingInspect(Option<PathBuf>);
 
 impl Global for PendingInspect {}
 
-/// Set by `inspect` so the Annotate page switches to its Captures tab.
 #[derive(Default)]
 pub struct PendingInspectFlag(pub bool);
 
 impl Global for PendingInspectFlag {}
 
-/// Shows the capture in `dir` on the Annotate page.
 pub fn inspect(dir: PathBuf, cx: &mut App) {
     cx.default_global::<PendingInspect>().0 = Some(dir);
     cx.default_global::<PendingInspectFlag>().0 = true;
@@ -82,7 +69,6 @@ pub fn inspect(dir: PathBuf, cx: &mut App) {
     cx.refresh_windows();
 }
 
-/// One capture, read from its manifest.
 #[derive(Clone)]
 struct Item {
     dir: PathBuf,
@@ -92,7 +78,6 @@ struct Item {
     marks: usize,
     sheet: Option<PathBuf>,
     rows: Vec<KeyframeRow>,
-    /// Width over height of the contact sheet, then of each keyframe.
     sheet_aspect: f32,
     row_aspects: Vec<f32>,
 }
@@ -114,7 +99,6 @@ impl Item {
         }
     }
 
-    /// The first keyframe, else the contact sheet.
     fn thumbnail(&self) -> Option<PathBuf> {
         self.rows
             .first()
@@ -144,13 +128,11 @@ enum Stage {
 }
 
 pub struct Captures {
-    /// `None` until the first read finishes.
     items: Option<Vec<Item>>,
     open: Option<Item>,
     stage: Stage,
     keyframe: usize,
     copied: bool,
-    /// The capture a reload is looking for.
     retried: Option<PathBuf>,
     stage_scroll: ScrollHandle,
     timeline_scroll: ScrollHandle,
@@ -174,7 +156,6 @@ impl Captures {
         this
     }
 
-    /// Re-reads the captures folder, then opens a capture Scrawl asked for.
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         self._load = cx.spawn(async move |this, cx| {
             let items = crate::runtime::spawn_blocking(|| {
@@ -193,9 +174,6 @@ impl Captures {
         });
     }
 
-    /// Opens the capture `inspect` asked for. A capture that just finished
-    /// may be newer than the list, so the folder is read once more before
-    /// the request is dropped.
     pub fn take_pending(&mut self, cx: &mut Context<Self>) {
         let Some(dir) = cx.default_global::<PendingInspect>().0.clone() else {
             return;
@@ -259,8 +237,6 @@ impl Captures {
         cx.notify();
     }
 
-    /// The toolbar for the open capture: back, the stage tabs and the
-    /// capture's summary.
     pub fn toolbar(&self, cx: &mut Context<Self>) -> Option<Toolbar> {
         let item = self.open.as_ref()?;
         let back = cx.entity().downgrade();
@@ -318,8 +294,6 @@ impl Captures {
         )
     }
 
-    /// Show in Finder and Copy for the open capture, at the top of its
-    /// timeline.
     fn actions(&self, item: &Item, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let reveal_dir = item.dir.clone();
         let copy = cx.entity().downgrade();
@@ -374,7 +348,6 @@ impl Captures {
                     .rounded(px(10.))
                     .overflow_hidden()
                     .bg(p.text.a(0.06))
-                    // Out of the layout, so the image's own size never widens the card.
                     .children(item.thumbnail().map(|path| {
                         img(path)
                             .absolute()
@@ -383,7 +356,6 @@ impl Captures {
                             .object_fit(ObjectFit::Cover)
                             .into_any_element()
                     }))
-                    // Keyframes carry their own `#N` badge at the top left.
                     .child(
                         div()
                             .absolute()
@@ -465,7 +437,6 @@ impl Captures {
                     .enumerate()
                     .map(|(column, item)| self.card(row * COLUMNS + column, item, cx))
                     .collect();
-                // Keeps a short last row's cards as wide as the others.
                 while cards.len() < COLUMNS {
                     cards.push(div().flex_1().into_any_element());
                 }
@@ -648,15 +619,12 @@ impl Captures {
         )
     }
 
-    /// The open capture's timeline, for the shell to show along the
-    /// window's edge (`Page::inspector`).
     pub fn inspector(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let item = self.open.clone()?;
         Some(self.render_timeline(&item, cx))
     }
 }
 
-/// A PNG's width over its height, from its header, else 16:10.
 fn png_aspect(path: &Path) -> f32 {
     use std::io::Read;
     let mut header = [0u8; 24];
@@ -672,7 +640,6 @@ fn png_aspect(path: &Path) -> f32 {
     width as f32 / height as f32
 }
 
-/// Whether two paths name the same bundle, ignoring a trailing separator.
 fn same_dir(a: &Path, b: &Path) -> bool {
     a.components().eq(b.components())
 }

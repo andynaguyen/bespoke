@@ -1,9 +1,3 @@
-//! UI strings, read from the i18next locale files in `src/i18n/locales`.
-//!
-//! The same JSON files feed the UI and the tray menu. Keys use i18next's
-//! dotted paths (`settings.sound.title`), `{{name}}` interpolation, and
-//! `_one`/`_few`/`_many`/`_other` plural suffixes chosen by CLDR rules.
-
 use std::collections::HashMap;
 use std::sync::{LazyLock, RwLock};
 
@@ -11,7 +5,6 @@ use gpui::SharedString;
 
 include!(concat!(env!("OUT_DIR"), "/locales.rs"));
 
-/// A UI language Bespoke ships a translation for.
 pub struct LanguageInfo {
     pub code: &'static str,
     pub name: &'static str,
@@ -19,7 +12,6 @@ pub struct LanguageInfo {
     pub rtl: bool,
 }
 
-/// Supported languages in dropdown order (mirrors `src/i18n/languages.ts`).
 pub static LANGUAGES: &[LanguageInfo] = &[
     lang("en", "English", "English"),
     lang("zh", "Simplified Chinese", "简体中文"),
@@ -83,13 +75,10 @@ static TABLES: LazyLock<HashMap<&'static str, serde_json::Value>> = LazyLock::ne
 
 static CURRENT: RwLock<&'static str> = RwLock::new("en");
 
-/// The active UI language code, e.g. `"en"` or `"zh-TW"`.
 pub fn language() -> &'static str {
     *CURRENT.read().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Switches the UI language. Unsupported codes resolve the way i18next's
-/// `getSupportedLanguage` does, and fall back to English.
 pub fn set_language(code: &str) {
     let resolved = supported_language(code).unwrap_or("en");
     *CURRENT.write().unwrap_or_else(|e| e.into_inner()) = resolved;
@@ -100,9 +89,6 @@ pub fn is_rtl() -> bool {
     LANGUAGES.iter().any(|l| l.code == code && l.rtl)
 }
 
-/// Maps a locale tag to a shipped translation: exact match, then Chinese
-/// script and region rules (`zh-Hant`, `zh-HK` → `zh-TW`), then the base
-/// language. Mirrors `getSupportedLanguage` in `src/i18n/index.ts`.
 pub fn supported_language(code: &str) -> Option<&'static str> {
     let normalized = code.trim().to_lowercase().replace('_', "-");
     if normalized.is_empty() {
@@ -131,7 +117,6 @@ pub fn supported_language(code: &str) -> Option<&'static str> {
         .map(|l| l.code)
 }
 
-/// Looks up `key` in one locale table without fallback.
 pub fn lookup(language: &str, key: &str) -> Option<&'static str> {
     let mut node = TABLES.get(language)?;
     for part in key.split('.') {
@@ -144,7 +129,6 @@ fn resolve(key: &str) -> Option<&'static str> {
     lookup(language(), key).or_else(|| lookup("en", key))
 }
 
-/// Translates `key`, falling back to English and then to the key itself.
 pub fn t(key: &str) -> SharedString {
     match resolve(key) {
         Some(text) => SharedString::new_static(text),
@@ -152,13 +136,10 @@ pub fn t(key: &str) -> SharedString {
     }
 }
 
-/// Translates `key` and fills `{{name}}` placeholders from `args`.
 pub fn t_with(key: &str, args: &[(&str, &dyn std::fmt::Display)]) -> SharedString {
     interpolate(resolve(key).unwrap_or(key), args).into()
 }
 
-/// Translates `key`, or returns `default` when no locale has it. Matches
-/// i18next's `defaultValue` option.
 pub fn t_or(key: &str, default: &str) -> SharedString {
     match resolve(key) {
         Some(text) => SharedString::new_static(text),
@@ -166,8 +147,6 @@ pub fn t_or(key: &str, default: &str) -> SharedString {
     }
 }
 
-/// Translates a pluralized key: picks `key_one`, `key_few` and so on for
-/// `count` in the active language, then interpolates `{{count}}` and `args`.
 pub fn t_count(key: &str, count: i64, args: &[(&str, &dyn std::fmt::Display)]) -> SharedString {
     let category = plural_category(language(), count);
     let template = lookup(language(), &format!("{key}_{category}"))
@@ -202,7 +181,6 @@ fn interpolate(template: &str, args: &[(&str, &dyn std::fmt::Display)]) -> Strin
     out
 }
 
-/// CLDR cardinal plural category for an integer in `language`.
 fn plural_category(language: &str, n: i64) -> &'static str {
     let n = n.unsigned_abs();
     let (n10, n100) = (n % 10, n % 100);

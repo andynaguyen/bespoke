@@ -1,6 +1,3 @@
-//! macOS capture: the CoreGraphics event tap and HID state poller, NSWorkspace
-//! for the frontmost app, and ScreenCaptureKit for displays, windows and the recording.
-
 use std::ffi::c_void;
 use std::path::PathBuf;
 use std::ptr;
@@ -24,16 +21,13 @@ use super::{
 };
 use crate::model::{CaptureMode, InteractionEvent, RgbaFrame, TargetInfo};
 
-/// Recordings may hold up to twice a frame's size in points (Retina pixels).
 pub const MAX_CAPTURE_SCALE: f64 = 2.0;
 
-/// Where a session's clicks and keys come from, for the log.
 pub(super) const MOUSE_SOURCE: &str = "the mouse monitor";
 pub(super) const KEY_SOURCE: &str = "the key tap";
 pub(super) const NO_KEY_SOURCE: &str =
     "nowhere (Accessibility off; the record shortcut still works)";
 
-/// `~/Library/Logs/Scrawl`.
 pub fn log_dir() -> Option<PathBuf> {
     if let Some(dir) = crate::host::log_dir() {
         return Some(dir.to_path_buf());
@@ -45,7 +39,6 @@ pub fn main_display_id() -> u32 {
     unsafe { CGMainDisplayID() }
 }
 
-/// CGWindowList's windows, front to back, in an autorelease pool.
 pub(super) fn raw_windows_now() -> Vec<crate::windows::RawWindow> {
     objc2::rc::autoreleasepool(|_| crate::windows::raw_windows())
 }
@@ -72,7 +65,6 @@ const FLAG_CONTROL: u64 = 1 << 18;
 const FLAG_ALTERNATE: u64 = 1 << 19;
 const FLAG_COMMAND: u64 = 1 << 20;
 
-/// The S key on the ANSI layout (`kVK_ANSI_S`).
 pub const KEY_S: u16 = 1;
 const KEY_ESCAPE: u16 = 53;
 const KEY_Z: u16 = 6;
@@ -115,6 +107,10 @@ type EventTapCallback = unsafe extern "C" fn(
     event: EventRef,
     user_info: *mut c_void,
 ) -> EventRef;
+
+const K_CG_SESSION_EVENT_TAP: u32 = 1;
+const K_CG_TAIL_APPEND_EVENT_TAP: u32 = 1;
+const K_CG_EVENT_TAP_OPTION_DEFAULT: u32 = 0;
 
 #[link(name = "ApplicationServices", kind = "framework")]
 unsafe extern "C" {
@@ -176,7 +172,6 @@ unsafe extern "C" {
 
 static LAYOUT_KEY_CODES: std::sync::OnceLock<std::collections::HashMap<char, u16>> =
     std::sync::OnceLock::new();
-/// The reverse view for naming shortcuts: virtual keycode -> the character ⌘ + that key types.
 static LAYOUT_KEY_CHARS: std::sync::OnceLock<std::collections::HashMap<u16, char>> =
     std::sync::OnceLock::new();
 
@@ -199,7 +194,7 @@ fn translate_keycode_with(layout: *const u8, key_code: u16, modifier_state: u32)
         UCKeyTranslate(
             layout,
             key_code,
-            3, // kUCKeyActionDisplay
+            3,
             modifier_state,
             u32::from(LMGetKbdType()),
             0,
@@ -220,8 +215,6 @@ fn translate_keycode_with(layout: *const u8, key_code: u16, modifier_state: u32)
     }
 }
 
-/// Builds the active keyboard layout character -> virtual keycode map (e.g. Dvorak `'s' -> 41`, `'z' -> 44`).
-/// Must be called on the main thread during startup before background threads query it.
 pub fn init_keyboard_layout_map() -> &'static std::collections::HashMap<char, u16> {
     LAYOUT_KEY_CODES.get_or_init(|| {
         let mut map = std::collections::HashMap::new();
@@ -280,8 +273,6 @@ pub fn layout_v_keycode() -> u16 {
     key_code_for_char('v').unwrap_or(KEY_V)
 }
 
-/// Bespoke's two bindings, which the key tap matches and the capsule shows. Bespoke registers
-/// them; Scrawl's own Carbon hotkeys are left out.
 pub fn set_shortcuts(
     telemetry: &SharedCaptureTelemetry,
     record: ShortcutConfig,
@@ -297,8 +288,6 @@ pub fn set_shortcuts(
         .unwrap_or_else(std::sync::PoisonError::into_inner) = paste;
 }
 
-/// While Bespoke records a new shortcut, the key tap stops answering, so pressing the current
-/// combo reaches the recorder instead of starting a capture.
 pub fn pause_shortcuts(telemetry: &SharedCaptureTelemetry, paused: bool) {
     telemetry.shortcuts_paused.store(paused, Ordering::Release);
 }
@@ -309,16 +298,9 @@ pub fn screen_capture_granted() -> bool {
     unsafe { CGPreflightScreenCaptureAccess() }
 }
 
-/// A ScreenCaptureKit capture worked in this process (`screen_capture_probe`).
 static SCREEN_PROBE_OK: AtomicBool = AtomicBool::new(false);
 static SCREEN_PROBE_AT: Mutex<Option<Instant>> = Mutex::new(None);
 
-/// Whether this copy of Scrawl can capture the screen now: `CGPreflightScreenCaptureAccess`, or
-/// a ScreenCaptureKit capture that already worked here. With `probe` (only once a fresh helper
-/// says Screen Recording is granted, so no prompt can come of it, and never on the UI thread) a
-/// stale preflight is checked with a real one-frame capture, at most every 2 s. Whether a grant
-/// reaches a running process this way on macOS 26 and 27 is what the probe finds out; when it
-/// does, Scrawl doesn't relaunch.
 pub fn screen_capture_usable(probe: bool) -> bool {
     if screen_capture_granted() || SCREEN_PROBE_OK.load(Ordering::Acquire) {
         return true;
@@ -377,7 +359,6 @@ pub fn screen_capture_probe() -> Result<(u32, u32), String> {
     Ok((w, h))
 }
 
-/// The system prompt for Screen Recording (once; later calls do nothing).
 pub fn request_screen_capture() {
     unsafe {
         let _ = CGRequestScreenCaptureAccess();
@@ -496,12 +477,10 @@ pub fn shortcut_from_key_and_mods(
     })
 }
 
-/// Discovers the current capture target (either a specific window/app or the main display).
 pub fn discover_target(window_query: Option<&str>) -> TargetInfo {
     discover_target_at(window_query, current_mouse_location().map(|p| [p.x, p.y]))
 }
 
-/// Like `discover_target`, recording the display under `point` (see `pick_display`).
 pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -> TargetInfo {
     let frontmost = frontmost_app_info();
     let screens = crate::screens::displays();
@@ -580,7 +559,6 @@ pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -
         }
     }
 
-    // No ScreenCaptureKit: the display under `point` from CoreGraphics.
     let rects: Vec<[f64; 4]> = screens.iter().map(|s| s.frame).collect();
     let (display_id, frame) = screens.get(pick_display(&rects, point, None)).map_or_else(
         || {
@@ -602,7 +580,6 @@ pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -
     }
 }
 
-/// The display a global rect is on (its centre, else most of it) and that display's scale.
 fn display_of(screens: &[crate::screens::Screen], rect: [f64; 4]) -> (u32, f64) {
     crate::screens::index_for_rect(screens, rect).map_or_else(
         || (unsafe { CGMainDisplayID() }, 2.0),
@@ -610,7 +587,6 @@ fn display_of(screens: &[crate::screens::Screen], rect: [f64; 4]) -> (u32, f64) 
     )
 }
 
-/// Lists all on-screen normal (`window_layer == 0`) windows in front-to-back order for the Window picker.
 pub fn list_selectable_windows() -> Vec<TargetInfo> {
     let Ok(content) = SCShareableContent::get() else {
         return Vec::new();
@@ -699,7 +675,6 @@ pub fn ensure_external_app_active() {
     }
 }
 
-/// The frontmost app's pid, or the last external one while Scrawl itself is in front.
 pub fn frontmost_external_pid() -> Option<i32> {
     use objc2_app_kit::NSWorkspace;
     let our_pid = std::process::id() as i32;
@@ -736,8 +711,6 @@ pub fn frontmost_app_info() -> Option<(i32, String, Option<String>)> {
     None
 }
 
-/// The ScreenCaptureKit sampler: the recording stream writes `recording.mp4` while candidate
-/// screenshots are taken every `buffer.interval()` (or at once when urgent).
 pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
     let Sampler {
         target: sampler_target,
@@ -753,8 +726,6 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
-    // Keep SCK initialization, capture and teardown on the owning worker.
-    // stop() joins even if it arrives while setup is still in progress.
     let (stream, recording_output, video_path, filter) = setup_sck_capture(
         &sampler_target,
         video_output_path,
@@ -782,7 +753,6 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
         if prompts.check(started_at) {
-            // Frames since the last look may show the prompt.
             thread_frames
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -795,8 +765,6 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
             if let Some((new_filter, _)) =
                 build_sck_filter_and_config(&sampler_target, &cur_excluded)
             {
-                // The recording must hide the same windows as the candidates, or
-                // keyframes decoded from it could show Scrawl's own overlays.
                 if let Some(ref stream) = stream
                     && let Err(error) = stream.update_content_filter(&new_filter)
                 {
@@ -852,7 +820,6 @@ fn build_sck_filter_and_config(
     let content = match SCShareableContent::get() {
         Ok(c) => c,
         Err(err) => {
-            // Screen Recording is asked for in onboarding, never mid-capture.
             scrawl_log(format!(
                 "SCShareableContent::get() failed: {err:?} (screen recording granted: {})",
                 screen_capture_granted()
@@ -875,8 +842,6 @@ fn build_sck_filter_and_config(
         .find(|d| d.display_id() == target.display_id)
         .or_else(|| content.displays().into_iter().next())
     {
-        // Exclude Scrawl's floating HUD pill and Metal overlay windows by explicit window ID
-        // (and any non-layer-0 Scrawl panels), while keeping Scrawl's normal Review window visible.
         let excluded_overlays: Vec<SCWindow> = content
             .windows()
             .into_iter()
@@ -899,8 +864,6 @@ fn build_sck_filter_and_config(
         None
     }?;
 
-    // Full-screen captures get auto-cropped to a window or region afterwards (`scrawl autocrop`),
-    // so they need enough pixels for a crop to a quarter of the screen to stay sharp.
     let long_edge = if target.mode == CaptureMode::Display {
         2560.0
     } else {
@@ -916,7 +879,6 @@ fn sck_config(target: &TargetInfo, long_edge: f64) -> SCStreamConfiguration {
         .with_height(height)
         .with_shows_cursor(true);
     if target.mode == CaptureMode::Region {
-        // `sourceRect` is in the display's own points, not global ones.
         let b = core_graphics::display::CGDisplay::new(target.display_id).bounds();
         let display = [b.origin.x, b.origin.y, b.size.width, b.size.height];
         let area = [
@@ -935,8 +897,6 @@ fn sck_config(target: &TargetInfo, long_edge: f64) -> SCStreamConfiguration {
     config
 }
 
-/// Starts the recording stream; returns it with the filter for candidate screenshots. Stores
-/// when the recording started (ms since `started_at`) into `video_offset_ms`.
 fn setup_sck_capture(
     target: &TargetInfo,
     video_output_path: Option<PathBuf>,
@@ -963,8 +923,6 @@ fn setup_sck_capture(
             && let Ok(stream) = SCStream::new(&filter, &config)
             && stream.add_recording_output(&rec_output).is_ok()
         {
-            // The movie's clock starts while `start_capture` runs; its midpoint is the closest
-            // estimate this side of the recording delegate.
             let before = started_at.elapsed();
             if stream.start_capture().is_ok() {
                 let after = started_at.elapsed();
@@ -1007,17 +965,14 @@ fn capture_sck_frame(
 struct SystemPrompts {
     frame: Option<crate::model::TargetFrame>,
     ids: Vec<u32>,
-    /// Which of `ids` the content filter leaves out.
     hidden: Vec<u32>,
     checked: Option<Instant>,
-    /// The capture time of the last look that found nothing new.
     clear_until_ms: u64,
 }
 
 impl SystemPrompts {
     fn new(target: &TargetInfo) -> Self {
         Self {
-            // A single window's capture never shows a prompt.
             frame: target.window_id.is_none().then_some(target.frame),
             ids: Vec::new(),
             hidden: Vec::new(),
@@ -1026,8 +981,6 @@ impl SystemPrompts {
         }
     }
 
-    /// Looks again (four times a second for the first 10 s, then every second). Returns whether
-    /// a prompt appeared since the last look.
     fn check(&mut self, started_at: Instant) -> bool {
         let Some(frame) = self.frame else {
             return false;
@@ -1054,13 +1007,11 @@ impl SystemPrompts {
         appeared
     }
 
-    /// A prompt is on screen that the recording can't leave out.
     fn showing(&self) -> bool {
         self.ids.iter().any(|id| !self.hidden.contains(id))
     }
 }
 
-/// Which of `ids` ScreenCaptureKit lists (and so can leave out of a recording).
 fn sck_lists_windows(ids: &[u32]) -> Vec<u32> {
     if ids.is_empty() {
         return Vec::new();
@@ -1184,7 +1135,6 @@ fn install_mouse_monitor(telemetry: Arc<SharedCaptureTelemetry>) -> bool {
     monitor.map(std::mem::forget).is_some()
 }
 
-/// A mouse button or scroll in another app, from the mouse monitor (main thread).
 fn mouse_event(telemetry: &SharedCaptureTelemetry, event: EventRef) {
     if !telemetry.active.load(Ordering::Acquire) {
         return;
@@ -1196,7 +1146,6 @@ fn mouse_event(telemetry: &SharedCaptureTelemetry, event: EventRef) {
     let t_ms = telemetry.elapsed_ms();
     let loc = unsafe { CGEventGetLocation(event) };
     match event_type {
-        // A ⇧-press is never a click: a ⇧-click drops a pin, a ⇧-drag is ink (the poller's).
         EVENT_LEFT_MOUSE_DOWN | EVENT_RIGHT_MOUSE_DOWN => {
             if !pure_shift {
                 telemetry.pointer_down(t_ms, loc.x, loc.y);
@@ -1236,8 +1185,6 @@ fn mouse_event(telemetry: &SharedCaptureTelemetry, event: EventRef) {
     }
 }
 
-/// Stops the key tap (Accessibility was turned off). The port and its callback's `Arc` are left
-/// alive: `check_key_tap` may still hold the old pointer.
 fn stop_key_tap(telemetry: &SharedCaptureTelemetry) {
     scrawl_log("Accessibility is off; stopping the key tap");
     let tap = telemetry.tap_port.swap(0, Ordering::AcqRel) as *mut c_void;
@@ -1265,9 +1212,16 @@ fn spawn_key_tap(telemetry: Arc<SharedCaptureTelemetry>) {
             let user_info = Arc::into_raw(Arc::clone(&telemetry))
                 .cast_mut()
                 .cast::<c_void>();
-            // tap = 1 (kCGSessionEventTap), place = 1 (kCGTailAppendEventTap),
-            // options = 0 (kCGEventTapOptionDefault).
-            let tap = unsafe { CGEventTapCreate(1, 1, 0, mask, key_tap_callback, user_info) };
+            let tap = unsafe {
+                CGEventTapCreate(
+                    K_CG_SESSION_EVENT_TAP,
+                    K_CG_TAIL_APPEND_EVENT_TAP,
+                    K_CG_EVENT_TAP_OPTION_DEFAULT,
+                    mask,
+                    key_tap_callback,
+                    user_info,
+                )
+            };
             scrawl_log(format!(
                 "key tap: CGEventTapCreate -> {tap:p} (Accessibility {})",
                 if accessibility_granted() { "on" } else { "off" }
@@ -1310,7 +1264,6 @@ fn spawn_key_tap(telemetry: Arc<SharedCaptureTelemetry>) {
     }
 }
 
-/// Key presses in any app, from the key tap. Always returns the event unchanged.
 unsafe extern "C" fn key_tap_callback(
     _proxy: *mut c_void,
     event_type: u32,
@@ -1340,7 +1293,6 @@ unsafe extern "C" fn key_tap_callback(
     let shift = (flags & FLAG_SHIFT) != 0;
     let keycode = unsafe { CGEventGetIntegerValueField(event, KEYBOARD_EVENT_KEYCODE) } as u16;
     if telemetry.matches_shortcut(keycode, cmd, ctrl, alt, shift) {
-        // Holding S repeats the key; only a fresh press switches modes.
         if unsafe { CGEventGetIntegerValueField(event, KEYBOARD_EVENT_AUTOREPEAT) } == 0 {
             telemetry.emit_capture_shortcut();
         }
@@ -1357,7 +1309,6 @@ unsafe extern "C" fn key_tap_callback(
     if cmd && !ctrl && !alt && !shift && (keycode == layout_z_keycode() || keycode == KEY_Z) {
         let _ = telemetry.ui_sender.try_send(LiveOverlayEvent::UndoStroke);
     } else if cmd || ctrl {
-        // Only log modifier-chord shortcuts, never ordinary typing or secrets.
         if let Some(key_name) = shortcut_key_name(keycode) {
             let mut chord = String::new();
             if ctrl {
@@ -1519,23 +1470,18 @@ fn run_global_hid_poller(telemetry: Arc<SharedCaptureTelemetry>) {
         );
 
         let pure_shift = shift && !cmd && !ctrl && !alt && !await_shift_release;
-        // Hold Shift + move cursor inside the capture target = draw a persistent stroke.
         track_shift_ink(&telemetry, (loc.x, loc.y), pure_shift, prev_shift_ink);
 
         prev_shift_ink = pure_shift;
     }
 }
 
-/// The key of a logged shortcut as the user's keyboard layout labels it (Dvorak's ⌘B, not the
-/// QWERTY ⌘N at the same position).
 fn shortcut_key_name(keycode: u16) -> Option<String> {
     let _ = init_keyboard_layout_map();
     let chars = LAYOUT_KEY_CHARS.get();
     key_name(keycode, |code| chars.and_then(|c| c.get(&code).copied()))
 }
 
-/// Keys that type no character are named the same on every layout; the rest come from
-/// `layout_char` (what ⌘ + the key types), else from the ANSI QWERTY positions.
 fn key_name(keycode: u16, layout_char: impl Fn(u16) -> Option<char>) -> Option<String> {
     let fixed = match keycode {
         36 | 76 => "↩",
@@ -1588,7 +1534,6 @@ mod tests {
 
     #[test]
     fn shortcut_keys_are_named_by_the_layout_not_their_qwerty_position() {
-        // Dvorak puts B where QWERTY has N (45) and T where QWERTY has K (40).
         let dvorak = |code: u16| match code {
             45 => Some('b'),
             40 => Some('t'),
@@ -1598,7 +1543,6 @@ mod tests {
         assert_eq!(key_name(45, dvorak).as_deref(), Some("B"));
         assert_eq!(key_name(40, dvorak).as_deref(), Some("T"));
         assert_eq!(key_name(13, dvorak).as_deref(), Some(","));
-        // Keys that type nothing keep fixed names whatever the layout says.
         let odd = |_| Some('x');
         assert_eq!(key_name(36, odd).as_deref(), Some("↩"));
         assert_eq!(key_name(123, odd).as_deref(), Some("←"));
@@ -1618,8 +1562,6 @@ mod tests {
         assert_eq!(key_name(200, none), None);
     }
 
-    /// The mouse monitor's AppKit calls pass objc2's encoding checks (which debug builds, the
-    /// installed app included, run on every message), and a monitored click is recorded.
     #[test]
     fn the_mouse_monitor_reads_cg_events_from_appkit_events() {
         use objc2::msg_send;
@@ -1666,7 +1608,6 @@ mod tests {
         );
     }
 
-    /// A left click from the mouse monitor: down at `from` with `flags`, up at `to` with `up_flags`.
     fn click(t: &SharedCaptureTelemetry, from: (f64, f64), to: (f64, f64), flags: [u64; 2]) {
         for (kind, (x, y), flags) in [
             (EVENT_LEFT_MOUSE_DOWN, from, flags[0]),
@@ -1693,18 +1634,13 @@ mod tests {
         telemetry
     }
 
-    /// Issue #9: ⇧-click is documented to drop a numbered pin, but the mouse monitor skipped
-    /// every ⇧ press (as ink) and nothing else made pins, so none ever landed.
     #[test]
     fn a_shift_click_drops_numbered_pins_and_is_not_a_click() {
         let telemetry = session(1000.0, 1000.0);
         let shift = [FLAG_SHIFT; 2];
-        // A few points of trackpad jitter.
         click(&telemetry, (100.0, 200.0), (103.0, 202.0), shift);
         click(&telemetry, (500.0, 500.0), (500.0, 500.0), shift);
-        // ⇧ let go before the button still drops the pin.
         click(&telemetry, (700.0, 300.0), (700.0, 300.0), [FLAG_SHIFT, 0]);
-        // A ⇧-drag is ink (the poller's), not a pin; ⇧ with ⌘ is neither.
         click(&telemetry, (100.0, 800.0), (300.0, 800.0), shift);
         let cmd_shift = [FLAG_SHIFT | FLAG_COMMAND; 2];
         click(&telemetry, (900.0, 900.0), (900.0, 900.0), cmd_shift);
@@ -1724,7 +1660,6 @@ mod tests {
         );
         let shape = crate::sketch::shape_of(&strokes[0]);
         assert_eq!(shape, crate::model::Shape::Pin);
-        // Only the ⌘⇧-click is an ordinary click.
         assert!(
             matches!(events[..], [InteractionEvent::Click { x, .. }] if (x - 0.9).abs() < 1e-3),
             "{events:?}"

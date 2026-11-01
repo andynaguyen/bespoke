@@ -1,8 +1,3 @@
-//! Delivers backend events to views. The backend queues messages on the
-//! `AppHandle` channel from any thread; a foreground task drains it, runs
-//! main-thread calls, and re-emits events from the [`EventBus`] entity that
-//! views subscribe to.
-
 use gpui::{App, AppContext, Entity, EventEmitter, Global};
 
 use crate::app_handle::{AppEvent, UiMessage};
@@ -33,7 +28,6 @@ pub fn init(messages: async_channel::Receiver<UiMessage>, cx: &mut App) {
     .detach();
 }
 
-/// The bus to subscribe to: `cx.subscribe(&event_bus(cx), ...)`.
 pub fn event_bus(cx: &App) -> Entity<EventBus> {
     cx.global::<GlobalEventBus>().0.clone()
 }

@@ -13,7 +13,6 @@ struct LaserUniforms {
     float constrain_rect;
     float _pad1;
     float4 target_rect;
-    // x: 1 when a full-screen recording started straight from the shortcut (no picker).
     float4 glow;
     uint tile_cols;
     uint tile_rows;
@@ -21,9 +20,8 @@ struct LaserUniforms {
     float _pad2;
 };
 
-// Each segment connects A -> B in logical screen points.
-// kind == 0.0: tapered laser segment (w0..w1 = combined arc + time weight 0..1)
-// kind == 1.0: persistent ink segment (w0..w1 = simulated pressure scale)
+constant float SEGMENT_LASER = 0.0;
+
 struct PathSegment {
     float2 a;
     float2 b;
@@ -61,10 +59,8 @@ fragment float4 laser_fragment(
     constant LaserUniforms &u [[buffer(0)]],
     const device PathSegment *segments [[buffer(1)]],
     const device PinMarker *pins [[buffer(2)]],
-    // `tile_cols * tile_rows + 1` offsets, then each tile's segment indices (`bin_segments`).
     const device uint *tiles [[buffer(3)]]
 ) {
-    // Pixel position in logical screen points (top-left origin).
     float2 p = (in.uv * u.resolution) / max(u.scale, 1.0);
 
     float3 laser_red = float3(1.0, 0.16, 0.19);
@@ -90,7 +86,7 @@ fragment float4 laser_fragment(
         float d = length(p - closest);
         float w = clamp(mix(seg.w0, seg.w1, h), 0.0, 1.25);
 
-        if (seg.kind < 0.5) {
+        if (seg.kind == SEGMENT_LASER) {
             if (w <= 0.002) {
                 continue;
             }
@@ -106,7 +102,6 @@ fragment float4 laser_fragment(
                 laser_glow_cov = max(laser_glow_cov, glow);
             }
         } else {
-            // Simple tldraw-style thin red marker stroke (~4.5px wide, smooth anti-aliased edge, fades out after release).
             float r = 2.25 * clamp(w, 0.55, 1.15);
             if (d < r + 2.0) {
                 float fill = smoothstep(r + 0.70, max(0.0, r - 0.70), d) * clamp(seg.width, 0.0, 1.0);
@@ -115,7 +110,6 @@ fragment float4 laser_fragment(
         }
     }
 
-    // Pin markers
     uint pcount = min(u.pin_count, 64u);
     for (uint i = 0; i < pcount; ++i) {
         PinMarker pin = pins[i];
@@ -128,7 +122,6 @@ fragment float4 laser_fragment(
         }
     }
 
-    // Subtle red marker dot at the cursor tip while Shift is held.
     if (u.tip_active > 0.01) {
         float d_tip = length(p - u.tip_pos);
         if (d_tip < 5.0) {
@@ -139,8 +132,6 @@ fragment float4 laser_fragment(
 
     float4 out = float4(0.0);
 
-    // Smooth 240ms transition from the picker's exact border/dim geometry into active recording.
-    // `u.tail_duration` carries `picker_fade` (0..1 during the initial 150ms picker open, 1.0 during recording).
     float picker_fade = clamp(u.tail_duration, 0.0, 1.0);
     float t_intro = clamp(u.now_sec / 0.24, 0.0, 1.0);
     float intro_ease = 1.0 - pow(1.0 - t_intro, 3.0);
@@ -159,7 +150,6 @@ fragment float4 laser_fragment(
         float2 q = abs(p - box_center) - half_size;
         float sdf = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - corner_r;
 
-        // 1. Outside the target rect (`sdf > 0.0`): 0.32 dim during picker -> eases to 0.22 during recording.
         float out_cov = clamp(sdf + 0.5, 0.0, 1.0);
         if (out_cov > 0.001) {
             float dim_a = out_cov * mix(0.32, 0.22, intro_ease) * picker_fade;
@@ -167,7 +157,6 @@ fragment float4 laser_fragment(
             out.a = dim_a;
         }
 
-        // 2. Inside the selected window (`sdf <= 0.0`): dissolve the picker's blue tint (`0x3b5cf621`).
         float in_cov = 1.0 - out_cov;
         if (in_cov > 0.001 && is_window && intro_fade > 0.002) {
             float fill_a = in_cov * 0.13 * intro_fade * picker_fade;
@@ -176,11 +165,7 @@ fragment float4 laser_fragment(
             out.a = fill_a + out.a * (1.0 - fill_a);
         }
 
-        // 3. Inset border (`sdf in [-border_w, 0.0]`): rendered by this exact same Metal layer during
-        //    BOTH Selecting (`now_sec == 0`) and Recording (`now_sec > 0`), so there is zero window swap or jump.
-        //    (`is_device` already renders its own titanium PhoneCaseView bezel.)
         if (!is_device) {
-            // Bespoke: while recording, the border becomes the live red ring its capsule uses.
             float border_w = is_window ? 2.0 : mix(1.5, 2.0, intro_ease);
             float border_cov = clamp(border_w + 0.5 + sdf, 0.0, 1.0) * clamp(0.5 - sdf, 0.0, 1.0);
             if (border_cov > 0.001) {
@@ -192,12 +177,9 @@ fragment float4 laser_fragment(
             }
         }
     } else if (u._pad1 < -0.0001) {
-        // Picker open before any drag starts: uniform 0.32 * picker_fade dim.
         out.rgb = float3(0.0);
         out.a = 0.32 * clamp(-u._pad1, 0.0, 1.0);
     } else if (u.glow.x > 0.5) {
-        // Full-screen recording started from the shortcut: a soft red glow along the display's
-        // edges rises in 0.12s and is gone by 1.1s, so the start is visible without the picker.
         float env = smoothstep(0.0, 0.12, u.now_sec) * (1.0 - smoothstep(0.35, 1.1, u.now_sec));
         if (env > 0.002) {
             float2 lo = u.target_rect.xy;
@@ -207,12 +189,10 @@ fragment float4 laser_fragment(
             out.a = exp(-d / 22.0) * 0.45 * env;
         }
     } else if (intro_fade > 0.002) {
-        // Full-screen recording: simple 0.15s dim fade out.
         out.rgb = float3(0.0);
         out.a = 0.32 * intro_fade;
     }
 
-    // 1. Composite persistent ink (white halo + red fill)
     if (ink_halo_cov > 0.001) {
         float a = ink_halo_cov * 0.82;
         out.rgb = float3(1.0) * a + out.rgb * (1.0 - a);
@@ -225,7 +205,6 @@ fragment float4 laser_fragment(
         out.a = a + out.a * (1.0 - a);
     }
 
-    // 2. Composite optical laser (soft atmospheric bloom + anti-aliased ruby ribbon + white-hot core)
     float laser_alpha = clamp(laser_glow_cov * 0.42 + laser_body_cov * 0.88 + laser_core_cov * 0.95, 0.0, 1.0);
     if (laser_alpha > 0.002) {
         float3 col = mix(laser_red, laser_hot, clamp(laser_core_cov * 0.92, 0.0, 1.0));

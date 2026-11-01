@@ -1,6 +1,3 @@
-//! A transcription model card (`onboarding/ModelCard.tsx`), used by
-//! onboarding and the Models page.
-
 use std::rc::Rc;
 use std::sync::LazyLock;
 
@@ -21,19 +18,15 @@ pub enum CardStatus {
     Downloadable,
     Downloading,
     Verifying,
-    Extracting,
     Switching,
     Active,
     Available,
 }
 
-/// A blob (Url-sourced) model, kept runnable but no longer the advertised
-/// download.
 pub fn is_legacy(model: &ModelInfo) -> bool {
     matches!(model.source, ModelSource::Url { .. })
 }
 
-/// GGUF quantization label from the filename, e.g. `Q8_0`.
 fn quant_label(filename: &str) -> Option<String> {
     static PATTERN: LazyLock<regex::Regex> = LazyLock::new(|| {
         regex::Regex::new(r"(?i)[._-](IQ\d+_\w+|Q\d+(?:_\w+)?|F16|BF16|F32)\.gguf$").unwrap()
@@ -90,7 +83,6 @@ impl ModelCard {
         self
     }
 
-    /// Download percentage and speed in MiB/s while downloading.
     pub fn progress(mut self, percent: Option<f64>, speed: Option<f64>) -> Self {
         self.progress = percent;
         self.speed = speed;
@@ -173,7 +165,6 @@ fn chip(
         .child(text)
 }
 
-/// A full-width accent bar pulsing while verifying or extracting.
 fn busy_block(label: SharedString, id: String, cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
@@ -532,14 +523,6 @@ impl RenderOnce for ModelCard {
                 busy_block(
                     t("modelSelector.verifyingGeneric"),
                     format!("verify-{}", model.id),
-                    cx,
-                )
-                .into_any_element(),
-            ),
-            CardStatus::Extracting => Some(
-                busy_block(
-                    t("modelSelector.extractingGeneric"),
-                    format!("extract-{}", model.id),
                     cx,
                 )
                 .into_any_element(),

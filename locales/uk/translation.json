@@ -120,7 +120,6 @@
     "streaming": "Потокове",
     "active": "Активна",
     "verifyingGeneric": "Перевірка...",
-    "extractingGeneric": "Розпакування...",
     "downloading": "Завантаження {{percentage}}%",
     "deleteModel": "Видалити {{modelName}}",
     "switching": "Перемикання...",
@@ -140,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Комбінації клавіш",
-        "description": "Налаштуйте клавіатурні скорочення для запуску запису мовлення в текст",
-        "loading": "Завантаження скорочень...",
-        "none": "Скорочення не налаштовані",
-        "notFound": "Скорочення не знайдено",
-        "pressKeys": "Натисніть клавіші...",
         "bindings": {
           "transcribe": {
             "name": "Гаряча клавіша транскрипції",

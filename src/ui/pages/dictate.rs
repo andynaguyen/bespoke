@@ -1,6 +1,3 @@
-//! The Dictate page (`customize/`): the dictionary of custom words and text
-//! snippets, per-app writing style, the History tab, and the Settings tab.
-
 use gpui::{
     div, prelude::*, px, rems, AnyView, App, Context, Entity, FontWeight, Pixels, SharedString,
     Subscription, Window,
@@ -24,13 +21,10 @@ use super::history::HistoryPage;
 use super::rows::set;
 use super::PageLayout;
 
-/// The longest word or snippet trigger.
 const MAX_PHRASE_LENGTH: usize = 50;
 const MAX_TEXT_LENGTH: usize = 4000;
-/// Tailwind's `@2xl` container breakpoint, 42rem at the 15px root.
 const STYLE_CARDS_WIDE: f32 = 42. * 15.;
 
-/// Strips `< > " '`, collapses whitespace and trims, like the React form.
 fn normalize_word(word: &str) -> String {
     word.chars()
         .filter(|c| !matches!(c, '<' | '>' | '"' | '\''))
@@ -40,8 +34,6 @@ fn normalize_word(word: &str) -> String {
         .join(" ")
 }
 
-/// The backend's snippet matching key: whole words, case-insensitive,
-/// letters and digits only.
 fn trigger_key(trigger: &str) -> String {
     trigger
         .split_whitespace()
@@ -86,25 +78,18 @@ fn set_app_styles(rules: Vec<AppStyleRule>, cx: &mut App) {
     );
 }
 
-/// Where a dictionary row is stored. Words and snippets share the Dictionary
-/// tab but stay in separate settings: words steer transcription, and snippets
-/// expand after post-processing, just before the paste.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EntryRef {
     Word(usize),
     Snippet(usize),
 }
 
-/// A dictionary row: a word, or a snippet that writes `text` in place of
-/// `phrase`.
 struct Entry {
     at: EntryRef,
     phrase: String,
     text: Option<String>,
 }
 
-/// Every word and snippet, sorted by phrase. The two lists share no
-/// timestamps, so newest first isn't possible across both.
 fn entries(settings: &AppSettings) -> Vec<Entry> {
     let words = settings
         .custom_words
@@ -129,10 +114,6 @@ fn entries(settings: &AppSettings) -> Vec<Entry> {
     all
 }
 
-/// Whether `phrase` is in the dictionary as anything other than `editing`.
-/// Phrases compare by spelling, case aside. A new snippet also compares
-/// against other triggers by the key they match on, so "my email" and
-/// "My email!" can't both expand.
 fn is_duplicate(
     phrase: &str,
     snippet: bool,
@@ -148,37 +129,25 @@ fn is_duplicate(
     })
 }
 
-/// What the dictionary dialog saves.
 #[derive(Debug, PartialEq)]
 enum Draft {
     Word(String),
     Snippet(Snippet),
 }
 
-/// Puts `draft` in place of the entry at `editing`: in the same slot when it
-/// keeps its kind, otherwise at the end of the other list.
 fn place(
     draft: Draft,
     editing: Option<EntryRef>,
     words: &mut Vec<String>,
     snippets: &mut Vec<Snippet>,
 ) {
-    match editing {
-        Some(EntryRef::Word(index)) if index < words.len() => {
-            words.remove(index);
-        }
-        Some(EntryRef::Snippet(index)) if index < snippets.len() => {
-            snippets.remove(index);
-        }
-        _ => {}
-    }
     match (draft, editing) {
-        (Draft::Word(word), Some(EntryRef::Word(index))) => {
-            words.insert(index.min(words.len()), word)
+        (Draft::Word(word), Some(EntryRef::Word(index))) if index < words.len() => {
+            words[index] = word
         }
         (Draft::Word(word), _) => words.push(word),
-        (Draft::Snippet(snippet), Some(EntryRef::Snippet(index))) => {
-            snippets.insert(index.min(snippets.len()), snippet)
+        (Draft::Snippet(snippet), Some(EntryRef::Snippet(index))) if index < snippets.len() => {
+            snippets[index] = snippet
         }
         (Draft::Snippet(snippet), _) => snippets.push(snippet),
     }
@@ -215,10 +184,7 @@ enum Tab {
 pub struct DictatePage {
     store: Entity<SettingsStore>,
     tab: Tab,
-    /// Built when the History tab opens and dropped when it closes, so the
-    /// list reloads each time like a remounted page.
     history: Option<Entity<HistoryPage>>,
-    /// Built when the Settings tab opens and dropped when it closes.
     settings: Option<Entity<DictationSettings>>,
     running_apps: Vec<crate::utils::RunningApp>,
     style_cards_width: Pixels,
@@ -277,7 +243,6 @@ impl DictatePage {
             .child(text)
     }
 
-    /// The trash button that appears when its row is hovered.
     fn remove_button(
         id: SharedString,
         group: SharedString,
@@ -319,7 +284,6 @@ impl DictatePage {
         let empty = all.is_empty();
         let (replacements, words): (Vec<Entry>, Vec<Entry>) =
             all.into_iter().partition(|entry| entry.text.is_some());
-        // `focus-visible:underline`, no ring.
         let entry_focus = FocusVisible::styled(cx, |s| s.underline());
         let section_title = |key: &str| {
             div()
@@ -334,7 +298,6 @@ impl DictatePage {
             let id = entry_id(at);
             let group = SharedString::from(format!("entry-{id}"));
             let handle = focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx);
-            // One line, so a multi-line snippet keeps the row short.
             let preview = entry
                 .text
                 .unwrap_or_default()
@@ -476,8 +439,6 @@ impl DictatePage {
             )
     }
 
-    /// The round remove button over a word chip's top trailing corner, shown
-    /// while the chip is hovered.
     fn remove_badge(
         id: SharedString,
         group: SharedString,
@@ -749,7 +710,7 @@ impl DictatePage {
                             .disabled(updating)
                             .w(rems(14.))
                             .on_open(move |_, cx| {
-                                let apps = crate::commands::get_running_apps();
+                                let apps = crate::utils::running_apps();
                                 let _ = entity.update(cx, |this, cx| {
                                     this.running_apps = apps;
                                     cx.notify();
@@ -763,7 +724,6 @@ impl DictatePage {
                                     return;
                                 };
                                 let mut next = add_rules.clone();
-                                // New rules start Casual.
                                 next.push(AppStyleRule {
                                     bundle_id: app.bundle_id.clone(),
                                     app_name: app.name.clone(),
@@ -859,12 +819,10 @@ impl Render for DictatePage {
     }
 }
 
-/// The replacements card's phrase column, wide enough for most triggers.
 const PHRASE_COLUMN: f32 = 200.;
 const ARROW_COLUMN: f32 = 28.;
 const CHIP_HEIGHT: f32 = 28.;
 
-/// A dictionary entry's id for its focus handle and buttons.
 fn entry_id(at: EntryRef) -> String {
     match at {
         EntryRef::Word(index) => format!("word-{index}"),
@@ -872,7 +830,6 @@ fn entry_id(at: EntryRef) -> String {
     }
 }
 
-/// The last chip in the words, which adds a word.
 fn add_word_chip(cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
@@ -898,7 +855,6 @@ fn add_word_chip(cx: &App) -> impl IntoElement {
         .child(t("settings.dictionary.addWord"))
 }
 
-/// The last row of the replacements card, which adds a replacement.
 fn add_replacement_row(cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
@@ -919,7 +875,6 @@ fn add_replacement_row(cx: &App) -> impl IntoElement {
         .child(t("settings.dictionary.addReplacement"))
 }
 
-/// What the entry dialog opens on.
 #[derive(Clone, Copy)]
 enum Target {
     NewWord,
@@ -933,8 +888,6 @@ fn open_entry_dialog(target: Target, window: &mut Window, cx: &mut App) {
     });
 }
 
-/// Opens the Add replacement dialog, or Add word for `word`, for dev
-/// snapshots.
 #[cfg(debug_assertions)]
 pub(super) fn dev_open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
     let target = if word {
@@ -945,8 +898,6 @@ pub(super) fn dev_open_entry_dialog(word: bool, window: &mut Window, cx: &mut Ap
     open_entry_dialog(target, window, cx);
 }
 
-/// Adds or edits a word, which has only its spelling, or a snippet, which
-/// also needs the text to write. Enter in the phrase field saves.
 pub struct EntryDialog {
     editing: Option<EntryRef>,
     snippet: bool,
@@ -1021,8 +972,6 @@ impl EntryDialog {
         }
     }
 
-    /// What the fields would save, or `None` while they can't be saved, and
-    /// whether the phrase is already taken.
     fn draft(&self, cx: &App) -> (Option<Draft>, bool) {
         let phrase = self.phrase.read(cx).value();
         let snippet = self.snippet;
@@ -1207,7 +1156,7 @@ mod tests {
     }
 
     #[test]
-    fn an_edit_keeps_its_slot_or_moves_to_the_other_list() {
+    fn an_edit_keeps_its_slot_and_a_new_entry_goes_last() {
         let mut words = vec!["IntraFi".to_string(), "Karat".to_string()];
         let mut snippets = vec![snippet("my email", "a@example.com")];
 
@@ -1221,11 +1170,10 @@ mod tests {
 
         place(
             Draft::Snippet(snippet("intrafi", "IntraFi Network")),
-            Some(EntryRef::Word(0)),
+            None,
             &mut words,
             &mut snippets,
         );
-        assert_eq!(words, ["Carat"]);
         assert_eq!(
             snippets,
             [
@@ -1235,12 +1183,12 @@ mod tests {
         );
 
         place(
-            Draft::Word("my email".into()),
+            Draft::Snippet(snippet("my email", "b@example.com")),
             Some(EntryRef::Snippet(0)),
             &mut words,
             &mut snippets,
         );
-        assert_eq!(words, ["Carat", "my email"]);
-        assert_eq!(snippets, [snippet("intrafi", "IntraFi Network")]);
+        assert_eq!(snippets[0], snippet("my email", "b@example.com"));
+        assert_eq!(words, ["IntraFi", "Carat"]);
     }
 }

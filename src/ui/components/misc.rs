@@ -1,6 +1,3 @@
-//! Small primitives: spinners, badges, alerts, the reset button, path display,
-//! progress bars, tooltips and the width tracker.
-
 use std::time::Duration;
 
 use gpui::{
@@ -14,11 +11,9 @@ use super::{icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, Typography};
 use crate::i18n::t;
 use crate::ui::theme::{palette, shadow_lg, tw, Alpha};
 
-/// `animate-spin` spinners.
 pub struct Spinner;
 
 impl Spinner {
-    /// `border-2 border-{color} border-t-transparent rounded-full animate-spin`.
     pub fn ring(size: Rems, color: Hsla) -> impl IntoElement {
         icon("spinner-ring")
             .size(size)
@@ -30,7 +25,6 @@ impl Spinner {
             )
     }
 
-    /// Lucide `Loader2` with `animate-spin`.
     pub fn loader(size: Rems, color: Hsla) -> impl IntoElement {
         icon("loader-circle")
             .size(size)
@@ -43,7 +37,6 @@ impl Spinner {
     }
 }
 
-/// Opacity curve of Tailwind's `animate-pulse` (2s, 1 → 0.5 → 1).
 pub fn pulse_opacity(delta: f32) -> f32 {
     1. - 0.5 * (1. - (delta * std::f32::consts::TAU).cos()) / 2.
 }
@@ -58,7 +51,6 @@ pub enum BadgeVariant {
     Secondary,
 }
 
-/// `ui/Badge.tsx`: a small rounded pill.
 pub fn badge(variant: BadgeVariant, cx: &App) -> gpui::Div {
     let p = palette(cx);
     let (bg, fg) = match variant {
@@ -78,9 +70,7 @@ pub fn badge(variant: BadgeVariant, cx: &App) -> gpui::Div {
         .text_color(fg)
 }
 
-/// `ui/Alert.tsx` with `variant="error"`, the only variant the app uses.
-/// `contained` drops the rounded corners for use inside a card.
-pub fn error_alert(contained: bool, text: impl Into<SharedString>) -> impl IntoElement {
+pub fn error_alert(text: impl Into<SharedString>) -> impl IntoElement {
     div()
         .flex()
         .row_dir()
@@ -88,7 +78,6 @@ pub fn error_alert(contained: bool, text: impl Into<SharedString>) -> impl IntoE
         .gap_3()
         .p_4()
         .bg(tw::red_500().a(0.1))
-        .when(!contained, |el| el.rounded_lg())
         .child(
             icon("circle-alert")
                 .size(rems(1.25))
@@ -99,7 +88,6 @@ pub fn error_alert(contained: bool, text: impl Into<SharedString>) -> impl IntoE
         .child(div().sm_text().text_color(tw::red_400()).child(text.into()))
 }
 
-/// `ui/ResetButton.tsx`: the circular-arrow icon button next to a control.
 pub fn reset_button(
     id: impl Into<ElementId>,
     disabled: bool,
@@ -134,7 +122,6 @@ pub fn reset_button(
         .child(icon("reset").size(px(20.)))
 }
 
-/// `ui/PathDisplay.tsx`: a monospace path with an Open button.
 pub fn path_display(
     id: impl Into<ElementId>,
     path: SharedString,
@@ -174,7 +161,6 @@ pub fn path_display(
         )
 }
 
-/// A rounded progress track with an accent fill, `percent` in 0..=100.
 pub fn progress_track(
     percent: f32,
     width: impl Into<gpui::Length>,
@@ -215,8 +201,6 @@ pub fn width_tracker<T: 'static>(
                     changed
                 })
                 .unwrap_or(false);
-            // `Window::refresh` is a no-op mid-draw, so re-render after this
-            // frame finishes.
             if changed {
                 cx.defer(move |cx| {
                     let _ = entity.update(cx, |_, cx| cx.notify());
@@ -231,8 +215,6 @@ pub fn width_tracker<T: 'static>(
 
 type TooltipBuilder = std::rc::Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 
-/// Hover tooltip, styled like `ui/Tooltip.tsx`. In the main window it is a
-/// glass popup (`ui::popup`).
 pub struct Tooltip {
     build: TooltipBuilder,
 }
@@ -261,8 +243,6 @@ impl Render for Tooltip {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         if crate::ui::popup::hosts(window, cx) {
-            // GPUI places this element at the pointer; the tooltip itself is a
-            // glass popup there that lets clicks through.
             let build = self.build.clone();
             let spec = crate::ui::popup::Spec {
                 placement: crate::ui::popup::Placement::At,

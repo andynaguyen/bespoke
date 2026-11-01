@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Create the self-signed "Bespoke Local Signing" code-signing identity in the
-# login keychain. scripts/install-local.sh signs with it, so macOS keeps the
-# Accessibility and Microphone grants across rebuilds. Run it once per Mac.
 set -euo pipefail
 
 NAME="${BESPOKE_SIGNING_IDENTITY:-Bespoke Local Signing}"

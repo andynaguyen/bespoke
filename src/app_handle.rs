@@ -1,17 +1,3 @@
-//! Process-wide handle shared by the backend managers and the GPUI front end.
-//!
-//! It replaces the Tauri `AppHandle` the managers were written against and
-//! keeps the same method names (`state`, `manage`, `emit`, `path`, `store`),
-//! so the backend reads the same as before. The pieces are:
-//!
-//! - managed state: one `Arc` per type, looked up by `TypeId`;
-//! - events: `emit` serializes the payload to JSON and queues it for the UI
-//!   thread, which forwards it to every view subscribed to the event bus;
-//! - UI calls: `with_ui` queues a closure that runs on the GPUI main thread
-//!   with `&mut gpui::App`, used for window, tray and quit requests;
-//! - paths and the JSON settings store, matching Tauri's on-disk layout so an
-//!   existing install keeps its settings, models and history.
-
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -24,20 +10,16 @@ use serde::Serialize;
 pub const APP_IDENTIFIER: &str = "com.andynguyen.bespoke";
 pub const APP_NAME: &str = "Bespoke";
 
-/// The identifier and name of Handy, the app Bespoke started from. Bespoke
-/// moves folders left under them on first launch.
 pub const LEGACY_IDENTIFIER: &str = "com.pais.handy";
 pub const LEGACY_APP_NAME: &str = "Handy";
 
 pub type Error = anyhow::Error;
 
-/// A message for the UI thread, drained by `ui::event_bus`.
 pub enum UiMessage {
     Event(AppEvent),
     Call(Box<dyn FnOnce(&mut gpui::App) + Send>),
 }
 
-/// An event the backend sent to the UI, with its JSON payload.
 #[derive(Clone, Debug)]
 pub struct AppEvent {
     pub name: String,
@@ -45,7 +27,6 @@ pub struct AppEvent {
 }
 
 impl AppEvent {
-    /// Deserializes the payload, logging and returning `None` on a mismatch.
     pub fn parse<T: serde::de::DeserializeOwned>(&self) -> Option<T> {
         match serde_json::from_value(self.payload.clone()) {
             Ok(value) => Some(value),
@@ -74,13 +55,11 @@ pub struct AppHandle {
 static GLOBAL: OnceLock<AppHandle> = OnceLock::new();
 static MAIN_THREAD: OnceLock<std::thread::ThreadId> = OnceLock::new();
 
-/// True on the thread that created the handle, which is the GPUI main thread.
 pub fn is_main_thread() -> bool {
     MAIN_THREAD.get() == Some(&std::thread::current().id())
 }
 
 impl AppHandle {
-    /// Creates the handle and the receiving end the UI thread drains.
     pub fn new() -> (Self, async_channel::Receiver<UiMessage>) {
         let (tx, rx) = async_channel::unbounded();
         let handle = Self {
@@ -96,8 +75,6 @@ impl AppHandle {
         (handle, rx)
     }
 
-    /// The handle created at startup. Used by UI code, which has no handle
-    /// threaded through it.
     pub fn global() -> &'static AppHandle {
         GLOBAL
             .get()
@@ -108,8 +85,6 @@ impl AppHandle {
         GLOBAL.get()
     }
 
-    /// Stores `value` as managed state. Returns `false` when a value of this
-    /// type was already managed; the existing value is kept, as in Tauri.
     pub fn manage<T: Send + Sync + 'static>(&self, value: T) -> bool {
         let mut state = self.inner.state.write();
         if state.contains_key(&TypeId::of::<T>()) {
@@ -119,8 +94,6 @@ impl AppHandle {
         true
     }
 
-    /// Returns managed state of type `T`. Panics when it was never managed,
-    /// which is a startup-order bug.
     pub fn state<T: Send + Sync + 'static>(&self) -> State<T> {
         self.try_state::<T>().unwrap_or_else(|| {
             panic!(
@@ -135,8 +108,6 @@ impl AppHandle {
         value.downcast::<T>().ok().map(State)
     }
 
-    /// Sends an event to the UI and to backend listeners registered with
-    /// [`AppHandle::listen`].
     pub fn emit<S: Serialize>(&self, event: &str, payload: S) -> Result<(), Error> {
         let event = AppEvent {
             name: event.to_string(),
@@ -158,7 +129,6 @@ impl AppHandle {
             .map_err(|e| anyhow::anyhow!("UI channel closed: {e}"))
     }
 
-    /// Runs `handler` on the emitting thread for every `event`.
     pub fn listen(&self, event: &str, handler: impl Fn(&AppEvent) + Send + Sync + 'static) {
         self.inner
             .listeners
@@ -168,7 +138,6 @@ impl AppHandle {
             .push(Arc::new(handler));
     }
 
-    /// Queues `f` to run on the GPUI main thread.
     pub fn with_ui(&self, f: impl FnOnce(&mut gpui::App) + Send + 'static) {
         if self
             .inner
@@ -180,16 +149,6 @@ impl AppHandle {
         }
     }
 
-    /// Tauri-compatible form of [`AppHandle::with_ui`] for closures that only
-    /// need to be on the main thread (AppKit calls, for example).
-    pub fn run_on_main_thread(&self, f: impl FnOnce() + Send + 'static) -> Result<(), Error> {
-        self.with_ui(move |_| f());
-        Ok(())
-    }
-
-    /// Runs `f` on the main thread and waits for its result. Runs inline when
-    /// already on the main thread. Platform APIs that bind to the main run
-    /// loop (global hotkeys, AppKit) go through here.
     pub fn run_on_main_thread_sync<R: Send + 'static>(
         &self,
         f: impl FnOnce() -> R + Send + 'static,
@@ -205,15 +164,6 @@ impl AppHandle {
             .map_err(|_| anyhow::anyhow!("main thread dropped the call"))
     }
 
-    /// Quits the app. `code` is ignored, as in Tauri's `exit` for code 0.
-    pub fn exit(&self, code: i32) {
-        if code != 0 {
-            log::warn!("exit({code}) requested; GPUI quits with status 0");
-        }
-        self.with_ui(|cx| cx.quit());
-    }
-
-    /// Relaunches the app from the same executable.
     pub fn restart(&self) {
         self.with_ui(|cx| cx.restart());
     }
@@ -226,8 +176,6 @@ impl AppHandle {
         crate::system_clipboard::Clipboard
     }
 
-    /// Opens (or returns the already-open) JSON store at `path`. A relative
-    /// path resolves against the app data directory, like tauri-plugin-store.
     pub fn store(&self, path: impl AsRef<Path>) -> Result<Arc<Store>, Error> {
         let path = path.as_ref();
         let path = if path.is_absolute() {
@@ -245,7 +193,6 @@ impl AppHandle {
     }
 }
 
-/// Managed state returned by [`AppHandle::state`].
 pub struct State<T>(Arc<T>);
 
 impl<T> State<T> {
@@ -261,21 +208,15 @@ impl<T> Deref for State<T> {
     }
 }
 
-/// Where Bespoke keeps its files, in folders named after [`APP_IDENTIFIER`].
 pub struct PathResolver;
 
 impl PathResolver {
-    /// macOS: `~/Library/Application Support/com.andynguyen.bespoke`,
-    /// Windows: `%APPDATA%\com.andynguyen.bespoke`,
-    /// Linux: `~/.local/share/com.andynguyen.bespoke`.
     pub fn app_data_dir(&self) -> Result<PathBuf, Error> {
         dirs::data_dir()
             .map(|dir| dir.join(APP_IDENTIFIER))
             .ok_or_else(|| anyhow::anyhow!("no data directory for this platform"))
     }
 
-    /// macOS: `~/Library/Logs/com.andynguyen.bespoke`, elsewhere
-    /// `<local data>/com.andynguyen.bespoke/logs`.
     pub fn app_log_dir(&self) -> Result<PathBuf, Error> {
         #[cfg(target_os = "macos")]
         let dir = dirs::home_dir().map(|home| home.join("Library/Logs").join(APP_IDENTIFIER));
@@ -284,20 +225,6 @@ impl PathResolver {
         dir.ok_or_else(|| anyhow::anyhow!("no log directory for this platform"))
     }
 
-    pub fn app_config_dir(&self) -> Result<PathBuf, Error> {
-        dirs::config_dir()
-            .map(|dir| dir.join(APP_IDENTIFIER))
-            .ok_or_else(|| anyhow::anyhow!("no config directory for this platform"))
-    }
-
-    pub fn app_cache_dir(&self) -> Result<PathBuf, Error> {
-        dirs::cache_dir()
-            .map(|dir| dir.join(APP_IDENTIFIER))
-            .ok_or_else(|| anyhow::anyhow!("no cache directory for this platform"))
-    }
-
-    /// The directory bundled resources live in. Relative resource paths in
-    /// the code start with `resources/`, as in the Tauri bundle.
     pub fn resource_dir(&self) -> Result<PathBuf, Error> {
         Ok(resource_dir().to_path_buf())
     }
@@ -306,8 +233,6 @@ impl PathResolver {
         let base = match base {
             BaseDirectory::Resource => self.resource_dir()?,
             BaseDirectory::AppData => self.app_data_dir()?,
-            BaseDirectory::AppLog => self.app_log_dir()?,
-            BaseDirectory::AppConfig => self.app_config_dir()?,
         };
         Ok(base.join(path))
     }
@@ -317,15 +242,8 @@ impl PathResolver {
 pub enum BaseDirectory {
     Resource,
     AppData,
-    AppLog,
-    AppConfig,
 }
 
-/// Renames each folder named [`LEGACY_IDENTIFIER`] (data, config, cache and,
-/// on macOS, logs) to [`APP_IDENTIFIER`], so settings, history, recordings
-/// and downloaded models carry over from Handy. A folder moves only while
-/// Bespoke's does not exist yet, so later launches do nothing. Runs before
-/// logging starts, so it returns what happened for the caller to log.
 pub fn migrate_legacy_dirs() -> Vec<String> {
     let mut bases = vec![
         dirs::data_dir(),
@@ -355,9 +273,6 @@ pub fn migrate_legacy_dirs() -> Vec<String> {
     notes
 }
 
-/// Finds the directory that contains `resources/`: next to the executable on
-/// Windows and Linux, `Contents/Resources` in a macOS bundle, and the crate
-/// root during `cargo run`.
 fn resource_dir() -> &'static Path {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| {
@@ -378,8 +293,6 @@ fn resource_dir() -> &'static Path {
     })
 }
 
-/// A JSON key-value file compatible with tauri-plugin-store: a pretty-printed
-/// object of top-level keys. Every `set` writes the file.
 pub struct Store {
     path: PathBuf,
     values: Mutex<serde_json::Map<String, serde_json::Value>>,
@@ -408,29 +321,10 @@ impl Store {
         self.values.lock().get(key).cloned()
     }
 
-    pub fn has(&self, key: &str) -> bool {
-        self.values.lock().contains_key(key)
-    }
-
     pub fn set(&self, key: impl Into<String>, value: serde_json::Value) {
         let mut values = self.values.lock();
         values.insert(key.into(), value);
         self.write(&values);
-    }
-
-    pub fn delete(&self, key: &str) -> bool {
-        let mut values = self.values.lock();
-        let removed = values.remove(key).is_some();
-        if removed {
-            self.write(&values);
-        }
-        removed
-    }
-
-    /// Kept for call sites written against tauri-plugin-store; `set` already
-    /// persists.
-    pub fn save(&self) -> Result<(), Error> {
-        Ok(())
     }
 
     fn write(&self, values: &serde_json::Map<String, serde_json::Value>) {
@@ -440,8 +334,6 @@ impl Store {
         let result = serde_json::to_vec_pretty(values)
             .map_err(anyhow::Error::from)
             .and_then(|bytes| {
-                // Write to a sibling file and rename, so a crash mid-write can
-                // never leave a truncated settings file behind.
                 let tmp = self.path.with_extension("json.tmp");
                 std::fs::write(&tmp, bytes)?;
                 std::fs::rename(&tmp, &self.path)?;

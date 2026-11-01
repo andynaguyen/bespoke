@@ -1,6 +1,3 @@
-//! Setting rows without local state, shared by the Settings and Debug pages.
-//! Each mirrors one component in `src/components/settings/`.
-
 use gpui::{div, prelude::*, rems, AnyElement, App, FontWeight, SharedString};
 
 use crate::app_handle::AppHandle;
@@ -18,8 +15,6 @@ use crate::ui::components::{
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::palette;
 
-/// Writes one setting through the store: applied locally at once, persisted
-/// by `command` on a worker thread.
 pub fn set(
     cx: &mut App,
     key: &'static str,
@@ -33,7 +28,6 @@ fn store(cx: &App) -> &SettingsStore {
     SettingsStore::global(cx).read(cx)
 }
 
-/// A switch row bound to one boolean setting.
 pub fn toggle(
     key: &'static str,
     title: &str,
@@ -48,7 +42,6 @@ pub fn toggle(
         .into_any_element()
 }
 
-/// A dropdown row bound to one setting.
 pub fn dropdown(
     key: &'static str,
     title: &str,
@@ -117,7 +110,6 @@ pub fn shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// Device options with "Default" first, as the React selectors list them.
 fn device_options(devices: &[AudioDevice]) -> Vec<DropdownOption> {
     devices
         .iter()
@@ -132,8 +124,6 @@ fn device_selected(value: &Option<String>) -> SharedString {
     }
 }
 
-/// `"Default"` is stored as `"default"`, which the backend treats as the
-/// system device.
 fn device_value(name: &str) -> String {
     if name == "Default" {
         "default".into()
@@ -144,39 +134,22 @@ fn device_value(name: &str) -> String {
 
 pub fn microphone(s: &AppSettings, cx: &App) -> AnyElement {
     let store = store(cx);
-    let loading = store.audio_devices.is_empty();
-    let disabled = store.is_updating("selected_microphone") || loading;
-    SettingContainer::new(t("settings.sound.microphone.title"))
-        .description(t("settings.sound.microphone.description"))
-        .child(
-            div()
-                .flex()
-                .row_dir()
-                .items_center()
-                .gap_1()
-                .child(
-                    Dropdown::new("selected_microphone", device_options(&store.audio_devices))
-                        .selected(Some(device_selected(&s.selected_microphone)))
-                        .placeholder(if loading {
-                            t("settings.sound.microphone.loading")
-                        } else {
-                            t("settings.sound.microphone.placeholder")
-                        })
-                        .disabled(disabled)
-                        .on_open(|_, cx| {
-                            SettingsStore::global(cx)
-                                .update(cx, |s, cx| s.refresh_audio_devices(cx))
-                        })
-                        .on_select(|name, _, cx| set_microphone(name.to_string(), cx)),
-                )
-                .child(reset_button(
-                    "reset-microphone",
-                    disabled,
-                    |_, _, cx| set_microphone("Default".into(), cx),
-                    cx,
-                )),
-        )
-        .into_any_element()
+    device_row(
+        DeviceRow {
+            id: "selected_microphone",
+            reset_id: "reset-microphone",
+            title: "settings.sound.microphone.title",
+            description: "settings.sound.microphone.description",
+            loading: "settings.sound.microphone.loading",
+            placeholder: "settings.sound.microphone.placeholder",
+            devices: &store.audio_devices,
+            selected: &s.selected_microphone,
+            disabled: false,
+            refresh: SettingsStore::refresh_audio_devices,
+        },
+        set_microphone,
+        cx,
+    )
 }
 
 fn set_microphone(name: String, cx: &mut App) {
@@ -197,70 +170,87 @@ fn set_microphone(name: String, cx: &mut App) {
 
 pub fn output_device(s: &AppSettings, disabled: bool, cx: &App) -> AnyElement {
     let store = store(cx);
-    let loading = store.output_devices.is_empty();
-    let blocked = disabled || store.is_updating("selected_output_device") || loading;
-    let select = |name: String, cx: &mut App| {
-        let value = device_value(&name);
-        let stored = (value != "default").then(|| value.clone());
-        set(
-            cx,
-            "selected_output_device",
-            move |s| s.selected_output_device = stored,
-            move |app| crate::commands::audio::set_selected_output_device(app, value),
-        );
-    };
-    SettingContainer::new(t("settings.sound.outputDevice.title"))
-        .description(t("settings.sound.outputDevice.description"))
-        .disabled(disabled)
-        .child(
-            div()
-                .flex()
-                .row_dir()
-                .items_center()
-                .gap_1()
-                .child(
-                    Dropdown::new(
-                        "selected_output_device",
-                        device_options(&store.output_devices),
-                    )
-                    .selected(Some(device_selected(&s.selected_output_device)))
-                    .placeholder(if loading {
-                        t("settings.sound.outputDevice.loading")
-                    } else {
-                        t("settings.sound.outputDevice.placeholder")
-                    })
-                    .disabled(blocked)
-                    .on_open(|_, cx| {
-                        SettingsStore::global(cx).update(cx, |s, cx| s.refresh_output_devices(cx))
-                    })
-                    .on_select(move |name, _, cx| select(name.to_string(), cx)),
-                )
-                .child(reset_button(
-                    "reset-output",
-                    blocked,
-                    move |_, _, cx| select("Default".into(), cx),
-                    cx,
-                )),
-        )
-        .into_any_element()
+    device_row(
+        DeviceRow {
+            id: "selected_output_device",
+            reset_id: "reset-output",
+            title: "settings.sound.outputDevice.title",
+            description: "settings.sound.outputDevice.description",
+            loading: "settings.sound.outputDevice.loading",
+            placeholder: "settings.sound.outputDevice.placeholder",
+            devices: &store.output_devices,
+            selected: &s.selected_output_device,
+            disabled,
+            refresh: SettingsStore::refresh_output_devices,
+        },
+        |name, cx| {
+            let value = device_value(&name);
+            let stored = (value != "default").then(|| value.clone());
+            set(
+                cx,
+                "selected_output_device",
+                move |s| s.selected_output_device = stored,
+                move |app| crate::commands::audio::set_selected_output_device(app, value),
+            );
+        },
+        cx,
+    )
 }
 
 pub fn clamshell_microphone(s: &AppSettings, cx: &App) -> AnyElement {
     let store = store(cx);
-    let loading = store.audio_devices.is_empty();
-    let disabled = store.is_updating("clamshell_microphone") || loading;
-    let select = |name: String, cx: &mut App| {
-        let value = device_value(&name);
-        let stored = (value != "default").then(|| value.clone());
-        set(
-            cx,
-            "clamshell_microphone",
-            move |s| s.clamshell_microphone = stored,
-            move |app| crate::commands::audio::set_clamshell_microphone(app, value),
-        );
-    };
-    SettingContainer::new(t("settings.debug.clamshellMicrophone.title"))
-        .description(t("settings.debug.clamshellMicrophone.description"))
+    device_row(
+        DeviceRow {
+            id: "clamshell_microphone",
+            reset_id: "reset-clamshell",
+            title: "settings.debug.clamshellMicrophone.title",
+            description: "settings.debug.clamshellMicrophone.description",
+            loading: "common.loading",
+            placeholder: "settings.sound.microphone.placeholder",
+            devices: &store.audio_devices,
+            selected: &s.clamshell_microphone,
+            disabled: false,
+            refresh: SettingsStore::refresh_audio_devices,
+        },
+        |name, cx| {
+            let value = device_value(&name);
+            let stored = (value != "default").then(|| value.clone());
+            set(
+                cx,
+                "clamshell_microphone",
+                move |s| s.clamshell_microphone = stored,
+                move |app| crate::commands::audio::set_clamshell_microphone(app, value),
+            );
+        },
+        cx,
+    )
+}
+
+struct DeviceRow<'a> {
+    id: &'static str,
+    reset_id: &'static str,
+    title: &'static str,
+    description: &'static str,
+    loading: &'static str,
+    placeholder: &'static str,
+    devices: &'a [AudioDevice],
+    selected: &'a Option<String>,
+    disabled: bool,
+    refresh: fn(&mut SettingsStore, &mut gpui::Context<SettingsStore>),
+}
+
+fn device_row(
+    row: DeviceRow,
+    select: impl Fn(String, &mut App) + Clone + 'static,
+    cx: &App,
+) -> AnyElement {
+    let loading = row.devices.is_empty();
+    let blocked = row.disabled || store(cx).is_updating(row.id) || loading;
+    let refresh = row.refresh;
+    let reset = select.clone();
+    SettingContainer::new(t(row.title))
+        .description(t(row.description))
+        .disabled(row.disabled)
         .child(
             div()
                 .flex()
@@ -268,24 +258,21 @@ pub fn clamshell_microphone(s: &AppSettings, cx: &App) -> AnyElement {
                 .items_center()
                 .gap_1()
                 .child(
-                    Dropdown::new("clamshell_microphone", device_options(&store.audio_devices))
-                        .selected(Some(device_selected(&s.clamshell_microphone)))
-                        .placeholder(if loading {
-                            t("common.loading")
+                    Dropdown::new(row.id, device_options(row.devices))
+                        .selected(Some(device_selected(row.selected)))
+                        .placeholder(t(if loading {
+                            row.loading
                         } else {
-                            t("settings.sound.microphone.placeholder")
-                        })
-                        .disabled(disabled)
-                        .on_open(|_, cx| {
-                            SettingsStore::global(cx)
-                                .update(cx, |s, cx| s.refresh_audio_devices(cx))
-                        })
+                            row.placeholder
+                        }))
+                        .disabled(blocked)
+                        .on_open(move |_, cx| SettingsStore::global(cx).update(cx, refresh))
                         .on_select(move |name, _, cx| select(name.to_string(), cx)),
                 )
                 .child(reset_button(
-                    "reset-clamshell",
-                    disabled,
-                    move |_, _, cx| select("Default".into(), cx),
+                    row.reset_id,
+                    blocked,
+                    move |_, _, cx| reset("Default".into(), cx),
                     cx,
                 )),
         )
@@ -442,8 +429,6 @@ pub fn paste_method_options(current: PasteMethod) -> Vec<DropdownOption> {
             &[("modifier", &modifier)],
         ),
     )];
-    // Direct typing is unsupported on macOS; it stays listed (disabled) only
-    // when an older install still has it selected.
     if !mac || current == PasteMethod::Direct {
         options.push(
             DropdownOption::new("direct", t("settings.advanced.pasteMethod.options.direct"))
@@ -663,7 +648,6 @@ pub fn theme(s: &AppSettings, cx: &App) -> AnyElement {
                 "dark" => Theme::Dark,
                 _ => Theme::System,
             };
-            // Repaint right away, before the write lands.
             crate::ui::theme::apply_theme_setting(theme, cx);
             let value = value.to_string();
             set(
@@ -881,7 +865,6 @@ pub fn show_whats_new(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-/// The running version, and Update or Check Now (`crate::updater`).
 pub fn update_status() -> AnyElement {
     let version = env!("CARGO_PKG_VERSION");
     let enabled = crate::updater::is_enabled();
@@ -920,7 +903,6 @@ pub fn update_status() -> AnyElement {
         .into_any_element()
 }
 
-/// Whether Sparkle checks once a day. Sparkle stores the choice itself.
 pub fn automatic_updates() -> AnyElement {
     ToggleSwitchRow::new(
         "automatic_updates",
@@ -1075,9 +1057,6 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-/// App data or log directory with an Open button. `AppDataDirectory.tsx`
-/// replaces the whole row with its error box; `LogDirectory.tsx` keeps the
-/// title and shows the error in place of the path.
 pub fn directory_row(
     title: &str,
     description: &str,
@@ -1127,8 +1106,6 @@ pub fn directory_row(
         .child(body)
         .into_any_element()
 }
-
-// ---- Debug page rows -------------------------------------------------------
 
 pub fn log_level(s: &AppSettings, cx: &App) -> AnyElement {
     let selected = match s.log_level {
@@ -1449,7 +1426,6 @@ pub fn recording_retention(s: &AppSettings, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// A small header label used above groups of controls, e.g. "Prompt Label".
 pub fn field_label(text: SharedString) -> impl IntoElement {
     div()
         .sm_text()

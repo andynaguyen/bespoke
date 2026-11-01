@@ -1,7 +1,3 @@
-//! Embedded assets served to GPUI: Lucide icons, the logo and release-note
-//! images. Paths match the files under `assets/` (`icons/check.svg`), and
-//! release-note images keep their `/release-notes/...` URL paths.
-
 use std::borrow::Cow;
 
 use gpui::{AssetSource, SharedString};

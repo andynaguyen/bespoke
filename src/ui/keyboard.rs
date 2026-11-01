@@ -1,6 +1,3 @@
-//! Shortcut display formatting, from `src/lib/utils/keyboard.ts`.
-//! Stored bindings are lowercase tokens joined by `+` (`option+shift+space`).
-
 use crate::i18n::t_or;
 
 fn mouse_label(key: &str) -> Option<&'static str> {
@@ -48,7 +45,6 @@ fn capitalize_key(key: &str) -> String {
     if let Some(label) = compound_label(key) {
         return label.into();
     }
-    // Capitalize the first letter of each word.
     let mut out = String::with_capacity(key.len());
     let mut at_word_start = true;
     for ch in key.chars() {
@@ -73,7 +69,6 @@ fn format_key_part(part: &str) -> String {
     }
 }
 
-/// `option_left+shift+space` → `Left Option + Shift + Space`.
 pub fn format_key_combination(combination: &str) -> String {
     if combination.is_empty() {
         return String::new();

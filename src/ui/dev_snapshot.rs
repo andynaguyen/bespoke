@@ -1,29 +1,3 @@
-//! Debug-build helper that renders pages and saves PNGs of the settings
-//! window, for checking the UI against the React app without clicking
-//! through it by hand.
-//!
-//! `BESPOKE_DEV_SNAPSHOT=/tmp/shots BESPOKE_DEV_PAGES=dictate,settings:system`
-//! opens each page in turn, writes `<dir>/<page>.png`, then quits. Pages are
-//! sidebar sections (`dictate`, `stats`, `models`, `annotate`, `mcp`,
-//! `debug`, `settings`), `settings:<tab>`, `dictate:<tab>`, `stats:<tab>`, or
-//! `onboarding:accessibility|model`. A `@<px>` suffix, like `debug@900`,
-//! scrolls the page down before capture, and a `#<n>` suffix presses Tab n
-//! times with focus rings shown. After those, `!<key>` presses a key, like
-//! `settings:appearance#2!down` to open the second control's menu.
-//! `toast:<error|info|warning>` shows a sample toast over the current page,
-//! and `dialog:entry` or `dialog:whatsnew` opens that dialog.
-//! `overlay:<kind>` shows the recording overlay with sample data and
-//! captures its window instead (see `ui::overlay::dev_preview`), and
-//! `capsule:<kind>` does the same for Annotate's capsule (see
-//! `annotate::capsule::dev_preview`). `scrawl:choose` opens Annotate's
-//! picker and `scrawl:latest` its latest capture, and both capture the main
-//! display. `annotate:latest` opens the newest capture on the Annotate page.
-//! `BESPOKE_DEV_DESKTOP=1` keeps the desktop and windows behind the target
-//! window in the capture, so glass shows what it refracts. The capture
-//! includes the window's popups and dialogs (`ui::popup`).
-//! `BESPOKE_DEV_THEME=dark|light` forces the palette and `BESPOKE_DEV_LANGUAGE=ar`
-//! the UI language, without saving either.
-//!
 //! macOS only: it captures the window with `CGWindowListCreateImageFromArray`, which
 //! needs no Screen Recording permission for the app's own windows.
 
@@ -34,15 +8,11 @@ use std::time::Duration;
 use gpui::{AnyWindowHandle, App, AsyncApp};
 
 thread_local! {
-    /// Whether the current page is an overlay preview.
     static CAPTURE_OVERLAY: Cell<bool> = const { Cell::new(false) };
-    /// Whether the current page is an Annotate capsule preview.
     static CAPTURE_CAPSULE: Cell<bool> = const { Cell::new(false) };
-    /// Whether the current page captures the whole screen.
     static CAPTURE_SCREEN: Cell<bool> = const { Cell::new(false) };
 }
 
-/// The window the current page draws in.
 fn target_window(cx: &App) -> Option<AnyWindowHandle> {
     #[cfg(target_os = "macos")]
     if CAPTURE_CAPSULE.get() {
@@ -51,11 +21,10 @@ fn target_window(cx: &App) -> Option<AnyWindowHandle> {
     if CAPTURE_OVERLAY.get() {
         crate::ui::overlay::window_handle(cx)
     } else {
-        crate::ui::main_window_handle(cx).map(Into::into)
+        crate::ui::main_window(cx).map(Into::into)
     }
 }
 
-/// Whether a snapshot run was requested.
 pub fn requested() -> bool {
     std::env::var_os("BESPOKE_DEV_SNAPSHOT").is_some()
 }
@@ -96,7 +65,6 @@ pub fn start(cx: &mut App) {
                 force_draw(cx);
             }
             if let Ok(count) = tabs.parse::<usize>() {
-                // Tab presses walk the tab stops of the frame just drawn.
                 let _ = cx.update(|cx| press_tab(count, cx));
                 for _ in 0..2 {
                     wait(cx, 200).await;
@@ -170,7 +138,7 @@ fn navigate(page: &str, cx: &mut App) {
         log::warn!("snapshot: no main view");
         return;
     };
-    let Some(handle) = crate::ui::main_window_handle(cx) else {
+    let Some(handle) = crate::ui::main_window(cx) else {
         log::warn!("snapshot: no main window");
         return;
     };
@@ -184,27 +152,22 @@ fn navigate(page: &str, cx: &mut App) {
 }
 
 fn sample_toast(kind: &str, cx: &mut App) {
-    use crate::ui::toast::{show, ToastAction, ToastKind};
+    use crate::ui::toast::{show, ToastKind};
     let kind = match kind {
         "info" => ToastKind::Info,
         "warning" => ToastKind::Warning,
         _ => ToastKind::Error,
     };
-    let action = ToastAction {
-        label: "How to fix".into(),
-        on_click: std::rc::Rc::new(|_, _| {}),
-    };
     show(
         kind,
         "Microphone unavailable",
         Some("Bespoke could not open the selected microphone.".into()),
-        Some(action),
         cx,
     );
 }
 
 fn open_dialog(kind: &str, cx: &mut App) {
-    let Some(handle) = crate::ui::main_window_handle(cx) else {
+    let Some(handle) = crate::ui::main_window(cx) else {
         return;
     };
     let kind = kind.to_string();
@@ -219,7 +182,6 @@ fn open_dialog(kind: &str, cx: &mut App) {
     });
 }
 
-/// Presses `key`, like `down` or `space`, in the target window.
 fn press_key(key: &str, cx: &mut App) {
     let Some(handle) = target_window(cx) else {
         return;
@@ -234,7 +196,6 @@ fn press_key(key: &str, cx: &mut App) {
     });
 }
 
-/// Moves keyboard focus `count` tab stops forward with focus rings shown.
 fn press_tab(count: usize, cx: &mut App) {
     let Some(handle) = target_window(cx) else {
         return;
@@ -247,8 +208,6 @@ fn press_tab(count: usize, cx: &mut App) {
     });
 }
 
-/// Asks GPUI's view to draw now, the way AppKit's `displayLayer:` does.
-/// Must run with no `App` borrow held.
 #[cfg(target_os = "macos")]
 fn force_draw(cx: &mut AsyncApp) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -382,7 +341,6 @@ fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
                 w: frame.size.width,
                 h: frame.size.height,
             };
-            // Popups and dialogs are child windows (`ui::popup`).
             let children: Vec<u32> = ns_window
                 .childWindows()
                 .map(|children| {
@@ -415,8 +373,6 @@ fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
     // SAFETY: plain CoreGraphics/ImageIO calls; every created object is
     // released before returning.
     unsafe {
-        // The window's popups above it, the window, then (with
-        // `BESPOKE_DEV_DESKTOP`) everything below it, front to back.
         let below = if desktop {
             CGWindowListCreate(ON_SCREEN_BELOW_WINDOW, number)
         } else {

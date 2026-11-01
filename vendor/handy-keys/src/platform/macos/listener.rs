@@ -1,5 +1,3 @@
-//! macOS keyboard listener using CGEventTap
-
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::ptr::NonNull;
@@ -58,7 +56,6 @@ impl TapRunLoop {
     }
 }
 
-/// Internal listener state returned to KeyboardListener
 pub(crate) struct MacOSListenerState {
     pub event_receiver: Receiver<KeyEvent>,
     pub thread_handle: Option<JoinHandle<()>>,
@@ -67,7 +64,6 @@ pub(crate) struct MacOSListenerState {
     pub run_loop: TapRunLoop,
 }
 
-/// Spawn a macOS keyboard listener using CGEventTap
 pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<MacOSListenerState> {
     if !check_accessibility() {
         return Err(Error::AccessibilityNotGranted);
@@ -77,8 +73,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<MacOSLi
     let state = Arc::new(Mutex::new(ListenerState::new(tx, blocking_hotkeys.clone())));
     let running = Arc::new(AtomicBool::new(true));
 
-    // Channel reporting event tap creation: the tap thread's run loop on
-    // success (needed to stop it later), or an error message.
     let (init_tx, init_rx) = mpsc::channel::<std::result::Result<TapRunLoop, String>>();
 
     let thread_state = Arc::clone(&state);
@@ -88,7 +82,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<MacOSLi
         run_event_tap(thread_state, thread_running, init_tx);
     });
 
-    // Wait for the event tap to be created
     let run_loop = match init_rx.recv() {
         Ok(Ok(run_loop)) => run_loop,
         Ok(Err(msg)) => {
@@ -116,8 +109,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<MacOSLi
 /// interruptions like Mission Control or screen lock). Should only be called for
 /// non-FlagsChanged events, where flags reflect the current state with no change pending.
 fn reconcile_modifiers(current: &mut Modifiers, flags: CGEventFlags) {
-    // If OS says a modifier group is NOT held, clear our tracked bits.
-    // This fixes "stuck modifier" from missed release events.
     if !flags.contains(CGEventFlags::MaskControl) {
         current.remove(Modifiers::CTRL_LEFT | Modifiers::CTRL_RIGHT);
     }
@@ -131,8 +122,6 @@ fn reconcile_modifiers(current: &mut Modifiers, flags: CGEventFlags) {
         current.remove(Modifiers::OPT_LEFT | Modifiers::OPT_RIGHT);
     }
 
-    // If OS says a modifier group IS held but we have no bits for it,
-    // we missed a press event. Default to left side as fallback.
     if flags.contains(CGEventFlags::MaskControl) && !current.intersects(Modifiers::CTRL) {
         current.insert(Modifiers::CTRL_LEFT);
     }
@@ -183,7 +172,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
         if let Some(tap) = ctx.tap.get() {
             CGEvent::tap_enable(tap.as_ref(), true);
         }
-        // Reconcile modifiers: we may have missed events while disabled.
         if let Ok(mut state) = ctx.state.lock() {
             reconcile_modifiers(
                 &mut state.current_modifiers,
@@ -206,7 +194,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
             reconcile_modifiers(&mut state.current_modifiers, flags);
         }
 
-        // Build side-specific modifiers from internally tracked state + FN from flags
         let modifiers = if flags_have_fn(flags) {
             state.current_modifiers | Modifiers::FN
         } else {
@@ -230,7 +217,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     return event.as_ptr();
                 }
 
-                // Check if this should be blocked
                 should_block = state.should_block(modifiers, key);
 
                 let _ = state.event_sender.send(KeyEvent {
@@ -248,12 +234,10 @@ unsafe extern "C-unwind" fn event_tap_callback(
 
                 let key = keycode_to_key(keycode);
 
-                // Skip unmapped keycodes (same as KeyDown)
                 if key.is_none() {
                     return event.as_ptr();
                 }
 
-                // Block key up if we blocked key down (to be consistent)
                 should_block = state.should_block(modifiers, key);
 
                 let _ = state.event_sender.send(KeyEvent {
@@ -275,8 +259,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                 // as FlagsChanged but isn't a traditional modifier
                 let lock_key = keycode_to_key(keycode);
 
-                // Handle lock keys specially - they come through FlagsChanged
-                // but don't change our tracked modifier state
                 if let Some(key) = lock_key {
                     let is_key_down = flags_have_alpha_shift(flags);
 
@@ -289,7 +271,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                         changed_modifier: None,
                     });
                 } else if let Some(modifier_bit) = changed_modifier {
-                    // Regular modifier key — use keycode to toggle the specific bit
                     let was_set = state.current_modifiers.contains(modifier_bit);
                     let is_key_down = !was_set;
 
@@ -299,14 +280,12 @@ unsafe extern "C-unwind" fn event_tap_callback(
                         state.current_modifiers &= !modifier_bit;
                     }
 
-                    // Re-derive modifiers after update (include FN from flags)
                     let new_modifiers = if flags_have_fn(flags) {
                         state.current_modifiers | Modifiers::FN
                     } else {
                         state.current_modifiers & !Modifiers::FN
                     };
 
-                    // Check if this modifier-only combo should be blocked
                     if is_key_down {
                         should_block = state.should_block(new_modifiers, None);
                     }
@@ -318,7 +297,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                         changed_modifier,
                     });
                 } else if keycode == 0x3F {
-                    // FN key itself — tracked via flags, not keycode state
                     let had_fn = modifiers.contains(Modifiers::FN);
                     let has_fn = flags_have_fn(flags);
                     if had_fn != has_fn {
@@ -341,8 +319,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     }
                 }
             }
-            // Mouse button events
-            // Only report left/right clicks when modifiers are held (to avoid noise)
             CGEventType::LeftMouseDown if !modifiers.is_empty() => {
                 let _ = state.event_sender.send(KeyEvent {
                     modifiers,
@@ -375,7 +351,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     changed_modifier: None,
                 });
             }
-            // Pass through unmodified left/right clicks
             CGEventType::LeftMouseDown
             | CGEventType::LeftMouseUp
             | CGEventType::RightMouseDown
@@ -394,32 +369,25 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     });
                 }
             }
-            // TapDisabledByTimeout/TapDisabledByUserInput are handled (and
-            // returned from) before the state lock above.
             _ => {}
         }
     }
 
     if should_block {
-        // Block the event from reaching other applications
         std::ptr::null_mut()
     } else {
-        // Pass the event through unchanged
         event.as_ptr()
     }
 }
 
-/// Run the event tap in a dedicated thread
 fn run_event_tap(
     state: Arc<Mutex<ListenerState>>,
     running: Arc<AtomicBool>,
     init_tx: Sender<std::result::Result<TapRunLoop, String>>,
 ) {
-    // Event types we want to monitor
     let event_mask: CGEventMask = (1 << CGEventType::KeyDown.0)
         | (1 << CGEventType::KeyUp.0)
         | (1 << CGEventType::FlagsChanged.0)
-        // Mouse buttons
         | (1 << CGEventType::LeftMouseDown.0)
         | (1 << CGEventType::LeftMouseUp.0)
         | (1 << CGEventType::RightMouseDown.0)
@@ -427,7 +395,6 @@ fn run_event_tap(
         | (1 << CGEventType::OtherMouseDown.0)
         | (1 << CGEventType::OtherMouseUp.0);
 
-    // Callback context, handed to the tap as a raw refcon pointer
     let ctx_ptr = Box::into_raw(Box::new(CallbackCtx {
         state: Arc::clone(&state),
         tap: Cell::new(None),
@@ -435,7 +402,6 @@ fn run_event_tap(
 
     let callback: CGEventTapCallBack = Some(event_tap_callback);
 
-    // Use Default mode (not ListenOnly) to enable optional event blocking
     let tap: Option<CFRetained<CFMachPort>> = unsafe {
         CGEvent::tap_create(
             CGEventTapLocation::SessionEventTap,
@@ -450,7 +416,6 @@ fn run_event_tap(
     let tap = match tap {
         Some(t) => t,
         None => {
-            // Cleanup
             unsafe {
                 drop(Box::from_raw(ctx_ptr));
             }
@@ -461,12 +426,8 @@ fn run_event_tap(
         }
     };
 
-    // Give the callback the tap port so it can re-enable on TapDisabledBy*
-    // pseudo-events. No race: callbacks only run on this thread's run loop,
-    // which hasn't started yet.
     unsafe { (*ctx_ptr).tap.set(Some(NonNull::from(&*tap))) };
 
-    // Create run loop source
     let source: Option<CFRetained<CFRunLoopSource>> =
         CFMachPort::new_run_loop_source(None, Some(&tap), 0);
 
@@ -482,10 +443,8 @@ fn run_event_tap(
         }
     };
 
-    // Get the current run loop and add the source
     let run_loop = CFRunLoop::current();
 
-    // Unwrap the Option<CFRetained<CFRunLoop>> - current() should always succeed on a valid thread
     let run_loop = match run_loop {
         Some(rl) => rl,
         None => {
@@ -503,8 +462,6 @@ fn run_event_tap(
     });
     CGEvent::tap_enable(&tap, true);
 
-    // Signal successful initialization, handing back this thread's run loop
-    // so KeyboardListener::drop can stop it.
     let _ = init_tx.send(Ok(TapRunLoop(run_loop.clone())));
 
     // Park in the run loop: no periodic wakeups, no watchdog. v0.3.2 cycled
@@ -525,7 +482,6 @@ fn run_event_tap(
         }
     }
 
-    // Cleanup
     run_loop.remove_source(Some(&source), unsafe {
         objc2_core_foundation::kCFRunLoopCommonModes
     });
@@ -545,19 +501,12 @@ mod tests {
 
     unsafe extern "C-unwind" fn noop_timer(_timer: *mut CFRunLoopTimer, _info: *mut c_void) {}
 
-    /// The stop request must survive being issued before the run loop has
-    /// been entered. A bare CFRunLoopStop is lost in that window (the stop
-    /// flag lives in per-run data reset on entry), which would park the tap
-    /// thread forever and hang KeyboardListener::drop. Needs no
-    /// accessibility permission, so it runs everywhere including CI.
     #[test]
     fn stop_requested_before_run_entry_is_not_lost() {
         let (tx, rx) = mpsc::channel();
         let handle = thread::spawn(move || {
             let rl = CFRunLoop::current().expect("thread has a run loop");
 
-            // A far-future timer keeps the mode non-empty so run_in_mode
-            // actually blocks instead of returning Finished immediately.
             let timer = unsafe {
                 CFRunLoopTimer::new(
                     None,
@@ -576,14 +525,9 @@ mod tests {
 
             tx.send(TapRunLoop(rl.clone())).unwrap();
 
-            // Guarantee the main thread's stop lands while this thread is
-            // provably outside the run loop.
             thread::sleep(Duration::from_millis(200));
 
             let started = Instant::now();
-            // Bounded run: if the stop request was lost this returns at the
-            // 5s timeout and the elapsed assertion below fails, instead of
-            // hanging the test.
             CFRunLoop::run_in_mode(
                 unsafe { objc2_core_foundation::kCFRunLoopDefaultMode },
                 5.0,
@@ -593,7 +537,7 @@ mod tests {
         });
 
         let run_loop = rx.recv().expect("run loop handle");
-        run_loop.stop(); // lands before the thread enters the run loop
+        run_loop.stop();
 
         let elapsed = handle.join().expect("tap thread panicked");
         assert!(
@@ -611,8 +555,6 @@ mod tests {
         event.as_ptr()
     }
 
-    /// A real (listen-only) event tap, or None when the test runner has no
-    /// accessibility permission (CI, unprivileged terminals) — tests skip.
     fn create_test_tap() -> Option<CFRetained<CFMachPort>> {
         if !check_accessibility() {
             eprintln!("SKIPPED: accessibility permission not granted to the test runner");
@@ -655,8 +597,6 @@ mod tests {
         );
     }
 
-    /// Recovery is event-driven now (no polling watchdog): receiving a
-    /// TapDisabledBy* pseudo-event must re-enable the tap from the callback.
     #[test]
     fn tap_disabled_pseudo_event_reenables_tap() {
         let Some(tap) = create_test_tap() else { return };
@@ -678,9 +618,6 @@ mod tests {
         }
     }
 
-    /// Re-enabling must not depend on the state mutex being healthy: a
-    /// poisoned mutex (a panic on some other thread holding it) must not
-    /// leave the tap permanently dead.
     #[test]
     fn tap_reenabled_even_with_poisoned_state_mutex() {
         let Some(tap) = create_test_tap() else { return };
@@ -705,9 +642,6 @@ mod tests {
         );
     }
 
-    /// The pseudo-event handler must reconcile modifier state (the original
-    /// purpose of PR #4): stale tracked modifiers with no physically-held
-    /// keys must be cleared.
     #[test]
     fn tap_disabled_pseudo_event_reconciles_modifiers() {
         let Some(tap) = create_test_tap() else { return };
@@ -717,8 +651,6 @@ mod tests {
 
         deliver_tap_disabled(&ctx, CGEventType::TapDisabledByTimeout);
 
-        // No modifier keys are physically held while tests run, so
-        // reconciliation against OS flags must clear the stale state.
         assert_eq!(
             ctx.state.lock().unwrap().current_modifiers,
             Modifiers::empty(),
@@ -762,7 +694,6 @@ mod extended_mouse_tests {
             (CGEventType::OtherMouseDown, true),
             (CGEventType::OtherMouseUp, false),
         ] {
-            // Invoke the native callback directly; do not post clicks to other apps.
             unsafe {
                 event_tap_callback(
                     std::ptr::null_mut(),

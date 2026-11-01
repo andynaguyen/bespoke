@@ -15,19 +15,17 @@ use std::{
 
 #[test]
 fn unopened_recorder_does_not_need_reopen() {
-    let recorder = AudioRecorder::new().expect("recorder");
+    let recorder = AudioRecorder::new();
     assert!(!recorder.needs_reopen());
 }
 
 #[test]
 fn stream_error_requires_reopen() {
-    let recorder = AudioRecorder::new().expect("recorder");
+    let recorder = AudioRecorder::new();
     recorder.stream_error.store(true, Ordering::Relaxed);
     assert!(recorder.needs_reopen());
 }
 
-/// Pass-through detector with a configurable frame size, standing in for a
-/// backend such as Earshot whose frames are not 30 ms.
 struct FixedFrameVad(usize);
 
 impl VoiceActivityDetector for FixedFrameVad {
@@ -147,19 +145,15 @@ fn callback_forwards_boundary_block_then_stays_silent_until_resumed() {
     let (mut producer, mut consumer) = RingBuffer::<f32>::new(8);
     let transport = CaptureTransportState::default();
 
-    // The block in hand when a pause is first observed was captured before
-    // the stop, so it is forwarded and only then acknowledged.
     transport.pause_requested.store(true, Ordering::Release);
     AudioRecorder::write_input_to_ring(&[1.0f32, 2.0], 1, None, &mut producer, &transport);
     assert!(transport.pause_acknowledged.load(Ordering::Acquire));
     assert_eq!(consumer.slots(), 2);
 
-    // Later blocks while paused are dropped and are not counted as overruns.
     AudioRecorder::write_input_to_ring(&[3.0f32], 1, None, &mut producer, &transport);
     assert_eq!(consumer.slots(), 2);
     assert_eq!(transport.overrun_samples.load(Ordering::Relaxed), 0);
 
-    // Clearing the pause, as the consumer does before stop() returns, resumes capture.
     transport.pause_acknowledged.store(false, Ordering::Relaxed);
     transport.pause_requested.store(false, Ordering::Release);
     AudioRecorder::write_input_to_ring(&[4.0f32], 1, None, &mut producer, &transport);
@@ -280,8 +274,6 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
     let (reply_tx, reply_rx) = mpsc::channel();
     cmd_tx.send(Cmd::Stop(reply_tx)).expect("first stop");
     wait_for_pause_request();
-    // The first callback after Stop carries audio captured before the stop,
-    // so it belongs to the recording.
     AudioRecorder::write_input_to_ring(&[99.0f32], 1, None, &mut producer, &transport);
 
     let first_samples = reply_rx
@@ -300,8 +292,6 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
         streamed.len()
     };
 
-    // Start again immediately after stop() would have returned. The producer
-    // must already be re-enabled, and no first-cycle samples may leak through.
     let second_input = [0.75f32, -0.25, 0.5];
     let (ready_tx, ready_rx) = mpsc::channel();
     cmd_tx

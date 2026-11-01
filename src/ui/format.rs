@@ -1,12 +1,8 @@
-//! Display formatting shared by several views (`src/lib/utils/format.ts`,
-//! `modelTranslation.ts`).
-
 use gpui::SharedString;
 
 use crate::i18n::{t, t_or};
 use crate::managers::model::ModelInfo;
 
-/// `1.5 GB`, `142 MB`: one decimal below 10 GB / 100 MB.
 pub fn model_size(size_mb: u64) -> String {
     model_size_with(size_mb, decimal_separator())
 }
@@ -31,8 +27,6 @@ fn model_size_with(size_mb: u64, decimal: &str) -> String {
     formatted.replace('.', decimal)
 }
 
-/// The system locale's decimal mark. `formatModelSize` formats with
-/// `Intl.NumberFormat(undefined)`, the system locale, not the app language.
 fn decimal_separator() -> &'static str {
     let locale = sys_locale::get_locale().unwrap_or_default();
     let language = locale.split(['-', '_']).next().unwrap_or_default();
@@ -43,12 +37,10 @@ fn decimal_separator() -> &'static str {
     }
 }
 
-/// The localized model name, falling back to the catalog name.
 pub fn model_name(model: &ModelInfo) -> SharedString {
     t_or(&format!("onboarding.models.{}.name", model.id), &model.name)
 }
 
-/// The localized model description; custom models share one string.
 pub fn model_description(model: &ModelInfo) -> SharedString {
     if model.is_custom {
         return t("onboarding.customModelDescription");
@@ -59,7 +51,6 @@ pub fn model_description(model: &ModelInfo) -> SharedString {
     )
 }
 
-/// Groups digits with the locale's separator (`Intl.NumberFormat`).
 pub fn number(value: i64) -> String {
     let separator = match crate::i18n::language() {
         "de" | "es" | "it" | "nl" | "id" | "da" | "tr" | "pt" | "ca" => '.',

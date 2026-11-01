@@ -1,6 +1,3 @@
-//! `ui/Input.tsx` and `ui/Textarea.tsx`: gpui-component's text editing,
-//! framed with Bespoke's border, hover and focus ring.
-
 use gpui::{div, prelude::*, px, App, Entity, Focusable, FontWeight, Pixels, Window};
 use gpui_component::input::{Input, InputState};
 
@@ -38,7 +35,6 @@ impl TextField {
         }
     }
 
-    /// `variant="compact"`: tighter padding.
     pub fn compact(mut self) -> Self {
         self.variant = Variant::Compact;
         self
@@ -49,19 +45,16 @@ impl TextField {
         self
     }
 
-    /// Red border, like `aria-invalid` + `border-error`.
     pub fn invalid(mut self, invalid: bool) -> Self {
         self.invalid = invalid;
         self
     }
 
-    /// Regular weight text (the Models search box is not `font-medium`).
     pub fn regular_weight(mut self) -> Self {
         self.medium_weight = false;
         self
     }
 
-    /// An element before the text, like the search icon.
     pub fn prefix(mut self, prefix: impl IntoElement) -> Self {
         self.prefix = Some(prefix.into_any_element());
         self
@@ -74,7 +67,6 @@ impl Styled for TextField {
     }
 }
 
-/// The border, background and focus ring shared by inputs and textareas.
 fn frame(focused: bool, disabled: bool, invalid: bool, cx: &App) -> gpui::Div {
     let p = palette(cx);
     let border = if invalid {
@@ -141,8 +133,6 @@ impl RenderOnce for TextField {
     }
 }
 
-/// A multi-line field (`ui/Textarea.tsx`). Create its state with
-/// `InputState::new(window, cx).multi_line(true)`.
 #[derive(IntoElement)]
 pub struct TextArea {
     state: Entity<InputState>,

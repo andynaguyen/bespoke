@@ -1,32 +1,13 @@
-//! Native calls GPUI does not expose: hiding a window without closing it,
-//! the macOS activation policy and appearance, permission checks, and the
-//! screen geometry the overlay is placed against.
+use gpui::Window;
 
-use gpui::{App, Window};
+// `hide_window` hides a window without destroying it, so its views keep
+// their state. It returns false when the platform cannot hide windows (the
+// caller closes the window instead). The native call runs on the next
+// main-thread turn: AppKit notifies GPUI synchronously when key status
+// changes, and GPUI cannot handle that while the caller holds the app.
+// `show_window` shows a hidden window and gives it focus.
+pub use imp::{hide_window, is_window_visible, show_window};
 
-/// Hides `window` without destroying it, so its views keep their state.
-/// Returns false when the platform cannot hide windows (the caller closes
-/// the window instead).
-///
-/// The native call runs on the next main-thread turn: AppKit notifies GPUI
-/// synchronously when key status changes, and GPUI cannot handle that while
-/// the caller holds the app.
-pub fn hide_window(window: &Window, cx: &App) -> bool {
-    imp::hide_window(window, cx)
-}
-
-/// Shows a window hidden with [`hide_window`] and gives it focus.
-pub fn show_window(window: &Window, cx: &App) {
-    imp::show_window(window, cx)
-}
-
-pub fn is_window_visible(window: &Window) -> bool {
-    imp::is_window_visible(window)
-}
-
-/// Windows: a dark or light native title bar (`DWMWA_USE_IMMERSIVE_DARK_MODE`),
-/// what tao's `set_theme` did for the Tauri window. Other platforms theme
-/// their chrome elsewhere (macOS) or not at all (Linux, like the original).
 pub fn set_title_bar_dark(window: &Window, dark: bool) {
     #[cfg(target_os = "windows")]
     imp::set_title_bar_dark(window, dark);
@@ -34,8 +15,6 @@ pub fn set_title_bar_dark(window: &Window, dark: bool) {
     let _ = (window, dark);
 }
 
-/// Strips the recording overlay panel down to its content: no title-bar
-/// buttons and no window shadow (the card draws its own flat border).
 pub fn prepare_overlay_window(window: &Window) {
     #[cfg(target_os = "macos")]
     imp::prepare_overlay_window(window);
@@ -54,8 +33,6 @@ pub fn prepare_main_window(window: &Window) {
     let _ = window;
 }
 
-/// Whether the user turned on Reduce motion, so animations should jump to
-/// their end instead.
 pub fn reduce_motion() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -157,13 +134,10 @@ mod imp {
             return;
         };
         ns_window.setHasShadow(false);
-        // Keeps it from becoming key (`prevent_panels_from_taking_focus`).
-        // SAFETY: NSWindow adopts NSUserInterfaceItemIdentification.
         unsafe {
             let identifier = NSString::from_str(OVERLAY_IDENTIFIER);
             let _: () = msg_send![&*ns_window, setIdentifier: &*identifier];
         }
-        // NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton.
         for kind in 0isize..3 {
             // SAFETY: `standardWindowButton:` returns an autoreleased NSButton
             // or nil; `setHidden:` takes a BOOL.
@@ -176,9 +150,6 @@ mod imp {
         }
     }
 
-    /// Calls for a capsule window that floats over every app, like Annotate's.
-    /// Points are global, with the origin at the top left of the main
-    /// display, as Scrawl counts them.
     pub mod capsule {
         use gpui::Window;
         use objc2::rc::Retained;
@@ -188,15 +159,12 @@ mod imp {
         };
         use objc2_foundation::NSPoint;
 
-        /// The main display's height, to flip AppKit's bottom-left y.
         fn flip_height() -> Option<f64> {
             let mtm = MainThreadMarker::new()?;
             let screens = NSScreen::screens(mtm);
             Some(screens.iter().next()?.frame().size.height)
         }
 
-        /// A capsule's `NSWindow`, held apart from GPUI's window so the
-        /// capsule's view can move and hide it while GPUI updates that view.
         #[derive(Clone)]
         pub struct CapsuleWindow(Retained<NSWindow>);
 
@@ -205,8 +173,6 @@ mod imp {
                 super::ns_window(window).map(Self)
             }
 
-            /// Raises the window above other apps' windows on every Space
-            /// and over full-screen apps, and returns its window number.
             pub fn float(&self) -> u32 {
                 self.0.setLevel(NSStatusWindowLevel + 5);
                 self.0.setCollectionBehavior(
@@ -235,7 +201,6 @@ mod imp {
                     .detach();
             }
 
-            /// The window's frame as `[x, y, width, height]`.
             pub fn frame(&self) -> Option<[f64; 4]> {
                 let height = flip_height()?;
                 let f = self.0.frame();
@@ -247,14 +212,10 @@ mod imp {
                 ])
             }
 
-            /// Gives the window the system shadow and hairline, drawn around
-            /// the window's frame.
             pub fn set_shadow(&self, shadow: bool) {
                 self.0.setHasShadow(shadow);
             }
 
-            /// Rounds the window's frame, and so its shadow and hairline, at
-            /// `radius`, like `prepare_main_window`.
             pub fn set_corner_radius(&self, radius: f64) {
                 // SAFETY: checked with respondsToSelector; takes a CGFloat.
                 unsafe {
@@ -269,9 +230,6 @@ mod imp {
                 }
             }
 
-            /// Moves and sizes the window: its top-left corner at `origin`,
-            /// `size` points across. Runs on the next main-thread turn like
-            /// `move_to`.
             pub fn set_frame(&self, origin: [f64; 2], size: [f64; 2], cx: &gpui::App) {
                 let window = self.0.clone();
                 cx.foreground_executor()
@@ -288,18 +246,12 @@ mod imp {
                     .detach();
             }
 
-            /// Lets clicks through to the apps below.
             pub fn set_ignores_mouse(&self, ignore: bool) {
                 if self.0.ignoresMouseEvents() != ignore {
                     self.0.setIgnoresMouseEvents(ignore);
                 }
             }
 
-            /// Makes the window a child of `parent` at `parent`'s level, so it
-            /// stays just above it and moves with it, then orders it in at
-            /// `alpha` opacity. With `key` it also takes keyboard focus. While
-            /// `parent` is hidden the window stays out too. Runs on the next
-            /// main-thread turn like `move_to`.
             pub fn show_attached(
                 &self,
                 parent: &CapsuleWindow,
@@ -333,9 +285,6 @@ mod imp {
                     .detach();
             }
 
-            /// Detaches the window from its parent and orders it out. A child
-            /// window that stays attached comes back whenever its parent is
-            /// ordered in. Runs on the next main-thread turn like `move_to`.
             pub fn hide_detached(&self, cx: &gpui::App) {
                 let window = self.0.clone();
                 cx.foreground_executor()
@@ -352,8 +301,6 @@ mod imp {
                 self.0.isVisible()
             }
 
-            /// Sets the window's opacity, on the next main-thread turn like
-            /// `move_to`.
             pub fn set_alpha(&self, alpha: f64, cx: &gpui::App) {
                 let window = self.0.clone();
                 cx.foreground_executor()
@@ -361,8 +308,6 @@ mod imp {
                     .detach();
             }
 
-            /// Orders the window in or out, on the next main-thread turn like
-            /// `move_to`.
             pub fn set_visible(&self, visible: bool, cx: &gpui::App) {
                 let window = self.0.clone();
                 cx.foreground_executor()
@@ -377,7 +322,6 @@ mod imp {
             }
         }
 
-        /// The pointer, and whether the primary button is down.
         pub fn pointer() -> Option<([f64; 2], bool)> {
             let height = flip_height()?;
             let p = NSEvent::mouseLocation();
@@ -386,8 +330,6 @@ mod imp {
         }
     }
 
-    /// Regular shows the Dock icon; Accessory hides it while the app lives
-    /// in the menu bar.
     pub fn set_activation_policy_regular(regular: bool) {
         let Some(mtm) = MainThreadMarker::new() else {
             return;
@@ -400,8 +342,6 @@ mod imp {
         NSApplication::sharedApplication(mtm).setActivationPolicy(policy);
     }
 
-    /// Forces light (`Some(false)`), dark (`Some(true)`) or the system
-    /// appearance (`None`) for every window, including native chrome.
     pub fn set_app_appearance(dark: Option<bool>) {
         let Some(mtm) = MainThreadMarker::new() else {
             return;
@@ -421,7 +361,6 @@ mod imp {
         app.setAppearance(appearance.as_deref());
     }
 
-    /// The recording overlay's `NSWindow.identifier`.
     const OVERLAY_IDENTIFIER: &str = "bespoke-overlay";
     static PANEL_CAN_BECOME_KEY: std::sync::OnceLock<objc2::runtime::Imp> =
         std::sync::OnceLock::new();
@@ -487,11 +426,10 @@ mod imp {
     /// Call after `Application::new` and before `run`.
     pub fn launch_as_accessory() {
         extern "C" fn set_activation_policy(this: &AnyObject, sel: Sel, policy: isize) -> Bool {
-            // NSApplicationActivationPolicyRegular = 0, Accessory = 1.
-            let policy = if policy == 0
+            let policy = if policy == objc2_app_kit::NSApplicationActivationPolicy::Regular.0
                 && LAUNCH_AS_ACCESSORY.swap(false, std::sync::atomic::Ordering::SeqCst)
             {
-                1
+                objc2_app_kit::NSApplicationActivationPolicy::Accessory.0
             } else {
                 policy
             };
@@ -547,8 +485,6 @@ mod imp {
         unsafe { AXIsProcessTrusted() }
     }
 
-    /// Shows the system prompt that sends the user to the Accessibility
-    /// pane, adding Bespoke to the list.
     pub fn request_accessibility() {
         let key = NSString::from_str("AXTrustedCheckOptionPrompt");
         let value = NSNumber::new_bool(true);
@@ -563,12 +499,10 @@ mod imp {
         AnyClass::get(c"AVCaptureDevice")
     }
 
-    /// `AVMediaTypeAudio`.
     fn audio_media_type() -> Retained<NSString> {
         NSString::from_str("soun")
     }
 
-    /// True when the microphone permission is `AVAuthorizationStatusAuthorized`.
     pub fn microphone_granted() -> bool {
         let Some(class) = capture_device_class() else {
             return false;
@@ -603,14 +537,9 @@ mod imp {
         }
     }
 
-    /// The screen under the mouse pointer, in coordinates relative to that
-    /// screen's top-left corner.
     pub struct CursorScreen {
-        /// `CGDirectDisplayID`, matching `u32::from(gpui::DisplayId)`.
         pub display_id: u32,
         pub width: f64,
-        /// Distance from the top of the screen to the bottom of its visible
-        /// frame (above the Dock).
         pub visible_bottom: f64,
     }
 

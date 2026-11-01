@@ -1,12 +1,3 @@
-//! A hover card on Liquid Glass, like the one over a heatmap day.
-//!
-//! Native glass sits under GPUI's drawing in its window (`ui::glass`), so a
-//! card drawn inside the main window would hide its glass under whatever the
-//! page paints there. The card gets a window of its own instead: one shared,
-//! transparent window that ignores the mouse, moved over the anchor and
-//! ordered in and out. The window takes the card's measured size, so the
-//! system shadow and hairline it draws around its frame hug the card.
-
 use std::time::Duration;
 
 use gpui::{
@@ -18,16 +9,12 @@ use gpui::{
 use super::glass::{glass, GlassStyle};
 use super::theme::{palette, Alpha};
 
-/// The widest a card gets, and the window's size before a card is measured.
 const WINDOW_W: f32 = 300.;
 const WINDOW_H: f32 = 220.;
-/// The gap between the anchor and the card.
 const GAP: f32 = 6.;
 const RADIUS: f32 = 16.;
-/// How long the card's text takes to fade and rise into place.
 const FADE_IN: Duration = Duration::from_millis(120);
 
-/// What a card shows: a title, then label and value rows.
 #[derive(Clone, PartialEq)]
 pub struct Card {
     pub title: SharedString,
@@ -36,7 +23,6 @@ pub struct Card {
 
 struct HoverCardView {
     card: Option<Card>,
-    /// Counts cards shown, so each new one fades in.
     shown: usize,
 }
 
@@ -69,7 +55,6 @@ impl Render for HoverCardView {
             .flex()
             .flex_col()
             .items_start()
-            // The window fits itself to the card (`fit`).
             .on_children_prepainted(|bounds, _, cx| {
                 if let Some(card) = bounds.first() {
                     let measured = card.size;
@@ -114,20 +99,15 @@ impl Render for HoverCardView {
     }
 }
 
-/// The shared card window, opened on first use.
 struct HoverCard {
     view: Entity<HoverCardView>,
     #[cfg(target_os = "macos")]
     native: Option<super::platform::capsule::CapsuleWindow>,
-    /// The card and the top-left of the day it shows over, to skip repeat
-    /// calls.
     showing: Option<(Card, Point<Pixels>)>,
-    /// The card's measured size, which the window takes.
     size: Size<Pixels>,
 }
 
 impl HoverCard {
-    /// Puts the window's frame above `anchor`, at the card's size.
     fn place(&self, anchor: Point<Pixels>, cx: &App) {
         #[cfg(target_os = "macos")]
         if let Some(native) = &self.native {
@@ -142,8 +122,6 @@ impl HoverCard {
     }
 }
 
-/// Resizes the window to the card's measured `size`, keeping it above the
-/// anchor.
 fn fit(size: Size<Pixels>, cx: &mut App) {
     if !cx.has_global::<HoverCard>() {
         return;
@@ -161,9 +139,6 @@ fn fit(size: Size<Pixels>, cx: &mut App) {
 
 impl Global for HoverCard {}
 
-/// Shows `card` above `anchor`, a rectangle in global screen points with
-/// the origin at the top left of the main display, as `Window::bounds`
-/// counts them.
 pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
     let origin = anchor.origin;
     if !cx.has_global::<HoverCard>() && !open(cx) {
@@ -194,8 +169,6 @@ pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
             cx.notify();
         });
     }
-    // GPUI skips drawing a window that is ordered out, and the window comes
-    // in on the next main-thread turn, so draw again once it is on screen.
     if appearing {
         let view = view.downgrade();
         cx.spawn(async move |cx| {
@@ -208,7 +181,6 @@ pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
     }
 }
 
-/// Hides the card, if one is showing.
 pub fn hide(cx: &mut App) {
     if !cx.has_global::<HoverCard>() {
         return;
@@ -268,7 +240,6 @@ fn open(cx: &mut App) -> bool {
     #[cfg(target_os = "macos")]
     if let Some(native) = &native {
         native.set_ignores_mouse(true);
-        // The frame's shadow and hairline follow the card's corners.
         native.set_shadow(true);
         native.set_corner_radius(f64::from(RADIUS));
     }

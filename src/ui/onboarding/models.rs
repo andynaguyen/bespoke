@@ -1,7 +1,3 @@
-//! The model picker step (`Onboarding.tsx`). Picking a model downloads it,
-//! and once it is downloaded, verified and extracted it becomes the active
-//! model and onboarding ends.
-
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -19,19 +15,15 @@ use crate::ui::model_card::{is_legacy, CardStatus, ModelCard};
 use crate::ui::shell::logo;
 use crate::ui::stores::ModelStore;
 use crate::ui::theme::{palette, Alpha};
-use crate::ui::toast;
 use crate::ui::WindowCallback;
 
 pub struct ModelOnboarding {
     store: Entity<ModelStore>,
     preview: bool,
     on_done: WindowCallback,
-    /// The model being downloaded or switched to. Set means busy.
     selected: Option<String>,
     started_selection: bool,
     show_all: bool,
-    /// Whether "Show all" was clicked, so the chevron only animates after
-    /// a toggle and not on first paint.
     toggled: bool,
     scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -62,10 +54,7 @@ impl ModelOnboarding {
         }
     }
 
-    /// Switches to the selected model once it is fully on disk, then ends
-    /// onboarding.
     fn check_ready(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // Previews never switch the user's active model.
         if self.preview {
             return;
         }
@@ -76,8 +65,7 @@ impl ModelOnboarding {
         let store = self.store.read(cx);
         let ready = store.model(&id).is_some_and(|m| m.is_downloaded)
             && !store.downloading.contains(&id)
-            && !store.verifying.contains(&id)
-            && !store.extracting.contains(&id);
+            && !store.verifying.contains(&id);
         if !ready || self.started_selection {
             return;
         }
@@ -93,7 +81,6 @@ impl ModelOnboarding {
                     if ok {
                         let _ = handle.update(cx, |_, window, cx| on_done(window, cx));
                     } else {
-                        toast::error(t("onboarding.errors.selectModel"), cx);
                         let _ = weak.update(cx, |this, cx| {
                             this.started_selection = false;
                             this.selected = None;
@@ -111,7 +98,6 @@ impl ModelOnboarding {
             return;
         }
         self.selected = Some(id.to_string());
-        // The store shows the error toast when a download fails.
         let weak = cx.entity().downgrade();
         self.store.update(cx, |store, cx| {
             store.download_model(
@@ -161,16 +147,10 @@ impl ModelOnboarding {
     }
 
     fn download_status(&self, id: &str, cx: &App) -> CardStatus {
-        let store = self.store.read(cx);
-        if store.extracting.contains(id) {
-            CardStatus::Extracting
-        } else if store.verifying.contains(id) {
-            CardStatus::Verifying
-        } else if store.downloading.contains(id) {
-            CardStatus::Downloading
-        } else {
-            CardStatus::Downloadable
-        }
+        self.store
+            .read(cx)
+            .download_status(id)
+            .unwrap_or(CardStatus::Downloadable)
     }
 
     fn download_card(
@@ -182,17 +162,13 @@ impl ModelOnboarding {
         let store = self.store.read(cx);
         let progress = store.progress.get(&model.id).map(|p| p.percentage);
         let speed = store.stats.get(&model.id).map(|s| s.speed);
-        let select = cx.entity().downgrade();
-        let download = select.clone();
-        let cancel = select.clone();
+        let download = cx.entity().downgrade();
+        let cancel = download.clone();
         ModelCard::new(model.clone(), self.download_status(&model.id, cx))
             .featured(featured)
             .disabled(self.selected.is_some())
             .show_recommended(false)
             .progress(progress, speed)
-            .on_select(move |id, _, cx| {
-                let _ = select.update(cx, |this, cx| this.download(id, cx));
-            })
             .on_download(move |id, _, cx| {
                 let _ = download.update(cx, |this, cx| this.download(id, cx));
             })
@@ -230,9 +206,6 @@ impl Render for ModelOnboarding {
         let p = palette(cx);
         let models = self.store.read(cx).models.clone();
 
-        // Legacy (.bin/ONNX) downloads are deprecated and never offered here.
-        // The catalog arrives in rank order, so the first two recommended
-        // models are the featured picks and the rest hide behind "Show all".
         let downloadable: Vec<&ModelInfo> = models
             .iter()
             .filter(|m| !m.is_downloaded && !is_legacy(m))
@@ -266,7 +239,6 @@ impl Render for ModelOnboarding {
         }
         if !downloadable.is_empty() {
             let show_all = self.show_all;
-            // `transition-transform duration-200` to `rotate-180`.
             let chevron = icon("chevron-down").size(rems(1.));
             let chevron = if self.toggled {
                 chevron

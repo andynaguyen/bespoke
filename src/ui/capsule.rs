@@ -1,10 +1,3 @@
-//! The capsule: the one floating control that dictation and Annotate share.
-//!
-//! Both features show the same shape while they work: a status lead (the
-//! live dot, a spinner, or a check), a body, then actions after a divider.
-//! The capsule sits on clear glass (`ui::glass`) tinted toward the theme, so
-//! the app under it stays visible and its text stays readable.
-
 use std::time::Duration;
 
 use gpui::{
@@ -15,79 +8,66 @@ use super::clay::Clay;
 use super::glass::{glass_with, GlassSpec, GlassStyle};
 use super::theme::{palette, shadow, Alpha};
 
-/// The capsule's height.
 pub const HEIGHT: f32 = 48.;
-/// Fully round.
 pub const RADIUS: f32 = HEIGHT / 2.;
-/// A chip inside the capsule: a button or the close control.
 pub const CHIP: f32 = 36.;
-/// The gap between the capsule's edge and a chip, so their corners nest.
 pub const INSET: f32 = (HEIGHT - CHIP) / 2.;
 
-/// The capsule's colors in the current theme.
 #[derive(Clone, Copy)]
 pub struct Colors {
     pub text: Hsla,
-    /// The timer, labels after the main one, and the resting close icon.
     pub secondary: Hsla,
     pub divider: Hsla,
-    /// A chip's fill, and a hovered icon chip's.
     pub chip: Hsla,
     pub chip_hover: Hsla,
-    /// Live recording and ink.
     pub live: Hsla,
     pub accent: Hsla,
     pub done: Hsla,
-    /// The tint over the glass; also the flat fill without native glass.
     pub tint: Hsla,
-    /// The hairline rim.
     pub rim: Hsla,
-    /// A keycap hint's clay.
     pub keycap: Hsla,
-    /// Whether the theme is dark, which deepens clay's shadows.
     pub dark: bool,
 }
 
 impl Colors {
     pub fn current(cx: &App) -> Self {
         let p = palette(cx);
-        if p.is_dark {
-            Self {
-                text: gpui::rgb(0xf5f5f7).into(),
-                secondary: gpui::rgba(0xebebf59e).into(),
-                divider: gpui::white().a(0.14),
-                chip: gpui::white().a(0.12),
-                chip_hover: gpui::white().a(0.2),
-                live: p.ink,
-                accent: p.accent,
-                done: p.done,
-                tint: gpui::rgba(0x14141873).into(),
-                rim: gpui::white().a(0.16),
-                keycap: p.clay,
-                dark: true,
-            }
+        let (secondary, divider, chip, chip_hover, tint, rim) = if p.is_dark {
+            (
+                gpui::rgba(0xebebf59e).into(),
+                gpui::white().a(0.14),
+                gpui::white().a(0.12),
+                gpui::white().a(0.2),
+                gpui::rgba(0x14141873).into(),
+                gpui::white().a(0.16),
+            )
         } else {
-            Self {
-                text: gpui::rgb(0x1d1d1f).into(),
-                secondary: gpui::rgba(0x3c3c43a6).into(),
-                divider: gpui::black().a(0.1),
-                chip: gpui::black().a(0.06),
-                chip_hover: gpui::black().a(0.11),
-                live: p.ink,
-                accent: p.accent,
-                done: p.done,
-                tint: gpui::rgba(0xffffff80).into(),
-                rim: gpui::white().a(0.6),
-                keycap: p.clay,
-                dark: false,
-            }
+            (
+                gpui::rgba(0x3c3c43a6).into(),
+                gpui::black().a(0.1),
+                gpui::black().a(0.06),
+                gpui::black().a(0.11),
+                gpui::rgba(0xffffff80).into(),
+                gpui::white().a(0.6),
+            )
+        };
+        Self {
+            text: p.text,
+            secondary,
+            divider,
+            chip,
+            chip_hover,
+            live: p.ink,
+            accent: p.accent,
+            done: p.done,
+            tint,
+            rim,
+            keycap: p.clay,
+            dark: p.is_dark,
         }
     }
 }
 
-/// The capsule's surface: tinted clear glass with a hairline rim, and a
-/// drop shadow where there is no native glass to draw one. `id` must be
-/// unique within the window. Children draw over the glass.
 pub fn surface(id: impl Into<SharedString>, radius: Pixels, c: &Colors) -> Div {
     let native = super::glass::native_available();
     div()
@@ -112,9 +92,6 @@ pub fn surface(id: impl Into<SharedString>, radius: Pixels, c: &Colors) -> Div {
         ))
 }
 
-/// The live dot, in clay. Once capture starts, a halo ripples out and fades
-/// while the dot breathes, both on one 1.6s cycle. Before that it rests
-/// muted and flat.
 pub fn live_dot(ready: bool, c: &Colors) -> impl IntoElement {
     let (live, dark) = (c.live, c.dark);
     let cycle = Duration::from_millis(1600);
@@ -154,7 +131,6 @@ pub fn live_dot(ready: bool, c: &Colors) -> impl IntoElement {
         })
 }
 
-/// Eight dots on a ring, brightest at a head that goes around once a second.
 pub fn spinner(c: &Colors) -> impl IntoElement {
     let color = c.text;
     div()
@@ -181,7 +157,6 @@ pub fn spinner(c: &Colors) -> impl IntoElement {
         }))
 }
 
-/// A white check on a green clay disc, for a finished paste or capture.
 pub fn done_mark(c: &Colors) -> impl IntoElement {
     div()
         .size(px(22.))
@@ -194,7 +169,6 @@ pub fn done_mark(c: &Colors) -> impl IntoElement {
         .child(super::components::icon("check").size(px(13.)))
 }
 
-/// A thin vertical rule between the body and the actions.
 pub fn divider(c: &Colors) -> impl IntoElement {
     div()
         .w(px(13.))
@@ -204,20 +178,14 @@ pub fn divider(c: &Colors) -> impl IntoElement {
         .child(div().w(px(1.)).h(px(20.)).bg(c.divider))
 }
 
-/// How a chip is filled.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ChipKind {
-    /// A neutral fill.
     Plain,
-    /// The primary action, tinted blue.
     Primary,
-    /// Starts a recording, tinted red.
     Live,
-    /// A bare icon that gains a circle on hover, like the close control.
     Icon,
 }
 
-/// A capsule-shaped button inside the capsule.
 pub fn chip(id: impl Into<SharedString>, kind: ChipKind, c: &Colors) -> Stateful<Div> {
     let (fill, hover, text) = match kind {
         ChipKind::Plain => (c.chip, c.chip_hover, c.text),

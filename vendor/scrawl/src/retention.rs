@@ -1,12 +1,3 @@
-//! Keeps the captures folder from growing forever.
-//!
-//! A bundle's prompt (`summary.md`, `scrawl.json`, `contact-sheet.png`, `frames/`) is small; its
-//! video, audio and full-size frames are nearly all of its size. After `mediaDays` the heavy
-//! media goes to the Trash and the prompt stays; after `bundleDays` the whole bundle goes. Both
-//! live under `"retention"` in Annotate's `config.json` (`null` keeps forever). A bundle younger
-//! than a day or changed within the last day, one Scrawl is working on, and a pinned one
-//! (`.pinned`) are never touched.
-
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -19,19 +10,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::capture::scrawl_log;
 
-/// Marks a bundle to keep forever.
 pub const PINNED: &str = ".pinned";
-/// Written when the heavy media went to the Trash: when, and after how many days.
 pub const MEDIA_CLEANED: &str = ".media-cleaned";
 
 const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Policy {
-    /// Days to keep video, audio and full-size frames; `None` keeps them.
     #[serde(default = "default_media_days")]
     pub media_days: Option<u32>,
-    /// Days to keep the bundle itself; `None` keeps it.
     #[serde(default = "default_bundle_days")]
     pub bundle_days: Option<u32>,
 }
@@ -50,12 +37,9 @@ impl Default for Policy {
     }
 }
 
-/// The choices in the Annotate page's Keep Recordings popup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Preset {
-    /// Video for 7 days, the rest for 30.
     Week,
-    /// Video for 30 days, the rest for 90.
     Month,
     Forever,
 }
@@ -94,28 +78,22 @@ impl Policy {
             .unwrap_or_default()
     }
 
-    /// Writes `"retention"`, keeping the rest of the config (and its `0600` mode) as it is.
     pub fn save_to(&self, path: &Path) -> Result<()> {
         crate::handoff::set_config_value_in(path, "retention", serde_json::to_value(self)?)
     }
 }
 
-// MARK: What Scrawl is busy with
-
 static BUSY: Mutex<BTreeSet<PathBuf>> = Mutex::new(BTreeSet::new());
 static RECORDING: AtomicUsize = AtomicUsize::new(0);
 
-/// Holds a bundle out of cleanup while Scrawl works on it.
 pub struct Claim(PathBuf);
 
-/// Claims `dir` unless something else already has.
 pub fn claim(dir: &Path) -> Option<Claim> {
     let key = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
     let inserted = BUSY
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .insert(key.clone());
-    // Built after the lock is released: a refused `Claim` would unlock on drop.
     inserted.then(|| Claim(key))
 }
 
@@ -134,7 +112,6 @@ impl Drop for Claim {
     }
 }
 
-/// Held by a running capture; cleanup and re-encoding wait until none is.
 pub struct Recording(());
 
 impl Recording {
@@ -154,8 +131,6 @@ fn recording() -> bool {
     RECORDING.load(Ordering::Acquire) > 0
 }
 
-// MARK: Planning
-
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Manifest {
@@ -165,12 +140,10 @@ struct Manifest {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
-    /// Move these heavy files out of the bundle and into the Trash.
     TrashMedia {
         bundle: PathBuf,
         items: Vec<PathBuf>,
     },
-    /// Move the whole bundle to the Trash.
     TrashBundle(PathBuf),
 }
 
@@ -179,8 +152,6 @@ fn modified_ago(path: &Path, now: SystemTime) -> Option<Duration> {
     Some(now.duration_since(modified).unwrap_or_default())
 }
 
-/// When anything last changed in the folder itself: an entry added, removed or renamed (a copy
-/// arriving, a zoom, a re-encode). Uses the change time, which `tar` can't backdate.
 #[cfg(unix)]
 fn changed_ago(path: &Path, now: SystemTime) -> Option<Duration> {
     use std::os::unix::fs::MetadataExt;
@@ -191,7 +162,6 @@ fn changed_ago(path: &Path, now: SystemTime) -> Option<Duration> {
 
 fn created_ms(dir: &Path, manifest: &Manifest) -> Option<u64> {
     manifest.created_at_ms.or_else(|| {
-        // `bespoke-<ms>-…`, or `scrawl-<ms>-…` from before Bespoke renamed its bundles.
         let name = dir.file_stem()?.to_str()?;
         name.strip_prefix("bespoke-")
             .or_else(|| name.strip_prefix("scrawl-"))?
@@ -202,7 +172,6 @@ fn created_ms(dir: &Path, manifest: &Manifest) -> Option<u64> {
     })
 }
 
-/// What one cleanup pass would do to the bundles in `captures`, given `now`.
 pub fn plan(captures: &Path, policy: &Policy, now: SystemTime) -> Vec<Action> {
     let now_ms = now
         .duration_since(UNIX_EPOCH)
@@ -256,9 +225,6 @@ pub fn plan(captures: &Path, policy: &Policy, now: SystemTime) -> Vec<Action> {
     actions
 }
 
-// MARK: Doing it
-
-/// Moves `path` to the Trash.
 pub type Trasher<'a> = &'a dyn Fn(&Path) -> Result<()>;
 
 pub fn trash(path: &Path) -> Result<()> {
@@ -293,7 +259,6 @@ fn size_of(path: &Path) -> u64 {
     }
 }
 
-/// Everything in the captures folder, in bytes.
 pub fn captures_size(captures: &Path) -> u64 {
     size_of(captures)
 }
@@ -316,8 +281,6 @@ pub struct Report {
     pub errors: usize,
 }
 
-/// Puts a bundle's heavy media in the Trash as one folder named after the bundle, so it reads
-/// (and restores) as a unit, then notes the cleanup in the bundle.
 fn trash_media(bundle: &Path, items: &[PathBuf], days: u32, trasher: Trasher) -> Result<u64> {
     let name = bundle
         .file_stem()
@@ -354,8 +317,6 @@ fn trash_media(bundle: &Path, items: &[PathBuf], days: u32, trasher: Trasher) ->
     Ok(freed)
 }
 
-/// Runs a plan. Each step is checked again just before it runs, in case a capture or a copy
-/// started meanwhile.
 pub fn apply(actions: &[Action], policy: &Policy, trasher: Trasher) -> Report {
     let mut report = Report::default();
     for action in actions {
@@ -391,7 +352,6 @@ pub fn apply(actions: &[Action], policy: &Policy, trasher: Trasher) -> Report {
     report
 }
 
-/// Removes what a crash mid-cleanup left beside the bundles.
 fn sweep_leftovers(captures: &Path, now: SystemTime) {
     let Ok(entries) = std::fs::read_dir(captures) else {
         return;
@@ -410,7 +370,6 @@ fn sweep_leftovers(captures: &Path, now: SystemTime) {
     }
 }
 
-/// One cleanup pass over `captures`, planned as if `ahead` from now (for trying it out).
 pub fn run_pass(
     captures: &Path,
     policy: &Policy,
@@ -436,8 +395,6 @@ pub fn run_pass(
     (actions, report)
 }
 
-// MARK: Background worker
-
 static WORKER: std::sync::OnceLock<flume::Sender<()>> = std::sync::OnceLock::new();
 
 fn lower_priority() {
@@ -448,7 +405,6 @@ fn lower_priority() {
     }
 }
 
-/// Starts the app's cleanup: a pass shortly after launch, then daily.
 pub fn start() {
     if WORKER.get().is_some() {
         return;
@@ -462,7 +418,6 @@ pub fn start() {
         .spawn(move || worker(&receiver));
 }
 
-/// Runs a pass soon, after the policy changed.
 pub fn nudge() {
     if let Some(worker) = WORKER.get() {
         let _ = worker.send(());
@@ -483,7 +438,6 @@ fn worker(jobs: &flume::Receiver<()>) {
             Err(flume::RecvTimeoutError::Timeout) => {}
             Err(flume::RecvTimeoutError::Disconnected) => return,
         }
-        // The Mac sleeps through `Instant`s, so the daily pass also goes by the wall clock.
         let day_passed = last_pass.is_none_or(|at| {
             SystemTime::now().duration_since(at).unwrap_or_default()
                 >= Duration::from_secs(24 * 3600)
@@ -534,8 +488,6 @@ mod tests {
         }
     }
 
-    /// Plans run a little over a day ahead of the real clock, so folders made by the test
-    /// count as unchanged for a day (their change time can't be backdated).
     fn later() -> SystemTime {
         SystemTime::now() + Duration::from_secs(25 * 3600)
     }
@@ -544,7 +496,6 @@ mod tests {
         time.duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
     }
 
-    /// A bundle created `days` before `later()`.
     fn bundle(captures: &Path, name: &str, days: f64) -> PathBuf {
         let dir = captures.join(format!("{name}.scrawl"));
         std::fs::create_dir_all(dir.join("frames")).unwrap();
@@ -628,7 +579,6 @@ mod tests {
             ]
         );
         assert!(planned(&tmp.0, &Preset::Forever.policy()).is_empty());
-        // However short the policy, a day-old bundle is kept.
         let short = Policy {
             media_days: Some(0),
             bundle_days: None,
@@ -655,7 +605,6 @@ mod tests {
     #[test]
     fn recently_changed_folders_wait_a_day() {
         let tmp = TempDir::new("changed");
-        // Just copied from another Mac: made long ago, but the folder changed now.
         let arrived = bundle(&tmp.0, "scrawl-arrived", 40.0);
         let today = later() - Duration::from_secs(24 * 3600);
         assert!(plan(&tmp.0, &Policy::default(), today).is_empty());
@@ -709,7 +658,6 @@ mod tests {
             manifest["video"], "recording.mp4",
             "the manifest is left as it was"
         );
-        // Nothing left to clean, and the bundle changed today besides.
         let next_week = later() + Duration::from_secs(2 * 24 * 3600);
         assert!(plan(&captures, &Policy::default(), next_week).is_empty());
     }

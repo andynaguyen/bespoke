@@ -121,7 +121,6 @@
     "active": "Активный",
     "switching": "Переключение...",
     "verifyingGeneric": "Проверка...",
-    "extractingGeneric": "Извлечение...",
     "downloading": "Загрузка {{percentage}} %",
     "deleteModel": "Удалить {{modelName}}",
     "downloadSpeed": "{{speed}} МБ/с",
@@ -160,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Ярлыки Bespoke",
-        "description": "Настройте сочетания клавиш для запуска записи речи в текст",
-        "loading": "Загрузка ярлыков...",
-        "none": "Ярлыки не настроены",
-        "notFound": "Ярлык не найден",
-        "pressKeys": "Нажимайте клавиши...",
         "bindings": {
           "transcribe": {
             "name": "Горячая клавиша транскрипции",

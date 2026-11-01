@@ -1,9 +1,3 @@
-//! Global-hotkey shortcut implementation
-//!
-//! Registers shortcuts with the OS through the `global-hotkey` crate, the
-//! library Tauri's global-shortcut plugin wrapped. The persisted setting value
-//! for this backend is still `"tauri"`, so existing installs keep their choice.
-//!
 //! Registration runs on the main thread: Carbon (macOS) and `RegisterHotKey`
 //! (Windows) both bind hotkeys to the main run loop.
 
@@ -18,11 +12,10 @@ use crate::app_handle::AppHandle;
 
 #[cfg(not(target_os = "linux"))]
 use crate::settings::get_settings;
-use crate::settings::{self, ShortcutBinding};
+use crate::settings::ShortcutBinding;
 
 use super::handler::handle_shortcut_event;
 
-/// A registered hotkey and the binding it fires.
 struct Registration {
     binding_id: String,
     shortcut: Shortcut,
@@ -33,11 +26,8 @@ fn registrations() -> &'static Mutex<HashMap<u32, Registration>> {
     REGISTRATIONS.get_or_init(Default::default)
 }
 
-/// The OS hotkey manager. Created on the main thread by [`install`].
 static MANAGER: OnceLock<GlobalHotKeyManager> = OnceLock::new();
 
-/// Creates the hotkey manager and routes its events to the shortcut handler.
-/// Must run on the main thread before any shortcut is registered.
 pub fn install(app: &AppHandle) {
     match GlobalHotKeyManager::new() {
         Ok(manager) => {
@@ -61,9 +51,6 @@ pub fn install(app: &AppHandle) {
         };
         let shortcut_string = shortcut.into_string();
         let is_pressed = event.state() == HotKeyState::Pressed;
-        // Mirrors the handy-keys event log line; the distinct prefix
-        // makes it possible to tell which backend fired a shortcut
-        // (e.g. when diagnosing the Secure Input fallback)
         debug!(
             "global-hotkey event: binding={}, shortcut={}, state={:?}",
             binding_id,
@@ -85,26 +72,8 @@ fn with_manager<R: Send + 'static>(
     .map_err(|e| e.to_string())?
 }
 
-/// Initialize shortcuts using the global-hotkey backend
 pub fn init_shortcuts(app: &AppHandle) {
-    let default_bindings = settings::get_default_settings().bindings;
-    let user_settings = settings::load_or_create_app_settings(app);
-
-    // Register all default shortcuts, applying user customizations
-    for (id, default_binding) in default_bindings {
-        if id == "cancel" {
-            continue; // Skip cancel shortcut, it will be registered dynamically
-        }
-        // Skip post-processing shortcut when the feature is disabled
-        if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
-            continue;
-        }
-        let binding = user_settings
-            .bindings
-            .get(&id)
-            .cloned()
-            .unwrap_or(default_binding);
-
+    for (id, binding) in super::startup_bindings(app) {
         if let Err(e) = register_shortcut(app, binding) {
             error!("Failed to register shortcut {} during init: {}", id, e);
         }
@@ -126,7 +95,6 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
         "windows",
     ];
 
-    // Check for fn key which global-hotkey doesn't support
     let parts: Vec<String> = raw.split('+').map(|p| p.trim().to_lowercase()).collect();
     for part in &parts {
         if part == "fn" || part == "function" {
@@ -134,7 +102,6 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
         }
     }
 
-    // Check for at least one non-modifier key
     let has_non_modifier = parts.iter().any(|part| !modifiers.contains(&part.as_str()));
 
     if has_non_modifier {
@@ -144,12 +111,10 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
     }
 }
 
-/// Register a shortcut with the global-hotkey backend
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     if super::handy_keys::is_mouse_shortcut(&binding.current_binding) {
         return super::handy_keys::register_shortcut(app, binding);
     }
-    // Validate for global-hotkey requirements
     if let Err(e) = validate_shortcut(&binding.current_binding) {
         warn!(
             "register_hotkey_shortcut validation error for binding '{}': {}",
@@ -158,7 +123,6 @@ pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<()
         return Err(e);
     }
 
-    // Parse shortcut and return error if it fails
     let shortcut = match binding.current_binding.parse::<Shortcut>() {
         Ok(s) => s,
         Err(e) => {
@@ -171,7 +135,6 @@ pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<()
         }
     };
 
-    // Prevent duplicate registrations that would silently shadow one another
     if registrations().lock().unwrap().contains_key(&shortcut.id()) {
         let error_msg = format!("Shortcut '{}' is already in use", binding.current_binding);
         warn!("register_hotkey_shortcut duplicate error: {}", error_msg);
@@ -197,7 +160,6 @@ pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<()
     Ok(())
 }
 
-/// Unregister a shortcut from the global-hotkey backend
 pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     if super::handy_keys::is_mouse_shortcut(&binding.current_binding) {
         return super::handy_keys::unregister_shortcut(app, binding);
@@ -225,9 +187,7 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
     })
 }
 
-/// Register the cancel shortcut (called when recording starts)
 pub fn register_cancel_shortcut(app: &AppHandle) {
-    // Cancel shortcut is disabled on Linux due to instability with dynamic shortcut registration
     #[cfg(target_os = "linux")]
     {
         let _ = app;
@@ -247,9 +207,7 @@ pub fn register_cancel_shortcut(app: &AppHandle) {
     }
 }
 
-/// Unregister the cancel shortcut (called when recording stops)
 pub fn unregister_cancel_shortcut(app: &AppHandle) {
-    // Cancel shortcut is disabled on Linux due to instability with dynamic shortcut registration
     #[cfg(target_os = "linux")]
     {
         let _ = app;
@@ -261,7 +219,6 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
         let app_clone = app.clone();
         crate::runtime::spawn(async move {
             if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-                // We ignore errors here as it might already be unregistered
                 let _ = unregister_shortcut(&app_clone, cancel_binding);
             }
         });

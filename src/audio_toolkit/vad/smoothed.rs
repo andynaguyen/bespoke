@@ -2,8 +2,6 @@ use super::{VadFrame, VadTailReport, VoiceActivityDetector};
 use anyhow::Result;
 use std::collections::VecDeque;
 
-/// One pre-roll buffer slot. `emitted` and `voiced` exist only to power the
-/// end-of-recording `tail_report()` diagnostic; they never affect emission.
 struct BufferedFrame {
     samples: Vec<f32>,
     emitted: bool,
@@ -55,7 +53,6 @@ impl SmoothedVad {
 
 impl VoiceActivityDetector for SmoothedVad {
     fn push_frame<'a>(&'a mut self, frame: &'a [f32]) -> Result<VadFrame<'a>> {
-        // 1. Buffer every incoming frame for possible pre-roll
         self.frame_buffer.push_back(BufferedFrame {
             samples: frame.to_vec(),
             emitted: false,
@@ -65,7 +62,6 @@ impl VoiceActivityDetector for SmoothedVad {
             self.frame_buffer.pop_front();
         }
 
-        // 2. Delegate to the wrapped boolean VAD
         let is_voice = self.inner_vad.is_voice(frame)?;
         self.last_voiced = Some(is_voice);
         if let Some(last) = self.frame_buffer.back_mut() {
@@ -73,16 +69,13 @@ impl VoiceActivityDetector for SmoothedVad {
         }
 
         match (self.in_speech, is_voice) {
-            // Potential start of speech - need to accumulate onset frames
             (false, true) => {
                 self.onset_counter += 1;
                 if self.onset_counter >= self.onset_frames {
-                    // We have enough consecutive voice frames to trigger speech
                     self.in_speech = true;
                     self.hangover_counter = self.hangover_frames;
-                    self.onset_counter = 0; // Reset for next time
+                    self.onset_counter = 0;
 
-                    // Collect prefill + current frame
                     self.temp_out.clear();
                     for buffered in self.frame_buffer.iter_mut() {
                         self.temp_out.extend(buffered.samples.iter());
@@ -90,19 +83,16 @@ impl VoiceActivityDetector for SmoothedVad {
                     }
                     Ok(VadFrame::Speech(&self.temp_out))
                 } else {
-                    // Not enough frames yet, still silence
                     Ok(VadFrame::Noise)
                 }
             }
 
-            // Ongoing Speech
             (true, true) => {
                 self.hangover_counter = self.hangover_frames;
                 self.mark_last_emitted();
                 Ok(VadFrame::Speech(frame))
             }
 
-            // End of Speech or interruption during onset phase
             (true, false) => {
                 if self.hangover_counter > 0 {
                     self.hangover_counter -= 1;
@@ -114,9 +104,8 @@ impl VoiceActivityDetector for SmoothedVad {
                 }
             }
 
-            // Silence or broken onset sequence
             (false, false) => {
-                self.onset_counter = 0; // Reset onset counter on silence
+                self.onset_counter = 0;
                 Ok(VadFrame::Noise)
             }
         }
@@ -134,8 +123,6 @@ impl VoiceActivityDetector for SmoothedVad {
         self.hangover_frames = frames;
     }
 
-    /// Trailing run of withheld frames plus smoothing state. Interior
-    /// withheld frames (before already-emitted speech) are not counted.
     fn tail_report(&self) -> Option<VadTailReport> {
         let mut withheld_frames = 0;
         let mut withheld_voiced_frames = 0;
@@ -175,7 +162,6 @@ impl VoiceActivityDetector for SmoothedVad {
 mod tests {
     use super::*;
 
-    /// Inner VAD that replays a scripted voice/no-voice sequence.
     struct ScriptedVad {
         script: VecDeque<bool>,
     }
@@ -212,9 +198,6 @@ mod tests {
 
     #[test]
     fn tail_report_counts_withheld_onset_tail() {
-        // One voiced frame at the end: onset (2 frames) never confirms, so
-        // both trailing frames are withheld and one of them is voiced —
-        // consistent with a final word cut off at the stop boundary.
         let mut vad = smoothed(&[false, true], 2);
         assert!(!vad.push_frame(&frame(0.1)).unwrap().is_speech());
         assert!(!vad.push_frame(&frame(0.9)).unwrap().is_speech());
@@ -228,14 +211,11 @@ mod tests {
 
     #[test]
     fn tail_report_counts_only_trailing_run() {
-        // Speech emitted through hangover, then silence past the hangover is
-        // withheld. Only the trailing run counts — frames older than an
-        // emitted frame are excluded.
         let mut vad = smoothed(&[true, true, false, false, false, false], 2);
         for v in [0.1, 0.2, 0.3, 0.4] {
             let _ = vad.push_frame(&frame(v)).unwrap();
         }
-        assert!(!vad.push_frame(&frame(0.5)).unwrap().is_speech()); // past hangover
+        assert!(!vad.push_frame(&frame(0.5)).unwrap().is_speech());
         assert!(!vad.push_frame(&frame(0.6)).unwrap().is_speech());
 
         let report = vad.tail_report().unwrap();

@@ -1,11 +1,3 @@
-//! Window geometry and cursor log for Screen-mode captures.
-//!
-//! While a full-screen capture records, a low-rate worker writes down which windows were on
-//! screen (front to back) and where the cursor was, so `scrawl autocrop` can work out which
-//! window the narration and ink were about. Snapshots are deduped (only stored when the window
-//! list changes), cursor samples are deduped by movement, and window titles stay in
-//! `scrawl.json`: they never go into `summary.md` or the clipboard.
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,16 +8,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::TargetFrame;
 
-/// How often the worker wakes to sample the cursor and check its triggers.
 const TICK: Duration = Duration::from_millis(66);
-/// Snapshots while the cursor moves are at most this often (about 2 Hz).
 const MOVING_INTERVAL: Duration = Duration::from_millis(500);
-/// A snapshot even when nothing seems to happen, to catch windows opening without input.
 const IDLE_INTERVAL: Duration = Duration::from_millis(2_000);
-/// Cursor samples closer than this to the previous one (in capture points) are dropped.
 const CURSOR_MIN_MOVE_PT: f64 = 2.0;
 
-/// The on-screen windows at one moment, front to back.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowSnapshot {
@@ -40,42 +27,32 @@ pub struct WindowEntry {
     pub app: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bundle_id: Option<String>,
-    /// `false` for agent apps (menu-bar utilities, overlays such as Cua Driver's full-screen
-    /// window) whose windows are rarely what a capture is about.
     #[serde(default = "yes", skip_serializing_if = "Clone::clone")]
     pub regular: bool,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub title: String,
-    /// `[x, y, width, height]` in points from the capture's top-left corner. Windows that hang
-    /// off the captured display keep their full size, so `x`/`y` can be negative.
     pub bounds: [i32; 4],
     /// `0` for normal windows, `20` for the Dock, `24` for the menu bar, up to `101` for a
     /// regular app's floating panels and pop-up menus.
     pub layer: i32,
-    /// The frontmost app's frontmost normal window.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub frontmost: bool,
 }
 
-/// `[t_ms, x, y]` with `x, y` normalized to the capture (`0.0..=1.0`), like clicks.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CursorSample(pub u64, pub f32, pub f32);
 
-/// What the worker collected over one capture.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ActivityLog {
     pub windows: Vec<WindowSnapshot>,
     pub cursor: Vec<CursorSample>,
-    /// Calls to the window list and the time they took, for the log line at the end.
     pub snapshot_calls: u32,
     pub snapshot_time: Duration,
-    /// When the finish sequence began and how long stopping capture streams took.
     pub stop_started: Option<Instant>,
     pub stop_ms: Option<u64>,
 }
 
 impl ActivityLog {
-    /// Stores a snapshot unless the window list is identical to the last stored one.
     pub fn push_windows(&mut self, t: u64, windows: Vec<WindowEntry>) -> bool {
         if self
             .windows
@@ -88,8 +65,6 @@ impl ActivityLog {
         true
     }
 
-    /// Stores a cursor sample (capture points) unless it is within `CURSOR_MIN_MOVE_PT` of the
-    /// last one or outside the capture.
     pub fn push_cursor(&mut self, t: u64, x_pt: f64, y_pt: f64, frame: TargetFrame) -> bool {
         let (w, h) = (frame.width.max(1.0), frame.height.max(1.0));
         if !(0.0..=w).contains(&x_pt) || !(0.0..=h).contains(&y_pt) {
@@ -117,7 +92,6 @@ fn round4(v: f64) -> f32 {
     ((v * 10_000.0).round() / 10_000.0) as f32
 }
 
-/// One window as the window server reported it, in global points.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawWindow {
     pub id: u32,
@@ -129,20 +103,12 @@ pub struct RawWindow {
     pub alpha: f64,
 }
 
-/// What the log needs to know about a window's app.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AppMeta {
     pub bundle_id: Option<String>,
-    /// A Dock app (`NSApplicationActivationPolicyRegular`), not an agent or overlay.
     pub regular: bool,
 }
 
-/// Keeps normal windows (plus regular apps' panels and menus), the menu bar and the Dock that
-/// overlap the capture, converts them to capture points and marks the frontmost app's first
-/// normal window.
-///
-/// The Dock's own window covers the whole display, so it is replaced by `dock` (the strip the
-/// Dock reserves, in global points) or dropped when the Dock hides.
 pub fn filter_windows(
     raw: &[RawWindow],
     frame: TargetFrame,
@@ -207,7 +173,6 @@ fn is_system_prompt(w: &RawWindow) -> bool {
     w.alpha > 0.01 && SYSTEM_PROMPT_OWNERS.contains(&w.owner.as_str())
 }
 
-/// System prompts (see `SYSTEM_PROMPT_OWNERS`) overlapping `frame`, by window id, sorted.
 pub fn system_prompts_over(raw: &[RawWindow], frame: TargetFrame) -> Vec<u32> {
     let mut ids: Vec<u32> = raw
         .iter()
@@ -225,8 +190,6 @@ pub fn system_prompts_over(raw: &[RawWindow], frame: TargetFrame) -> Vec<u32> {
     ids
 }
 
-/// Whether a global point is on a system prompt (they float above app windows), so a click
-/// there is the user answering macOS rather than part of what they're showing.
 pub fn system_prompt_at(raw: &[RawWindow], x: f64, y: f64) -> bool {
     raw.iter().any(|w| {
         let [wx, wy, ww, wh] = w.bounds;
@@ -234,8 +197,6 @@ pub fn system_prompt_at(raw: &[RawWindow], x: f64, y: f64) -> bool {
     })
 }
 
-/// Whether the topmost window under a global point (in `raw`, front to back) belongs to `own_pid`,
-/// looking through `passthrough` windows, which let clicks fall to whatever is below them.
 pub fn owned_window_at(
     raw: &[RawWindow],
     x: f64,
@@ -252,7 +213,6 @@ pub fn owned_window_at(
         .is_some_and(|w| w.pid == own_pid)
 }
 
-/// Reads the on-screen window list (front to back) from the window server.
 pub fn raw_windows() -> Vec<RawWindow> {
     use core_foundation::base::{CFType, TCFType};
     use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
@@ -378,7 +338,6 @@ pub fn dock_rect(frame: TargetFrame) -> Option<[f64; 4]> {
     }
 }
 
-/// One timed snapshot of the windows overlapping `frame`.
 pub fn snapshot(
     frame: TargetFrame,
     dock: Option<[f64; 4]>,
@@ -398,18 +357,12 @@ pub fn snapshot(
     })
 }
 
-/// Background worker that logs windows and the cursor during a Screen-mode capture.
-///
-/// Snapshots are taken at the start, right after `request` is raised (click, ink or laser
-/// start), when the frontmost app changes, at most every 500 ms while the cursor moves, every
-/// 2 s otherwise, and once more at the end. Cursor samples are taken at 15 Hz.
 pub struct WindowLogger {
     stopping: Arc<AtomicBool>,
     worker: Option<JoinHandle<ActivityLog>>,
 }
 
 impl WindowLogger {
-    /// Call on the main thread, so the Dock's strip can be read from `NSScreen`.
     pub fn start(frame: TargetFrame, started_at: Instant, request: Arc<AtomicBool>) -> Self {
         let stopping = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&stopping);
@@ -541,9 +494,9 @@ mod tests {
         };
         let own = 7;
         let raw = [
-            window(1, own, [0.0, 0.0, 1728.0, 1117.0]), // the ink overlay, click-through
-            window(2, own, [700.0, 6.0, 320.0, 44.0]),  // the recording control
-            window(3, 99, [100.0, 30.0, 1200.0, 900.0]), // an app
+            window(1, own, [0.0, 0.0, 1728.0, 1117.0]),
+            window(2, own, [700.0, 6.0, 320.0, 44.0]),
+            window(3, 99, [100.0, 30.0, 1200.0, 900.0]),
         ];
         assert!(
             owned_window_at(&raw, 800.0, 20.0, own, &[1]),
@@ -568,7 +521,6 @@ mod tests {
         let mut log = ActivityLog::default();
         assert!(log.push_windows(0, vec![entry(1, 0), entry(2, 100)]));
         assert!(!log.push_windows(500, vec![entry(1, 0), entry(2, 100)]));
-        // A moved window, a reorder, and a focus change are all new snapshots.
         assert!(log.push_windows(1_000, vec![entry(1, 10), entry(2, 100)]));
         assert!(log.push_windows(1_500, vec![entry(2, 100), entry(1, 10)]));
         let mut unfocused = vec![entry(2, 100), entry(1, 10)];
@@ -677,7 +629,6 @@ mod tests {
         );
         assert!(!out[3].regular);
         assert_eq!(lookups, vec![10, 11, 12, 13, 14, 13, 13, 14]);
-        // A hidden Dock has no strip, so its full-screen window is dropped.
         let hidden = filter_windows(&windows, capture, 9, Some(13), None, &mut |_| AppMeta {
             bundle_id: None,
             regular: true,
@@ -701,7 +652,6 @@ mod tests {
             window(6, "SecurityAgent", [2000.0, 100.0, 300.0, 200.0], 1000),
             window(7, "Safari", [0.0, 0.0, 1000.0, 500.0], 0),
         ];
-        // `frame()` is 1000 × 500 at the origin: the password sheet is on another display.
         assert_eq!(system_prompts_over(&raw, frame()), vec![5]);
         assert!(system_prompt_at(&raw, 900.0, 300.0));
         assert!(!system_prompt_at(&raw, 100.0, 100.0));

@@ -4,19 +4,16 @@ use super::model_capabilities::{
 use crate::app_handle::AppHandle;
 use crate::settings::{get_settings, write_settings};
 use anyhow::Result;
-use flate2::read::GzDecoder;
 use hf_hub::api::tokio::{ApiBuilder, CancellationToken, Progress};
 use hf_hub::{Cache, Repo, RepoType};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tar::Archive;
 
 mod download;
 
@@ -24,9 +21,6 @@ use download::{HttpDownloadOutcome, DOWNLOAD_STALL_TIMEOUT};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EngineType {
-    /// Any GGML/GGUF model loaded through transcribe-cpp (Whisper, Parakeet,
-    /// Voxtral, Qwen3-ASR, Nemotron, …). The architecture is auto-detected from
-    /// the file, so this one variant covers the whole transcribe-cpp family.
     TranscribeCpp,
     Parakeet,
     Moonshine,
@@ -37,22 +31,10 @@ pub enum EngineType {
     Cohere,
 }
 
-/// Where a model comes from and how Bespoke obtains it — the routing discriminant
-/// for downloading and on-disk resolution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ModelSource {
-    /// Direct HTTP download from a URL (current blob.handy.computer hosting).
-    Url {
-        url: String,
-        /// Expected SHA-256 for integrity verification; `None` skips it.
-        sha256: Option<String>,
-    },
-    /// A file inside a Hugging Face Hub repo, fetched via hf-hub into the shared
-    /// HF cache (so other tools reuse it). The file within the repo is
-    /// [`ModelInfo::filename`].
+    Url { url: String, sha256: Option<String> },
     HuggingFace { repo_id: String, revision: String },
-    /// Already present on disk — a user-provided custom model, or one discovered
-    /// in a shared cache. Nothing to download.
     Local,
 }
 
@@ -69,36 +51,30 @@ pub struct ModelInfo {
     pub partial_size: u64,
     pub is_directory: bool,
     pub engine_type: EngineType,
-    pub accuracy_score: f32,        // 0.0 to 1.0, higher is more accurate
-    pub speed_score: f32,           // 0.0 to 1.0, higher is faster
-    pub supports_translation: bool, // Whether the model supports translating to English
-    pub is_recommended: bool,       // Whether this is the recommended model for new users
-    pub supported_languages: Vec<String>, // Languages this model can transcribe
-    pub supports_language_selection: bool, // Whether the user can explicitly pick a language
-    pub is_custom: bool,            // Whether this is a user-provided custom model
-    pub supports_streaming: bool, // Whether this model supports live streaming preview (transcribe-cpp)
-    pub supports_language_detection: bool, // Whether the model can auto-detect language (gates the "Auto" option)
+    pub accuracy_score: f32,
+    pub speed_score: f32,
+    pub supports_translation: bool,
+    pub is_recommended: bool,
+    pub supported_languages: Vec<String>,
+    pub supports_language_selection: bool,
+    pub is_custom: bool,
+    pub supports_streaming: bool,
+    pub supports_language_detection: bool,
 }
 
 const CHINESE_LANGUAGE_CODE: &str = "zh";
 
-fn recognition_language(language: &str) -> &str {
+pub(crate) fn recognition_language(language: &str) -> &str {
     match language {
         "zh-Hans" | "zh-Hant" => CHINESE_LANGUAGE_CODE,
         other => other,
     }
 }
 
-/// A tag's primary language subtag, with any BCP-47 region/script suffix
-/// dropped (`en-US` → `en`, `zh-Hant` → `zh`).
 fn base_language(language: &str) -> &str {
     language.split(&['-', '_'][..]).next().unwrap_or(language)
 }
 
-/// The stable user intent used to compare language codes across model
-/// families. Norwegian Bokmål (`nb`) maps to Norwegian (`no`), while Nynorsk
-/// (`nn`) remains distinct; Filipino (`fil`) maps to Tagalog (`tl`). This is
-/// only for matching: callers must return/pass the model's original code.
 pub(crate) fn canonical_language_code(language: &str) -> &str {
     match base_language(language) {
         "nb" => "no",
@@ -121,23 +97,15 @@ fn canonicalize_supported_languages(languages: Vec<String>) -> Vec<String> {
     canonical
 }
 
-/// One downloadable quantization of a model. Mirrors a `files[]` entry in
-/// `catalog.json`, so it deserializes straight from the catalog.
 #[derive(Debug, Clone, Deserialize)]
 pub struct QuantFile {
     pub filename: String,
     pub quant: String,
     pub size_bytes: u64,
-    /// Content sha256 — the trust anchor for downloads from any source (HF or
-    /// mirror). `None` only for catalogs predating the field.
     #[serde(default)]
     pub sha256: Option<String>,
 }
 
-/// Pick the default quant among `files`: the one whose `quant` matches
-/// `default_quant`, else the first file. The single source of the "which file do
-/// we surface" rule — shared by [`ModelDescriptor::default_file`] and the
-/// catalog's id construction so the two can never drift.
 pub(crate) fn default_quant_file<'a>(
     files: &'a [QuantFile],
     default_quant: Option<&str>,
@@ -148,9 +116,6 @@ pub(crate) fn default_quant_file<'a>(
         .or_else(|| files.first())
 }
 
-/// Live, on-disk status — the half of [`ModelInfo`] that isn't part of the
-/// static spec. Kept separate so a descriptor stays purely descriptive and
-/// status can be recomputed without rebuilding it.
 #[derive(Debug, Clone, Default)]
 pub struct DiskStatus {
     pub is_downloaded: bool,
@@ -158,11 +123,6 @@ pub struct DiskStatus {
     pub partial_size: u64,
 }
 
-/// The spec of a bundled catalog model: everything in `catalog.json` normalised
-/// into one shape, rendered into the frontend-facing [`ModelInfo`] via
-/// [`ModelDescriptor::to_model_info`] by combining it with a [`DiskStatus`].
-/// (The catalog is the only producer that routes through this; the legacy table
-/// and on-disk scans build `ModelInfo` directly.)
 #[derive(Debug, Clone)]
 pub struct ModelDescriptor {
     pub id: String,
@@ -175,35 +135,19 @@ pub struct ModelDescriptor {
     pub default_quant: Option<String>,
     pub speed_score: f32,
     pub accuracy_score: f32,
-    /// Editorial sort priority across the whole catalog (lower = higher). Drives
-    /// list ordering; independent of `recommended`.
     pub recommended_rank: Option<u32>,
-    /// Whether this is part of the small curated set shown to new users in
-    /// onboarding (and badged "Recommended"). A model can be ranked for ordering
-    /// without being in this set.
     pub recommended: bool,
 }
 
 impl ModelDescriptor {
-    /// The quant we surface for download/size: the declared default, else the
-    /// first file.
     fn default_file(&self) -> Option<&QuantFile> {
         default_quant_file(&self.files, self.default_quant.as_deref())
     }
 
-    /// Render the frontend-facing [`ModelInfo`] by combining this spec with live
-    /// disk `status`.
     pub fn to_model_info(&self, status: &DiskStatus) -> ModelInfo {
         self.render_model_info(self.default_file(), status)
     }
 
-    /// [`ModelInfo`] for one specific quant `file` of this catalog model — how
-    /// alternate-quant files found on disk surface with full catalog metadata
-    /// instead of as anonymous customs. The default quant keeps the plain
-    /// catalog name; any other quant appends it ("Name (Q4_K_M)") so two
-    /// quants of one model stay tellable apart, and only the default carries
-    /// the Recommended badge. Identity stays `"{repo_id}/{filename}"`, so the
-    /// default quant renders identically to the seeded entry.
     pub fn to_model_info_for_file(&self, file: &QuantFile, status: &DiskStatus) -> ModelInfo {
         self.render_model_info(Some(file), status)
     }
@@ -248,8 +192,6 @@ impl ModelDescriptor {
             is_recommended: self.recommended && is_default,
             supports_language_selection: languages.len() > 1,
             supported_languages: languages,
-            // Catalog models are always HF-sourced downloads, never user-dropped
-            // custom files (those bypass the descriptor and set this directly).
             is_custom: false,
             supports_streaming: self.caps.supports_streaming.unwrap_or(false),
             supports_language_detection: self.caps.supports_language_detect.unwrap_or(false),
@@ -257,20 +199,6 @@ impl ModelDescriptor {
     }
 }
 
-/// Resolve the user's persisted language *intent* (`"auto"` or a language code)
-/// into the language a given model will actually use.
-///
-/// The canonical coercion used on every transcription path: computed at the
-/// point of use and **never written back** to settings, so the user's last
-/// explicit intent survives switching to an incompatible model and back.
-///
-/// Matching is base-aware ([`base_language`]) and returns the model's own
-/// *concrete* code, so a bare intent (`en`) resolves to the exact string the
-/// engine's prompt table expects (`en-US`) for models that advertise full
-/// BCP-47 locales. Chinese *script* intents (`zh-Hans`/`zh-Hant`) are the sole
-/// exception: they pass through unchanged so the downstream Simplified /
-/// Traditional output conversion still fires (the engine path collapses them to
-/// a plain Chinese code separately).
 pub fn effective_language(
     intent: &str,
     supported_languages: &[String],
@@ -281,9 +209,6 @@ pub fn effective_language(
     }
 
     if intent != "auto" {
-        // Prefer the same base code before considering an equivalence alias. If
-        // a future model advertises both `no` and `nb`, an explicit `nb` intent
-        // must select `nb`, regardless of capability-list order.
         let exact_base_match = supported_languages
             .iter()
             .find(|language| base_language(language) == base_language(intent));
@@ -305,8 +230,6 @@ pub fn effective_language(
         return "auto".to_string();
     }
 
-    // Model can't auto-detect and the intent isn't usable: fall back to a
-    // concrete language (prefer English) so we never hand the engine "auto".
     if let Some(en) = supported_languages
         .iter()
         .find(|language| base_language(language) == "en")
@@ -324,10 +247,6 @@ pub struct DownloadProgress {
     pub percentage: f64,
 }
 
-/// Resolve a Hugging Face model file in the shared HF cache, if already present.
-/// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
-/// downloads are shared with other tools.
-///
 /// hf-hub resolves purely through `refs/<revision>`. Pinned downloads write
 /// `refs/<commit-sha>`, but caches populated before pinning — or by other
 /// tools, which download via `main` — only have `refs/main`, so lookup falls
@@ -346,8 +265,6 @@ fn hf_cached_path(repo_id: &str, revision: &str, filename: &str) -> Option<PathB
     get(revision).or_else(|| (revision != "main").then(|| get("main")).flatten())
 }
 
-/// Friendly name advertised by GGUF metadata, if present. Empty strings are not
-/// useful display names, so callers can keep their filename/repo fallback.
 fn probed_display_name(probe: &CapabilityProbe) -> Option<String> {
     probe
         .display_name
@@ -357,12 +274,6 @@ fn probed_display_name(probe: &CapabilityProbe) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Capability fields for a locally-discovered on-disk model, derived from its
-/// GGUF header probe. Anything without readable GGUF metadata — a legacy `.bin`
-/// file, or a header that simply omits a key — collapses to "no advertised
-/// capability"; transcribe-cpp still reconciles the real values at load time.
-/// Shared by both local discovery paths (custom models dir + HF cache) so they
-/// surface capabilities identically.
 struct LocalCaps {
     supports_streaming: bool,
     supports_translation: bool,
@@ -376,15 +287,12 @@ fn local_caps(probe: &CapabilityProbe) -> LocalCaps {
     LocalCaps {
         supports_streaming: probe.supports_streaming.unwrap_or(false),
         supports_translation: probe.supports_translation.unwrap_or(false),
-        // Only offer a language picker when there's more than one to choose.
         supports_language_selection: languages.len() > 1,
         supports_language_detection: probe.supports_language_detect.unwrap_or(false),
         supported_languages: languages,
     }
 }
 
-/// Bridges hf-hub's async download progress to Bespoke's `model-download-progress`
-/// event. hf-hub clones the reporter, so shared state lives behind an `Arc`.
 #[derive(Clone)]
 struct HfDownloadProgress {
     app_handle: AppHandle,
@@ -396,9 +304,6 @@ struct HfProgressState {
     total: u64,
     downloaded: u64,
     last_emit: Instant,
-    /// Every callback (even throttled-out ones) bumps this; the stall watchdog
-    /// reads it. Starts at construction so a hang before the first byte —
-    /// e.g. a wedged metadata/resolve request — also counts as a stall.
     last_activity: Instant,
 }
 
@@ -416,7 +321,6 @@ impl HfDownloadProgress {
         }
     }
 
-    /// Instant of the most recent sign of life from the transfer.
     fn last_activity(&self) -> Instant {
         self.state.lock().unwrap().last_activity
     }
@@ -457,7 +361,6 @@ impl Progress for HfDownloadProgress {
             st.downloaded = st.downloaded.saturating_add(size as u64);
             let now = Instant::now();
             st.last_activity = now;
-            // Throttle to ~10 updates/sec, but always emit the final byte.
             let emit = now.duration_since(st.last_emit) >= Duration::from_millis(100)
                 || (st.total > 0 && st.downloaded >= st.total);
             if emit {
@@ -479,8 +382,6 @@ impl Progress for HfDownloadProgress {
     }
 }
 
-/// RAII guard that clears the `is_rescanning` single-flight flag on drop, so the
-/// slot is released on every exit path (including early returns and `?`).
 struct RescanGuard {
     flag: Arc<AtomicBool>,
 }
@@ -491,9 +392,6 @@ impl Drop for RescanGuard {
     }
 }
 
-/// RAII guard that cleans up download state (`is_downloading` flag and cancel flag)
-/// when dropped, unless explicitly disarmed. This ensures consistent cleanup on
-/// every error path without requiring manual cleanup at each `?` or `return Err`.
 struct DownloadCleanup<'a> {
     available_models: &'a Mutex<HashMap<String, ModelInfo>>,
     cancel_flags: &'a Arc<Mutex<HashMap<String, CancellationToken>>>,
@@ -521,15 +419,11 @@ pub struct ModelManager {
     models_dir: PathBuf,
     available_models: Mutex<HashMap<String, ModelInfo>>,
     cancel_flags: Arc<Mutex<HashMap<String, CancellationToken>>>,
-    extracting_models: Arc<Mutex<HashSet<String>>>,
-    /// Single-flight guard for [`Self::rescan_local_models`] so concurrent
-    /// refresh requests coalesce instead of scanning the disk in parallel.
     is_rescanning: Arc<AtomicBool>,
 }
 
 impl ModelManager {
     pub fn new(app_handle: &AppHandle) -> Result<Self> {
-        // Create models directory in app data
         let models_dir = crate::portable::app_data_dir(app_handle)
             .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?
             .join("models");
@@ -540,7 +434,6 @@ impl ModelManager {
 
         let mut available_models = HashMap::new();
 
-        // Whisper supported languages (99 languages from tokenizer)
         let whisper_languages: Vec<String> = vec![
             "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar",
             "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu",
@@ -587,7 +480,6 @@ impl ModelManager {
             },
         );
 
-        // Add downloadable models
         available_models.insert(
             "medium".to_string(),
             ModelInfo {
@@ -642,7 +534,7 @@ impl ModelManager {
                 engine_type: EngineType::TranscribeCpp,
                 accuracy_score: 0.80,
                 speed_score: 0.40,
-                supports_translation: false, // Turbo doesn't support translation
+                supports_translation: false,
                 is_recommended: false,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
@@ -717,14 +609,13 @@ impl ModelManager {
             },
         );
 
-        // Add NVIDIA Parakeet models (directory-based)
         available_models.insert(
             "parakeet-tdt-0.6b-v2".to_string(),
             ModelInfo {
                 id: "parakeet-tdt-0.6b-v2".to_string(),
                 name: "Parakeet V2".to_string(),
                 description: "English only. The best model for English speakers.".to_string(),
-                filename: "parakeet-tdt-0.6b-v2-int8".to_string(), // Directory name
+                filename: "parakeet-tdt-0.6b-v2-int8".to_string(),
                 source: ModelSource::Url {
                     url: "https://blob.handy.computer/parakeet-v2-int8.tar.gz".to_string(),
                     sha256: Some(
@@ -750,8 +641,6 @@ impl ModelManager {
             },
         );
 
-        // Parakeet V3 supported languages (25 EU languages + Russian/Ukrainian):
-        // bg, hr, cs, da, nl, en, et, fi, fr, de, el, hu, it, lv, lt, mt, pl, pt, ro, sk, sl, es, sv, ru, uk
         let parakeet_v3_languages: Vec<String> = vec![
             "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv",
             "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk",
@@ -766,7 +655,7 @@ impl ModelManager {
                 id: "parakeet-tdt-0.6b-v3".to_string(),
                 name: "Parakeet V3".to_string(),
                 description: "Fast and accurate. Supports 25 European languages.".to_string(),
-                filename: "parakeet-tdt-0.6b-v3-int8".to_string(), // Directory name
+                filename: "parakeet-tdt-0.6b-v3-int8".to_string(),
                 source: ModelSource::Url {
                     url: "https://blob.handy.computer/parakeet-v3-int8.tar.gz".to_string(),
                     sha256: Some(
@@ -923,7 +812,6 @@ impl ModelManager {
             },
         );
 
-        // SenseVoice supported languages
         let sense_voice_languages: Vec<String> = vec!["zh", "en", "yue", "ja", "ko"]
             .into_iter()
             .map(String::from)
@@ -962,7 +850,6 @@ impl ModelManager {
             },
         );
 
-        // GigaAM v3 supported languages
         let gigaam_languages: Vec<String> = vec!["ru"].into_iter().map(String::from).collect();
 
         available_models.insert(
@@ -997,7 +884,6 @@ impl ModelManager {
             },
         );
 
-        // Canary 180m Flash supported languages (4 languages)
         let canary_flash_languages: Vec<String> = vec!["en", "de", "es", "fr"]
             .into_iter()
             .map(String::from)
@@ -1032,12 +918,10 @@ impl ModelManager {
                 supports_language_selection: true,
                 is_custom: false,
                 supports_streaming: false,
-                // Canary (NeMo) requires an explicit source language — no auto-detect.
                 supports_language_detection: false,
             },
         );
 
-        // Canary 1B v2 supported languages (25 EU languages)
         let canary_1b_languages: Vec<String> = vec![
             "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv",
             "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk",
@@ -1075,7 +959,6 @@ impl ModelManager {
                 supports_language_selection: true,
                 is_custom: false,
                 supports_streaming: false,
-                // Canary (NeMo) requires an explicit source language — no auto-detect.
                 supports_language_detection: false,
             },
         );
@@ -1119,19 +1002,13 @@ impl ModelManager {
             },
         );
 
-        // Seed the bundled offline catalog before the on-disk scans, so a model
-        // already in the HF cache dedups onto its richer catalog entry (the scans
-        // only insert ids not already present) instead of showing as a bare cache
-        // find. Additive — see `seed_catalog_models`.
         Self::seed_catalog_models(&mut available_models);
 
-        // Auto-discover custom transcribe-cpp models (.bin / .gguf) in the models directory
         if let Err(e) = Self::discover_custom_transcribe_models(&models_dir, &mut available_models)
         {
             warn!("Failed to discover custom models: {}", e);
         }
 
-        // Auto-discover transcribe-cpp GGUF models already in the shared HF cache.
         Self::discover_hf_cache_models(&mut available_models);
 
         let manager = Self {
@@ -1139,21 +1016,16 @@ impl ModelManager {
             models_dir,
             available_models: Mutex::new(available_models),
             cancel_flags: Arc::new(Mutex::new(HashMap::new())),
-            extracting_models: Arc::new(Mutex::new(HashSet::new())),
             is_rescanning: Arc::new(AtomicBool::new(false)),
         };
 
-        // Migrate any bundled models to user directory
         manager.migrate_bundled_models()?;
 
-        // Migrate GigaAM from single-file to directory format
         manager.migrate_gigaam_to_directory()?;
 
-        // Check which models are already downloaded
-        manager.update_download_status()?;
+        manager.update_download_status();
 
-        // Auto-select a model if none is currently selected
-        manager.auto_select_model_if_needed()?;
+        manager.auto_select_model_if_needed();
 
         Ok(manager)
     }
@@ -1163,10 +1035,6 @@ impl ModelManager {
             let models = self.available_models.lock().unwrap();
             models.values().cloned().collect()
         };
-        // Stable, reasonable order: catalog editorial rank first (lower = higher
-        // priority), then any other recommended model, then by accuracy, speed,
-        // and name. `ModelInfo` doesn't carry rank, so resolve it by id from the
-        // catalog here.
         list.sort_by(|a, b| {
             crate::catalog::rank_of(&a.id)
                 .cmp(&crate::catalog::rank_of(&b.id))
@@ -1178,14 +1046,6 @@ impl ModelManager {
         list
     }
 
-    /// Seed the bundled catalog ([`crate::catalog::CATALOG`]) into the registry,
-    /// inserting each model whose id isn't already present (additive).
-    ///
-    /// Catalog (`.gguf`, `HuggingFace`) and legacy (`.bin`/ONNX, `Url`) entries
-    /// stay SEPARATE — different files, ids, and runtimes. Nothing is merged or
-    /// removed; the UI just hides not-on-disk `Url` entries to deprecate legacy
-    /// downloads, while already-downloaded ones stay runnable. Runs before the
-    /// on-disk scans so a cached model dedups onto its catalog entry.
     fn seed_catalog_models(available_models: &mut HashMap<String, ModelInfo>) {
         use std::collections::hash_map::Entry;
         let mut added = 0usize;
@@ -1198,8 +1058,6 @@ impl ModelManager {
         info!("Seeded {} catalog model(s) into the registry", added);
     }
 
-    /// Claim the single rescan slot. Returns a guard that releases it on drop,
-    /// or `None` if a rescan is already running (callers should just skip).
     fn try_start_rescan(&self) -> Option<RescanGuard> {
         if self.is_rescanning.swap(true, Ordering::SeqCst) {
             None
@@ -1210,38 +1068,21 @@ impl ModelManager {
         }
     }
 
-    /// Re-run the local discovery scans (custom models dir + shared HF cache) so
-    /// models dropped in or downloaded outside Bespoke show up without a restart.
-    /// The merge is additive: only new ids are inserted, so existing entries keep
-    /// their values — including runtime-probed capabilities from
-    /// [`Self::set_runtime_capabilities`]. It then runs [`Self::update_download_status`],
-    /// which recomputes disk-derived flags for *every* entry; a rescan racing an
-    /// in-flight download can briefly clear its `is_downloading`, but the download
-    /// continues and the event-driven UI self-corrects.
-    ///
-    /// The disk walk and 64 KiB header probes run against a cloned snapshot
-    /// *off-lock* so readers never block on I/O; only the brief merge takes the
-    /// registry lock. Concurrent calls coalesce via [`Self::try_start_rescan`].
-    pub fn rescan_local_models(&self) -> Result<()> {
+    pub fn rescan_local_models(&self) {
         let _guard = match self.try_start_rescan() {
             Some(g) => g,
             None => {
                 debug!("Model rescan already in progress; skipping");
-                return Ok(());
+                return;
             }
         };
 
-        // Snapshot the current registry and discover against the copy off-lock.
-        // The discover_* helpers are purely additive (they skip ids already in
-        // the map), so the snapshot ends up as {current} ∪ {newly-found}.
         let mut snapshot = self.available_models.lock().unwrap().clone();
         if let Err(e) = Self::discover_custom_transcribe_models(&self.models_dir, &mut snapshot) {
             warn!("Rescan: failed to discover custom models: {}", e);
         }
         Self::discover_hf_cache_models(&mut snapshot);
 
-        // Merge only the genuinely-new ids back into the live registry. `or_insert`
-        // leaves every existing entry exactly as it was.
         let mut added = 0usize;
         {
             let mut live = self.available_models.lock().unwrap();
@@ -1253,13 +1094,12 @@ impl ModelManager {
             }
         }
 
-        self.update_download_status()?;
-        self.auto_select_model_if_needed()?;
+        self.update_download_status();
+        self.auto_select_model_if_needed();
         if added > 0 {
             info!("Model rescan discovered {} new model(s)", added);
         }
         let _ = self.app_handle.emit("models-updated", ());
-        Ok(())
     }
 
     pub fn get_model_info(&self, model_id: &str) -> Option<ModelInfo> {
@@ -1267,19 +1107,6 @@ impl ModelManager {
         models.get(model_id).cloned()
     }
 
-    /// Reconcile a model's advertised capabilities with the ground truth from the
-    /// loaded model (transcribe-cpp's GGUF-derived capabilities), overwriting the
-    /// pre-download view (catalog metadata or a header probe — see
-    /// [`super::model_capabilities`]).
-    ///
-    /// This corrects the header probe's gaps. It matters most for **streaming**
-    /// (transcribe-cpp infers it at load for parakeet/streaming families, where
-    /// the flat GGUF key can be absent, and it gates whether streaming is even
-    /// attempted — see `actions.rs`) and for **language detection** / the
-    /// **supported-language set**, which feed [`effective_language`]; a mislabeled
-    /// header would otherwise coerce an "auto" intent to a forced language for good.
-    /// Translate is reconciled too for badge accuracy, though run paths re-read it
-    /// live regardless.
     pub fn set_runtime_capabilities(
         &self,
         model_id: &str,
@@ -1294,9 +1121,6 @@ impl ModelManager {
             model.supports_streaming = supports_streaming;
             model.supports_translation = supports_translation;
             model.supports_language_detection = supports_language_detection;
-            // An empty set means the model is language-agnostic — but it is also
-            // what a failed capability read leaves behind, so keep the probed /
-            // catalog list rather than blanking a known one to nothing.
             if !supported_languages.is_empty() {
                 model.supports_language_selection = supported_languages.len() > 1;
                 model.supported_languages = supported_languages;
@@ -1305,8 +1129,7 @@ impl ModelManager {
     }
 
     fn migrate_bundled_models(&self) -> Result<()> {
-        // Check for bundled models and copy them to user directory
-        let bundled_models = ["ggml-small.bin"]; // Add other bundled models here if any
+        let bundled_models = ["ggml-small.bin"];
 
         for filename in &bundled_models {
             let bundled_path = self.app_handle.path().resolve(
@@ -1318,7 +1141,6 @@ impl ModelManager {
                 if bundled_path.exists() {
                     let user_path = self.models_dir.join(filename);
 
-                    // Only copy if user doesn't already have the model
                     if !user_path.exists() {
                         info!("Migrating bundled model {} to user directory", filename);
                         fs::copy(&bundled_path, &user_path)?;
@@ -1331,9 +1153,6 @@ impl ModelManager {
         Ok(())
     }
 
-    /// Migrate GigaAM from the old single-file format (giga-am-v3.int8.onnx)
-    /// to the new directory format (giga-am-v3-int8/model.int8.onnx + vocab.txt).
-    /// This was required by the transcribe-rs 0.3.x upgrade.
     fn migrate_gigaam_to_directory(&self) -> Result<()> {
         let old_file = self.models_dir.join("giga-am-v3.int8.onnx");
         let new_dir = self.models_dir.join("giga-am-v3-int8");
@@ -1365,7 +1184,6 @@ impl ModelManager {
         fs::rename(&old_file, new_dir.join("model.int8.onnx"))?;
         fs::copy(&vocab_path, new_dir.join("vocab.txt"))?;
 
-        // Clean up old partial file if it exists
         let old_partial = self.models_dir.join("giga-am-v3.int8.onnx.partial");
         if old_partial.exists() {
             let _ = fs::remove_file(&old_partial);
@@ -1375,9 +1193,7 @@ impl ModelManager {
         Ok(())
     }
 
-    fn update_download_status(&self) -> Result<()> {
-        // Snapshot in-flight download ids before taking the registry lock (the
-        // two locks are never nested) so a mid-download entry is never dropped.
+    fn update_download_status(&self) {
         let downloading_ids: HashSet<String> =
             self.cancel_flags.lock().unwrap().keys().cloned().collect();
         let mut models = self.available_models.lock().unwrap();
@@ -1385,18 +1201,12 @@ impl ModelManager {
 
         for model in models.values_mut() {
             if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
-                // A models-dir copy counts too: mirror-fallback downloads land
-                // there, and it makes manual drop-ins of catalog files work.
                 let local_path = self.models_dir.join(&model.filename);
                 let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
                 model.is_downloaded = hf_cached_path(repo_id, revision, &model.filename).is_some()
                     || local_path.exists();
                 model.is_downloading = false;
                 model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
-                // Alternate-quant entries exist only because their file was
-                // discovered on disk — the catalog offers just the default
-                // quant, so they are never presented for download. When the
-                // file is gone, the entry goes with it.
                 if !model.is_downloaded
                     && !downloading_ids.contains(&model.id)
                     && Self::disappears_when_missing(model)
@@ -1406,42 +1216,24 @@ impl ModelManager {
                 continue;
             }
             if model.is_directory {
-                // For directory-based models, check if the directory exists
                 let model_path = self.models_dir.join(&model.filename);
                 let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
-                let extracting_path = self
-                    .models_dir
-                    .join(format!("{}.extracting", &model.filename));
-
-                // Clean up any leftover .extracting directories from interrupted extractions
-                // But only if this model is NOT currently being extracted
-                let is_currently_extracting = {
-                    let extracting = self.extracting_models.lock().unwrap();
-                    extracting.contains(&model.id)
-                };
-                if extracting_path.exists() && !is_currently_extracting {
-                    warn!("Cleaning up interrupted extraction for model: {}", model.id);
-                    let _ = fs::remove_dir_all(&extracting_path);
-                }
 
                 model.is_downloaded = model_path.exists() && model_path.is_dir();
                 model.is_downloading = false;
 
-                // Get partial file size if it exists (for the .tar.gz being downloaded)
                 if partial_path.exists() {
                     model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
                 } else {
                     model.partial_size = 0;
                 }
             } else {
-                // For file-based models (existing logic)
                 let model_path = self.models_dir.join(&model.filename);
                 let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
 
                 model.is_downloaded = model_path.exists();
                 model.is_downloading = false;
 
-                // Get partial file size if it exists
                 if partial_path.exists() {
                     model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
                 } else {
@@ -1449,9 +1241,6 @@ impl ModelManager {
                 }
             }
 
-            // Custom entries are discovered from files and have no download
-            // source. Once their file is gone, keeping the entry would offer a
-            // Download action that can never succeed.
             if !model.is_downloaded
                 && !downloading_ids.contains(&model.id)
                 && Self::disappears_when_missing(model)
@@ -1463,12 +1252,8 @@ impl ModelManager {
         for id in vanished_models {
             models.remove(&id);
         }
-
-        Ok(())
     }
 
-    /// Whether `filename` is a catalog-listed quant of `repo_id` other than
-    /// the default — the only quant the catalog seeds and offers for download.
     fn is_catalog_alternate_quant(repo_id: &str, filename: &str) -> bool {
         crate::catalog::file_in_catalog(filename, Some(repo_id)).is_some_and(|(desc, file)| {
             desc.default_file()
@@ -1476,8 +1261,6 @@ impl ModelManager {
         })
     }
 
-    /// Entries discovered exclusively from disk should disappear with their
-    /// files. Catalog defaults remain so the UI can offer them for download.
     fn disappears_when_missing(model: &ModelInfo) -> bool {
         model.is_custom
             || match &model.source {
@@ -1494,10 +1277,6 @@ impl ModelManager {
             .is_some_and(|model| model.is_downloaded)
     }
 
-    /// Remove a single file from the shared HF cache: the snapshot pointer for
-    /// the resolved revision and, when the pointer is a symlink, the blob it
-    /// points to. Everything else in the repo (other quants, refs) is left
-    /// untouched. Returns whether anything was removed.
     fn delete_hf_cache_file(repo_id: &str, revision: &str, filename: &str) -> bool {
         let Some(pointer) = hf_cached_path(repo_id, revision, filename) else {
             return false;
@@ -1518,12 +1297,9 @@ impl ModelManager {
         fs::remove_file(&pointer).is_ok()
     }
 
-    fn auto_select_model_if_needed(&self) -> Result<()> {
+    fn auto_select_model_if_needed(&self) {
         let mut settings = get_settings(&self.app_handle);
 
-        // A model cannot remain selected after its files disappear. Catalog
-        // entries stay in the registry so they can be downloaded again, so
-        // checking only whether the id exists is not sufficient.
         if !settings.selected_model.is_empty() {
             let is_available = {
                 let models = self.available_models.lock().unwrap();
@@ -1540,16 +1316,11 @@ impl ModelManager {
             }
         }
 
-        // If onboarding is still pending, do not auto-select just because a
-        // compatible model exists on disk or in the shared HF cache. The
-        // onboarding model step should present that choice explicitly.
         if !settings.onboarding_completed {
             debug!("Skipping model auto-selection until onboarding is complete");
-            return Ok(());
+            return;
         }
 
-        // If no model is selected, pick the first downloaded one using the same
-        // ranked order the UI receives.
         if settings.selected_model.is_empty() {
             if let Some(available_model) = self
                 .get_available_models()
@@ -1561,7 +1332,6 @@ impl ModelManager {
                     available_model.id, available_model.name
                 );
 
-                // Update settings with the selected model
                 let mut updated_settings = settings;
                 updated_settings.selected_model = available_model.id.clone();
                 write_settings(&self.app_handle, updated_settings);
@@ -1569,13 +1339,8 @@ impl ModelManager {
                 info!("Successfully auto-selected model: {}", available_model.id);
             }
         }
-
-        Ok(())
     }
 
-    /// Discover custom Whisper-family models in the models directory: legacy
-    /// GGML `.bin` files and `.gguf` files (both load through transcribe-cpp).
-    /// Skips files that match predefined model filenames.
     fn discover_custom_transcribe_models(
         models_dir: &Path,
         available_models: &mut HashMap<String, ModelInfo>,
@@ -1584,14 +1349,12 @@ impl ModelManager {
             return Ok(());
         }
 
-        // Collect filenames of predefined transcribe-cpp file-based models to skip
         let predefined_filenames: HashSet<String> = available_models
             .values()
             .filter(|m| matches!(m.engine_type, EngineType::TranscribeCpp) && !m.is_directory)
             .map(|m| m.filename.clone())
             .collect();
 
-        // Scan models directory for .bin / .gguf files
         for entry in fs::read_dir(models_dir)? {
             let entry = match entry {
                 Ok(e) => e,
@@ -1603,7 +1366,6 @@ impl ModelManager {
 
             let path = entry.path();
 
-            // Skip directories; the .bin / .gguf extension filter is below.
             if !path.is_file() {
                 continue;
             }
@@ -1613,16 +1375,10 @@ impl ModelManager {
                 None => continue,
             };
 
-            // Skip hidden files
             if filename.starts_with('.') {
                 continue;
             }
 
-            // Only process Whisper-family model files: legacy GGML `.bin` or
-            // GGUF `.gguf` (both load through transcribe-cpp). Anything else —
-            // including `.partial` downloads like "model.bin.partial" — is
-            // skipped, since it ends in neither extension. The model ID is the
-            // filename with its extension removed.
             let (model_id, is_gguf) = if let Some(stem) = filename.strip_suffix(".bin") {
                 (stem.to_string(), false)
             } else if let Some(stem) = filename.strip_suffix(".gguf") {
@@ -1631,15 +1387,10 @@ impl ModelManager {
                 continue;
             };
 
-            // Skip predefined model files
             if predefined_filenames.contains(&filename) {
                 continue;
             }
 
-            // A file matching ANY catalog-listed quant surfaces as that catalog
-            // model — full name/description/scores, quant-suffixed name for
-            // non-defaults — instead of as an anonymous custom entry. (Default
-            // quants never reach here: they're in `predefined_filenames`.)
             if let Some((desc, quant_file)) = crate::catalog::file_in_catalog(&filename, None) {
                 let info = desc.to_model_info_for_file(
                     quant_file,
@@ -1658,12 +1409,10 @@ impl ModelManager {
                 continue;
             }
 
-            // Skip if model ID already exists (shouldn't happen, but be safe)
             if available_models.contains_key(&model_id) {
                 continue;
             }
 
-            // Generate display name: replace - and _ with space, capitalize words
             let fallback_display_name = model_id
                 .replace(['-', '_'], " ")
                 .split_whitespace()
@@ -1677,7 +1426,6 @@ impl ModelManager {
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            // Get file size in MB
             let size_mb = match path.metadata() {
                 Ok(meta) => meta.len() / (1024 * 1024),
                 Err(e) => {
@@ -1686,10 +1434,6 @@ impl ModelManager {
                 }
             };
 
-            // Probe GGUF headers for advertised capabilities so a dropped-in
-            // model surfaces streaming / translation / languages just like a
-            // Bespoke-downloaded one. Legacy `.bin` files have no GGUF header, so
-            // they stay "unknown" until transcribe-cpp reconciles them at load.
             let probe = if is_gguf {
                 GgufHeaderProber.probe_file(&path)
             } else {
@@ -1710,14 +1454,14 @@ impl ModelManager {
                     name: display_name,
                     description: "Not officially supported".to_string(),
                     filename,
-                    source: ModelSource::Local, // already on disk; nothing to download
+                    source: ModelSource::Local,
                     size_mb,
-                    is_downloaded: true, // Already present on disk
+                    is_downloaded: true,
                     is_downloading: false,
                     partial_size: 0,
                     is_directory: false,
                     engine_type: EngineType::TranscribeCpp,
-                    accuracy_score: 0.0, // Sentinel: UI hides score bars when both are 0
+                    accuracy_score: 0.0,
                     speed_score: 0.0,
                     supports_translation: caps.supports_translation,
                     is_recommended: false,
@@ -1733,18 +1477,10 @@ impl ModelManager {
         Ok(())
     }
 
-    /// Discover transcribe-cpp-compatible GGUF models already present in the
-    /// shared Hugging Face cache, so models downloaded by Bespoke (or any other
-    /// tool) appear in "Your Models" without re-downloading. Only architectures
-    /// transcribe-cpp recognises are surfaced; arbitrary (e.g. LLM) GGUFs that
-    /// share the cache are ignored.
     fn discover_hf_cache_models(available_models: &mut HashMap<String, ModelInfo>) {
         Self::discover_hf_cache_models_in(Cache::from_env().path(), available_models);
     }
 
-    /// Scan a Hugging Face cache root (`<cache>/models--*`) for GGUF snapshots.
-    /// Split from [`Self::discover_hf_cache_models`] so it can be tested against
-    /// a synthetic cache directory.
     fn discover_hf_cache_models_in(
         cache_root: &Path,
         available_models: &mut HashMap<String, ModelInfo>,
@@ -1753,8 +1489,6 @@ impl ModelManager {
             return;
         }
 
-        // Repo+file pairs already represented (e.g. recommended/added models) so
-        // the same file is not listed twice.
         let known_hf: HashSet<(String, String)> = available_models
             .values()
             .filter_map(|m| match &m.source {
@@ -1806,10 +1540,6 @@ impl ModelManager {
                     continue;
                 }
 
-                // Catalog-listed quants (same repo) surface with full catalog
-                // metadata — quant-suffixed name for non-defaults — and skip
-                // the header probe (the catalog is authoritative for its own
-                // models). Everything else keeps the generic probed path.
                 if let Some((desc, quant_file)) =
                     crate::catalog::file_in_catalog(&fname, Some(&repo_id))
                 {
@@ -1830,7 +1560,6 @@ impl ModelManager {
 
                 let path = snapshot.join(&fname);
                 let probe = prober.probe_file(&path);
-                // Only surface models transcribe-cpp recognises.
                 if probe.verdict != Compatibility::Compatible {
                     continue;
                 }
@@ -1876,7 +1605,6 @@ impl ModelManager {
         }
     }
 
-    /// Pick a cache ref to resolve a snapshot from, preferring `main`.
     fn pick_hf_revision(refs_dir: &Path) -> Option<String> {
         if refs_dir.join("main").is_file() {
             return Some("main".to_string());
@@ -1890,10 +1618,6 @@ impl ModelManager {
         })
     }
 
-    /// Download a Hugging Face-sourced model into the shared HF cache via
-    /// hf-hub, reporting progress through the same `model-download-progress`
-    /// event the URL path uses. Uses hf-hub's stock cache, but deliberately
-    /// disables authentication because every catalog repository is public.
     async fn download_hf_model(
         &self,
         model_info: &ModelInfo,
@@ -1903,17 +1627,14 @@ impl ModelManager {
         let model_id = model_info.id.clone();
         let filename = model_info.filename.clone();
 
-        // Already in the shared cache (possibly from another tool), or dropped
-        // into the models dir (mirror fallback / manual install)? Done.
         if hf_cached_path(&repo_id, &revision, &filename).is_some()
             || self.models_dir.join(&filename).exists()
         {
-            self.update_download_status()?;
+            self.update_download_status();
             let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
         }
 
-        // Mark downloading; the guard resets the flag on any error path.
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(&model_id) {
@@ -1921,8 +1642,6 @@ impl ModelManager {
             }
         }
 
-        // Register a cancellation token so `cancel_download` can abort this
-        // transfer promptly. The guard removes it on every exit path.
         let cancel_token = CancellationToken::new();
         {
             let mut flags = self.cancel_flags.lock().unwrap();
@@ -1964,8 +1683,6 @@ impl ModelManager {
                 stream_count
             );
 
-            // Fresh client per attempt so a wedged connection from the previous
-            // try can't poison the retry.
             let api = ApiBuilder::from_env()
                 // Ignore cached and environment-provided credentials. A stale token
                 // can make otherwise-public downloads fail authentication.
@@ -2032,8 +1749,6 @@ impl ModelManager {
                     // User cancelled. hf-hub leaves the partially downloaded
                     // `.sync.part` in the shared cache, so a later attempt resumes
                     // instead of restarting. The guard resets is_downloading and
-                    // drops the token; `cancel_download` already emitted
-                    // `model-download-cancelled`.
                     info!("HF download cancelled for: {}", model_id);
                     return Ok(());
                 }
@@ -2042,11 +1757,6 @@ impl ModelManager {
                         "transfer stalled: no progress for {}s",
                         DOWNLOAD_STALL_TIMEOUT.as_secs()
                     );
-                    // A parallel attempt may be what wedged the network. Give
-                    // the connection pool a brief pause, then retry once using
-                    // the known-compatible single-stream path. A sequential
-                    // stall already cost DOWNLOAD_STALL_TIMEOUT, so further
-                    // retries would likely just repeat it — use the mirror.
                     if stream_count == 1 || attempt >= ATTEMPT_STREAMS.len() {
                         break Some(err);
                     }
@@ -2100,7 +1810,6 @@ impl ModelManager {
         };
 
         if let Some(hf_error) = hf_error {
-            // `attempt`, not the schedule length: a sequential stall breaks out early.
             error!(
                 "HF download failed for {} after {} attempt(s): {:?}",
                 model_id, attempt, hf_error
@@ -2146,16 +1855,13 @@ impl ModelManager {
         }
 
         cleanup.disarmed = true;
-        self.update_download_status()?;
+        self.update_download_status();
         self.cancel_flags.lock().unwrap().remove(&model_id);
         let _ = self.app_handle.emit("model-download-complete", &model_id);
         info!("HF model {} downloaded", model_id);
         Ok(())
     }
 
-    /// Direct-HTTP download of a catalog model's file from a mirror into the
-    /// models dir (HF-model resolution accepts that location too). Returns
-    /// `Ok(true)` on completion, `Ok(false)` if cancelled (partial kept).
     async fn download_from_mirror(
         &self,
         model_id: &str,
@@ -2203,193 +1909,15 @@ impl ModelManager {
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
-        let (url, expected_sha256) = match &model_info.source {
-            ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),
+        match &model_info.source {
             ModelSource::HuggingFace { repo_id, revision } => {
-                return self
-                    .download_hf_model(&model_info, repo_id.clone(), revision.clone())
-                    .await;
+                self.download_hf_model(&model_info, repo_id.clone(), revision.clone())
+                    .await
             }
-            ModelSource::Local => {
-                return Err(anyhow::anyhow!("No download source for model"));
-            }
-        };
-        let model_path = self.models_dir.join(&model_info.filename);
-        let partial_path = self
-            .models_dir
-            .join(format!("{}.partial", &model_info.filename));
-
-        // Don't download if complete version already exists
-        if model_path.exists() {
-            // Clean up any partial file that might exist
-            if partial_path.exists() {
-                let _ = fs::remove_file(&partial_path);
-            }
-            self.update_download_status()?;
-            return Ok(());
-        }
-
-        // Mark as downloading
-        {
-            let mut models = self.available_models.lock().unwrap();
-            if let Some(model) = models.get_mut(model_id) {
-                model.is_downloading = true;
+            ModelSource::Url { .. } | ModelSource::Local => {
+                Err(anyhow::anyhow!("No download source for model"))
             }
         }
-
-        // Create cancellation token for this download
-        let cancel_token = CancellationToken::new();
-        {
-            let mut flags = self.cancel_flags.lock().unwrap();
-            flags.insert(model_id.to_string(), cancel_token.clone());
-        }
-
-        // Guard ensures is_downloading and cancel_flags are cleaned up on every
-        // error path. Disarmed only on success (which sets is_downloaded = true).
-        let mut cleanup = DownloadCleanup {
-            available_models: &self.available_models,
-            cancel_flags: &self.cancel_flags,
-            model_id: model_id.to_string(),
-            disarmed: false,
-        };
-
-        // URL sources carry no authoritative size, so the helper falls back to
-        // the server's content-length for progress and completeness checks.
-        match self
-            .download_http_resumable(
-                model_id,
-                &url,
-                &partial_path,
-                None,
-                expected_sha256.as_deref(),
-                &cancel_token,
-            )
-            .await?
-        {
-            HttpDownloadOutcome::Cancelled => {
-                info!("Download cancelled for: {}", model_id);
-                // Keep partial file for resume functionality.
-                // Guard handles is_downloading + cancel_flags cleanup on drop.
-                return Ok(());
-            }
-            HttpDownloadOutcome::Completed => {}
-        }
-
-        // Handle directory-based models (extract tar.gz) vs file-based models
-        if model_info.is_directory {
-            // Track that this model is being extracted
-            {
-                let mut extracting = self.extracting_models.lock().unwrap();
-                extracting.insert(model_id.to_string());
-            }
-
-            // Emit extraction started event
-            let _ = self.app_handle.emit("model-extraction-started", model_id);
-            info!("Extracting archive for directory-based model: {}", model_id);
-
-            // Use a temporary extraction directory to ensure atomic operations
-            let temp_extract_dir = self
-                .models_dir
-                .join(format!("{}.extracting", &model_info.filename));
-            let final_model_dir = self.models_dir.join(&model_info.filename);
-
-            // Clean up any previous incomplete extraction
-            if temp_extract_dir.exists() {
-                let _ = fs::remove_dir_all(&temp_extract_dir);
-            }
-
-            // Create temporary extraction directory
-            fs::create_dir_all(&temp_extract_dir)?;
-
-            // Open the downloaded tar.gz file
-            let tar_gz = File::open(&partial_path)?;
-            let tar = GzDecoder::new(tar_gz);
-            let mut archive = Archive::new(tar);
-
-            // Extract to the temporary directory first
-            archive.unpack(&temp_extract_dir).map_err(|e| {
-                let error_msg = format!("Failed to extract archive: {}", e);
-                // Clean up failed extraction
-                let _ = fs::remove_dir_all(&temp_extract_dir);
-                // Delete the corrupt partial file so the next download attempt starts fresh
-                // instead of resuming from a broken archive (issue #858).
-                let _ = fs::remove_file(&partial_path);
-                // Remove from extracting set
-                {
-                    let mut extracting = self.extracting_models.lock().unwrap();
-                    extracting.remove(model_id);
-                }
-                let _ = self.app_handle.emit(
-                    "model-extraction-failed",
-                    &serde_json::json!({
-                        "model_id": model_id,
-                        "error": error_msg
-                    }),
-                );
-                anyhow::anyhow!(error_msg)
-            })?;
-
-            // Find the actual extracted directory (archive might have a nested structure)
-            let extracted_dirs: Vec<_> = fs::read_dir(&temp_extract_dir)?
-                .filter_map(|entry| entry.ok())
-                .filter(|entry| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
-                .collect();
-
-            if extracted_dirs.len() == 1 {
-                // Single directory extracted, move it to the final location
-                let source_dir = extracted_dirs[0].path();
-                if final_model_dir.exists() {
-                    fs::remove_dir_all(&final_model_dir)?;
-                }
-                fs::rename(&source_dir, &final_model_dir)?;
-                // Clean up temp directory
-                let _ = fs::remove_dir_all(&temp_extract_dir);
-            } else {
-                // Multiple items or no directories, rename the temp directory itself
-                if final_model_dir.exists() {
-                    fs::remove_dir_all(&final_model_dir)?;
-                }
-                fs::rename(&temp_extract_dir, &final_model_dir)?;
-            }
-
-            info!("Successfully extracted archive for model: {}", model_id);
-            // Remove from extracting set
-            {
-                let mut extracting = self.extracting_models.lock().unwrap();
-                extracting.remove(model_id);
-            }
-            // Emit extraction completed event
-            let _ = self.app_handle.emit("model-extraction-completed", model_id);
-
-            // Remove the downloaded tar.gz file
-            let _ = fs::remove_file(&partial_path);
-        } else {
-            // Move partial file to final location for file-based models
-            fs::rename(&partial_path, &model_path)?;
-        }
-
-        // Disarm the guard — success path does its own cleanup because it
-        // additionally sets is_downloaded = true.
-        cleanup.disarmed = true;
-        {
-            let mut models = self.available_models.lock().unwrap();
-            if let Some(model) = models.get_mut(model_id) {
-                model.is_downloading = false;
-                model.is_downloaded = true;
-                model.partial_size = 0;
-            }
-        }
-        self.cancel_flags.lock().unwrap().remove(model_id);
-
-        // Emit completion event
-        let _ = self.app_handle.emit("model-download-complete", model_id);
-
-        info!(
-            "Successfully downloaded model {} to {:?}",
-            model_id, model_path
-        );
-
-        Ok(())
     }
 
     pub fn delete_model(&self, model_id: &str) -> Result<()> {
@@ -2410,14 +1938,8 @@ impl ModelManager {
                 Self::is_catalog_alternate_quant(repo_id, &model_info.filename);
             let mut deleted = false;
             if is_alternate_quant {
-                // Only this quant's own file: the snapshot pointer and its
-                // blob. The default (and any other quants) survive in the
-                // cache — the entry never owned more than its one file.
                 deleted |= Self::delete_hf_cache_file(repo_id, revision, &model_info.filename);
             } else if let Some(file) = hf_cached_path(repo_id, revision, &model_info.filename) {
-                // Cached at <cache>/models--org--name/snapshots/<rev>/<file>; remove
-                // the whole repo dir (blobs + refs + snapshots). Per product decision,
-                // delete hard-removes from the shared HF cache.
                 if let Some(repo_dir) = file.ancestors().nth(3) {
                     if repo_dir
                         .file_name()
@@ -2430,8 +1952,6 @@ impl ModelManager {
                     }
                 }
             }
-            // Also remove a models-dir copy (mirror fallback / manual drop-in)
-            // and any resumable partial next to it.
             for path in [
                 self.models_dir.join(&model_info.filename),
                 self.models_dir
@@ -2443,22 +1963,16 @@ impl ModelManager {
                     deleted = true;
                 }
             }
-            // Files already missing (e.g. removed outside Bespoke) is not a failure —
-            // deleting is idempotent, so this still needs to fall through and clear
-            // the stale "Downloaded" entry rather than erroring out and leaving it stuck.
             if !deleted {
                 debug!(
                     "ModelManager: no HF cache/model files found on disk for {}; clearing stale entry",
                     model_id
                 );
             }
-            // Alternate-quant entries are discovery-created (the catalog only
-            // seeds defaults), so deleting one un-discovers it rather than
-            // leaving a permanent "(Q4_K_M)" row in the list.
             if is_alternate_quant {
                 self.available_models.lock().unwrap().remove(model_id);
             }
-            self.update_download_status()?;
+            self.update_download_status();
             let _ = self.app_handle.emit("model-deleted", model_id);
             return Ok(());
         }
@@ -2473,7 +1987,6 @@ impl ModelManager {
         let mut deleted_something = false;
 
         if model_info.is_directory {
-            // Delete complete model directory if it exists
             if model_path.exists() && model_path.is_dir() {
                 info!("Deleting model directory at: {:?}", model_path);
                 fs::remove_dir_all(&model_path)?;
@@ -2481,7 +1994,6 @@ impl ModelManager {
                 deleted_something = true;
             }
         } else {
-            // Delete complete model file if it exists
             if model_path.exists() {
                 info!("Deleting model file at: {:?}", model_path);
                 fs::remove_file(&model_path)?;
@@ -2490,7 +2002,6 @@ impl ModelManager {
             }
         }
 
-        // Delete partial file if it exists (same for both types)
         if partial_path.exists() {
             info!("Deleting partial file at: {:?}", partial_path);
             fs::remove_file(&partial_path)?;
@@ -2498,9 +2009,6 @@ impl ModelManager {
             deleted_something = true;
         }
 
-        // Files already missing (e.g. removed outside Bespoke) is not a failure —
-        // deleting is idempotent, so this still needs to fall through and clear
-        // the stale "Downloaded" entry rather than erroring out and leaving it stuck.
         if !deleted_something {
             debug!(
                 "ModelManager: no files found on disk for {}; clearing stale entry",
@@ -2508,28 +2016,20 @@ impl ModelManager {
             );
         }
 
-        // Custom models should be removed from the list entirely since they
-        // have no download URL and can't be re-downloaded
         if model_info.is_custom {
             let mut models = self.available_models.lock().unwrap();
             models.remove(model_id);
             debug!("ModelManager: removed custom model from available models");
         } else {
-            // Update download status (marks predefined models as not downloaded)
-            self.update_download_status()?;
+            self.update_download_status();
             debug!("ModelManager: download status updated");
         }
 
-        // Emit event to notify UI
         let _ = self.app_handle.emit("model-deleted", model_id);
 
         Ok(())
     }
 
-    /// Reconcile a model that was advertised as downloaded but whose path has
-    /// since disappeared. This is deliberately narrower than a full rescan: it
-    /// only runs after a definitive missing-path check and cannot disturb an
-    /// unrelated in-flight download.
     fn mark_model_unavailable(&self, model_id: &str) {
         let removed = {
             let mut models = self.available_models.lock().unwrap();
@@ -2552,9 +2052,6 @@ impl ModelManager {
         } else {
             info!("Marking model '{}' as unavailable on disk", model_id);
         }
-        // Keep the persisted preference here: an already-loaded engine may
-        // still be usable, and re-downloading this model should restore it.
-        // Startup and explicit Rescan perform the broader selection cleanup.
         let _ = self.app_handle.emit("models-updated", ());
     }
 
@@ -2567,7 +2064,6 @@ impl ModelManager {
             return Err(anyhow::anyhow!("Model not available: {}", model_id));
         }
 
-        // Ensure we don't return partial files/directories
         if model_info.is_downloading {
             return Err(anyhow::anyhow!(
                 "Model is currently downloading: {}",
@@ -2579,10 +2075,6 @@ impl ModelManager {
             if let Some(path) = hf_cached_path(repo_id, revision, &model_info.filename) {
                 return Ok(path);
             }
-            // Mirror-fallback download or manual drop-in in the models dir.
-            // The complete file only ever appears after verification, so a
-            // stale `.partial` alongside it is leftover noise, not a veto —
-            // clear it rather than declaring the model missing.
             let local_path = self.models_dir.join(&model_info.filename);
             if local_path.exists() {
                 let partial_path = self
@@ -2635,12 +2127,9 @@ impl ModelManager {
         }
     }
 
-    pub fn cancel_download(&self, model_id: &str) -> Result<()> {
+    pub fn cancel_download(&self, model_id: &str) {
         debug!("ModelManager: cancel_download called for: {}", model_id);
 
-        // Trigger the cancellation token to stop the download. The HF path
-        // aborts its in-flight chunk tasks and unwinds promptly; the URL path
-        // observes it on the next chunk of its stream loop.
         {
             let flags = self.cancel_flags.lock().unwrap();
             if let Some(token) = flags.get(model_id) {
@@ -2651,7 +2140,6 @@ impl ModelManager {
             }
         }
 
-        // Update state immediately for UI responsiveness
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(model_id) {
@@ -2659,20 +2147,18 @@ impl ModelManager {
             }
         }
 
-        // Update download status to reflect current state
-        self.update_download_status()?;
+        self.update_download_status();
 
-        // Emit cancellation event so all UI components can clear their state
         let _ = self.app_handle.emit("model-download-cancelled", model_id);
 
         info!("Download cancellation initiated for: {}", model_id);
-        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
 
@@ -2693,9 +2179,6 @@ mod tests {
 
     #[test]
     fn test_effective_language_resolves_bare_intent_to_concrete_locale() {
-        // A model advertising full BCP-47 locales (e.g. Nemotron Streaming):
-        // a bare intent must resolve to the exact code the engine expects, not
-        // be handed back as the bare form the prompt table may not contain.
         let languages = vec![
             "en-US".to_string(),
             "en-GB".to_string(),
@@ -2706,17 +2189,13 @@ mod tests {
 
         assert_eq!(effective_language("en", &languages, true), "en-US");
         assert_eq!(effective_language("es", &languages, true), "es-ES");
-        // `zh`/`ja` have no bare entry in this model's table; resolve to locale.
         assert_eq!(effective_language("zh", &languages, true), "zh-CN");
         assert_eq!(effective_language("ja", &languages, true), "ja-JP");
-        // An unsupported intent still auto-detects when the model can.
         assert_eq!(effective_language("fr", &languages, true), "auto");
     }
 
     #[test]
     fn test_effective_language_preserves_chinese_script_intent_for_locale_model() {
-        // Script intents survive so Simplified/Traditional output conversion
-        // still fires, even when the model advertises a regioned Chinese code.
         let languages = vec!["en-US".to_string(), "zh-CN".to_string()];
 
         assert_eq!(effective_language("zh-Hans", &languages, true), "zh-Hans");
@@ -2759,7 +2238,7 @@ mod tests {
         out.extend_from_slice(&(kvs.len() as u64).to_le_bytes());
         for (key, value) in kvs {
             push_gguf_str(&mut out, key);
-            out.extend_from_slice(&8u32.to_le_bytes()); // GGUF string value type.
+            out.extend_from_slice(&8u32.to_le_bytes());
             push_gguf_str(&mut out, value);
         }
         out
@@ -2770,14 +2249,12 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let models_dir = temp_dir.path().to_path_buf();
 
-        // Create test .bin files
         let mut custom_file = File::create(models_dir.join("my-custom-model.bin")).unwrap();
         custom_file.write_all(b"fake model data").unwrap();
 
         let mut another_file = File::create(models_dir.join("whisper_medical_v2.bin")).unwrap();
         another_file.write_all(b"another fake model").unwrap();
 
-        // Custom GGUF model (also supported by transcribe-cpp)
         let mut gguf_file = File::create(models_dir.join("my-gguf-model.gguf")).unwrap();
         gguf_file
             .write_all(&build_test_gguf_string_metadata(&[(
@@ -2786,14 +2263,12 @@ mod tests {
             )]))
             .unwrap();
 
-        // Create files that should be ignored
-        File::create(models_dir.join(".hidden-model.bin")).unwrap(); // Hidden file
-        File::create(models_dir.join("readme.txt")).unwrap(); // Non-model file
-        File::create(models_dir.join("ggml-small.bin")).unwrap(); // Predefined filename
-        File::create(models_dir.join("download.bin.partial")).unwrap(); // Partial download
-        fs::create_dir(models_dir.join("some-directory.bin")).unwrap(); // Directory
+        File::create(models_dir.join(".hidden-model.bin")).unwrap();
+        File::create(models_dir.join("readme.txt")).unwrap();
+        File::create(models_dir.join("ggml-small.bin")).unwrap();
+        File::create(models_dir.join("download.bin.partial")).unwrap();
+        fs::create_dir(models_dir.join("some-directory.bin")).unwrap();
 
-        // Set up available_models with a predefined Whisper model
         let mut models = HashMap::new();
         models.insert(
             "small".to_string(),
@@ -2820,24 +2295,19 @@ mod tests {
                 supports_language_selection: true,
                 is_custom: false,
                 supports_streaming: false,
-                // Legacy entry: preserve the historical "Auto offered" behavior.
-                // (Catalog GGUFs and on-disk probes derive this from metadata.)
                 supports_language_detection: true,
             },
         );
 
-        // Discover custom models
         ModelManager::discover_custom_transcribe_models(&models_dir, &mut models).unwrap();
 
-        // Should have discovered 2 custom models (my-custom-model and whisper_medical_v2)
         assert!(models.contains_key("my-custom-model"));
         assert!(models.contains_key("whisper_medical_v2"));
 
-        // Verify custom model properties
         let custom = models.get("my-custom-model").unwrap();
         assert_eq!(custom.name, "My Custom Model");
         assert_eq!(custom.filename, "my-custom-model.bin");
-        assert!(matches!(custom.source, ModelSource::Local)); // Custom models have no remote source
+        assert!(matches!(custom.source, ModelSource::Local));
         assert!(custom.is_downloaded);
         assert!(custom.is_custom);
         assert!(ModelManager::disappears_when_missing(custom));
@@ -2845,11 +2315,9 @@ mod tests {
         assert_eq!(custom.speed_score, 0.0);
         assert!(custom.supported_languages.is_empty());
 
-        // Verify underscore handling
         let medical = models.get("whisper_medical_v2").unwrap();
         assert_eq!(medical.name, "Whisper Medical V2");
 
-        // Verify .gguf models are discovered too (extension stripped for the id)
         assert!(models.contains_key("my-gguf-model"));
         let gguf = models.get("my-gguf-model").unwrap();
         assert_eq!(gguf.filename, "my-gguf-model.gguf");
@@ -2857,7 +2325,6 @@ mod tests {
         assert!(gguf.is_custom);
         assert!(matches!(gguf.engine_type, EngineType::TranscribeCpp));
 
-        // Should NOT have discovered hidden, non-model, predefined, partial, or directories
         assert!(!models.contains_key(".hidden-model"));
         assert!(!models.contains_key("readme"));
         assert!(!models.contains_key("download.bin"));
@@ -2874,7 +2341,6 @@ mod tests {
 
         ModelManager::discover_custom_transcribe_models(&models_dir, &mut models).unwrap();
 
-        // No new models should be added
         assert_eq!(models.len(), count_before);
     }
 
@@ -2885,7 +2351,6 @@ mod tests {
         let mut models = HashMap::new();
         let count_before = models.len();
 
-        // Should not error, just return Ok
         let result = ModelManager::discover_custom_transcribe_models(&models_dir, &mut models);
         assert!(result.is_ok());
         assert_eq!(models.len(), count_before);
@@ -2925,12 +2390,10 @@ mod tests {
         };
         let status = DiskStatus::default();
 
-        // Default quant: plain name, badge intact.
         let default_info = desc.to_model_info(&status);
         assert_eq!(default_info.name, "Model");
         assert!(default_info.is_recommended);
 
-        // Alternate quant: suffixed name, own id, no badge.
         let alt_info = desc.to_model_info_for_file(&desc.files[0], &status);
         assert_eq!(alt_info.id, "org/repo/model-Q4_K_M.gguf");
         assert_eq!(alt_info.name, "Model (Q4_K_M)");
@@ -2938,7 +2401,6 @@ mod tests {
         assert!(!alt_info.is_recommended);
         assert!(!alt_info.is_custom);
 
-        // Catalog defaults stay visible for re-download when their file is gone.
         assert!(!ModelManager::disappears_when_missing(&default_info));
 
         let mut selection_models = HashMap::new();
@@ -2956,8 +2418,6 @@ mod tests {
             &default_info.id
         ));
 
-        // The default rendered through the per-file path matches to_model_info,
-        // so seeded entries and discovered defaults can never diverge.
         let same = desc.to_model_info_for_file(&desc.files[1], &status);
         assert_eq!(same.id, default_info.id);
         assert_eq!(same.name, default_info.name);
@@ -2966,7 +2426,6 @@ mod tests {
 
     #[test]
     fn test_discover_catalog_alternate_quant_in_models_dir() {
-        // A real catalog model with more than one quant.
         let desc = crate::catalog::CATALOG
             .iter()
             .find(|d| d.files.len() > 1)
@@ -2982,7 +2441,6 @@ mod tests {
             .unwrap();
 
         let temp_dir = TempDir::new().unwrap();
-        // Content is never probed for catalog-matched files, so empty files do.
         fs::write(temp_dir.path().join(&alt.filename), b"").unwrap();
         fs::write(temp_dir.path().join(&default_filename), b"").unwrap();
 
@@ -2991,7 +2449,6 @@ mod tests {
         let seeded = models.len();
         ModelManager::discover_custom_transcribe_models(temp_dir.path(), &mut models).unwrap();
 
-        // The alternate quant surfaces as a catalog-grade HF entry…
         let ModelSource::HuggingFace { repo_id, .. } = &desc.source else {
             panic!("catalog descriptors are HF-sourced");
         };
@@ -3004,8 +2461,6 @@ mod tests {
         assert!(matches!(info.source, ModelSource::HuggingFace { .. }));
         assert!(ModelManager::disappears_when_missing(info));
 
-        // …while the default-quant file dedups onto its seeded entry: exactly
-        // one new id, and no filename-stem custom entries for either file.
         assert_eq!(models.len(), seeded + 1);
         assert!(!models.contains_key(alt.filename.trim_end_matches(".gguf")));
         assert!(!models.contains_key(default_filename.trim_end_matches(".gguf")));
@@ -3018,18 +2473,16 @@ mod tests {
 
     fn write_synthetic_gguf(path: &Path, arch: &str, languages: &[&str]) {
         let mut out: Vec<u8> = Vec::new();
-        out.extend_from_slice(&0x4655_4747u32.to_le_bytes()); // magic "GGUF"
-        out.extend_from_slice(&3u32.to_le_bytes()); // version
-        out.extend_from_slice(&0u64.to_le_bytes()); // tensor_count
-        out.extend_from_slice(&2u64.to_le_bytes()); // kv_count
-                                                    // general.architecture : string
+        out.extend_from_slice(&0x4655_4747u32.to_le_bytes());
+        out.extend_from_slice(&3u32.to_le_bytes());
+        out.extend_from_slice(&0u64.to_le_bytes());
+        out.extend_from_slice(&2u64.to_le_bytes());
         push_gguf_str(&mut out, "general.architecture");
-        out.extend_from_slice(&8u32.to_le_bytes()); // STRING
+        out.extend_from_slice(&8u32.to_le_bytes());
         push_gguf_str(&mut out, arch);
-        // general.languages : array<string>
         push_gguf_str(&mut out, "general.languages");
-        out.extend_from_slice(&9u32.to_le_bytes()); // ARRAY
-        out.extend_from_slice(&8u32.to_le_bytes()); // elem STRING
+        out.extend_from_slice(&9u32.to_le_bytes());
+        out.extend_from_slice(&8u32.to_le_bytes());
         out.extend_from_slice(&(languages.len() as u64).to_le_bytes());
         for l in languages {
             push_gguf_str(&mut out, l);
@@ -3042,7 +2495,6 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
 
-        // ASR repo: a whisper gguf -> should be discovered.
         let repo = root.join("models--handy-computer--whisper-test");
         fs::create_dir_all(repo.join("snapshots").join("abc123")).unwrap();
         fs::create_dir_all(repo.join("refs")).unwrap();
@@ -3056,7 +2508,6 @@ mod tests {
             &["en", "de"],
         );
 
-        // Non-ASR (llama) gguf -> must be ignored.
         let repo2 = root.join("models--someone--llama-7b");
         fs::create_dir_all(repo2.join("snapshots").join("def456")).unwrap();
         fs::create_dir_all(repo2.join("refs")).unwrap();

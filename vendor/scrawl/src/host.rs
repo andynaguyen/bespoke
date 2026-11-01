@@ -1,9 +1,3 @@
-//! The seam between Scrawl and the app it runs in (Bespoke, which calls it Annotate). The host
-//! picks where captures, the config and the log go, registers the two shortcuts itself and
-//! forwards their presses, sends its tray menu's Annotate items, counts finished captures for its
-//! stats, draws the capsule (`on_capsule`), and shows its own settings page wherever Scrawl would
-//! open its Settings or welcome window.
-
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -12,9 +6,7 @@ use crate::model::ScrawlBundle;
 use crate::ui::MenuAction;
 
 pub struct Paths {
-    /// Holds `captures/` and `config.json`.
     pub data_dir: PathBuf,
-    /// Holds `annotate.log`.
     pub log_dir: PathBuf,
 }
 
@@ -23,11 +15,8 @@ static OPEN_SETTINGS: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 static ON_CAPTURE: OnceLock<Box<dyn Fn(Finished) + Send + Sync>> = OnceLock::new();
 static TELEMETRY: OnceLock<Arc<SharedCaptureTelemetry>> = OnceLock::new();
 static MENU: OnceLock<(flume::Sender<MenuAction>, flume::Receiver<MenuAction>)> = OnceLock::new();
-/// Bindings that arrived before `start` made the telemetry.
 static PENDING_SHORTCUTS: Mutex<Option<(ShortcutConfig, ShortcutConfig)>> = Mutex::new(None);
 
-/// Called once, before `start`. `open_settings` runs on any thread and shows the host's page
-/// for Scrawl's settings and permissions.
 pub fn configure(paths: Paths, open_settings: impl Fn() + Send + Sync + 'static) {
     let _ = PATHS.set(paths);
     let _ = OPEN_SETTINGS.set(Box::new(open_settings));
@@ -41,8 +30,6 @@ pub(crate) fn log_dir() -> Option<&'static Path> {
     PATHS.get().map(|paths| paths.log_dir.as_path())
 }
 
-/// Brings the host's settings page forward (missing permissions, or Settings from the review
-/// window).
 pub(crate) fn open_settings() {
     if let Some(open) = OPEN_SETTINGS.get() {
         open();
@@ -68,13 +55,10 @@ pub(crate) fn menu_receiver() -> flume::Receiver<MenuAction> {
     menu_channel().1.clone()
 }
 
-/// One of the host's tray menu items was chosen.
 pub fn menu(action: MenuAction) {
     let _ = menu_channel().0.try_send(action);
 }
 
-/// The host's binding for `kind` went down. Releases don't matter: Scrawl polls the modifiers
-/// to tell a tap from a hold.
 pub fn press(kind: ShortcutKind) {
     let Some(telemetry) = TELEMETRY.get() else {
         return;
@@ -85,16 +69,12 @@ pub fn press(kind: ShortcutKind) {
     }
 }
 
-/// While the host records a new shortcut, Scrawl's key tap stops matching the record combo, so
-/// pressing it reaches the recorder instead of starting a capture.
 pub fn pause_shortcuts(paused: bool) {
     if let Some(telemetry) = TELEMETRY.get() {
         crate::capture::pause_shortcuts(telemetry, paused);
     }
 }
 
-/// Scrawl's copy of the host's two bindings: its key tap and windows match the record combo,
-/// and the capsule and review window show both labels.
 pub fn set_shortcuts(record: ShortcutConfig, paste: ShortcutConfig) {
     if let Some(telemetry) = TELEMETRY.get() {
         crate::capture::set_shortcuts(telemetry, record, paste);
@@ -105,10 +85,6 @@ pub fn set_shortcuts(record: ShortcutConfig, paste: ShortcutConfig) {
     }
 }
 
-/// A host binding written as `option+shift+s` (the `handy-keys` names), as Scrawl's shortcut:
-/// the active layout's key code, Carbon modifier bits and a label like `⌥⇧S`. `None` for
-/// combinations Scrawl can't match itself (mouse buttons, a lone modifier); the host's own
-/// press still reaches `press`.
 pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
     use crate::capture::{
         CARBON_CMD_KEY, CARBON_CONTROL_KEY, CARBON_OPTION_KEY, CARBON_SHIFT_KEY, shortcut_label,
@@ -143,7 +119,6 @@ pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
     })
 }
 
-/// macOS virtual key codes (`kVK_*`) for the named keys, with the labels Scrawl shows.
 fn named_key(name: &str) -> Option<(u32, String)> {
     const FUNCTION_KEYS: [u32; 16] = [
         122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, 105, 107, 113, 106,
@@ -167,34 +142,26 @@ fn named_key(name: &str) -> Option<(u32, String)> {
     Some((code, label.to_owned()))
 }
 
-// MARK: Captures for the host's MCP server
-
 pub use crate::handoff::{Capture, KeyframeRow};
 
-/// Up to `limit` captures, newest first. Reads every manifest, so call it off the UI thread.
 pub fn recent_captures(limit: usize) -> Vec<Capture> {
     Capture::recent(&captures_dir(), limit)
 }
 
-/// Copies a capture's `summary.md` to the clipboard, as the capsule does when it finishes.
 pub fn copy_capture(dir: &Path) -> Result<(), String> {
     crate::handoff::copy_bundle_to_clipboard(dir).map_err(|e| e.to_string())
 }
 
-/// Shows a capture's folder in Finder.
 pub fn reveal_capture(dir: &Path) {
     let _ = crate::handoff::open_path(dir);
 }
 
 static ON_INSPECT: OnceLock<Box<dyn Fn(PathBuf) + Send + Sync>> = OnceLock::new();
 
-/// Called once, before `start`. `inspect` runs on the UI thread with a capture's folder wherever
-/// Scrawl would open its Inspect window, so the host can show the capture itself.
 pub fn on_inspect(inspect: impl Fn(PathBuf) + Send + Sync + 'static) {
     let _ = ON_INSPECT.set(Box::new(inspect));
 }
 
-/// Hands `dir` to the host's Inspect view. False when the host has none.
 pub(crate) fn inspect(dir: PathBuf) -> bool {
     match ON_INSPECT.get() {
         Some(inspect) => {
@@ -205,21 +172,15 @@ pub(crate) fn inspect(dir: PathBuf) -> bool {
     }
 }
 
-/// The folder `Capture::find` and `Capture::recent` look in.
 pub fn captures_dir() -> PathBuf {
     crate::handoff::default_captures_dir()
 }
 
-// MARK: Usage stats for the host
-
-/// What the host's usage stats keep of a finished capture.
 #[derive(Clone, Debug)]
 pub struct Finished {
     pub created_at_ms: u64,
     pub duration_ms: u64,
-    /// Ink marks. The laser pointer leaves none.
     pub marks: usize,
-    /// The app recorded, or `None` for a whole display or an area.
     pub app: Option<String>,
 }
 
@@ -234,8 +195,6 @@ impl Finished {
     }
 }
 
-/// Called once, before `start`. `record` runs on a background thread after each capture's
-/// bundle is written.
 pub fn on_capture(record: impl Fn(Finished) + Send + Sync + 'static) {
     let _ = ON_CAPTURE.set(Box::new(record));
 }
@@ -246,8 +205,6 @@ pub(crate) fn captured(bundle: &ScrawlBundle) {
     }
 }
 
-/// The captures still in the captures folder, for counting the ones made before the host
-/// started recording them. Reads every manifest, so call it off the UI thread.
 pub fn finished_captures() -> Vec<Finished> {
     Capture::recent(&captures_dir(), usize::MAX)
         .iter()
@@ -255,15 +212,11 @@ pub fn finished_captures() -> Vec<Finished> {
         .collect()
 }
 
-// MARK: The capsule
-
 pub use crate::native::pill::{
     CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
 };
 pub use crate::ui::SelectionMode;
 
-/// Shows a capsule with `snapshot` on the display holding `anchor`, without the coordinator, so
-/// the host can render each form for screenshots. Replaces the previous preview.
 pub fn preview_capsule(snapshot: PillSnapshot, anchor: [f64; 2]) {
     static PREVIEW: Mutex<Option<crate::native::pill::NativePill>> = Mutex::new(None);
     let mut preview = PREVIEW
@@ -278,12 +231,8 @@ pub fn preview_capsule(snapshot: PillSnapshot, anchor: [f64; 2]) {
     }
 }
 
-/// Where the host sends a capsule's clicks.
 pub type CapsuleActions = flume::Sender<PillAction>;
 
-/// Where a capsule window of `size` points goes on the display holding `point` (global points,
-/// top-left origin): centred, below the menu bar and notch when `at_top`, else `gap` above the
-/// Dock. Main thread only.
 pub fn capsule_origin(point: [f64; 2], size: [f64; 2], at_top: bool, gap: f64) -> Option<[f64; 2]> {
     let screens = crate::screens::current();
     let index = crate::screens::index_at(&screens, point).or(if screens.is_empty() {
@@ -299,31 +248,22 @@ pub fn capsule_origin(point: [f64; 2], size: [f64; 2], at_top: bool, gap: f64) -
     })
 }
 
-/// Called once, before `start`. `open` runs on the UI thread each time the coordinator needs a
-/// capsule: the host draws it from the link's snapshots and sends clicks back. The link closes
-/// when the coordinator drops the capsule.
 pub fn on_capsule(open: impl Fn(CapsuleLink) + Send + Sync + 'static) {
     crate::native::pill::set_host(open);
 }
-
-// MARK: The host's settings page
 
 pub use crate::mic::{Input as Microphone, Inputs as Microphones};
 pub use crate::permissions::{Grants, Permission, Status as PermissionStatus};
 pub use crate::retention::Preset as Retention;
 pub use crate::speech_model::{State as SpeechState, Status as SpeechStatus};
 
-/// The connected microphones. Asks CoreAudio, so call it off the UI thread.
 pub fn microphones() -> Microphones {
     crate::mic::inputs()
 }
 
-/// The chosen microphone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MicrophoneChoice {
-    /// The macOS default, followed as it changes.
     Default,
-    /// A device by its CoreAudio UID, with the name it was saved under.
     Device { id: String, name: String },
 }
 
@@ -337,7 +277,6 @@ pub fn microphone_choice() -> MicrophoneChoice {
     }
 }
 
-/// Records from `id` ("default" follows macOS).
 pub fn set_microphone(id: &str, inputs: &Microphones) {
     let path = crate::handoff::default_config_path();
     if let Err(error) = crate::mic::save_in(&path, id, inputs) {
@@ -345,12 +284,10 @@ pub fn set_microphone(id: &str, inputs: &Microphones) {
     }
 }
 
-/// How long captures are kept, or `None` for a policy written into `config.json` by hand.
 pub fn retention() -> Option<Retention> {
     crate::retention::Policy::load().preset()
 }
 
-/// Keeps captures for `preset` and runs a cleanup pass.
 pub fn set_retention(preset: Retention) {
     if let Err(error) = preset
         .policy()
@@ -361,28 +298,22 @@ pub fn set_retention(preset: Retention) {
     crate::retention::nudge();
 }
 
-/// How much space the captures take, like "1.2 GB". Walks the folder, so call it off the UI
-/// thread.
 pub fn captures_size() -> String {
     crate::retention::format_bytes(crate::retention::captures_size(
         &crate::handoff::default_captures_dir(),
     ))
 }
 
-/// Opens the captures folder in Finder.
 pub fn show_captures() {
     let dir = crate::handoff::default_captures_dir();
     let _ = std::fs::create_dir_all(&dir);
     let _ = crate::handoff::open_path(&dir);
 }
 
-/// What macOS has granted, from a fresh helper process (a grant may not reach a running app).
-/// Blocks on the helper, so call it off the UI thread.
 pub fn read_grants() -> Option<Grants> {
     crate::permissions::read_grants()
 }
 
-/// Apple's speech model, which Scrawl installs in the background at start.
 pub fn speech_status() -> SpeechStatus {
     crate::speech_model::current()
 }
@@ -393,9 +324,6 @@ pub fn request_screen_capture() {
     crate::capture::request_screen_capture();
 }
 
-/// Opens `permission`'s System Settings pane. For the lists an app is dragged into (Screen
-/// Recording, Accessibility), Scrawl's card docks beside System Settings with the host app to
-/// drag in.
 pub fn open_permission_settings(permission: Permission) {
     if permission.draggable() {
         let name = match permission {
@@ -412,9 +340,6 @@ pub fn open_permission_settings(permission: Permission) {
                 .map_err(anyhow::Error::from)
         });
         match spawned {
-            // The card exits by itself once the grant lands or System Settings closes. It reads
-            // EOF on stdin as "the parent quit", and `wait` closes stdin first, so hold it open
-            // until the card is gone.
             Ok(mut child) => {
                 std::thread::spawn(move || {
                     let _stdin = child.stdin.take();

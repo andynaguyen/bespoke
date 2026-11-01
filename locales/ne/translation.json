@@ -122,7 +122,6 @@
     "active": "सक्रिय",
     "switching": "बदलिँदैछ...",
     "verifyingGeneric": "प्रमाणित गरिँदैछ...",
-    "extractingGeneric": "एक्स्ट्र्याक्ट गरिँदैछ...",
     "downloading": "डाउनलोड गरिँदैछ {{percentage}}%",
     "deleteModel": "{{modelName}} मेटाउनुहोस्",
     "downloadSpeed": "{{speed}} MB/s",
@@ -140,12 +139,6 @@
   "settings": {
     "general": {
       "shortcut": {
-        "title": "Bespoke सर्टकटहरू",
-        "description": "स्पिच-टु-टेक्स्ट रेकर्डिङ सुरु गर्न किबोर्ड सर्टकटहरू सेट अप गर्नुहोस्",
-        "loading": "सर्टकटहरू लोड गरिँदैछन्...",
-        "none": "कुनै सर्टकट सेट गरिएको छैन",
-        "notFound": "सर्टकट भेटिएन",
-        "pressKeys": "किहरू थिच्नुहोस्...",
         "bindings": {
           "transcribe": {
             "name": "ट्रान्सक्राइब सर्टकट",

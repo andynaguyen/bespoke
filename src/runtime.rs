@@ -1,6 +1,3 @@
-//! The shared tokio runtime for backend async work (downloads, LLM calls,
-//! shortcut handlers). Replaces `tauri::async_runtime`.
-
 use std::future::Future;
 use std::sync::OnceLock;
 
@@ -34,8 +31,6 @@ where
     runtime().spawn_blocking(f)
 }
 
-/// Runs `future` on the tokio runtime and resolves on any executor, so GPUI
-/// foreground tasks can await tokio-only work such as `reqwest` calls.
 pub async fn run<F>(future: F) -> F::Output
 where
     F: Future + Send + 'static,
@@ -44,7 +39,6 @@ where
     spawn(future).await.expect("tokio task panicked")
 }
 
-/// Blocks the current thread on `future`. Tests only: app code awaits.
 #[cfg(test)]
 pub fn block_on<F: Future>(future: F) -> F::Output {
     runtime().block_on(future)

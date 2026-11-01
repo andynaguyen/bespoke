@@ -1,5 +1,3 @@
-//! `ui/Button.tsx`.
-
 use gpui::{
     div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, SharedString,
     Window,
@@ -15,7 +13,6 @@ pub enum ButtonVariant {
     #[default]
     Primary,
     Secondary,
-    /// Starts a recording: the live red.
     Live,
     DangerGhost,
     Ghost,
@@ -58,7 +55,6 @@ impl Button {
         }
     }
 
-    /// Extra hover styling on top of the variant's (`hover:text-text`).
     pub fn hover(
         mut self,
         f: impl Fn(gpui::StyleRefinement) -> gpui::StyleRefinement + 'static,
@@ -82,7 +78,6 @@ impl Button {
         self
     }
 
-    /// Native-style tooltip text, like the HTML `title` attribute.
     pub fn title(mut self, title: impl Into<SharedString>) -> Self {
         self.title = Some(title.into());
         self
@@ -115,7 +110,6 @@ struct Colors {
     border: Hsla,
     hover_text: Option<Hsla>,
     hover_bg: Hsla,
-    hover_border: Option<Hsla>,
 }
 
 impl RenderOnce for Button {
@@ -126,11 +120,9 @@ impl RenderOnce for Button {
             ButtonVariant::Primary => Colors {
                 text: p.accent_contrast,
                 bg: p.accent,
-                // A light rim, like tinted glass.
                 border: gpui::white().a(0.18),
                 hover_text: None,
                 hover_bg: p.accent.a(0.85),
-                hover_border: None,
             },
             ButtonVariant::Live => Colors {
                 text: gpui::white(),
@@ -138,7 +130,6 @@ impl RenderOnce for Button {
                 border: gpui::white().a(0.18),
                 hover_text: None,
                 hover_bg: p.ink.a(0.85),
-                hover_border: None,
             },
             ButtonVariant::Secondary => Colors {
                 text: p.text,
@@ -146,7 +137,6 @@ impl RenderOnce for Button {
                 border: p.line,
                 hover_text: None,
                 hover_bg: p.text.a(if p.is_dark { 0.12 } else { 0.07 }),
-                hover_border: None,
             },
             ButtonVariant::DangerGhost => Colors {
                 text: tw::red_400(),
@@ -154,7 +144,6 @@ impl RenderOnce for Button {
                 border: transparent,
                 hover_text: Some(tw::red_300()),
                 hover_bg: tw::red_500().a(0.1),
-                hover_border: None,
             },
             ButtonVariant::Ghost => Colors {
                 text: p.text,
@@ -162,7 +151,6 @@ impl RenderOnce for Button {
                 border: transparent,
                 hover_text: None,
                 hover_bg: p.mid_gray.a(0.1),
-                hover_border: None,
             },
         };
 
@@ -187,8 +175,6 @@ impl RenderOnce for Button {
                 el.font_weight(FontWeight::SEMIBOLD)
                     .shadow(vec![crate::ui::theme::colored_shadow(p.ink, 0.35)])
             });
-        // Labels are mostly lowercase, whose letters sit low in the line, so
-        // a little bottom padding lifts the content to look centered.
         button = match self.size {
             ButtonSize::Sm => button.h(px(26.)).px(px(10.)).pb(px(1.)).text_px(12.),
             ButtonSize::Md => button
@@ -207,10 +193,6 @@ impl RenderOnce for Button {
                 let s = s.bg(c.hover_bg);
                 let s = match c.hover_text {
                     Some(color) => s.text_color(color),
-                    None => s,
-                };
-                let s = match c.hover_border {
-                    Some(color) => s.border_color(color),
                     None => s,
                 };
                 match &extra {

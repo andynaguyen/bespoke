@@ -1,23 +1,21 @@
-//! Transcription models and their download state, ported from `modelStore.ts`.
-
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{App, AppContext, Context, Entity, Global, SharedString};
+use gpui::{App, AppContext, Context, Entity, Global};
 use serde::Deserialize;
 
 use crate::app_handle::{AppEvent, AppHandle};
+use crate::i18n::t;
 use crate::managers::model::{DownloadProgress, ModelInfo, ModelManager};
 use crate::ui::event_bus::event_bus;
+use crate::ui::model_card::CardStatus;
 use crate::ui::toast;
 
-/// Download speed bookkeeping, smoothed like the React store.
 #[derive(Clone, Copy)]
 pub struct DownloadStats {
     last_update: Instant,
     total_downloaded: u64,
-    /// MiB/s.
     pub speed: f64,
 }
 
@@ -33,12 +31,8 @@ pub struct ModelStore {
     pub current_model: String,
     pub downloading: HashSet<String>,
     pub verifying: HashSet<String>,
-    pub extracting: HashSet<String>,
     pub progress: HashMap<String, DownloadProgress>,
     pub stats: HashMap<String, DownloadStats>,
-    /// True until the first model list loads.
-    pub loading: bool,
-    pub error: Option<SharedString>,
     pub is_rescanning: bool,
 }
 
@@ -68,16 +62,23 @@ impl ModelStore {
             current_model: String::new(),
             downloading: HashSet::new(),
             verifying: HashSet::new(),
-            extracting: HashSet::new(),
             progress: HashMap::new(),
             stats: HashMap::new(),
-            loading: true,
-            error: None,
             is_rescanning: false,
         };
         store.load_models(cx);
         store.load_current_model(cx);
         store
+    }
+
+    pub fn download_status(&self, id: &str) -> Option<CardStatus> {
+        if self.verifying.contains(id) {
+            Some(CardStatus::Verifying)
+        } else if self.downloading.contains(id) {
+            Some(CardStatus::Downloading)
+        } else {
+            None
+        }
     }
 
     fn manager(&self) -> Arc<ModelManager> {
@@ -93,13 +94,7 @@ impl ModelStore {
     }
 
     pub fn load_models(&mut self, cx: &mut Context<Self>) {
-        if self.app.try_state::<Arc<ModelManager>>().is_none() {
-            return;
-        }
         self.models = self.manager().get_available_models();
-        self.error = None;
-        // Merge the backend's downloading flags; drop entries the backend
-        // finished and that have no progress left (completed or cancelled).
         let backend: HashSet<String> = self
             .models
             .iter()
@@ -110,7 +105,6 @@ impl ModelStore {
         let progress = &self.progress;
         self.downloading
             .retain(|id| backend.contains(id) || progress.contains_key(id));
-        self.loading = false;
         cx.notify();
     }
 
@@ -128,10 +122,8 @@ impl ModelStore {
                 crate::runtime::spawn_blocking(move || manager.rescan_local_models()).await;
             let _ = this.update(cx, |this, cx| {
                 this.is_rescanning = false;
-                match result {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => this.error = Some(format!("Failed to rescan models: {e}").into()),
-                    Err(e) => this.error = Some(format!("Failed to rescan models: {e}").into()),
+                if let Err(e) = result {
+                    toast::error_with(t("modelSelector.errors.rescan"), e.to_string(), cx);
                 }
                 cx.notify();
             });
@@ -139,7 +131,6 @@ impl ModelStore {
         .detach();
     }
 
-    /// Switches the active model. `on_done` gets whether it worked.
     pub fn select_model(
         &mut self,
         model_id: String,
@@ -162,7 +153,7 @@ impl ModelStore {
                         true
                     }
                     Err(e) => {
-                        this.error = Some(format!("Failed to switch to model: {e}").into());
+                        toast::error_with(t("onboarding.errors.selectModel"), e, cx);
                         false
                     }
                 };
@@ -173,7 +164,6 @@ impl ModelStore {
         .detach();
     }
 
-    /// Starts a download. `on_done` gets whether the whole download worked.
     pub fn download_model(
         &mut self,
         model_id: String,
@@ -202,8 +192,7 @@ impl ModelStore {
             .await;
             let _ = this.update(cx, |this, cx| {
                 let ok = result.is_ok();
-                if let Err(e) = result {
-                    this.error = Some(format!("Failed to download model: {e}").into());
+                if !ok {
                     this.clear_download(&model_id);
                 }
                 cx.notify();
@@ -213,7 +202,6 @@ impl ModelStore {
         .detach();
     }
 
-    /// Cancels a download. `on_done` gets whether the cancel worked.
     pub fn cancel_download(
         &mut self,
         model_id: String,
@@ -225,21 +213,11 @@ impl ModelStore {
             let id = model_id.clone();
             let result = crate::runtime::spawn_blocking(move || manager.cancel_download(&id)).await;
             let _ = this.update(cx, |this, cx| {
-                let ok = match result {
-                    Ok(Ok(())) => {
-                        this.clear_download(&model_id);
-                        this.load_models(cx);
-                        true
-                    }
-                    Ok(Err(e)) => {
-                        this.error = Some(format!("Failed to cancel download: {e}").into());
-                        false
-                    }
-                    Err(e) => {
-                        this.error = Some(format!("Failed to cancel download: {e}").into());
-                        false
-                    }
-                };
+                let ok = result.is_ok();
+                if ok {
+                    this.clear_download(&model_id);
+                    this.load_models(cx);
+                }
                 cx.notify();
                 on_done(ok, cx);
             });
@@ -258,7 +236,7 @@ impl ModelStore {
             .await;
             let _ = this.update(cx, |this, cx| {
                 if let Err(e) = result {
-                    this.error = Some(format!("Failed to delete model: {e}").into());
+                    toast::error_with(t("modelSelector.errors.delete"), e, cx);
                 }
                 this.load_models(cx);
                 this.load_current_model(cx);
@@ -274,14 +252,15 @@ impl ModelStore {
         self.stats.remove(model_id);
     }
 
-    /// Switches to a model once its download (and any extraction)
-    /// finishes, unless the user is recording.
     fn select_when_idle(&mut self, model_id: String, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             cx.background_executor()
                 .timer(std::time::Duration::from_millis(500))
                 .await;
-            if crate::commands::audio::is_recording(AppHandle::global().clone()) {
+            if AppHandle::global()
+                .state::<Arc<crate::managers::audio::AudioRecordingManager>>()
+                .is_recording()
+            {
                 return;
             }
             let _ = this.update(cx, |this, cx| this.select_model(model_id, |_, _| {}, cx));
@@ -313,7 +292,6 @@ impl ModelStore {
             "model-download-failed" => {
                 if let Some(failure) = event.parse::<ModelError>() {
                     self.clear_download(&failure.model_id);
-                    self.error = Some(failure.error.clone().into());
                     toast::error(failure.error, cx);
                     cx.notify();
                 }
@@ -330,25 +308,6 @@ impl ModelStore {
                     cx.notify();
                 }
             }
-            "model-extraction-started" => {
-                if let Some(id) = id() {
-                    self.extracting.insert(id);
-                    cx.notify();
-                }
-            }
-            "model-extraction-completed" => {
-                if let Some(id) = id() {
-                    self.extracting.remove(&id);
-                    self.load_models(cx);
-                }
-            }
-            "model-extraction-failed" => {
-                if let Some(failure) = event.parse::<ModelError>() {
-                    self.extracting.remove(&failure.model_id);
-                    self.error = Some(format!("Failed to extract model: {}", failure.error).into());
-                    cx.notify();
-                }
-            }
             "model-deleted" | "model-state-changed" | "models-updated" => {
                 self.load_models(cx);
                 self.load_current_model(cx);
@@ -357,8 +316,6 @@ impl ModelStore {
         }
     }
 
-    /// Speed in MiB/s, updated at most every half second and smoothed
-    /// (80% previous, 20% current).
     fn record_progress(&mut self, progress: &DownloadProgress) {
         let now = Instant::now();
         match self.stats.get_mut(&progress.model_id) {

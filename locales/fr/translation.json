@@ -121,7 +121,6 @@
     "active": "Actif",
     "switching": "Changement...",
     "verifyingGeneric": "Vérification...",
-    "extractingGeneric": "Extraction...",
     "downloading": "Téléchargement {{percentage}}%",
     "deleteModel": "Supprimer {{modelName}}",
     "downloadSpeed": "{{speed}} Mo/s",
@@ -160,12 +159,6 @@
     },
     "general": {
       "shortcut": {
-        "title": "Raccourcis Bespoke",
-        "description": "Configurer les raccourcis clavier pour déclencher l'enregistrement de la reconnaissance vocale",
-        "loading": "Chargement des raccourcis...",
-        "none": "Aucun raccourci configuré",
-        "notFound": "Raccourci non trouvé",
-        "pressKeys": "Appuyez sur les touches...",
         "bindings": {
           "transcribe": {
             "name": "Raccourci de Transcription",

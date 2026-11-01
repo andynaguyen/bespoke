@@ -1,5 +1,3 @@
-//! Receipt-sequenced clipboard paste ("reliable paste", debug-gated).
-//!
 //! The legacy clipboard paste (`clipboard::paste_via_clipboard`) restores the
 //! previous clipboard after a fixed delay. The paste keystroke is only
 //! *enqueued* at that point — the target application reads the clipboard
@@ -15,24 +13,7 @@
 //! - macOS: `declareTypes:owner:` with an owner object, the pasteboard calls
 //!   `pasteboard:provideDataForType:` on read.
 //!
-//! Two rules make the receipt trustworthy:
-//!
-//! 1. Only receipts observed *after* the paste chord was injected count. A
-//!    read before that is an eager third party (clipboard manager, antivirus)
-//!    reacting to the clipboard change itself.
-//! 2. Restoration only happens while we still own the clipboard
-//!    (sequence number / changeCount unchanged, no ownership-lost event). If
-//!    the user copied something else in the meantime, their action wins.
-//!
-//! The restore is additionally gated on a short quiet period after the *last*
-//! receipt, because some applications read the clipboard several times per
-//! paste (Chromium probes, then reads). A bounded timeout caps how long the
-//! transcript may occupy the clipboard; the failure mode is always "the
-//! transcript stays on the clipboard a bit longer", never "stale content gets
-//! pasted".
 
-// The shared transaction state is compiled on all platforms (for the unit
-// tests), but only the macOS/Windows platform modules consume all of it.
 #![cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
 
 use std::time::{Duration, Instant};
@@ -47,44 +28,22 @@ use macos as platform;
 #[cfg(target_os = "windows")]
 use windows as platform;
 
-/// How long after the *last* observed read the transcript stays on the
-/// clipboard before restoring. Covers applications that read the clipboard
-/// several times per paste (e.g. Chromium probe-then-read).
 pub(crate) const QUIET_PERIOD: Duration = Duration::from_millis(200);
 
-/// Upper bound on how long the transcript may occupy the clipboard before we
-/// restore regardless of receipts. Long enough that a realistically loaded
-/// target always gets to read first; short enough that a lost keystroke does
-/// not strand the transcript on the clipboard for long.
 pub(crate) const RESTORE_TIMEOUT: Duration = Duration::from_secs(8);
 
-/// When the chord could not be injected at all, no legitimate receipt can
-/// arrive, so restore quickly instead of waiting out the full timeout.
 pub(crate) const FAILED_INJECTION_TIMEOUT: Duration = Duration::from_millis(500);
 
-/// Shared, cross-thread record of one paste transaction.
 #[derive(Debug)]
 pub(crate) struct TxState {
-    /// When the transcript was published to the clipboard.
     pub published_at: Instant,
-    /// When the paste chord was injected. Only receipts *after* this count as
-    /// evidence the target read the transcript — earlier reads are eager third
-    /// parties reacting to the clipboard change itself.
     pub injected_at: Option<Instant>,
-    /// The chord could not be sent; short-circuit the wait.
     pub injection_failed: bool,
-    /// Times at which a consumer requested the clipboard data.
     pub receipts: Vec<Instant>,
-    /// Someone else took clipboard ownership (user copied elsewhere, ...).
     pub ownership_lost: bool,
-    /// A newer paste transaction settled this one early (see flush logic in
-    /// the platform modules).
     pub cancelled: bool,
-    /// The post-paste Enter (auto-submit) has been sent for this transaction.
-    /// (Read on Windows; the macOS path settles via `MacPending::settled`.)
-    #[allow(dead_code)]
+    #[cfg(target_os = "windows")]
     pub auto_submit_sent: bool,
-    /// First post-injection receipt has been logged.
     pub logged_receipt: bool,
 }
 
@@ -97,12 +56,12 @@ impl TxState {
             receipts: Vec::new(),
             ownership_lost: false,
             cancelled: false,
+            #[cfg(target_os = "windows")]
             auto_submit_sent: false,
             logged_receipt: false,
         }
     }
 
-    /// Records a read receipt, logging the first one that counts as evidence.
     pub fn record_receipt(&mut self, at: Instant) {
         self.receipts.push(at);
         if !self.logged_receipt {
@@ -130,12 +89,9 @@ impl TxState {
 
 pub(crate) enum WaitDecision {
     KeepWaiting,
-    /// Stop waiting; settle the transaction (auto-submit + guarded restore).
     Finish,
 }
 
-/// Pure decision: given the current transaction state, keep waiting for the
-/// target to read, or finish now. Both platform event loops call this.
 pub(crate) fn evaluate(state: &TxState, now: Instant) -> WaitDecision {
     if state.ownership_lost || state.cancelled {
         return WaitDecision::Finish;
@@ -156,19 +112,8 @@ pub(crate) fn evaluate(state: &TxState, now: Instant) -> WaitDecision {
     WaitDecision::KeepWaiting
 }
 
-/// Modifier hold for the receipt-sequenced chord, kept at parity with the
-/// legacy path (100ms) for the beta: that hold was added in #165 because real
-/// users' systems dropped chords released too quickly, and the beta should
-/// validate the receipt mechanism without changing a second variable.
-///
-/// Once receipts are proven in the field this becomes a safe tuning knob — a
-/// chord the target never recognizes produces no receipt and is logged ("no
-/// read within timeout") rather than failing silently, so a shorter hold
-/// (measured working at 10ms on a fast machine, cutting visible latency from
-/// ~110ms to ~20ms) can be tried as its own experiment later.
 const CHORD_HOLD_MS: u64 = 100;
 
-/// Sends the platform paste chord for the configured method.
 pub(crate) fn send_chord(
     enigo: &mut enigo::Enigo,
     paste_method: &crate::settings::PasteMethod,
@@ -185,12 +130,6 @@ pub(crate) fn send_chord(
     }
 }
 
-/// Attempts the receipt-sequenced paste. Returns `Err` before anything has
-/// been published when the platform transaction cannot start, in which case
-/// the caller should fall back to the legacy paste path. On `Ok`, publishing
-/// and chord injection have been attempted and the guarded restore (plus
-/// auto-submit) finishes asynchronously; the flag says whether the chord was
-/// actually sent.
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn try_reliable_paste(
     text: &str,
