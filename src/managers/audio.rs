@@ -328,7 +328,6 @@ fn create_audio_recorder(
     // the frontend, and an audio-frame callback that feeds live streaming via a
     // shared `StreamRouter` (captured directly, not via Tauri state — see its docs).
     let recorder = AudioRecorder::new()
-        .map_err(|e| anyhow::anyhow!("Failed to create AudioRecorder: {}", e))?
         .with_vad(
             Box::new(smoothed_vad),
             offline_hangover_frames,
@@ -674,7 +673,7 @@ impl AudioRecordingManager {
                 }
             }
             if let Some(rec) = self.recorder.lock().unwrap().as_mut() {
-                let _ = rec.close();
+                rec.close();
             }
             *self.is_recording.lock().unwrap() = false;
             *open_flag = false;
@@ -772,7 +771,7 @@ impl AudioRecordingManager {
                 let _ = rec.stop();
                 *self.is_recording.lock().unwrap() = false;
             }
-            let _ = rec.close();
+            rec.close();
         }
 
         *open_flag = false;
@@ -901,7 +900,7 @@ impl AudioRecordingManager {
                 // Ensure a partially opened replacement cannot retain capture
                 // resources before restoring the known-good detector.
                 if let Some(recorder) = self.recorder.lock().unwrap().as_mut() {
-                    let _ = recorder.close();
+                    recorder.close();
                 }
                 *self.recorder.lock().unwrap() = previous_recorder;
 

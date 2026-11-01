@@ -96,7 +96,7 @@ pub fn run(
     let quit_app = app.clone();
     cx.on_app_quit(move |_| {
         if let Some(tm) = quit_app.try_state::<Arc<TranscriptionManager>>() {
-            let _ = tm.unload_model();
+            tm.unload_model();
         }
         async {}
     })
@@ -183,10 +183,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // managers are in managed state.
     let model_manager =
         Arc::new(ModelManager::new(app_handle).expect("Failed to initialize model manager"));
-    let transcription_manager = Arc::new(
-        TranscriptionManager::new(app_handle, model_manager.clone())
-            .expect("Failed to initialize transcription manager"),
-    );
+    let transcription_manager =
+        Arc::new(TranscriptionManager::new(app_handle, model_manager.clone()));
     let voice_submit = voice_submit::VoiceSubmit::new(app_handle);
     let recording_manager = Arc::new(
         AudioRecordingManager::new(

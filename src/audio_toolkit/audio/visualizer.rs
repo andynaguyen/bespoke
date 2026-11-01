@@ -17,7 +17,6 @@ pub struct AudioVisualiser {
     window: Vec<f32>,
     bucket_ranges: Vec<(usize, usize)>,
     fft_input: Vec<Complex32>,
-    noise_floor: Vec<f32>,
     buffer: Vec<f32>,
     window_size: usize,
     buckets: usize,
@@ -76,7 +75,6 @@ impl AudioVisualiser {
             window,
             bucket_ranges,
             fft_input: vec![Complex32::new(0.0, 0.0); window_size],
-            noise_floor: vec![-40.0; buckets], // Initialize to reasonable noise floor
             buffer: Vec::with_capacity(window_size * 2),
             window_size,
             buckets,
@@ -131,13 +129,6 @@ impl AudioVisualiser {
                 -80.0 // Very low floor for zero power
             };
 
-            // Only update noise floor when signal is quiet (below current floor + 10dB)
-            if db < self.noise_floor[bucket_idx] + 10.0 {
-                const NOISE_ALPHA: f32 = 0.001; // Very slow adaptation
-                self.noise_floor[bucket_idx] =
-                    NOISE_ALPHA * db + (1.0 - NOISE_ALPHA) * self.noise_floor[bucket_idx];
-            }
-
             // Map configurable dB range to 0-1 with gain and curve shaping
             let normalized = ((db - DB_MIN) / (DB_MAX - DB_MIN)).clamp(0.0, 1.0);
             buckets[bucket_idx] = (normalized * GAIN).powf(CURVE_POWER).clamp(0.0, 1.0);
@@ -156,7 +147,5 @@ impl AudioVisualiser {
 
     pub fn reset(&mut self) {
         self.buffer.clear();
-        // Reset noise floor to initial values
-        self.noise_floor.fill(-40.0);
     }
 }

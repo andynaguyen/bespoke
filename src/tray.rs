@@ -782,10 +782,8 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
                 warn!("No model is currently loaded.");
                 return;
             }
-            match transcription_manager.unload_model() {
-                Ok(()) => info!("Model unloaded via tray."),
-                Err(e) => error!("Failed to unload model via tray: {}", e),
-            }
+            transcription_manager.unload_model();
+            info!("Model unloaded via tray.");
         }
         "cancel" => crate::utils::cancel_current_operation(app),
         "quit" => cx.quit(),

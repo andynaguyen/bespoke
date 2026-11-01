@@ -15,13 +15,13 @@ use std::{
 
 #[test]
 fn unopened_recorder_does_not_need_reopen() {
-    let recorder = AudioRecorder::new().expect("recorder");
+    let recorder = AudioRecorder::new();
     assert!(!recorder.needs_reopen());
 }
 
 #[test]
 fn stream_error_requires_reopen() {
-    let recorder = AudioRecorder::new().expect("recorder");
+    let recorder = AudioRecorder::new();
     recorder.stream_error.store(true, Ordering::Relaxed);
     assert!(recorder.needs_reopen());
 }

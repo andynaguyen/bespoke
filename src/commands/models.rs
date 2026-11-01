@@ -37,9 +37,7 @@ pub async fn delete_model(
     // If deleting the active model, unload it and clear the setting
     let settings = get_settings(&app_handle);
     if settings.selected_model == model_id {
-        transcription_manager
-            .unload_model()
-            .map_err(|e| format!("Failed to unload model: {}", e))?;
+        transcription_manager.unload_model();
 
         let mut settings = get_settings(&app_handle);
         settings.selected_model = String::new();

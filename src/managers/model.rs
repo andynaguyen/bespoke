@@ -79,7 +79,8 @@ pub struct ModelInfo {
 
 const CHINESE_LANGUAGE_CODE: &str = "zh";
 
-fn recognition_language(language: &str) -> &str {
+/// Maps the Chinese script variants to the plain `zh` code engines accept.
+pub(crate) fn recognition_language(language: &str) -> &str {
     match language {
         "zh-Hans" | "zh-Hant" => CHINESE_LANGUAGE_CODE,
         other => other,

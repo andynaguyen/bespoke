@@ -14,10 +14,7 @@ use crate::settings::get_settings;
 pub fn run(app: &AppHandle, args: &CliArgs) -> i32 {
     let model_manager =
         Arc::new(ModelManager::new(app).expect("Failed to initialize model manager"));
-    let transcription_manager = Arc::new(
-        TranscriptionManager::new(app, model_manager.clone())
-            .expect("Failed to initialize transcription manager"),
-    );
+    let transcription_manager = Arc::new(TranscriptionManager::new(app, model_manager.clone()));
     app.manage(model_manager);
     app.manage(transcription_manager);
     crate::managers::transcription::init_transcribe_backend();
@@ -28,7 +25,7 @@ pub fn run(app: &AppHandle, args: &CliArgs) -> i32 {
     // asserts (SIGABRT) if a model's Metal resources are still alive at C++
     // static-destructor time.
     if let Some(tm) = app.try_state::<Arc<TranscriptionManager>>() {
-        let _ = tm.unload_model();
+        tm.unload_model();
     }
     code
 }

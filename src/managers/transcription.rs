@@ -359,7 +359,7 @@ fn apply_scrub(text: String, settings: &AppSettings) -> (String, bool) {
 }
 
 impl TranscriptionManager {
-    pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Result<Self> {
+    pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Self {
         let manager = Self {
             engine: Arc::new(Mutex::new(None)),
             model_manager,
@@ -429,18 +429,11 @@ impl TranscriptionManager {
                                     idle_ms / 1000,
                                     limit_seconds
                                 );
-                                match manager_cloned.unload_model() {
-                                    Ok(()) => {
-                                        let unload_duration = unload_start.elapsed();
-                                        info!(
-                                            "Model unloaded due to inactivity (took {}ms)",
-                                            unload_duration.as_millis()
-                                        );
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to unload idle model: {}", e);
-                                    }
-                                }
+                                manager_cloned.unload_model();
+                                info!(
+                                    "Model unloaded due to inactivity (took {}ms)",
+                                    unload_start.elapsed().as_millis()
+                                );
                             }
                         }
                     }
@@ -450,7 +443,7 @@ impl TranscriptionManager {
             *manager.watcher_handle.lock().unwrap() = Some(handle);
         }
 
-        Ok(manager)
+        manager
     }
 
     /// Lock the engine mutex, recovering from poison if a previous transcription panicked.
@@ -497,7 +490,7 @@ impl TranscriptionManager {
         })
     }
 
-    pub fn unload_model(&self) -> Result<()> {
+    pub fn unload_model(&self) {
         let unload_start = std::time::Instant::now();
         debug!("Starting to unload model");
 
@@ -527,7 +520,6 @@ impl TranscriptionManager {
             "Model unloaded manually (took {}ms)",
             unload_duration.as_millis()
         );
-        Ok(())
     }
 
     fn now_ms() -> u64 {
@@ -549,9 +541,7 @@ impl TranscriptionManager {
             && self.is_model_loaded()
         {
             info!("Immediately unloading model after {}", context);
-            if let Err(e) = self.unload_model() {
-                warn!("Failed to immediately unload model: {}", e);
-            }
+            self.unload_model();
         }
     }
 
@@ -1600,14 +1590,16 @@ impl TranscriptionManager {
                             anyhow::anyhow!("Moonshine streaming transcription failed: {}", e)
                         }),
                     LoadedEngine::SenseVoice(sense_voice_engine) => {
-                        let language = match normalize_cjk_language(&validated_language) {
-                            "zh" => Some("zh".to_string()),
-                            "en" => Some("en".to_string()),
-                            "ja" => Some("ja".to_string()),
-                            "ko" => Some("ko".to_string()),
-                            "yue" => Some("yue".to_string()),
-                            _ => None,
-                        };
+                        let language =
+                            match crate::managers::model::recognition_language(&validated_language)
+                            {
+                                "zh" => Some("zh".to_string()),
+                                "en" => Some("en".to_string()),
+                                "ja" => Some("ja".to_string()),
+                                "ko" => Some("ko".to_string()),
+                                "yue" => Some("yue".to_string()),
+                                _ => None,
+                            };
                         applied_language_hint = language.clone();
                         let params = SenseVoiceParams {
                             language,
@@ -1644,7 +1636,10 @@ impl TranscriptionManager {
                         let lang = if validated_language == "auto" {
                             None
                         } else {
-                            Some(normalize_cjk_language(&validated_language).to_string())
+                            Some(
+                                crate::managers::model::recognition_language(&validated_language)
+                                    .to_string(),
+                            )
                         };
                         applied_language_hint = lang.clone();
                         let options = TranscribeOptions {
@@ -1838,13 +1833,6 @@ fn real_time_factor(audio_secs: f64, compute_secs: f64) -> f64 {
     }
 }
 
-fn normalize_cjk_language(language: &str) -> &str {
-    match language {
-        "zh-Hans" | "zh-Hant" => "zh",
-        other => other,
-    }
-}
-
 /// Resolve the persisted language intent into the language a specific model can
 /// use without writing the coerced value back to settings.
 fn effective_language_for_model(
@@ -1935,7 +1923,7 @@ fn transcribe_cpp_run_plan(
 ) -> TranscribeCppRunPlan {
     let requested_language = match effective_language {
         "auto" => None,
-        other => Some(normalize_cjk_language(other).to_string()),
+        other => Some(crate::managers::model::recognition_language(other).to_string()),
     };
     // Only pass a language the loaded model actually advertises (per
     // capabilities().languages); otherwise auto-detect rather than failing with

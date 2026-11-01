@@ -1,5 +1,4 @@
 use natural::phonetics::soundex;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use strsim::levenshtein;
 
@@ -104,11 +103,8 @@ fn find_best_match<'a>(
 
         // Calculate Levenshtein distance (normalized by length)
         let levenshtein_dist = levenshtein(candidate, &custom_word_key.key);
-        let levenshtein_score = if max_len > 0.0 {
-            levenshtein_dist as f64 / max_len
-        } else {
-            1.0
-        };
+        // find_best_match rejects empty candidates, so max_len is positive.
+        let levenshtein_score = levenshtein_dist as f64 / max_len;
 
         // Soundex is an English/ASCII phonetic algorithm. Numeric terms can
         // still use edit distance, but must not receive a phonetic boost.
@@ -320,8 +316,6 @@ fn gated_filler_words_for_language(lang: &str) -> &'static [&'static str] {
     }
 }
 
-static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
-
 /// Collapses repeated words (3+ repetitions) to a single instance.
 /// E.g., "wh wh wh wh" -> "wh", "I I I I" -> "I"
 fn collapse_stutters(text: &str) -> String {
@@ -422,15 +416,8 @@ pub fn remove_filler_words(
 /// Kept separate from [`remove_filler_words`] so disabling filler deletion
 /// does not also disable the existing repeated-word and whitespace cleanup.
 pub fn normalize_transcription_output(text: &str) -> String {
-    let mut normalized = collapse_stutters(text);
-
-    // Clean up multiple spaces to single space
-    normalized = MULTI_SPACE_PATTERN
-        .replace_all(&normalized, " ")
-        .to_string();
-
-    // Trim leading/trailing whitespace
-    normalized.trim().to_string()
+    // collapse_stutters also joins the words with single spaces.
+    collapse_stutters(text).trim().to_string()
 }
 
 /// If `text` ends with the spoken `keyword` (one or more words), returns the

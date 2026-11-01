@@ -95,7 +95,6 @@ pub trait FrameObserver: Send + Sync {
 }
 
 pub struct AudioRecorder {
-    device: Option<Device>,
     cmd_tx: Option<mpsc::Sender<Cmd>>,
     worker_handle: Option<std::thread::JoinHandle<()>>,
     vad: Option<VadConfig>,
@@ -116,9 +115,8 @@ pub struct AudioRecorder {
 }
 
 impl AudioRecorder {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(AudioRecorder {
-            device: None,
+    pub fn new() -> Self {
+        AudioRecorder {
             cmd_tx: None,
             worker_handle: None,
             vad: None,
@@ -128,7 +126,7 @@ impl AudioRecorder {
             selected_channel: None,
             config_cache: Arc::new(Mutex::new(None)),
             stream_error: Arc::new(AtomicBool::new(false)),
-        })
+        }
     }
 
     /// Attach a single VAD engine, reconfigured per session for the offline vs
@@ -191,7 +189,7 @@ impl AudioRecorder {
                 return Ok(()); // already open
             }
             log::warn!("Capture stream failed; rebuilding microphone stream");
-            self.close()?;
+            self.close();
         }
 
         self.stream_error.store(false, Ordering::Relaxed);
@@ -368,7 +366,6 @@ impl AudioRecorder {
 
         match init_rx.recv() {
             Ok(Ok(())) => {
-                self.device = Some(device);
                 self.cmd_tx = Some(cmd_tx);
                 self.worker_handle = Some(worker);
                 Ok(())
@@ -430,15 +427,13 @@ impl AudioRecorder {
                 .is_some_and(|handle| handle.is_finished())
     }
 
-    pub fn close(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn close(&mut self) {
         if let Some(tx) = self.cmd_tx.take() {
             let _ = tx.send(Cmd::Shutdown);
         }
         if let Some(handle) = self.worker_handle.take() {
             let _ = handle.join();
         }
-        self.device = None;
-        Ok(())
     }
 
     fn build_stream<T>(
