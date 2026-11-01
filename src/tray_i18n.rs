@@ -15,6 +15,7 @@ pub struct TrayStrings {
     pub annotate_open_latest: String,
     pub check_for_updates: String,
     pub update_to: String,
+    pub triage: String,
 }
 
 pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
@@ -48,6 +49,7 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
         annotate_open_latest: get_or_en("annotateOpenLatest"),
         check_for_updates: get_or_en("checkForUpdates"),
         update_to: get_or_en("updateTo"),
+        triage: get_or_en("triage"),
     }
 }
 

@@ -239,6 +239,11 @@ impl MainWindow {
         cx.notify();
     }
 
+    pub fn select_tab(&mut self, tab: &str, window: &mut Window, cx: &mut Context<Self>) {
+        pages::select_tab(&self.page.view, tab, window, cx);
+        cx.notify();
+    }
+
     pub fn preview_onboarding(
         &mut self,
         preview: OnboardingPreview,

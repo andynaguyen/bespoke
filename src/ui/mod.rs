@@ -272,6 +272,17 @@ pub fn show_section(section: shell::Section, cx: &mut App) {
     });
 }
 
+/// Shows `section` with its `tab` selected, like Settings > System.
+pub fn show_section_tab(section: shell::Section, tab: &str, cx: &mut App) {
+    show_section(section, cx);
+    let (Some(main), Some(handle)) = (main_view(cx), main_window(cx)) else {
+        return;
+    };
+    let _ = handle.update(cx, |_, window, cx| {
+        main.update(cx, |main, cx| main.select_tab(tab, window, cx));
+    });
+}
+
 pub fn main_view(cx: &App) -> Option<gpui::Entity<MainWindow>> {
     cx.global::<MainWindowSlot>().view.clone()
 }

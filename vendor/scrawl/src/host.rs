@@ -314,6 +314,12 @@ pub fn read_grants() -> Option<Grants> {
     crate::permissions::read_grants()
 }
 
+/// Whether this process may record the screen, by `CGPreflightScreenCaptureAccess`. It keeps its
+/// first answer until the app relaunches, unlike `read_grants`, which asks a fresh helper.
+pub fn screen_capture_granted() -> bool {
+    crate::capture::screen_capture_granted()
+}
+
 pub fn speech_status() -> SpeechStatus {
     crate::speech_model::current()
 }

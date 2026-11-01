@@ -117,7 +117,6 @@ pub fn open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
     dictate::dev_open_entry_dialog(word, window, cx);
 }
 
-#[cfg(debug_assertions)]
 pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) {
     if let Ok(settings) = page.clone().downcast::<settings::SettingsPage>() {
         settings.update(cx, |page, cx| page.select_tab(tab, cx));

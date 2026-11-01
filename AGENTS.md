@@ -47,6 +47,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `signal_handle.rs` - `send_transcription_input()`, shared by Unix signal handlers and CLI flags
 - `updater.rs` - Self-updates through Sparkle (macOS). Only builds from `scripts/release.sh` embed `Sparkle.framework`, so `cargo run` and `install-local.sh` builds hide the update UI. A found update shows as a card in the sidebar, a row in Settings > System and an item in the tray menu. `release.sh --publish` posts each release, with its `appcast.xml`, to this repo's GitHub releases, which `SUFeedURL` in `Info.plist` reads. The repo must stay public, or installed copies can't reach the feed. Pushing a `v<version>` tag runs `.github/workflows/release.yml`, which does the same on a macOS runner with the signing identity and Sparkle key from repo secrets
 - `headless.rs` - `--transcribe-file`, `--list-devices`, and `--list-models` without a window
+- `triage.rs` - Triage an Issue, in Settings > System and the tray menu. It writes `context.md` (version, build, permissions as the running app sees them, key settings, paths) and `PROMPT.md` (the playbook) to `triage/<time>` in the app data folder. Then it opens Claude, Claude Code or Codex through its deep link, or copies the prompt. `.github/triage/PLAYBOOK.md` is the playbook the agent follows, built into the binary with `include_str!`. Issues it files use `.github/ISSUE_TEMPLATE/via-triage.yml`. When the playbook changes what the agent should find, change `context.md` to match
 - `utils.rs` - Platform helpers
 
 ### UI (`src/ui/`)
@@ -101,6 +102,7 @@ Flags are defined in `cli.rs`. They are runtime overrides and never change persi
 | `--list-models` | List model ids and exit |
 | `--repeat <N>` | Repeat `--transcribe-file` N times |
 | `--json` | Print `--transcribe-file` and `--list-models` results as JSON |
+| `--triage` | Write a triage session and print the prompt and agent links, then exit. Records no permissions or settings, because a terminal's process doesn't hold Bespoke's grants |
 
 The remote-control flags work through `single_instance.rs`: the second instance sends its arguments to the running one and exits.
 

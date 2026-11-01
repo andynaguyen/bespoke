@@ -12,7 +12,8 @@
     "annotateChoose": "Choose What to Record…",
     "annotateOpenLatest": "Open Latest Capture",
     "checkForUpdates": "Check for Updates…",
-    "updateTo": "Update to {{version}}…"
+    "updateTo": "Update to {{version}}…",
+    "triage": "Triage an Issue…"
   },
   "sidebar": {
     "models": "Models",
@@ -282,7 +283,8 @@
         "startup": "Startup",
         "memory": "Memory",
         "updates": "Updates",
-        "advanced": "Advanced"
+        "advanced": "Advanced",
+        "help": "Help"
       },
       "experimentalToggle": {
         "label": "Experimental Features",
@@ -744,6 +746,25 @@
         "label": "Check for Updates Automatically",
         "description": "Bespoke checks once a day"
       }
+    },
+    "triage": {
+      "title": "Triage an Issue",
+      "description": "Starts a coding agent on this Mac that reads Bespoke's logs and settings, finds the cause, and helps you file a GitHub issue. It asks before it changes anything or posts.",
+      "start": "Start Triage…",
+      "claude": "Claude",
+      "claudeDescription": "Claude Code in the Claude app",
+      "claudeMissing": "Install the Claude app to use this",
+      "claudeCode": "Claude Code",
+      "claudeCodeDescription": "Claude Code in a terminal window",
+      "claudeCodeMissing": "Send one prompt to claude in a terminal to turn on its links",
+      "codex": "Codex",
+      "codexDescription": "A new Codex thread",
+      "codexMissing": "No app on this Mac opens Codex links",
+      "copy": "Copy Prompt",
+      "copyDescription": "Paste it into any coding agent on this Mac",
+      "opened": "Triage started. Say what went wrong after the prompt, then send it.",
+      "copied": "Copied the triage prompt. Paste it into a coding agent on this Mac.",
+      "failed": "Couldn't start triage"
     }
   },
   "whatsNew": {

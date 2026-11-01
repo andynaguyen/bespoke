@@ -35,6 +35,7 @@ mod system_clipboard;
 mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
+mod triage;
 mod ui;
 mod updater;
 mod utils;
@@ -91,8 +92,10 @@ fn main() {
         app_handle::migrate_legacy_dirs()
     };
 
-    let headless_mode =
-        cli_args.transcribe_file.is_some() || cli_args.list_devices || cli_args.list_models;
+    let headless_mode = cli_args.transcribe_file.is_some()
+        || cli_args.list_devices
+        || cli_args.list_models
+        || cli_args.triage;
 
     let (app, ui_messages) = AppHandle::new();
     match portable::app_log_dir(&app) {
@@ -101,6 +104,10 @@ fn main() {
     }
     for note in migration_notes {
         log::info!("{note}");
+    }
+
+    if cli_args.triage {
+        std::process::exit(triage::run_cli(&app));
     }
 
     if headless_mode {

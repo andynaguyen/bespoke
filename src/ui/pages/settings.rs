@@ -1,10 +1,11 @@
-use gpui::{div, prelude::*, AnyElement, App, Context, Entity, SharedString, Window};
+use gpui::{div, prelude::*, rems, AnyElement, App, Context, Entity, SharedString, Window};
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::t;
 use crate::managers::transcription::AvailableAccelerators;
 use crate::settings::{AppSettings, TranscribeAcceleratorSetting};
 use crate::shortcut;
+use crate::triage::Handoff;
 use crate::ui::components::{
     Dropdown, DropdownOption, SegmentedControl, SettingContainer, SettingsGroup,
 };
@@ -42,6 +43,8 @@ pub struct SettingsPage {
     accelerators: Option<AvailableAccelerators>,
     app_dir: Result<String, String>,
     log_dir: Result<String, String>,
+    /// Which agents have a link handler on this Mac, checked again when the menu opens.
+    triage_agents: Vec<(Handoff, bool)>,
 }
 
 impl SettingsPage {
@@ -64,6 +67,7 @@ impl SettingsPage {
             accelerators: None,
             app_dir: crate::commands::get_app_dir_path(app.clone()),
             log_dir: crate::commands::get_log_dir_path(app),
+            triage_agents: triage_agents(),
             store,
             tab: Tab::Appearance,
         };
@@ -223,6 +227,44 @@ impl SettingsPage {
         rows
     }
 
+    fn triage_row(&self, cx: &mut Context<Self>) -> SettingContainer {
+        let options = self
+            .triage_agents
+            .iter()
+            .map(|&(handoff, available)| {
+                let key = match handoff {
+                    Handoff::Claude => "claude",
+                    Handoff::ClaudeCode => "claudeCode",
+                    Handoff::Codex => "codex",
+                    Handoff::Copy => "copy",
+                };
+                let detail = if available { "Description" } else { "Missing" };
+                DropdownOption::new(handoff.id(), t(&format!("settings.triage.{key}")))
+                    .description(t(&format!("settings.triage.{key}{detail}")))
+                    .disabled(!available)
+            })
+            .collect();
+        let entity = cx.entity().downgrade();
+        SettingContainer::new(t("settings.triage.title"))
+            .description(t("settings.triage.description"))
+            .child(
+                Dropdown::new("triage", options)
+                    .placeholder(t("settings.triage.start"))
+                    .menu_end_aligned(rems(18.))
+                    .on_open(move |_, cx| {
+                        let _ = entity.update(cx, |this, cx| {
+                            this.triage_agents = triage_agents();
+                            cx.notify();
+                        });
+                    })
+                    .on_select(|id, _, cx| {
+                        if let Some(handoff) = Handoff::from_id(id) {
+                            crate::triage::start(handoff, cx);
+                        }
+                    }),
+            )
+    }
+
     fn render_tab(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let s = self.store.read(cx).settings.clone();
         match self.tab {
@@ -251,6 +293,10 @@ impl SettingsPage {
                         cx,
                     ));
                 vec![
+                    SettingsGroup::new()
+                        .title(t("settings.advanced.groups.help"))
+                        .child(self.triage_row(cx))
+                        .into_any_element(),
                     SettingsGroup::new()
                         .title(t("settings.advanced.groups.startup"))
                         .child(rows::start_hidden(&s, cx))
@@ -333,4 +379,11 @@ impl Render for SettingsPage {
             .gap_5()
             .children(self.render_tab(cx))
     }
+}
+
+fn triage_agents() -> Vec<(Handoff, bool)> {
+    Handoff::ALL
+        .into_iter()
+        .map(|handoff| (handoff, handoff.available()))
+        .collect()
 }
