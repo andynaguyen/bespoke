@@ -136,3 +136,14 @@ fn main() {
     application.on_reopen(startup::on_reopen);
     application.run(move |cx| startup::run(app, ui_messages, listener, cx));
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn release_builds_hide_the_windows_console() {
+        assert_eq!(
+            include_str!("main.rs").lines().next(),
+            Some(r#"#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]"#)
+        );
+    }
+}
