@@ -2,11 +2,6 @@
 //! for itself (`AssetInventory`, attributed to `scrawl-helper`), so Scrawl checks and installs
 //! it in the background at launch (`scrawl-helper speech-model --install`) instead of during the
 //! first capture. Onboarding and Settings show how that's going (`view`).
-//!
-//! A capture that finishes without a model says so in its summary (`TranscriptData::missing`,
-//! from `missing`). When the reason can pass (still downloading, a failed download), the bundle
-//! gets a `.transcript-pending` marker, and once the model is installed it's transcribed again
-//! in place: `scrawl.json` and `summary.md` are rewritten with the transcript.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -18,10 +13,8 @@ use serde::Serialize;
 
 use crate::model::MissingTranscript;
 
-/// Marks a bundle that should be transcribed again once the model is installed.
 pub const PENDING: &str = ".transcript-pending";
 
-/// Waits between failed installs; after the last one it stops until the next launch.
 const RETRY_AFTER: [Duration; 3] = [
     Duration::from_secs(60),
     Duration::from_secs(5 * 60),
@@ -31,29 +24,23 @@ const RETRY_AFTER: [Duration; 3] = [
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum State {
-    /// Not checked yet.
     #[default]
     Unknown,
     Checking,
     Downloading,
     Ready,
-    /// No Apple speech model for this Mac and language.
     Unavailable,
     Failed,
 }
 
-/// What onboarding and Settings show.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub state: State,
-    /// `SpeechTranscriber`, or `DictationTranscriber` on Macs without SpeechTranscriber.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub engine: Option<String>,
-    /// `en_US`; the helper window shows its name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
-    /// 0…1 while downloading.
     pub progress: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -83,8 +70,6 @@ fn update(change: impl FnOnce(&mut Status)) {
     );
 }
 
-/// Checks the model in the background and installs it if it's missing, unless a check is
-/// already running. Cheap to call again.
 pub fn ensure() {
     if matches!(current().state, State::Ready | State::Unavailable)
         || RUNNING.swap(true, Ordering::AcqRel)
@@ -154,7 +139,6 @@ fn work() {
     }
 }
 
-/// The plain sentence for a capture without a transcript, from the helper's `missing`.
 pub fn missing(why: &str, locale: &str, error: Option<&str>) -> MissingTranscript {
     let model = format!("Apple's speech model ({locale})");
     match why {
@@ -180,8 +164,6 @@ pub fn missing(why: &str, locale: &str, error: Option<&str>) -> MissingTranscrip
     }
 }
 
-/// Marks a freshly written bundle whose transcript can come later; if the model has arrived
-/// meanwhile, transcribes it now.
 pub fn mark_pending(bundle_dir: &Path) {
     let _ = std::fs::write(bundle_dir.join(PENDING), b"");
     if current().state == State::Ready {
@@ -190,7 +172,6 @@ pub fn mark_pending(bundle_dir: &Path) {
     }
 }
 
-/// Every marked bundle in `captures`.
 pub fn transcribe_pending(captures: &Path) {
     let Ok(entries) = std::fs::read_dir(captures) else {
         return;
@@ -222,9 +203,6 @@ fn transcribe_one(dir: &Path) {
     }
 }
 
-/// Transcribes a bundle's `audio.wav` with Apple Speech and rewrites its transcript, each
-/// keyframe's words, `scrawl.json` and `summary.md`. Returns `false` (and keeps the marker)
-/// while there's still no model.
 pub fn transcribe_again(dir: &Path) -> Result<bool> {
     let (dir, mut bundle) = crate::handoff::load_bundle(dir)?;
     let wav = dir.join(bundle.audio.as_deref().unwrap_or("audio.wav"));

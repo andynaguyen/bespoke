@@ -1,5 +1,3 @@
-//! The sidebar (`Sidebar.tsx`): the logo and the section links.
-
 use gpui::{
     div, img, prelude::*, px, App, Context, FontWeight, ImageSource, Resource, SharedString, Window,
 };
@@ -13,22 +11,11 @@ use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, radius, Alpha};
 
-/// The sidebar panel's width, without the inset around it.
 pub const SIDEBAR_WIDTH: f32 = 220.;
-/// The gap between the title bar, where the traffic lights sit, and the logo.
 const LOGO_TOP: f32 = 26.;
-/// The sidebar wordmark's width. The clay PNGs are drawn at twice this size,
-/// with a bevel and shadow tuned for it.
 const LOGO_WIDTH: f32 = 120.;
 
-/// The clay Bespoke wordmark, `width` pixels wide: grey on dark, charcoal on
-/// light. Each PNG pads the 1965 by 544 wordmark so its drop shadow isn't
-/// clipped, so the image spills past the element's bounds by that padding.
-/// The PNGs are pre-rendered from `bespoke-logo-dark.svg` and
-/// `bespoke-logo-light.svg`, since resvg's blur filters take about 0.3s at
-/// launch.
 pub fn logo(width: f32, cx: &App) -> impl IntoElement {
-    // The padding, in the wordmark's 1965 by 544 units.
     const LEFT: f32 = 80.;
     const TOP: f32 = 50.;
     const RIGHT: f32 = 140.;
@@ -88,8 +75,6 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
         .child(div().text_px(15.).min_w_0().truncate().child(label))
 }
 
-/// Offers the update a scheduled check found (`updater::pending_version`).
-/// Update opens Sparkle's window, which downloads, installs and relaunches.
 fn update_card(version: &str, cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
@@ -157,8 +142,6 @@ pub fn render(
         .map(|section| nav_item(*section, active == *section, cx).into_any_element())
         .collect();
 
-    // The panel floats in the window, inset on every side, so its corners
-    // nest inside the window's.
     div().flex_none().h_full().p(radius::INSET).child(
         div()
             .relative()

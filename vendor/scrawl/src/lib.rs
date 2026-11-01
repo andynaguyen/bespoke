@@ -1,7 +1,3 @@
-//! The parts of Scrawl that Bespoke's Annotate feature runs: recording the screen, voice and
-//! ink, the capsule and picker, and building and pasting a capture. `host` is the seam to
-//! Bespoke. See `BESPOKE.md` for what was copied and what was left out.
-
 mod audio;
 mod autocrop;
 mod capture;
@@ -51,7 +47,6 @@ pub fn now_epoch_ms() -> u64 {
 
 pub fn make_bundle_id() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
-    // Two IDs in the same millisecond (parallel tests, overlapping ingests) must still differ.
     static COUNT: AtomicU64 = AtomicU64::new(0);
     let ms = now_epoch_ms();
     let pid = std::process::id();
@@ -61,8 +56,6 @@ pub fn make_bundle_id() -> String {
     }
 }
 
-/// Matches full-resolution decoded frames back to selected keyframes by timestamp (within 250ms),
-/// so a single frame decode failure only leaves that one keyframe at candidate resolution.
 fn merge_full_keyframes(
     selected: Vec<(model::Keyframe, RgbaFrame)>,
     full: Vec<RgbaFrame>,
@@ -93,7 +86,6 @@ fn merge_full_keyframes(
     (merged, matched)
 }
 
-/// Per-stage timing breakdown logged on every finish (`finish timings: ...`).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StageTimings {
     pub started_at: Option<std::time::Instant>,
@@ -103,7 +95,6 @@ pub struct StageTimings {
     pub transcribe_ms: Option<u64>,
 }
 
-/// Pre-rendered keyframe visuals and encoded PNGs computed while transcription is running.
 pub struct PreparedVisuals {
     pub keyframes: Vec<model::Keyframe>,
     pub autocrop: Option<model::AutocropInfo>,
@@ -201,27 +192,18 @@ pub fn prepare_visuals(
     })
 }
 
-/// What the recording adds to a bundle beyond its frames, strokes and events.
 #[derive(Default)]
 pub struct SourceExtras {
-    /// Screen mode's window and cursor log.
     pub activity: windows::ActivityLog,
-    /// When the video starts on the bundle's clock (ms).
     pub video_offset_ms: u64,
-    /// Screen-capture auto-crop: `None` follows the config, `Some(None)` is off.
     pub autocrop: Option<Option<autocrop::Settings>>,
-    /// Decodes the chosen keyframes again at full quality: keyframes are selected on small
-    /// candidate frames.
     pub full_frames: Option<FullFrames>,
     pub prepared: Option<PreparedVisuals>,
     pub timings: StageTimings,
 }
 
-/// Decodes frames at these times at full quality.
 pub type FullFrames = Box<dyn Fn(&[u64]) -> Result<Vec<RgbaFrame>>>;
 
-/// Keyframes at native size from a Mac screen recording, whose clock starts `offset_ms` into the
-/// capture. Each frame comes back stamped with the capture time it was asked for.
 pub fn movie_keyframes(movie: PathBuf, offset_ms: u64) -> FullFrames {
     movie_keyframes_with_cache(movie, offset_ms, Vec::new())
 }
@@ -253,7 +235,6 @@ fn movie_keyframes_with_cache(
     })
 }
 
-/// Frames of a movie whose clock starts `offset_ms` into the bundle's, at bundle times.
 pub fn movie_frames_at(
     movie: &Path,
     times: &[u64],
@@ -262,8 +243,6 @@ pub fn movie_frames_at(
 ) -> Result<Vec<RgbaFrame>> {
     let at: Vec<u64> = times.iter().map(|t| t.saturating_sub(offset_ms)).collect();
     let mut frames = helper::frames(movie, &at, max_edge)?;
-    // The helper stamps each frame with the time it was asked for, clamped to the movie (the
-    // last keyframe can fall just past its end); map it back to the bundle time.
     for frame in &mut frames {
         if let Some(i) = (0..at.len()).min_by_key(|&i| at[i].abs_diff(frame.t_ms)) {
             frame.t_ms = times[i];
@@ -272,11 +251,7 @@ pub fn movie_frames_at(
     Ok(frames)
 }
 
-/// Core pipeline that turns raw frames, strokes, events, and audio/transcript into a complete `.scrawl` bundle on disk.
 #[allow(clippy::too_many_arguments)]
-///
-/// The recording's candidate frames are small; the keyframes are decoded again from its video at
-/// full size, falling back to the candidates if that fails.
 pub fn finalize_capture_bundle(
     bundle_dir: &Path,
     target: TargetInfo,
@@ -329,7 +304,6 @@ pub fn finalize_capture_bundle(
                 &TranscriptData::default(),
                 budget,
             );
-            // Marks alone filled the budget, so speech can't change the selection.
             let marks_fill = preview.len() == budget
                 && preview
                     .iter()
@@ -391,7 +365,6 @@ pub fn finalize_capture_bundle(
     )
 }
 
-/// A bundle without its transcript yet (the speech model was still downloading) gets it later.
 fn mark_transcript_pending(bundle_dir: &Path, bundle: &ScrawlBundle) {
     if bundle.transcript.missing.as_ref().is_some_and(|m| m.retry) {
         speech_model::mark_pending(bundle_dir);
@@ -536,8 +509,6 @@ pub fn build_bundle_from_parts(
         mark_transcript_pending(bundle_dir, &bundle);
         return Ok((bundle_dir.to_path_buf(), bundle, summary));
     }
-    // Only the first candidate is needed from here on (auto-crop's baseline); free the rest
-    // before the full-size keyframes arrive.
     let baseline = {
         let mut frames = frames;
         frames.truncate(1);
@@ -704,14 +675,12 @@ pub fn build_bundle_from_parts(
     Ok((bundle_dir.to_path_buf(), bundle, summary))
 }
 
-/// Generates a rich, deterministic multi-frame demo bundle showcasing clicks, circles, arrows, pins, and aligned speech.
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::{SCALE, TargetFrame, TranscriptSegment, WordTiming};
     use crate::render::render_synthetic_demo_frame;
 
-    /// A realistic multi-frame bundle written to `out`.
     fn generate_demo_bundle(out: Option<PathBuf>) -> Result<(PathBuf, ScrawlBundle, String)> {
         let bundle_dir = out.unwrap_or_else(|| {
             handoff::default_captures_dir().join(format!("{}.scrawl", make_bundle_id()))
@@ -741,7 +710,6 @@ mod tests {
             render_synthetic_demo_frame(fw, fh, 9_200, 2),
         ];
 
-        // 1. Circle around the shifted header band (cx=0.52, cy=0.14, r_x=0.14, r_y=0.06)
         let mut circle_pts = Vec::new();
         for i in 0..=36 {
             let angle = (i as f32 / 36.0) * std::f32::consts::TAU;
@@ -760,7 +728,6 @@ mod tests {
             pts: circle_pts,
         };
 
-        // 2. Arrow pointing from sidebar item to the tool card (shaft + arrowhead)
         let mut shaft_pts = Vec::new();
         for i in 0..=12 {
             let t = i as f32 / 12.0;
@@ -799,7 +766,6 @@ mod tests {
             ],
         };
 
-        // 3. Numbered pin on the composer send button
         let pin_stroke = Stroke {
             t0: 8_900,
             t1: 8_900,
@@ -940,7 +906,6 @@ mod tests {
             (kf(2, 2_000), small(2_000)),
             (kf(3, 3_000), small(3_000)),
         ];
-        // Frame at 2_000 failed to decode and frames arrived out of order (3_000 clamped to 2_999).
         let full = vec![large(2_999), large(1_000)];
         let (merged, matched) = merge_full_keyframes(selected, full);
         assert_eq!(matched, 2);

@@ -213,8 +213,6 @@ pub fn describe_mark(mark: &Mark) -> String {
     text
 }
 
-/// A label in curly quotes, unless it already quotes its own parts (`button “Area” #area` from
-/// `crate::ax`, `<div.capsule> in Pill (src/Pill.tsx:42)` from `crate::page`).
 pub(crate) fn quote_label(label: &str) -> String {
     if label.contains('“') || label.starts_with('<') {
         label.to_owned()
@@ -223,7 +221,6 @@ pub(crate) fn quote_label(label: &str) -> String {
     }
 }
 
-/// The inked marks a keyframe draws (every mark of its screen's group), in drawing order.
 pub fn marks_on<'a>(keyframe: &Keyframe, marks: &'a [Mark]) -> Vec<&'a Mark> {
     let mut shown: Vec<&Mark> = marks
         .iter()
@@ -237,7 +234,6 @@ pub fn marks_on<'a>(keyframe: &Keyframe, marks: &'a [Mark]) -> Vec<&'a Mark> {
     shown
 }
 
-/// Coalesce each label independently, even when other events occur during a burst.
 pub fn settled_events(events: &[InteractionEvent]) -> Vec<InteractionEvent> {
     let mut sorted = events.to_vec();
     sorted.sort_by_key(InteractionEvent::timestamp_ms);
@@ -446,7 +442,6 @@ pub fn timeline(bundle: &ScrawlBundle) -> Vec<String> {
     items.into_iter().map(|item| item.1).collect()
 }
 
-/// The app and window recorded, like `Slack “Inbox”`, or `Display`.
 pub fn target_label(target: &TargetInfo) -> String {
     let mut label = target.app.clone().unwrap_or_else(|| "Display".into());
     if let Some(title) = &target.window_title
@@ -520,9 +515,6 @@ pub fn summary_markdown(bundle: &ScrawlBundle, bundle_dir: &std::path::Path) -> 
     out
 }
 
-/// Extracts the active `[now_ms - tail_ms, now_ms]` window of a timed laser stroke,
-/// linearly interpolating the exact tail cutoff point at `t_cutoff` so the tail
-/// glides continuously along the path at 120Hz instead of snapping vertex-by-vertex.
 pub fn slice_laser_window(
     timed_points: &[(f32, f32, u64)],
     now_ms: u64,
@@ -558,12 +550,6 @@ pub fn slice_laser_window(
     out
 }
 
-/// Smooths timed `(x, y, life_0_to_1)` laser samples using tldraw's two-stage pipeline:
-/// 1. Exponential `streamline` low-pass filter to remove mouse/trackpad stairstepping.
-/// 2. Midpoint Quadratic B-Spline (`quadraticCurveTo(P_i, midpoint(P_i, P_{i+1}))`) subdivision,
-///    which is variation-diminishing and $C^1$-continuous (never overshoots or kinks at corners).
-/// 3. Combined arc-length start taper (`u * (2 - u)`) × time-decay life (`smoothstep`) so fast
-///    strokes immediately taper to a fine needle tail and stationary strokes retract smoothly.
 pub fn smooth_laser_points(points: &[([f32; 2], f32)]) -> Vec<([f32; 2], f32)> {
     if points.is_empty() {
         return Vec::new();
@@ -572,7 +558,6 @@ pub fn smooth_laser_points(points: &[([f32; 2], f32)]) -> Vec<([f32; 2], f32)> {
         return vec![points[0]];
     }
 
-    // Stage 1: tldraw streamline filter (streamline = 0.62 -> alpha = 0.47)
     let streamline_alpha = 0.47_f32;
     let mut filtered = Vec::with_capacity(points.len() + 1);
     filtered.push(points[0]);
@@ -597,7 +582,6 @@ pub fn smooth_laser_points(points: &[([f32; 2], f32)]) -> Vec<([f32; 2], f32)> {
         return filtered;
     }
 
-    // Stage 2: Midpoint Quadratic B-Spline (`quadraticCurveTo(P_i, midpoint(P_i, P_{i+1}))`)
     let mut curve = Vec::with_capacity(filtered.len() * 6);
     if filtered.len() == 2 {
         let (a, la) = filtered[0];
@@ -642,7 +626,6 @@ pub fn smooth_laser_points(points: &[([f32; 2], f32)]) -> Vec<([f32; 2], f32)> {
         }
     }
 
-    // Stage 3: Combine tldraw's arc-length start taper (`u * (2 - u)`) with time decay (`life`).
     let mut lengths = Vec::with_capacity(curve.len());
     let mut total_len = 0.0_f32;
     lengths.push(0.0_f32);
@@ -662,8 +645,6 @@ pub fn smooth_laser_points(points: &[([f32; 2], f32)]) -> Vec<([f32; 2], f32)> {
     curve
 }
 
-/// Smooths a persistent ink stroke into `(point, pressure_scale)` samples using
-/// tldraw's streamline filter + midpoint quadratic Bezier curves + simulated velocity pressure.
 pub fn smooth_ink_points(points: &[[f32; 2]]) -> Vec<([f32; 2], f32)> {
     if points.is_empty() {
         return Vec::new();
@@ -983,8 +964,6 @@ pub fn freehand_outline(points: &[[f32; 2]], options: &FreehandOptions) -> Vec<[
     smooth_closed_polygon(&left)
 }
 
-/// Applies tldraw's `outline()` quadratic Bezier midpoint pass (`quadraticCurveTo(P_i, midpoint(P_i, P_{i+1}))`)
-/// around a closed outline polygon so freehand strokes have zero polygonal facets.
 fn smooth_closed_polygon(poly: &[[f32; 2]]) -> Vec<[f32; 2]> {
     if poly.len() < 4 {
         return poly.to_vec();
@@ -1288,7 +1267,6 @@ mod tests {
         assert!(summary.contains("- #1 (0:05) “This row is too dense.”"));
         assert!(!summary.contains("No transcript"));
 
-        // Audio but no speech model yet: the summary says so instead of staying quiet.
         let mut silent = bundle.clone();
         silent.transcript = TranscriptData {
             source: "offline".into(),

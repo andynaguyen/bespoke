@@ -1,6 +1,3 @@
-//! Headless one-shot transcription for `--transcribe-file`, `--list-devices`
-//! and `--list-models`. Runs without any window, tray or microphone.
-
 use std::sync::Arc;
 
 use crate::app_handle::AppHandle;
@@ -9,8 +6,6 @@ use crate::managers::model::ModelManager;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::get_settings;
 
-/// Initializes only what transcription needs, runs the request and returns
-/// the process exit code.
 pub fn run(app: &AppHandle, args: &CliArgs) -> i32 {
     let model_manager =
         Arc::new(ModelManager::new(app).expect("Failed to initialize model manager"));
@@ -30,8 +25,6 @@ pub fn run(app: &AppHandle, args: &CliArgs) -> i32 {
     code
 }
 
-/// Convert an unexpected panic in the headless run into a normal CLI failure
-/// (exit code 1) instead of an abort.
 pub fn run_headless_guarded<F>(operation: F) -> i32
 where
     F: FnOnce() -> i32,
@@ -67,15 +60,9 @@ mod headless_guard_tests {
     }
 }
 
-/// Headless one-shot transcription for the `--transcribe-file` / `--list-devices`
-/// path. Drives the same `TranscriptionManager::transcribe` the app uses; no
-/// mic, no VAD, no download. Returns a process exit code (0 ok, 1 runtime
-/// failure, 2 bad input/usage).
 pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     use std::time::Instant;
 
-    // --list-devices: print registered compute devices (with indices) and exit.
-    // Useful on multi-GPU machines to discover the index for --device-index.
     if args.list_devices {
         let devices = crate::managers::transcription::describe_compute_devices();
         if devices.is_empty() {
@@ -91,9 +78,6 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
         }
     }
 
-    // --list-models: print the model registry (catalog + on-disk + custom) with
-    // their ids — the same ids `--model` accepts — then exit. `--json` emits the
-    // full ModelInfo array for scripting.
     if args.list_models {
         let model_manager = app.state::<Arc<ModelManager>>();
         let models = model_manager.get_available_models();
@@ -136,9 +120,6 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
         return 0;
     };
 
-    // read_wav_samples reads 16-bit int samples and does no validation; the app
-    // only ever saves 16 kHz mono 16-bit PCM, so reject anything else rather than
-    // transcribe garbage / mis-time / mis-decode.
     match hound::WavReader::open(&wav) {
         Ok(reader) => {
             let spec = reader.spec();
@@ -180,16 +161,12 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
         return 2;
     }
 
-    // --device-index hard-selects a compute device by its --list-devices registry
-    // index (transcribe-cpp / whisper-family models only; not persisted). Omit it
-    // to use the persisted accelerator setting.
     let device_index = args.device_index;
     let requested_device = match device_index {
         Some(idx) => format!("index {}", idx),
         None => "settings".to_string(),
     };
 
-    // Cold load (timed).
     let load_start = Instant::now();
     if let Err(e) = tm.load_model_with_device(&model_id, device_index) {
         eprintln!("error: load_model('{}') failed: {}", model_id, e);
@@ -202,9 +179,6 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     let mut times_ms: Vec<u64> = Vec::new();
     let mut text = String::new();
     for i in 0..runs {
-        // If the model's unload-timeout is "Immediately", transcribe() unloads
-        // the engine after each run; reload (untimed) so repeats keep working
-        // and the inference timing below stays clean.
         if !tm.is_model_loaded() {
             if let Err(e) = tm.load_model_with_device(&model_id, device_index) {
                 eprintln!("error: reload before run {} failed: {}", i + 1, e);

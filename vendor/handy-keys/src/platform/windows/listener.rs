@@ -1,5 +1,3 @@
-//! Windows low-level keyboard hook implementation
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
@@ -46,15 +44,11 @@ const MENU_MODIFIERS: Modifiers = Modifiers::CMD.union(Modifiers::OPT);
 /// the shell.
 const MENU_MASK_VK: u16 = 0xE8;
 
-/// dwExtraInfo marker stamped on injected mask events so the keyboard hook
-/// recognizes its own injections and passes them through untouched
-/// ("HKMM" in ASCII).
 const MENU_MASK_EXTRA_INFO: usize = 0x484B_4D4D;
 
 // WTS session notification plumbing not exposed by the `windows` crate bindings.
 const NOTIFY_FOR_THIS_SESSION: u32 = 0;
 const WM_WTSSESSION_CHANGE: u32 = 0x02B1;
-// WM_WTSSESSION_CHANGE wParam values (wtsapi32.h).
 const WTS_CONSOLE_CONNECT: usize = 0x1;
 const WTS_REMOTE_CONNECT: usize = 0x3;
 const WTS_SESSION_LOCK: usize = 0x7;
@@ -66,8 +60,6 @@ const WTS_SESSION_UNLOCK: usize = 0x8;
 const PBT_APMRESUMESUSPEND: usize = 0x7;
 const PBT_APMRESUMEAUTOMATIC: usize = 0x12;
 
-/// The side-specific modifier keys we track, paired with their virtual-key
-/// codes. Ordered to match `state::MODIFIER_RELEASE_ORDER`.
 const MODIFIER_KEYS: [(VIRTUAL_KEY, Modifiers); 8] = [
     (VK_LWIN, Modifiers::CMD_LEFT),
     (VK_RWIN, Modifiers::CMD_RIGHT),
@@ -79,56 +71,31 @@ const MODIFIER_KEYS: [(VIRTUAL_KEY, Modifiers); 8] = [
     (VK_RMENU, Modifiers::OPT_RIGHT),
 ];
 
-/// Thread-local state for the keyboard hook callback.
-///
-/// Windows low-level hooks require a callback function with a specific signature,
-/// so we use thread-local storage to access our state from within the callback.
 struct HookContext {
     event_sender: Sender<KeyEvent>,
     current_modifiers: Modifiers,
     blocking_hotkeys: Option<BlockingHotkeys>,
-    /// AltGr's phantom Left Ctrl is currently held. The hook drops the
-    /// phantom's own events, but GetAsyncKeyState still reports LCtrl as
-    /// down while AltGr is held, so reconciliation must not adopt it.
     altgr_phantom_ctrl: bool,
-    /// A menu mask has been injected for the current Win/Alt hold. One per
-    /// hold defuses the shell's menu heuristic for the whole hold; cleared
-    /// once no Win/Alt modifier remains held.
     menu_mask_sent: bool,
 }
 
 thread_local! {
     static HOOK_CONTEXT: std::cell::RefCell<Option<HookContext>> = const { std::cell::RefCell::new(None) };
 
-    /// Set by `watcher_wndproc` when a message delivered via SendMessage
-    /// (bypassing the queue) asks for a hook re-install. The message loop
-    /// owns the hook handles, so the wndproc can only request the re-install,
-    /// not perform it. Thread-local: the wndproc runs on the hook thread, and
-    /// a second listener in the same process must not see this one's requests.
     static REINSTALL_REQUESTED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Take (and clear) a pending hook re-install request from the wndproc.
 fn take_reinstall_request() -> bool {
     REINSTALL_REQUESTED.with(|flag| flag.replace(false))
 }
 
-/// What draining the thread message queue observed.
 #[derive(Default)]
 struct DrainOutcome {
-    /// WM_QUIT received -- exit the message loop.
     quit: bool,
-    /// A session change (lock/unlock/connect) or a resume from sleep
-    /// occurred -- reconcile modifier state, since key-ups on the secure
-    /// desktop (or from before a suspend) never reach the hook.
     reconcile: bool,
-    /// The interactive desktop came back (unlock, console/remote connect, or
-    /// resume from sleep) -- re-install hooks in case Windows silently
-    /// removed them.
     reinstall_hooks: bool,
 }
 
-/// Drain all pending thread messages.
 fn drain_thread_messages(msg: &mut MSG) -> DrainOutcome {
     let mut outcome = DrainOutcome::default();
     unsafe {
@@ -163,22 +130,15 @@ fn drain_thread_messages(msg: &mut MSG) -> DrainOutcome {
     outcome
 }
 
-/// Wait for new input/messages or until timeout expires.
 fn wait_for_message_or_timeout(timeout_ms: u32) {
     unsafe {
         let _ = MsgWaitForMultipleObjects(None, false, timeout_ms, QS_ALLINPUT);
     }
 }
 
-/// Snapshot which tracked modifier keys are physically held right now.
-///
-/// Note: if the calling thread's desktop is not active (e.g. the lock screen's
-/// secure desktop is up), GetAsyncKeyState reports every key as up -- which is
-/// the correct answer for our purposes: treat everything as released.
 fn physical_modifiers() -> Modifiers {
     let mut held = Modifiers::empty();
     for (vk, modifier) in MODIFIER_KEYS {
-        // High bit set = key currently down.
         if unsafe { GetAsyncKeyState(vk.0 as i32) } as u16 & 0x8000 != 0 {
             held |= modifier;
         }
@@ -206,17 +166,9 @@ fn adoptable_modifiers(
     adopt
 }
 
-/// Reconcile tracked modifiers against the physical keyboard state.
-///
 /// Corrects drift from missed events: secure desktop transitions swallow
 /// key-ups (Win+L delivers the Win key DOWN but its UP happens on the secure
 /// desktop), leaving modifiers stuck on until the user happens to press them
-/// again. Mirrors `reconcile_modifiers` in the macOS listener.
-///
-/// Stale modifiers are cleared with synthetic release events so consumers
-/// tracking press/release state recover; missed presses are adopted silently
-/// and ride along on the next real event.
-///
 /// Known micro-race: GetAsyncKeyState reads the state *now*, not at the time
 /// the event being processed was generated, so a modifier pressed in the
 /// sub-millisecond window between a keystroke entering the queue and its hook
@@ -226,10 +178,6 @@ fn adoptable_modifiers(
 /// stamped per event.
 fn reconcile_modifiers(ctx: &mut HookContext) {
     let physical = physical_modifiers();
-    // Phantom Ctrl only exists while AltGr is held; if LCtrl reads as up,
-    // the phantom is gone (covers a phantom key-up swallowed by a secure
-    // desktop transition, which would otherwise suppress CTRL_LEFT adoption
-    // forever).
     if ctx.altgr_phantom_ctrl && !physical.contains(Modifiers::CTRL_LEFT) {
         ctx.altgr_phantom_ctrl = false;
     }
@@ -242,17 +190,11 @@ fn reconcile_modifiers(ctx: &mut HookContext) {
     }
     ctx.current_modifiers |=
         adoptable_modifiers(ctx.current_modifiers, physical, ctx.altgr_phantom_ctrl);
-    // A Win/Alt-up swallowed by a secure desktop transition ends the hold
-    // without the modifier branch observing it; clear the mask flag here so
-    // the next hold gets its own mask.
     if !ctx.current_modifiers.intersects(MENU_MODIFIERS) {
         ctx.menu_mask_sent = false;
     }
 }
 
-/// Reconcile modifier state from the hook thread's message loop (used on
-/// session change and resume from sleep, where no input event accompanies
-/// the state change).
 fn reconcile_modifiers_in_context() {
     HOOK_CONTEXT.with(|ctx_cell| {
         if let Some(ctx) = ctx_cell.borrow_mut().as_mut() {
@@ -319,9 +261,6 @@ unsafe fn create_watcher_window() -> Option<HWND> {
         lpszClassName: PCWSTR(class_name.as_ptr()),
         ..Default::default()
     };
-    // May fail with ERROR_CLASS_ALREADY_EXISTS (e.g. a second listener in the
-    // same process); CreateWindowExW below still succeeds against the
-    // existing class, so the result is deliberately ignored.
     RegisterClassW(&wnd_class);
 
     let hwnd = CreateWindowExW(
@@ -348,7 +287,6 @@ unsafe fn create_watcher_window() -> Option<HWND> {
     Some(hwnd)
 }
 
-/// Clean up the watcher window. Must run on the creating thread.
 unsafe fn destroy_watcher_window(hwnd: HWND) {
     let _ = WTSUnRegisterSessionNotification(hwnd);
     let _ = DestroyWindow(hwnd);
@@ -382,7 +320,6 @@ unsafe fn reinstall_hooks(kb_hook: &mut HHOOK, mouse_hook: &mut HHOOK) -> bool {
     true
 }
 
-/// Internal listener state returned to KeyboardListener
 pub(crate) struct WindowsListenerState {
     pub event_receiver: mpsc::Receiver<KeyEvent>,
     pub thread_handle: Option<JoinHandle<()>>,
@@ -390,7 +327,6 @@ pub(crate) struct WindowsListenerState {
     pub blocking_hotkeys: Option<BlockingHotkeys>,
 }
 
-/// Spawn a Windows low-level keyboard hook listener
 pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<WindowsListenerState> {
     let (tx, rx) = mpsc::channel();
     let running = Arc::new(AtomicBool::new(true));
@@ -398,7 +334,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
     let thread_blocking = blocking_hotkeys.clone();
 
     let handle = thread::spawn(move || {
-        // Initialize thread-local hook context
         HOOK_CONTEXT.with(|ctx| {
             *ctx.borrow_mut() = Some(HookContext {
                 event_sender: tx,
@@ -409,7 +344,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
             });
         });
 
-        // Install the low-level keyboard hook
         let kb_hook =
             unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), None, 0) };
 
@@ -421,14 +355,12 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
             }
         };
 
-        // Install the low-level mouse hook
         let mouse_hook = unsafe { SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), None, 0) };
 
         let mut mouse_hook = match mouse_hook {
             Ok(h) => h,
             Err(e) => {
                 eprintln!("Failed to install mouse hook: {:?}", e);
-                // Clean up keyboard hook before returning
                 unsafe {
                     let _ = UnhookWindowsHookEx(kb_hook);
                 }
@@ -436,23 +368,14 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
             }
         };
 
-        // Watch for session changes (Win+L lock/unlock, RDP connect) and
-        // suspend/resume: the secure desktop swallows key-up events, so
-        // modifier state must be reconciled when the session comes back, and
-        // Windows can silently drop LL hooks across a sleep, so they are
-        // re-armed on resume.
         let watcher_hwnd = unsafe { create_watcher_window() };
 
-        // Message loop - required for low-level hooks to function.
-        // Keep the short timeout so shutdown polling behavior remains unchanged.
         let mut msg = MSG::default();
         loop {
-            // Check if we should stop
             if !thread_running.load(Ordering::SeqCst) {
                 break;
             }
 
-            // Process all pending messages
             let outcome = drain_thread_messages(&mut msg);
             if outcome.quit {
                 break;
@@ -460,19 +383,11 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
             if outcome.reconcile {
                 reconcile_modifiers_in_context();
             }
-            // The wndproc requests re-installs for messages that arrive via
-            // SendMessage (dispatched inside PeekMessageW, never seen by the
-            // drain loop) -- WM_POWERBROADCAST always, WM_WTSSESSION_CHANGE
-            // on builds that send rather than post it.
             if outcome.reinstall_hooks || take_reinstall_request() {
                 unsafe {
                     if reinstall_hooks(&mut kb_hook, &mut mouse_hook) {
-                        // At most a few lines per unlock/resume, and it makes
-                        // the re-arm observable in the field.
                         eprintln!("handy-keys: re-armed hooks after session/power change");
                     } else {
-                        // Keep the old hooks: they usually still work (the
-                        // reinstall is defensive hardening, not a repair).
                         eprintln!(
                             "handy-keys: failed to re-install hooks after session/power change"
                         );
@@ -480,12 +395,9 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
                 }
             }
 
-            // Wait for messages or timeout — unlike thread::sleep, this returns
-            // immediately when a message arrives, so hook callbacks are never delayed.
             wait_for_message_or_timeout(HOOK_LOOP_TIMEOUT_MS);
         }
 
-        // Clean up the watcher window, then the hooks
         if let Some(hwnd) = watcher_hwnd {
             unsafe {
                 destroy_watcher_window(hwnd);
@@ -496,7 +408,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
             let _ = UnhookWindowsHookEx(mouse_hook);
         }
 
-        // Clear thread-local state
         HOOK_CONTEXT.with(|ctx| {
             *ctx.borrow_mut() = None;
         });
@@ -510,12 +421,9 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
     })
 }
 
-/// Low-level keyboard hook callback
-///
 /// This function is called by Windows for every keyboard event system-wide.
 /// It must return quickly to avoid input lag.
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    // If code < 0, we must pass to next hook without processing
     if code < 0 {
         return CallNextHookEx(None, code, wparam, lparam);
     }
@@ -523,11 +431,9 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
     let mut should_block = false;
     let mut needs_mask = false;
 
-    // Process the keyboard event
     HOOK_CONTEXT.with(|ctx_cell| {
         let mut ctx_ref = ctx_cell.borrow_mut();
         if let Some(ctx) = ctx_ref.as_mut() {
-            // Extract key information from KBDLLHOOKSTRUCT
             let kb_struct = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
             let vk_code = kb_struct.vkCode as u16;
             let scan_code = kb_struct.scanCode;
@@ -535,9 +441,6 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
 
             let is_key_down = matches!(wparam.0 as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
 
-            // Our own injected menu mask: pass it through untouched. It
-            // exists solely for the shell's benefit and must not update
-            // modifier state, trigger reconciliation, or be emitted.
             if vk_code == MENU_MASK_VK && kb_struct.dwExtraInfo == MENU_MASK_EXTRA_INFO {
                 return;
             }
@@ -552,26 +455,19 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                 return;
             }
 
-            // Check if this is a modifier key
             if let Some(modifier) = vk_to_modifier(vk_code) {
                 let prev_modifiers = ctx.current_modifiers;
 
-                // Update modifier state
                 if is_key_down {
                     ctx.current_modifiers |= modifier;
                 } else {
                     ctx.current_modifiers &= !modifier;
                 }
 
-                // Only emit event if modifiers actually changed
                 if ctx.current_modifiers != prev_modifiers {
-                    // Check if modifier-only combo should be blocked
                     should_block =
                         should_block_hotkey(&ctx.blocking_hotkeys, ctx.current_modifiers, None);
 
-                    // A blocked modifier press (the Shift of a Win+Shift
-                    // modifier-only hotkey) is as invisible to the shell as
-                    // a blocked regular key, so it needs the same mask.
                     if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent) {
                         ctx.menu_mask_sent = true;
                         needs_mask = true;
@@ -585,22 +481,13 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                     });
                 }
 
-                // The hold ends once no Win/Alt modifier remains held; the
-                // next hold gets a fresh mask.
                 if !ctx.current_modifiers.intersects(MENU_MODIFIERS) {
                     ctx.menu_mask_sent = false;
                 }
             } else {
-                // Non-modifier key: reconcile tracked modifiers against the
-                // physical keyboard first, so a key-up missed during a secure
-                // desktop transition can't stick a modifier onto this event.
-                // (Not done for modifier events: inside a low-level hook the
-                // async key state does not yet include the in-flight change,
-                // so reconciling there would fight the toggle logic above.)
                 reconcile_modifiers(ctx);
 
                 if let Some(key) = map_key(vk_code, scan_code, is_extended) {
-                    // Regular key event
                     should_block = should_block_hotkey(
                         &ctx.blocking_hotkeys,
                         ctx.current_modifiers,
@@ -626,32 +513,22 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
         }
     });
 
-    // Outside the HOOK_CONTEXT borrow: the injected events re-enter this
-    // hook (where the dwExtraInfo marker passes them straight through).
     if needs_mask {
         send_menu_mask();
     }
 
     if should_block {
-        // Return non-zero to block the event from propagating
         LRESULT(1)
     } else {
-        // Pass to next hook in chain
         CallNextHookEx(None, code, wparam, lparam)
     }
 }
 
-/// Low-level mouse hook callback
-///
-/// This function is called by Windows for every mouse event system-wide.
 unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    // If code < 0, we must pass to next hook without processing
     if code < 0 {
         return CallNextHookEx(None, code, wparam, lparam);
     }
 
-    // Only button transitions matter; bail out early for moves and wheel
-    // events so the hot path stays free of state access.
     if !matches!(
         wparam.0 as u32,
         WM_LBUTTONDOWN
@@ -669,17 +546,13 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
     let mut should_block = false;
     let mut needs_mask = false;
 
-    // Process the mouse event
     HOOK_CONTEXT.with(|ctx_cell| {
         let mut ctx_ref = ctx_cell.borrow_mut();
         if let Some(ctx) = ctx_ref.as_mut() {
             let mouse_struct = &*(lparam.0 as *const MSLLHOOKSTRUCT);
 
-            // Stale modifiers must not gate button reporting (or decorate the
-            // event), so reconcile before reading them.
             reconcile_modifiers(ctx);
 
-            // Only report left/right clicks when modifiers are held (to avoid noise)
             let has_modifiers = !ctx.current_modifiers.is_empty();
 
             let (key, is_down) = match wparam.0 as u32 {
@@ -687,11 +560,9 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                 WM_LBUTTONUP if has_modifiers => (Some(Key::MouseLeft), false),
                 WM_RBUTTONDOWN if has_modifiers => (Some(Key::MouseRight), true),
                 WM_RBUTTONUP if has_modifiers => (Some(Key::MouseRight), false),
-                // Middle and X buttons always reported
                 WM_MBUTTONDOWN => (Some(Key::MouseMiddle), true),
                 WM_MBUTTONUP => (Some(Key::MouseMiddle), false),
                 WM_XBUTTONDOWN => {
-                    // High word of mouseData contains which X button (1 or 2)
                     let xbutton = (mouse_struct.mouseData >> 16) & 0xFFFF;
                     let key = if xbutton == 1 {
                         Some(Key::MouseX1)
@@ -720,8 +591,6 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                 should_block =
                     should_block_hotkey(&ctx.blocking_hotkeys, ctx.current_modifiers, Some(key));
 
-                // A blocked Win/Alt+click hides the click from the shell
-                // just like a blocked key, so the hold needs the same mask.
                 if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent) {
                     ctx.menu_mask_sent = true;
                     needs_mask = true;
@@ -742,29 +611,16 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
     }
 
     if should_block {
-        // Return non-zero to block the event from propagating
         LRESULT(1)
     } else {
-        // Pass to next hook in chain
         CallNextHookEx(None, code, wparam, lparam)
     }
 }
 
-/// Whether blocking this event must be accompanied by a menu-mask injection:
-/// a real event is being swallowed while a Win/Alt modifier is held, and the
-/// current hold has not been masked yet. Key-ups need masking too: a key
-/// pressed *before* the modifier and released during the hold has its up
-/// blocked, but its down passed to the shell before the hold began, so it
-/// never disarmed the menu heuristic (verified live: without the up-mask,
-/// F20↓ Win↓ F20↑ Win↑ with Win+F20 blocked opens Start). `already_sent`
-/// dedupes auto-repeat, release edges, and later events within one hold.
 fn needs_menu_mask(should_block: bool, modifiers: Modifiers, already_sent: bool) -> bool {
     should_block && !already_sent && modifiers.intersects(MENU_MODIFIERS)
 }
 
-/// Inject a press+release of the menu mask key via SendInput. Must be called
-/// outside the HOOK_CONTEXT borrow, since the injected events re-enter the
-/// keyboard hook on this thread's next message pump.
 fn send_menu_mask() {
     let key = |flags: KEYBD_EVENT_FLAGS| INPUT {
         r#type: INPUT_KEYBOARD,
@@ -781,13 +637,10 @@ fn send_menu_mask() {
     let inputs = [key(KEYBD_EVENT_FLAGS(0)), key(KEYEVENTF_KEYUP)];
     let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
     if sent != inputs.len() as u32 {
-        // Rare (e.g. UIPI filtering); the cost is the pre-mask behavior:
-        // the shell may open its menu when the modifier is released.
         eprintln!("handy-keys: menu mask injection failed");
     }
 }
 
-/// Check if a hotkey combination should be blocked
 fn should_block_hotkey(
     blocking_hotkeys: &Option<BlockingHotkeys>,
     modifiers: Modifiers,
@@ -907,7 +760,6 @@ mod tests {
     #[test]
     fn drain_ignores_unrelated_session_events() {
         clear_message_queue();
-        // WTS_SESSION_LOGOFF (0x6) is not a state we react to.
         post_thread_message(WM_WTSSESSION_CHANGE, 0x6);
         let mut msg = MSG::default();
         let outcome = drain_thread_messages(&mut msg);
@@ -931,7 +783,6 @@ mod tests {
     #[test]
     fn drain_ignores_non_resume_power_events() {
         clear_message_queue();
-        // PBT_APMSUSPEND (0x4): nothing to re-arm while going down.
         post_thread_message(WM_POWERBROADCAST, 0x4);
         let mut msg = MSG::default();
         let outcome = drain_thread_messages(&mut msg);
@@ -940,9 +791,6 @@ mod tests {
         clear_message_queue();
     }
 
-    /// Drive the wndproc directly, as SendMessage delivery would. A null HWND
-    /// is fine: DefWindowProcW ignores messages for windows it can't resolve,
-    /// and our handling never touches the handle.
     fn send_to_wndproc(msg: u32, wparam: usize) {
         unsafe {
             watcher_wndproc(HWND::default(), msg, WPARAM(wparam), LPARAM(0));
@@ -954,7 +802,6 @@ mod tests {
         let _ = take_reinstall_request();
         send_to_wndproc(WM_POWERBROADCAST, PBT_APMRESUMESUSPEND);
         assert!(take_reinstall_request());
-        // The request is consumed by the take.
         assert!(!take_reinstall_request());
     }
 
@@ -969,12 +816,9 @@ mod tests {
     fn wndproc_does_not_request_reinstall_on_lock_or_suspend() {
         let _ = take_reinstall_request();
         send_to_wndproc(WM_WTSSESSION_CHANGE, WTS_SESSION_LOCK);
-        send_to_wndproc(WM_POWERBROADCAST, 0x4); // PBT_APMSUSPEND
+        send_to_wndproc(WM_POWERBROADCAST, 0x4);
         assert!(!take_reinstall_request());
     }
-
-    // stale_modifiers / release_events themselves are covered in
-    // crate::platform::state, where they now live.
 
     #[test]
     fn adoption_picks_up_missed_presses() {
@@ -988,8 +832,6 @@ mod tests {
 
     #[test]
     fn adoption_skips_ctrl_left_while_altgr_phantom_held() {
-        // AltGr held: GetAsyncKeyState reports LCtrl+RAlt down, but only
-        // OptRight reflects a user keypress. CTRL_LEFT must not be adopted.
         let adopt = adoptable_modifiers(
             Modifiers::OPT_RIGHT,
             Modifiers::CTRL_LEFT | Modifiers::OPT_RIGHT,
@@ -1000,8 +842,6 @@ mod tests {
 
     #[test]
     fn adoption_keeps_other_modifiers_while_altgr_phantom_held() {
-        // A genuinely-held Shift missed during a secure desktop transition
-        // is still adopted while the phantom flag is set.
         let adopt = adoptable_modifiers(
             Modifiers::OPT_RIGHT,
             Modifiers::CTRL_LEFT | Modifiers::OPT_RIGHT | Modifiers::SHIFT_LEFT,
@@ -1032,13 +872,11 @@ mod tests {
 
     #[test]
     fn menu_mask_once_per_hold() {
-        // Covers auto-repeat and the release edge of an already-masked press.
         assert!(!needs_menu_mask(true, Modifiers::CMD_LEFT, true));
     }
 
     #[test]
     fn menu_mask_not_for_ctrl_shift_combos() {
-        // Ctrl/Shift releases trigger no shell menu; no mask needed.
         assert!(!needs_menu_mask(
             true,
             Modifiers::CTRL_LEFT | Modifiers::SHIFT_LEFT,
@@ -1048,21 +886,12 @@ mod tests {
 
     #[test]
     fn menu_mask_vk_is_inert_to_our_own_mapping() {
-        // Load-bearing: the injected mask must fall through the hook to
-        // reach the shell. The dwExtraInfo marker guarantees that for our
-        // own injections; this pins the fallback property that the VK maps
-        // to nothing, so even an unmarked vkE8 press stays a no-op.
         assert!(vk_to_modifier(MENU_MASK_VK).is_none());
         assert!(map_key(MENU_MASK_VK, 0, false).is_none());
     }
 
     #[test]
     fn reconcile_clears_mask_flag_when_hold_ends_off_desktop() {
-        // Win+L: the Win-up happens on the secure desktop and never reaches
-        // the hook. Reconciliation emits the stale release and must also
-        // clear the mask flag so the next hold gets its own mask. (No keys
-        // are physically held while tests run, so GetAsyncKeyState reports
-        // everything up and CMD_LEFT reads as stale.)
         let (tx, rx) = mpsc::channel();
         let mut ctx = HookContext {
             event_sender: tx,
@@ -1074,7 +903,6 @@ mod tests {
         reconcile_modifiers(&mut ctx);
         assert_eq!(ctx.current_modifiers, Modifiers::empty());
         assert!(!ctx.menu_mask_sent);
-        // The stale CMD_LEFT was cleared via a synthetic release event.
         let release = rx.try_recv().expect("expected a synthetic release");
         assert_eq!(release.changed_modifier, Some(Modifiers::CMD_LEFT));
         assert!(!release.is_key_down);
@@ -1082,9 +910,6 @@ mod tests {
 
     #[test]
     fn phantom_flag_never_releases_a_tracked_ctrl() {
-        // User really holds LCtrl, then AltGr: CTRL_LEFT is tracked from its
-        // own event and physically down, so it must be neither stale nor
-        // re-adopted.
         let tracked = Modifiers::CTRL_LEFT | Modifiers::OPT_RIGHT;
         let physical = Modifiers::CTRL_LEFT | Modifiers::OPT_RIGHT;
         assert_eq!(stale_modifiers(tracked, physical), Modifiers::empty());

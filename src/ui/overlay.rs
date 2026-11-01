@@ -1,15 +1,3 @@
-//! The recording overlay (`overlay/RecordingOverlay.tsx` and its CSS): a
-//! transparent always-on-top panel near the top or bottom edge of the screen
-//! under the cursor. The compact form is a pill with a waveform, or a
-//! spinner and label while transcribing. The Live form opens into a panel
-//! that shows streaming text. Both are the capsule Annotate also uses
-//! (`ui::capsule`): clear glass, a red live dot, and a divider before the
-//! cancel chip.
-//!
-//! The panel window exists only while the overlay shows. `hide` clears the
-//! card at once and closes the window 300ms later, unless a newer `show`
-//! arrived in the meantime.
-
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -41,21 +29,13 @@ pub enum OverlayState {
     Processing,
 }
 
-// The area the card can fill, before the shadow margins. It must hold the
-// card's widest state (the compact card grows to WORK_W wide, the Live panel
-// to about OPEN_W by 112) since the card sits flush against the screen-edge
-// side of it.
 const COMPACT_AREA: (f32, f32) = (WORK_W, BASE_H);
 const STREAM_AREA: (f32, f32) = (OPEN_W + 6., 132.);
 
-// Transparent window margins that keep the glass's shadow from being
-// clipped. The shadow falls down, so the top needs less, which also keeps a
-// top overlay's window clear of the menu bar.
 const PAD_X: f32 = 18.;
 const PAD_TOP: f32 = 10.;
 const PAD_BOTTOM: f32 = 18.;
 
-// Distance from the screen edge to the card.
 #[cfg(target_os = "macos")]
 const TOP_OFFSET: f32 = 46.;
 #[cfg(not(target_os = "macos"))]
@@ -67,8 +47,6 @@ const BOTTOM_OFFSET: f32 = 40.;
 
 const HIDE_DELAY: Duration = Duration::from_millis(300);
 
-// Card geometry, from the shared capsule: 48px tall, with 36px chips inset
-// 6px and 2px apart. Widths include the 1px border.
 const BASE_H: f32 = capsule::HEIGHT;
 const RADIUS: f32 = capsule::RADIUS;
 const INSET: f32 = capsule::INSET;
@@ -77,7 +55,6 @@ const CHIP_GAP: f32 = 2.;
 const DIVIDER_W: f32 = 13.;
 const WAVE_BARS: usize = 9;
 const WAVE_W: f32 = WAVE_BARS as f32 * 4. + (WAVE_BARS - 1) as f32 * 3.;
-/// The listening lead: the dot, then the waveform.
 const LEAD_W: f32 = 12. + 10. + 10. + WAVE_W + 10.;
 const REST_W: f32 = 2. * INSET + LEAD_W + 2. * CHIP_GAP + DIVIDER_W + CHIP;
 const WORK_W: f32 = 220.;
@@ -94,13 +71,11 @@ fn window_size(state: OverlayState) -> Size<Pixels> {
     size(px(w + 2. * PAD_X), px(h + PAD_TOP + PAD_BOTTOM))
 }
 
-/// CSS `cubic-bezier(x1, y1, x2, y2)`.
 fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, t: f32) -> f32 {
     let curve = |a: f32, b: f32, s: f32| {
         let u = 1. - s;
         3. * u * u * s * a + 3. * u * s * s * b + s * s * s
     };
-    // Solve x(s) = t by bisection; 20 steps is far below a pixel.
     let (mut lo, mut hi) = (0f32, 1f32);
     for _ in 0..20 {
         let mid = (lo + hi) / 2.;
@@ -113,27 +88,22 @@ fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, t: f32) -> f32 {
     curve(y1, y2, (lo + hi) / 2.)
 }
 
-/// `cubic-bezier(0.22, 1, 0.36, 1)`, the card's morph curve.
 fn ease_morph(t: f32) -> f32 {
     cubic_bezier(0.22, 1., 0.36, 1., t)
 }
 
-/// CSS `ease`.
 fn ease(t: f32) -> f32 {
     cubic_bezier(0.25, 0.1, 0.25, 1., t)
 }
 
-/// CSS `ease-in-out`.
 fn ease_in_out(t: f32) -> f32 {
     cubic_bezier(0.42, 0., 0.58, 1., t)
 }
 
-/// A CSS transition on one number.
 #[derive(Clone, Copy)]
 struct Tween {
     from: f32,
     to: f32,
-    /// When the running transition started; `None` once settled.
     start: Option<Instant>,
     duration: Duration,
     ease: fn(f32) -> f32,
@@ -167,7 +137,6 @@ impl Tween {
         self.progress() < 1.
     }
 
-    /// Animates from the current value to `to`, or jumps there if `snap`.
     fn set(&mut self, to: f32, snap: bool) {
         if snap {
             self.from = to;
@@ -191,8 +160,6 @@ struct OverlayWindow {
 struct Overlay {
     view: Option<Entity<RecordingOverlay>>,
     window: Option<OverlayWindow>,
-    /// Bumped by every show, so a delayed close from an earlier hide never
-    /// takes down a session that started in the meantime.
     generation: u64,
 }
 
@@ -211,8 +178,6 @@ fn existing_view(cx: &App) -> Option<Entity<RecordingOverlay>> {
     cx.try_global::<Overlay>().and_then(|o| o.view.clone())
 }
 
-/// The display under the cursor and the window origin on it, in that
-/// display's top-left coordinates.
 fn placement(
     size: Size<Pixels>,
     position: OverlayPosition,
@@ -223,7 +188,6 @@ fn placement(
         let x = (screen.width as f32 - f32::from(size.width)) / 2.;
         let y = match position {
             OverlayPosition::Top => TOP_OFFSET - PAD_TOP,
-            // The visible frame keeps the overlay above the Dock.
             OverlayPosition::Bottom => {
                 screen.visible_bottom as f32 - f32::from(size.height) - BOTTOM_OFFSET + PAD_BOTTOM
             }
@@ -261,8 +225,6 @@ fn placement(
     (Some(display.id()), point(x, y))
 }
 
-/// Opens the overlay window at the right place for `size`, or keeps the
-/// current one if it is already there.
 fn place_window(
     view: &Entity<RecordingOverlay>,
     size: Size<Pixels>,
@@ -351,7 +313,6 @@ pub fn recording_ready(cx: &mut App) {
     }
 }
 
-/// Moves a showing overlay after the position setting changes.
 pub fn reposition(position: OverlayPosition, cx: &mut App) {
     let Some(view) = existing_view(cx) else {
         return;
@@ -371,7 +332,6 @@ pub fn reposition(position: OverlayPosition, cx: &mut App) {
     });
 }
 
-/// The overlay window, for dev snapshots.
 #[cfg(debug_assertions)]
 pub fn window_handle(cx: &App) -> Option<gpui::AnyWindowHandle> {
     cx.try_global::<Overlay>()
@@ -379,9 +339,6 @@ pub fn window_handle(cx: &App) -> Option<gpui::AnyWindowHandle> {
         .map(|w| w.handle.into())
 }
 
-/// Dev snapshots: shows the overlay with sample data. `kind` is `arming`,
-/// `recording`, `transcribing`, `streaming`, `streaming-long` or
-/// `streaming-working`, with an optional `-top` suffix.
 #[cfg(debug_assertions)]
 pub fn dev_preview(kind: &str, cx: &mut App) {
     let (kind, position) = match kind.strip_suffix("-top") {
@@ -435,8 +392,6 @@ pub struct RecordingOverlay {
     visible: bool,
     state: OverlayState,
     position: OverlayPosition,
-    /// False until the recorder delivers its first samples; the card shows a
-    /// muted arming pulse until then.
     capture_ready: bool,
     smoothed: [f32; WAVE_BARS],
     text: StreamTextEvent,
@@ -444,10 +399,8 @@ pub struct RecordingOverlay {
     work_kind: StreamWorkKind,
     elapsed: u64,
     session: u64,
-    /// Whether the live text follows the newest line.
     pinned: bool,
     cap_scroll: ScrollHandle,
-    /// Jump to the next targets instead of animating, as a fresh mount does.
     snap: bool,
     width: Tween,
     text_open: Tween,
@@ -532,8 +485,6 @@ impl RecordingOverlay {
 
     fn show(&mut self, state: OverlayState, position: OverlayPosition, cx: &mut Context<Self>) {
         let streaming = state == OverlayState::Streaming;
-        // React swaps the whole card when the form changes and remounts the
-        // Live card for each session, so neither animates from old sizes.
         if !self.visible || streaming || streaming != (self.state == OverlayState::Streaming) {
             self.snap = true;
         }
@@ -575,7 +526,6 @@ impl RecordingOverlay {
         cx.notify();
     }
 
-    /// Starts or stops the elapsed-time counter and the caret blink.
     fn sync_tasks(&mut self, cx: &mut Context<Self>) {
         let live = self.visible && self.state == OverlayState::Streaming;
         if live && self.capture_ready {
@@ -595,7 +545,6 @@ impl RecordingOverlay {
             self.elapsed_timer = None;
         }
 
-        // `scaret-blink 1.05s steps(1)`: on for half, off for half.
         if live && self.phase != StreamPhase::Working {
             if self.caret_blink.is_none() {
                 self.caret_on = true;
@@ -637,8 +586,6 @@ impl RecordingOverlay {
                     let height = (3. + level.max(0.).powf(0.7) * 15.).clamp(3., 18.);
                     bar.h(px(height)).bg(text).into_any_element()
                 } else {
-                    // `swave-arming`: a dim pulse travelling out from the
-                    // middle bar.
                     let delay = [0., 75., 150., 225., 300., 225., 150., 75., 0.][i] / 900.;
                     bar.h(px(6.))
                         .bg(text)
@@ -662,7 +609,6 @@ impl RecordingOverlay {
             }))
     }
 
-    /// The close chip: a bare icon that gains a circle on hover.
     fn cancel_button(&self, c: &Colors) -> impl IntoElement {
         capsule::chip("overlay-cancel", ChipKind::Icon, c)
             .on_click(|_, _, _| {
@@ -674,14 +620,11 @@ impl RecordingOverlay {
             .child(icon("overlay-cancel").size(px(12.)))
     }
 
-    /// The 40px control row, laid out like Annotate's capsule: the lead fills
-    /// the free space, then `extra`, a divider and the cancel chip.
     fn base_row(&self, lead: Div, extra: Option<AnyElement>, c: &Colors) -> impl IntoElement {
         let rtl = crate::i18n::is_rtl();
         div()
             .flex_none()
             .h(px(BASE_H - 2.))
-            // The border is the last pixel of the inset.
             .px(px(INSET - 1.))
             .flex()
             .items_center()
@@ -747,7 +690,6 @@ impl RecordingOverlay {
         self.base_row(lead, None, c)
     }
 
-    /// The scrolling live text with the blinking caret.
     fn live_text(
         &self,
         working: bool,
@@ -781,8 +723,6 @@ impl RecordingOverlay {
             ));
         }
 
-        // `min(--ov-cap-max-h, 100vh - --ov-base-h - 20px)`, a content-box
-        // height, so the 12px padding comes on top.
         let area_h = f32::from(window.bounds().size.height) - PAD_TOP - PAD_BOTTOM;
         let cap_max = (area_h - BASE_H - 20.).min(CAP_MAX_H) + 12.;
         let overflowing = self.cap_scroll.max_offset().height > px(1.);
@@ -793,7 +733,6 @@ impl RecordingOverlay {
             .overflow_y_scroll()
             .track_scroll(&self.cap_scroll)
             .on_scroll_wheel(cx.listener(|this, _, _, cx| {
-                // Re-pin within about a line of the bottom.
                 let max = this.cap_scroll.max_offset().height;
                 let offset = -this.cap_scroll.offset().y;
                 this.pinned = max - offset <= px(16.);
@@ -873,7 +812,6 @@ impl RecordingOverlay {
             )
     }
 
-    /// The capsule both forms draw in.
     fn card(&self, c: &Colors) -> Div {
         capsule::surface("overlay-capsule", px(RADIUS), c).w(px(self.width.value()))
     }
@@ -903,7 +841,6 @@ impl RecordingOverlay {
     fn render_live(&mut self, window: &Window, c: &Colors, cx: &mut Context<Self>) -> AnyElement {
         let has_text = self.has_text();
         let working = self.phase == StreamPhase::Working;
-        // The panel stays open while finalizing so the text doesn't jump.
         let open = has_text;
         let collapsed = working && !has_text;
         let width = if open {
@@ -931,8 +868,6 @@ impl RecordingOverlay {
             self.listening_row(open, c).into_any_element()
         };
 
-        // `grid-template-rows: 0fr -> 1fr`: grow from nothing to the text's
-        // own height, then let it size itself.
         let progress = self.text_open.value();
         let region = div()
             .flex_none()
@@ -950,7 +885,6 @@ impl RecordingOverlay {
             .when(!top, |el| el.flex_col())
             .child(region)
             .child(row)
-            // `scard-pop`: fade in once per session.
             .with_animation(
                 SharedString::from(format!("scard-pop-{}", self.session)),
                 Animation::new(MORPH).with_easing(ease_morph),

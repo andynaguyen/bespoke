@@ -1,5 +1,3 @@
-//! `ui/SettingContainer.tsx` and `ui/SettingsGroup.tsx`.
-
 use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, SharedString, Window};
 
 use super::RowDirection;
@@ -8,16 +6,11 @@ use crate::ui::theme::palette;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum SettingLayout {
-    /// Title and description on the left, control on the right.
     #[default]
     Horizontal,
-    /// Title and description above a full-width control.
     Stacked,
 }
 
-/// A titled setting row inside a [`SettingsGroup`], which draws the card and
-/// the dividers. Every React call site passes `grouped`, so this port has no
-/// standalone card form.
 #[derive(IntoElement)]
 pub struct SettingContainer {
     title: SharedString,
@@ -106,7 +99,6 @@ impl RenderOnce for SettingContainer {
     }
 }
 
-/// A titled card of setting rows separated by dividers.
 #[derive(IntoElement, Default)]
 pub struct SettingsGroup {
     title: Option<SharedString>,

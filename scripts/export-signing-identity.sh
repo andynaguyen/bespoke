@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Store the "Bespoke Local Signing" identity in the releases repo's Actions
-# secrets, BESPOKE_SIGNING_P12 and BESPOKE_SIGNING_P12_PASSWORD, for
-# .github/workflows/release.yml. macOS asks for your login password once for
-# each private key in the keychain.
 set -euo pipefail
 
 NAME="${BESPOKE_SIGNING_IDENTITY:-Bespoke Local Signing}"
@@ -23,8 +19,6 @@ security export -k "$KEYCHAIN" -t identities -f pkcs12 -P "$PASSWORD" -o "$WORK/
 "$OPENSSL" pkcs12 -in "$WORK/all.p12" -passin "pass:$PASSWORD" -nocerts -nodes \
   -out "$WORK/keys.pem"
 
-# Prints each bag with a line that contains both `field` and `value`. Bags
-# start at "Bag Attributes".
 pick() {
   awk -v field="$1" -v value="$2" '
     /^Bag Attributes/ { if (keep) printf "%s", bag; bag = ""; keep = 0 }

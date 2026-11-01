@@ -1,6 +1,3 @@
-//! Locale-aware dates for History and Stats, standing in for the browser's
-//! `Intl.DateTimeFormat` and `Intl.RelativeTimeFormat`.
-
 use chrono::{DateTime, Datelike, Local, Locale, NaiveDate};
 
 fn locale() -> Locale {
@@ -34,7 +31,6 @@ fn locale() -> Locale {
     }
 }
 
-/// "today" / "yesterday" as `Intl.RelativeTimeFormat` words them.
 fn relative_day(days_ago: i64) -> Option<&'static str> {
     let (today, yesterday) = match crate::i18n::language() {
         "zh" => ("今天", "昨天"),
@@ -71,8 +67,6 @@ fn relative_day(days_ago: i64) -> Option<&'static str> {
     }
 }
 
-/// History day heading: "Today", "Yesterday", or the full date (with the
-/// year only when it is not this year).
 pub fn day_label(date: NaiveDate) -> String {
     let today = Local::now().date_naive();
     if let Some(word) = relative_day((today - date).num_days()) {
@@ -119,12 +113,10 @@ pub fn day_label(date: NaiveDate) -> String {
     date.format_localized(pattern, locale()).to_string()
 }
 
-/// Whether the UI language shows a 12-hour clock.
 fn uses_twelve_hour() -> bool {
     matches!(crate::i18n::language(), "en" | "hi" | "ko" | "ar")
 }
 
-/// Entry time, e.g. "3:45 PM" or "15:45".
 pub fn time_label(time: DateTime<Local>) -> String {
     if uses_twelve_hour() {
         time.format_localized("%-I:%M %p", locale()).to_string()
@@ -133,8 +125,6 @@ pub fn time_label(time: DateTime<Local>) -> String {
     }
 }
 
-/// `Intl.DateTimeFormat` with `dateStyle: "long"` ("October 13, 2025") for
-/// the Stats day popover.
 pub fn long_date(date: NaiveDate) -> String {
     let pattern = match crate::i18n::language() {
         "en" => "%B %-d, %Y",
@@ -150,12 +140,10 @@ pub fn long_date(date: NaiveDate) -> String {
     date.format_localized(pattern, locale()).to_string()
 }
 
-/// Short month name, e.g. "Oct".
 pub fn short_month(date: NaiveDate) -> String {
     date.format_localized("%b", locale()).to_string()
 }
 
-/// Short weekday name, e.g. "Mon".
 pub fn short_weekday(date: NaiveDate) -> String {
     date.format_localized("%a", locale()).to_string()
 }

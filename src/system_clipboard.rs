@@ -1,13 +1,9 @@
-//! System clipboard access through `arboard`, with the method names of
-//! tauri-plugin-clipboard-manager so the paste paths read as before.
-//!
 //! One `arboard::Clipboard` lives for the whole process: on X11 the owning
 //! instance must stay alive for other apps to read what Bespoke wrote.
 
 use std::borrow::Cow;
 use std::sync::Mutex;
 
-/// Raw RGBA clipboard image, saved and restored around a paste.
 pub type ClipboardImage = arboard::ImageData<'static>;
 
 static CLIPBOARD: Mutex<Option<arboard::Clipboard>> = Mutex::new(None);
@@ -52,9 +48,6 @@ impl Clipboard {
         with_clipboard(|c| c.clear())
     }
 
-    /// Saves the clipboard before a paste. Probes for an image only when
-    /// there is no text: text is the common case, and reading an image
-    /// decodes the full bitmap.
     pub fn snapshot(&self) -> ClipboardSnapshot {
         if let Some(text) = self.read_text().ok().filter(|t| !t.is_empty()) {
             ClipboardSnapshot::Text(text)
@@ -65,8 +58,6 @@ impl Clipboard {
         }
     }
 
-    /// Puts a [`ClipboardSnapshot`] back. An empty snapshot clears the
-    /// clipboard, so the transcript doesn't stay behind.
     pub fn restore(&self, snapshot: &ClipboardSnapshot) {
         let _ = match snapshot {
             ClipboardSnapshot::Text(text) => self.write_text(text),
@@ -76,7 +67,6 @@ impl Clipboard {
     }
 }
 
-/// What the clipboard held before a paste.
 pub enum ClipboardSnapshot {
     Text(String),
     Image(ClipboardImage),

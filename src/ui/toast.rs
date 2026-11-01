@@ -1,7 +1,3 @@
-//! Toast notifications, styled like the React app's Sonner toaster:
-//! bottom-right, newest at the bottom, gone after four seconds. In the main
-//! window each toast sits on its own glass, in a popup window (`ui::popup`).
-
 use std::time::Duration;
 
 use gpui::{
@@ -15,7 +11,6 @@ use crate::ui::theme::{palette, radius, shadow_lg, Alpha};
 const DURATION: Duration = Duration::from_millis(4000);
 const MAX_VISIBLE: usize = 3;
 const WIDTH: f32 = 356.;
-/// The gap between the stack and the window's bottom-right corner.
 const MARGIN: f32 = 24.;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -113,7 +108,6 @@ impl Render for Toasts {
             let spec = Spec {
                 placement: Placement::BottomRight { margin: px(MARGIN) },
                 width: Some(px(WIDTH)),
-                // Each toast has its own glass and corners.
                 frame_radius: None,
                 interactive: true,
             };
@@ -135,8 +129,6 @@ impl Render for Toasts {
     }
 }
 
-/// The toasts, newest last. `on_glass` draws each on glass in a popup
-/// window; otherwise each gets an opaque card.
 fn stack(toasts: &[Toast], on_glass: bool, cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()

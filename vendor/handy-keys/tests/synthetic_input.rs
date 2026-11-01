@@ -1,32 +1,7 @@
-//! Platform integration tests driven by synthetic input injection.
-//!
-//! These tests exercise the real platform backend end-to-end: they spawn a
-//! `KeyboardListener`, inject input through the OS (`CGEventPost` on macOS,
-//! `SendInput` on Windows, a uinput virtual keyboard on Linux), and assert
-//! on what comes out of the event channel.
-//!
-//! They are `#[ignore]`d because they need a real machine session (macOS:
-//! accessibility permission; Windows: an interactive desktop; Linux: read
-//! access to `/dev/input` and write access to `/dev/uinput`). Run them on
-//! the target machine as part of the pre-merge checklist:
-//!
-//! ```sh
-//! cargo test --test synthetic_input -- --ignored
-//! ```
-//!
-//! Injections must never type into or otherwise disturb the session the
-//! tests run in: key-down/key-up pairs use F20 (exists in the `Key` enum on
-//! every platform, does nothing in terminals or the desktop environment);
-//! keys that would type a character are injected as lone key-ups, which the
-//! low-level hook still observes but which generate no character.
-
 use std::time::{Duration, Instant};
 
 use handy_keys::{Key, KeyboardListener};
 
-/// Drain listener events until we see `key` in the given direction, or
-/// time out. Other events (e.g. real user input during the run) are
-/// skipped rather than failing the test.
 fn saw_key_event(
     listener: &KeyboardListener,
     key: Key,
@@ -94,14 +69,8 @@ mod linux {
     use evdev::{AttributeSet, EventType, InputEvent, KeyCode};
     use handy_keys::{BlockingHotkeys, Hotkey, KeyEvent, Modifiers};
 
-    /// Every test injects through a system-global uinput keyboard, so a
-    /// listener spawned by one test would see another test's injections.
-    /// Serialize them regardless of the harness's --test-threads setting.
     static SERIAL: Mutex<()> = Mutex::new(());
 
-    /// How long to wait after creating the virtual device before injecting:
-    /// udev must grant the `input` group read access to the new node, and
-    /// the listener must pick it up (startup scan or inotify hotplug).
     const DEVICE_SETTLE: Duration = Duration::from_millis(600);
 
     const IGNORE_REASON: &str = "needs /dev/input read access (input group) and /dev/uinput \
@@ -125,12 +94,10 @@ mod linux {
     }
 
     fn emit_key(keyboard: &mut VirtualDevice, code: KeyCode, pressed: bool) {
-        // emit() appends the terminating SYN_REPORT itself.
         let event = InputEvent::new(EventType::KEY.0, code.0, i32::from(pressed));
         keyboard.emit(&[event]).expect("failed to inject key event");
     }
 
-    /// Drain listener events until one satisfies `pred`, or time out.
     fn saw_event(
         listener: &KeyboardListener,
         timeout: Duration,
@@ -151,7 +118,6 @@ mod linux {
     #[ignore = "needs /dev/input + /dev/uinput access; run: cargo test --test synthetic_input -- --ignored"]
     fn injected_f20_reaches_listener() {
         let _serial = SERIAL.lock().unwrap();
-        // Device exists before the listener spawns: covers the startup scan.
         let mut keyboard = virtual_keyboard();
         sleep(DEVICE_SETTLE);
 
@@ -174,8 +140,6 @@ mod linux {
     #[ignore = "needs /dev/input + /dev/uinput access; run: cargo test --test synthetic_input -- --ignored"]
     fn hotplugged_keyboard_reaches_listener() {
         let _serial = SERIAL.lock().unwrap();
-        // Listener spawns first, device appears afterwards: covers the
-        // inotify hotplug path.
         let listener = KeyboardListener::new().expect(IGNORE_REASON);
 
         let mut keyboard = virtual_keyboard();
@@ -194,12 +158,6 @@ mod linux {
         );
     }
 
-    /// End-to-end blocking: a listener with a blocking hotkey grabs the
-    /// virtual keyboard and re-injects through its uinput clone. A second,
-    /// read-only listener can only see that clone (the grab starves its fd
-    /// on the real device), so it observes exactly what the rest of the
-    /// system would: the blocked F20 never appears, the unblocked Shift
-    /// does.
     #[test]
     #[ignore = "needs /dev/input + /dev/uinput access; run: cargo test --test synthetic_input -- --ignored"]
     fn blocked_hotkey_is_withheld_from_other_consumers() {
@@ -213,13 +171,9 @@ mod linux {
         let blocker = KeyboardListener::new_with_blocking(hotkeys).expect(
             "new_with_blocking failed — blocking additionally needs write access to /dev/uinput",
         );
-        // Let udev finish setting up the blocker's uinput clone before the
-        // observer scans for devices.
         sleep(DEVICE_SETTLE);
         let observer = KeyboardListener::new().expect(IGNORE_REASON);
 
-        // Blocked key: the blocking listener reports it; the observer,
-        // reading only the re-injected stream, must never see it.
         emit_key(&mut keyboard, KeyCode::KEY_F20, true);
         assert!(
             saw_key_event(&blocker, Key::F20, true, Duration::from_secs(2)),
@@ -239,7 +193,6 @@ mod linux {
             "blocked F20 key-up leaked to another consumer"
         );
 
-        // Non-matching key: re-injected, so the observer sees it.
         emit_key(&mut keyboard, KeyCode::KEY_LEFTSHIFT, true);
         assert!(
             saw_event(&observer, Duration::from_secs(2), |e| {
@@ -264,9 +217,6 @@ mod linux {
             .count()
     }
 
-    /// Two blocking listeners must not grab each other's re-injection
-    /// clones: doing so would mint new uinput devices in an unbounded
-    /// loop. The second blocker degrades to detect-only behind the first.
     #[test]
     #[ignore = "needs /dev/input + /dev/uinput access; run: cargo test --test synthetic_input -- --ignored"]
     fn two_blocking_listeners_do_not_multiply_devices() {
@@ -289,7 +239,6 @@ mod linux {
             .expect("second blocking listener failed to spawn");
         sleep(DEVICE_SETTLE);
 
-        // Stir the pipeline; a clone storm feeds on device activity too.
         emit_key(&mut keyboard, KeyCode::KEY_F20, true);
         emit_key(&mut keyboard, KeyCode::KEY_F20, false);
 
@@ -308,9 +257,6 @@ mod linux {
         );
     }
 
-    /// A keyboard with keys physically held at spawn must not be grabbed
-    /// until it goes quiet: grabbing mid-press splits the press/release
-    /// pair across two devices and wedges the key at the compositor.
     #[test]
     #[ignore = "needs /dev/input + /dev/uinput access; run: cargo test --test synthetic_input -- --ignored"]
     fn grab_is_deferred_while_keys_are_held() {
@@ -325,7 +271,6 @@ mod linux {
             .find_map(|n| n.ok())
             .expect("virtual keyboard has no device node");
 
-        // Hold F20 across the blocking listener's spawn.
         emit_key(&mut keyboard, KeyCode::KEY_F20, true);
         sleep(Duration::from_millis(200));
 
@@ -336,8 +281,6 @@ mod linux {
             .expect("blocking listener failed to spawn");
         sleep(Duration::from_millis(300));
 
-        // While the key is held, the device must still be grabbable by us —
-        // i.e. the listener deferred its grab.
         {
             let mut probe = RawDevice::open(&node).expect("cannot open virtual keyboard node");
             probe
@@ -346,7 +289,6 @@ mod linux {
             probe.ungrab().expect("probe ungrab failed");
         }
 
-        // Release → device quiet → the listener finishes the grab.
         emit_key(&mut keyboard, KeyCode::KEY_F20, false);
         sleep(Duration::from_millis(500));
         {
@@ -357,8 +299,6 @@ mod linux {
             );
         }
 
-        // And the completed grab actually blocks: drain the events observed
-        // so far, then verify a fresh press still reaches the listener.
         while blocker.try_recv().is_some() {}
         emit_key(&mut keyboard, KeyCode::KEY_F20, true);
         assert!(
@@ -441,8 +381,6 @@ mod windows_tests {
     #[ignore = "needs an interactive desktop session; run: cargo test --test synthetic_input -- --ignored"]
     fn injected_f20_reaches_listener() {
         let listener = KeyboardListener::new().expect("failed to spawn keyboard listener");
-        // Give the hook thread a moment to install the hooks; spawn() does
-        // not currently wait for installation (known gap, see review notes).
         std::thread::sleep(Duration::from_millis(200));
 
         send_f20(false);
@@ -482,18 +420,11 @@ mod windows_tests {
     /// The grave and quote key *positions* must map to Grave and Quote no
     /// matter which VK the active layout assigns them (cjpais/Handy#1516:
     /// on UK, the apostrophe key sends VK_OEM_3 and used to report Grave).
-    ///
-    /// Windows translates the injected scancode through the active layout,
-    /// so this test proves layout independence when run under any layout
-    /// (verified live under both US and UK on the original dev machine).
-    /// It does not switch layouts itself: programmatic switching would
-    /// perturb the interactive session the test runs in and requires the
-    /// other layout to be installed, so it asserts per-scancode instead.
     #[test]
     #[ignore = "needs an interactive desktop session; run: cargo test --test synthetic_input -- --ignored"]
     fn punctuation_scancodes_map_positionally() {
-        const SC_GRAVE: u16 = 0x29; // left of 1 (US `~, UK `¬)
-        const SC_QUOTE: u16 = 0x28; // right of ; (US '", UK '@)
+        const SC_GRAVE: u16 = 0x29;
+        const SC_QUOTE: u16 = 0x28;
 
         let listener = KeyboardListener::new().expect("failed to spawn keyboard listener");
         std::thread::sleep(Duration::from_millis(200));
@@ -511,9 +442,6 @@ mod windows_tests {
         );
     }
 
-    /// Inject a lone mouse-button event by flag. Mirrors the keyboard
-    /// lone-key-up trick: a button-up with no preceding button-down is still
-    /// observed by the low-level hook but performs no action in the session.
     fn send_mouse_flag(flags: MOUSE_EVENT_FLAGS, mouse_data: u32) {
         let input = INPUT {
             r#type: INPUT_MOUSE,
@@ -532,9 +460,6 @@ mod windows_tests {
         assert_eq!(sent, 1, "SendInput failed");
     }
 
-    /// The mouse hook path reports button transitions end-to-end. Middle and
-    /// X buttons are reported unconditionally (left/right are gated on a held
-    /// modifier), so a lone middle-button-up is the disturbance-free probe.
     #[test]
     #[ignore = "needs an interactive desktop session; run: cargo test --test synthetic_input -- --ignored"]
     fn injected_mouse_button_reaches_listener() {
@@ -548,9 +473,6 @@ mod windows_tests {
         );
     }
 
-    /// Inject a lone key-up for a virtual key. Media actions (play/pause,
-    /// skip) fire on key-*down*, so a lone key-up is still observed by the
-    /// hook without actually controlling any media in the running session.
     fn send_vk_key_up(vk: VIRTUAL_KEY) {
         let input = INPUT {
             r#type: INPUT_KEYBOARD,

@@ -1,5 +1,3 @@
-//! Hotkey definitions and related types
-
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -110,7 +108,6 @@ impl Hotkey {
 
         let mut parts = Vec::new();
 
-        // Ctrl
         if let Some(s) = mod_names(
             self.modifiers,
             Modifiers::CTRL_LEFT,
@@ -121,7 +118,6 @@ impl Hotkey {
             parts.push(s);
         }
 
-        // Opt/Alt
         #[cfg(target_os = "macos")]
         let opt_name = "option";
         #[cfg(not(target_os = "macos"))]
@@ -136,7 +132,6 @@ impl Hotkey {
             parts.push(s);
         }
 
-        // Shift
         if let Some(s) = mod_names(
             self.modifiers,
             Modifiers::SHIFT_LEFT,
@@ -147,7 +142,6 @@ impl Hotkey {
             parts.push(s);
         }
 
-        // Cmd/Super
         #[cfg(target_os = "macos")]
         let cmd_name = "command";
         #[cfg(not(target_os = "macos"))]
@@ -162,7 +156,6 @@ impl Hotkey {
             parts.push(s);
         }
 
-        // Fn (macOS only)
         #[cfg(target_os = "macos")]
         if self.modifiers.contains(Modifiers::FN) {
             parts.push("fn".to_string());
@@ -229,11 +222,9 @@ impl FromStr for Hotkey {
                 continue;
             }
 
-            // Try to parse as modifier first
             if let Some(m) = Modifiers::parse_single(part) {
                 modifiers |= m;
             } else {
-                // Not a modifier, must be a key
                 if key.is_some() {
                     return Err(Error::InvalidHotkeyFormat(format!(
                         "Multiple keys specified: already have a key, found '{}'",
@@ -367,7 +358,6 @@ mod tests {
 
     #[test]
     fn hotkey_display_roundtrip_keypad() {
-        // Ensure all keypad keys roundtrip through Hotkey Display → FromStr
         let keypad_keys = [
             Key::KeypadPlus,
             Key::KeypadMinus,
@@ -379,7 +369,6 @@ mod tests {
             Key::KeypadClear,
         ];
         for key in keypad_keys {
-            // Key-only hotkey
             let hotkey = Hotkey::new(Modifiers::empty(), key).unwrap();
             let displayed = format!("{}", hotkey);
             let parsed: Hotkey = displayed.parse().unwrap_or_else(|e| {
@@ -387,7 +376,6 @@ mod tests {
             });
             assert_eq!(parsed, hotkey, "Key-only roundtrip failed for {:?}", key);
 
-            // With modifier
             let hotkey = Hotkey::new(Modifiers::CMD, key).unwrap();
             let displayed = format!("{}", hotkey);
             let parsed: Hotkey = displayed.parse().unwrap_or_else(|e| {
@@ -402,12 +390,10 @@ mod tests {
 
     #[test]
     fn hotkey_new_validates() {
-        // Valid combinations
         assert!(Hotkey::new(Modifiers::CMD, Key::K).is_ok());
         assert!(Hotkey::new(Modifiers::CMD | Modifiers::SHIFT, None).is_ok());
         assert!(Hotkey::new(Modifiers::empty(), Key::F1).is_ok());
 
-        // Invalid: no modifiers and no key
         assert!(Hotkey::new(Modifiers::empty(), None).is_err());
     }
 }

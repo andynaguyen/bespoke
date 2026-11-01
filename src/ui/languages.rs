@@ -1,6 +1,3 @@
-//! Transcription languages, from `src/lib/constants/languages.ts`.
-
-/// `(code, English label)` in picker order. `auto` is "Auto Detect".
 pub static LANGUAGES: &[(&str, &str)] = &[
     ("auto", "Auto Detect"),
     ("en", "English"),
@@ -110,9 +107,6 @@ pub static LANGUAGES: &[(&str, &str)] = &[
 
 pub const CHINESE_LANGUAGE_CODE: &str = "zh";
 
-/// Collapses a language tag to the recognition intent the UI exposes:
-/// region/script subtags drop (`en-US` → `en`, `zh-Hant` → `zh`), `nb` maps
-/// to `no` and `fil` to `tl`.
 pub fn recognition_language(code: &str) -> &str {
     let base = code.split('-').next().unwrap_or(code);
     match base {
@@ -127,7 +121,6 @@ pub fn supports_language_code(supported: &[String], code: &str) -> bool {
     supported.iter().any(|s| recognition_language(s) == wanted)
 }
 
-/// Supported languages collapsed to recognition codes, first occurrence kept.
 pub fn unique_capability_languages(supported: &[String]) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     supported
@@ -142,16 +135,12 @@ pub fn language_label(code: &str) -> Option<&'static str> {
     find(code).or_else(|| find(recognition_language(code)))
 }
 
-/// Languages offered in the transcription-language picker: everything but
-/// the bare `zh`, which is replaced by the Simplified/Traditional variants.
 pub fn selectable_languages() -> impl Iterator<Item = &'static (&'static str, &'static str)> {
     LANGUAGES
         .iter()
         .filter(|(code, _)| *code != CHINESE_LANGUAGE_CODE)
 }
 
-/// Languages a model can declare: everything but `auto` and the Chinese
-/// output variants.
 pub fn model_capability_languages() -> impl Iterator<Item = &'static (&'static str, &'static str)> {
     LANGUAGES
         .iter()

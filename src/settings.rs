@@ -18,7 +18,6 @@ pub enum LogLevel {
     Error,
 }
 
-// Custom deserializer to handle both old numeric format (1-5) and new string format ("trace", "debug", etc.)
 impl<'de> Deserialize<'de> for LogLevel {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -84,31 +83,23 @@ pub struct ShortcutBinding {
     pub current_binding: String,
 }
 
-/// Text pasted in place of a spoken trigger phrase ("my email" -> an address).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Snippet {
     pub trigger: String,
     pub text: String,
 }
 
-/// How dictated text is formatted before it's pasted.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WritingStyle {
-    /// Caps and punctuation: the text as transcribed.
     Formal,
-    /// Caps, no commas, no trailing period.
     Casual,
-    /// Casual plus lowercase sentence starts, a lowercase "i", and most
-    /// apostrophes dropped ("dont").
     VeryCasual,
 }
 
-/// Writing style for dictations started while an app is frontmost (macOS).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AppStyleRule {
     pub bundle_id: String,
-    /// Display name, captured when the rule was added.
     pub app_name: String,
     pub style: WritingStyle,
 }
@@ -133,18 +124,10 @@ pub struct PostProcessProvider {
 #[serde(rename_all = "lowercase")]
 pub enum OverlayPosition {
     Top,
-    // `none` is retired: overlay visibility is owned by `OverlayStyle` now. The
-    // alias keeps legacy stores (`"overlay_position": "none"`) deserializing
-    // instead of failing the whole load; the one-time overlay migration reads the
-    // raw stored string to recover the old "hidden" intent as `OverlayStyle::None`.
     #[serde(alias = "none")]
     Bottom,
 }
 
-/// Which recording overlay to display. `Minimal` and `Live` share one base
-/// (the pill); `Live` grows into the panel that shows live transcription text.
-/// `None` hides the overlay entirely. Decoupled from whether the model runs in
-/// streaming mode (that is driven purely by model capability).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum OverlayStyle {
@@ -153,16 +136,12 @@ pub enum OverlayStyle {
     Live,
 }
 
-/// Where Annotate's MCP server listens.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum McpReach {
-    /// No server.
     #[default]
     Off,
-    /// `127.0.0.1` only. Remote machines reach it through an SSH `RemoteForward`.
     Local,
-    /// `127.0.0.1` and this Mac's Tailscale address.
     Tailnet,
 }
 
@@ -177,7 +156,7 @@ pub enum ModelUnloadTimeout {
     Min10,
     Min15,
     Hour1,
-    Sec15, // Debug mode only
+    Sec15,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,17 +170,11 @@ pub enum PasteMethod {
     ExternalScript,
 }
 
-/// How the transcribe shortcut's key events drive a recording.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ShortcutActivation {
-    /// Press to start, press again to stop.
     Toggle,
-    /// Hold to record, release to stop.
     PushToTalk,
-    /// Hold to record and release to stop, or tap to keep recording until the
-    /// next press. Which one it was is decided by how long the key was held
-    /// (`hold_threshold_ms`).
     #[default]
     HoldOrToggle,
 }
@@ -251,7 +224,6 @@ impl Default for KeyboardImplementation {
 
 impl Default for PasteMethod {
     fn default() -> Self {
-        // Default to CtrlV for macOS and Windows, Direct for Linux
         #[cfg(target_os = "linux")]
         return PasteMethod::Direct;
         #[cfg(not(target_os = "linux"))]
@@ -263,20 +235,20 @@ impl ModelUnloadTimeout {
     pub fn to_minutes(self) -> Option<u64> {
         match self {
             ModelUnloadTimeout::Never => None,
-            ModelUnloadTimeout::Immediately => Some(0), // Special case for immediate unloading
+            ModelUnloadTimeout::Immediately => Some(0),
             ModelUnloadTimeout::Min2 => Some(2),
             ModelUnloadTimeout::Min5 => Some(5),
             ModelUnloadTimeout::Min10 => Some(10),
             ModelUnloadTimeout::Min15 => Some(15),
             ModelUnloadTimeout::Hour1 => Some(60),
-            ModelUnloadTimeout::Sec15 => Some(0), // Special case for debug - handled separately
+            ModelUnloadTimeout::Sec15 => Some(0),
         }
     }
 
     pub fn to_seconds(self) -> Option<u64> {
         match self {
             ModelUnloadTimeout::Never => None,
-            ModelUnloadTimeout::Immediately => Some(0), // Special case for immediate unloading
+            ModelUnloadTimeout::Immediately => Some(0),
             ModelUnloadTimeout::Sec15 => Some(15),
             _ => self.to_minutes().map(|m| m * 60),
         }
@@ -309,8 +281,6 @@ impl SoundTheme {
     }
 }
 
-/// UI appearance mode. `System` follows the OS `prefers-color-scheme`; `Light`
-/// and `Dark` force one of the two palettes Bespoke already ships.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Theme {
@@ -388,28 +358,13 @@ impl std::ops::DerefMut for SecretMap {
     }
 }
 
-/* still handy for composing the initial JSON in the store ------------- */
-/// The container-level `serde(default)` (backed by the `Default` impl below)
-/// guarantees every field — including ones added in the future — falls back to
-/// its `get_default_settings()` value when missing from a stored settings
-/// object, so a partial store can never fail the whole load (#1619).
-/// `bindings` is the one field-level exception.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct AppSettings {
-    /// Internal settings schema marker for one-time migrations. Fresh installs
-    /// start at the current version; existing stores missing this key are
-    /// treated as version 0 and migrated forward.
     pub settings_schema_version: u32,
-    /// Defaults to empty on partial stores; the load path merges in the
-    /// default bindings for any missing keys before the settings are used.
     #[serde(default)]
     pub bindings: HashMap<String, ShortcutBinding>,
-    /// Replaces the pre-0.10 `push_to_talk` bool; stores missing this key are
-    /// migrated from it in `apply_settings_migrations`.
     pub shortcut_activation: ShortcutActivation,
-    /// Hold-or-toggle only: a press held at least this long is push-to-talk,
-    /// anything shorter is a tap that locks recording on.
     pub hold_threshold_ms: u64,
     pub audio_feedback: bool,
     pub audio_feedback_volume: f32,
@@ -417,17 +372,11 @@ pub struct AppSettings {
     pub start_hidden: bool,
     pub autostart_enabled: bool,
     pub show_whats_new_on_update: bool,
-    /// The app version whose What's New the user has already seen. Fresh installs
-    /// default to the current version (nothing is "new" to them). Existing users
-    /// upgrading from before this key existed are blanked by the migration so they
-    /// see the current release's notes — see `apply_settings_migrations`.
     pub whats_new_last_seen_version: String,
     pub selected_model: String,
     pub onboarding_completed: bool,
     pub always_on_microphone: bool,
     pub selected_microphone: Option<String>,
-    /// Which input channel to use on the selected microphone device.
-    /// None means "average all channels" (original behavior).
     pub selected_channel: Option<u16>,
     pub clamshell_microphone: Option<String>,
     pub selected_output_device: Option<String>,
@@ -447,12 +396,8 @@ pub struct AppSettings {
     pub clipboard_handling: ClipboardHandling,
     pub auto_submit: bool,
     pub auto_submit_key: AutoSubmitKey,
-    /// Ending a dictation with `voice_submit_keyword` stops recording on the
-    /// following pause, removes the keyword, and presses `auto_submit_key`.
     pub voice_submit_enabled: bool,
     pub voice_submit_keyword: String,
-    /// Saying `scrub_keyword` throws away everything dictated before it in the
-    /// current recording.
     pub scrub_enabled: bool,
     pub scrub_keyword: String,
     pub post_process_enabled: bool,
@@ -472,9 +417,6 @@ pub struct AppSettings {
     pub show_tray_icon: bool,
     pub paste_delay_ms: u64,
     pub paste_delay_after_ms: u64,
-    /// Debug-gated ("beta") receipt-sequenced paste: restore the clipboard only
-    /// after the target app actually reads the transcript, instead of after a
-    /// fixed delay. See `paste_tx`. macOS and Windows only.
     pub reliable_paste: bool,
     pub typing_tool: TypingTool,
     pub external_script_path: Option<String>,
@@ -482,9 +424,6 @@ pub struct AppSettings {
     pub custom_filler_words: Option<Vec<String>>,
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
     pub ort_accelerator: OrtAcceleratorSetting,
-    /// Stable transcribe.cpp device selector. This is derived from the backend's
-    /// `device_id` when available (or its name for backends such as Metal),
-    /// never from the process-local device registry index.
     #[serde(
         default = "default_transcribe_gpu_device",
         deserialize_with = "deserialize_transcribe_gpu_device"
@@ -492,14 +431,8 @@ pub struct AppSettings {
     pub transcribe_gpu_device: Option<String>,
     pub extra_recording_buffer_ms: u64,
     pub vad_enabled: bool,
-    /// Experimental detector implementation. Silero remains the stable default.
     pub vad_backend: VadBackend,
-    /// Which recording overlay to show: None / Minimal / Live. Streaming mode is
-    /// not gated on this — that follows model capability. Migrated from the old
-    /// `overlay_position` (position `none` → style `None`).
     pub overlay_style: OverlayStyle,
-    /// Where Annotate's MCP server listens for coding agents (`annotate::mcp`). Migrated from
-    /// the old `annotate_mcp_enabled` switch.
     pub annotate_mcp_reach: McpReach,
 }
 
@@ -530,14 +463,10 @@ fn default_whats_new_last_seen_version() -> String {
 }
 
 fn default_overlay_position() -> OverlayPosition {
-    // Position only matters when the overlay is shown; whether it shows at all is
-    // `overlay_style` (Linux defaults that to None). So a single default suffices.
     OverlayPosition::Bottom
 }
 
 fn default_overlay_style() -> OverlayStyle {
-    // Linux hides the overlay by default; other platforms show the live overlay.
-    // Position is independent and only selects top vs. bottom placement.
     #[cfg(target_os = "linux")]
     return OverlayStyle::None;
     #[cfg(not(target_os = "linux"))]
@@ -690,7 +619,6 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         });
     }
 
-    // AWS Bedrock via Mantle (OpenAI-compatible endpoint)
     providers.push(PostProcessProvider {
         id: "bedrock_mantle".to_string(),
         label: "AWS Bedrock (Mantle)".to_string(),
@@ -698,7 +626,6 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         supports_structured_output: true,
     });
 
-    // Custom provider always comes last
     providers.push(PostProcessProvider {
         id: "custom".to_string(),
         label: "Custom".to_string(),
@@ -744,12 +671,9 @@ fn default_post_process_prompts() -> Vec<LLMPrompt> {
 }
 
 fn default_transcribe_gpu_device() -> Option<String> {
-    None // automatic device selection
+    None
 }
 
-/// Accept the 0.1-era integer registry index long enough for the schema
-/// migration to clear it. Device indices are process-local in transcribe.cpp
-/// 0.2 and must never be carried across launches.
 fn deserialize_transcribe_gpu_device<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -771,14 +695,12 @@ fn default_typing_tool() -> TypingTool {
 fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
     let mut changed = false;
     for provider in default_post_process_providers() {
-        // Use match to do a single lookup - either sync existing or add new
         match settings
             .post_process_providers
             .iter_mut()
             .find(|p| p.id == provider.id)
         {
             Some(existing) => {
-                // Sync supports_structured_output field for existing providers (migration)
                 if existing.supports_structured_output != provider.supports_structured_output {
                     debug!(
                         "Updating supports_structured_output for provider '{}' from {} to {}",
@@ -791,7 +713,6 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
                 }
             }
             None => {
-                // Provider doesn't exist, add it
                 settings.post_process_providers.push(provider.clone());
                 changed = true;
             }
@@ -1005,9 +926,6 @@ impl AppSettings {
     }
 }
 
-/// Startup entry point. Same load-or-create/salvage/migrate behavior as
-/// `get_settings`; kept as a named alias for call-site clarity, plus a
-/// one-time debug dump of the loaded settings.
 pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
     let settings = get_settings(app);
     debug!("Loaded settings: {:?}", settings);
@@ -1019,8 +937,6 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
 
-    // Settings reads also persist one-time migrations. Migration helpers are
-    // idempotent, so this converges after the first read of an older store.
     let mut settings = if let Some(settings_value) = store.get("settings") {
         let (mut settings, mut updated) =
             match serde_json::from_value::<AppSettings>(settings_value.clone()) {
@@ -1035,7 +951,6 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
             updated = true;
         }
 
-        // Merge in any bindings added since this store was written.
         for (key, value) in get_default_settings().bindings {
             if let std::collections::hash_map::Entry::Vacant(entry) = settings.bindings.entry(key) {
                 debug!("Adding missing binding: {}", entry.key());
@@ -1062,11 +977,6 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
     settings
 }
 
-/// Rebuilds settings from a store value that failed to deserialize as a whole.
-/// Every stored field that is individually valid is kept; only broken values
-/// (e.g. an enum variant written by a newer or older version) fall back to
-/// their default. This means one bad field can never reset the rest of the
-/// user's configuration (#1619).
 fn salvage_settings(stored: &serde_json::Value) -> AppSettings {
     let Some(stored_map) = stored.as_object() else {
         warn!("Stored settings are not a JSON object; falling back to defaults");
@@ -1082,7 +992,6 @@ fn salvage_settings(stored: &serde_json::Value) -> AppSettings {
             .expect("merged settings stay an object")
             .insert(key.clone(), value.clone());
         if serde_json::from_value::<AppSettings>(merged.clone()).is_err() {
-            // Log only the key: values may hold secrets (e.g. API keys).
             warn!("Dropping invalid settings field '{key}', keeping its default");
             let map = merged
                 .as_object_mut()
@@ -1106,28 +1015,16 @@ fn apply_settings_migrations(
 ) -> bool {
     let mut updated = false;
 
-    // One-time onboarding migration: users with an explicit selected model have
-    // already made it through model selection. Users who merely have compatible
-    // files on disk should still see onboarding.
     if settings_value.get("onboarding_completed").is_none() {
         settings.onboarding_completed = !settings.selected_model.is_empty();
         updated = true;
     }
 
-    // One-time What's New migration: migrations only run on an existing store
-    // (fresh installs stamp the current version via get_default_settings). A
-    // missing key here means a user upgrading from before it existed — blank it
-    // so they see the current release's What's New, mirroring the onboarding
-    // migration's explicit first-run-vs-upgrade decision.
     if settings_value.get("whats_new_last_seen_version").is_none() {
         settings.whats_new_last_seen_version = String::new();
         updated = true;
     }
 
-    // One-time shortcut activation migration (only while the new key is
-    // absent): the retired `push_to_talk` bool maps onto the two legacy modes so
-    // upgrading users keep exactly the behavior they had. Only fresh installs
-    // get the hold-or-toggle default.
     if settings_value.get("shortcut_activation").is_none() {
         if let Some(push_to_talk) = settings_value.get("push_to_talk").and_then(|v| v.as_bool()) {
             settings.shortcut_activation = if push_to_talk {
@@ -1144,8 +1041,6 @@ fn apply_settings_migrations(
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
     if stored_schema_version < 1 {
-        // Before schema 1 this was a UI ordinal. Preserve the original safety
-        // migration: a positive selection was ambiguous even in 0.1.
         let had_positive_legacy_selection = settings_value
             .get("transcribe_gpu_device")
             .and_then(|value| value.as_i64())
@@ -1155,15 +1050,11 @@ fn apply_settings_migrations(
         }
     }
     if stored_schema_version < 2 {
-        // transcribe.cpp 0.2 replaced integer registry indices with opaque
-        // process-local handles. Clear every old index once.
         settings.transcribe_gpu_device = default_transcribe_gpu_device();
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
         updated = true;
     }
 
-    // The generic GPU choice was removed in favor of Auto or an exact device.
-    // Normalize settings created by builds that exposed that short-lived option.
     if settings.transcribe_accelerator == TranscribeAcceleratorSetting::Gpu
         && settings.transcribe_gpu_device.is_none()
     {
@@ -1171,11 +1062,6 @@ fn apply_settings_migrations(
         updated = true;
     }
 
-    // One-time overlay migration (only while the new key is absent): the retired
-    // overlay_position `none` meant "hide the overlay" → OverlayStyle::None; any
-    // other position had it visible → Live. The position enum no longer has a
-    // `none` variant (legacy "none" deserializes to Bottom via a serde alias), so
-    // read the raw stored string to recover the old intent.
     if settings_value.get("overlay_style").is_none() {
         let was_hidden = settings_value
             .get("overlay_position")
@@ -1189,8 +1075,6 @@ fn apply_settings_migrations(
         updated = true;
     }
 
-    // One-time Agent Access migration (only while the new key is absent): the retired
-    // `annotate_mcp_enabled` switch served on loopback only.
     if settings_value.get("annotate_mcp_reach").is_none()
         && settings_value
             .get("annotate_mcp_enabled")
@@ -1262,8 +1146,6 @@ mod tests {
         serde_json::to_value(get_default_settings()).unwrap()
     }
 
-    /// Every field must survive a partial store: a missing key must never fail
-    /// the whole-settings parse (#1619). `json!({})` is the extreme case.
     #[test]
     fn empty_store_parses_with_defaults() {
         let settings: AppSettings = serde_json::from_value(serde_json::json!({}))
@@ -1275,23 +1157,11 @@ mod tests {
         assert_eq!(settings.hold_threshold_ms, default_hold_threshold_ms());
         assert!(!settings.audio_feedback);
         assert!(settings.filler_word_removal_enabled);
-        // Bindings default to empty; the load path merges the real defaults in.
         assert!(settings.bindings.is_empty());
     }
 
-    /// Frozen snapshot of a real v0.9.0-era settings store, as written to
-    /// disk. This pins backwards compatibility: it must always parse strictly
-    /// (no salvage). Schema migrations may then rewrite fields whose native
-    /// meaning changed.
-    ///
-    /// If a schema change breaks this test, do NOT just update the fixture —
-    /// it stands in for the stores on users' machines. Add a
-    /// `#[serde(alias)]`/`#[serde(other)]` or a one-time migration in
-    /// `apply_settings_migrations` so old values keep loading, and only extend
-    /// the fixture alongside that.
     #[test]
     fn frozen_v0_9_store_parses_strictly_then_migrates_device_index() {
-        // Note "log_level": 2 — the legacy numeric format, kept deliberately.
         let stored: serde_json::Value = serde_json::from_str(
             r##"{
             "settings_schema_version": 1,
@@ -1399,8 +1269,6 @@ mod tests {
         assert_eq!(settings.scrub_keyword, "scrub that");
         assert_eq!(settings.app_styles, default_app_styles());
 
-        // The 0.1 integer device index is cleared once for transcribe.cpp 0.2.
-        // Without an exact device, the retired generic GPU choice becomes Auto.
         assert!(apply_settings_migrations(&mut settings, &stored));
         assert_eq!(
             settings.settings_schema_version,
@@ -1410,8 +1278,6 @@ mod tests {
             settings.transcribe_accelerator,
             TranscribeAcceleratorSetting::Auto
         );
-        // The retired push_to_talk bool (false in this fixture) becomes the
-        // matching legacy mode rather than the new hold-or-toggle default.
         assert_eq!(settings.shortcut_activation, ShortcutActivation::Toggle);
         assert_eq!(settings.transcribe_gpu_device, None);
     }
@@ -1425,13 +1291,9 @@ mod tests {
             serde_json::json!("parakeet-tdt-0.6b-v3"),
         );
         map.insert("onboarding_completed".into(), serde_json::json!(true));
-        // An enum variant this build doesn't know, e.g. written by a newer
-        // version before a downgrade.
         map.insert("sound_theme".into(), serde_json::json!("theremin"));
         stored["bindings"]["transcribe"]["current_binding"] = serde_json::json!("f13");
 
-        // Precondition: this is exactly the whole-store parse failure from
-        // #1619 that used to reset everything to defaults.
         assert!(serde_json::from_value::<AppSettings>(stored.clone()).is_err());
 
         let salvaged = salvage_settings(&stored);
@@ -1461,8 +1323,6 @@ mod tests {
     fn salvage_of_poisoned_bindings_keeps_other_fields() {
         let mut stored = default_settings_json();
         let map = stored.as_object_mut().unwrap();
-        // One malformed entry poisons the whole bindings map, but must not
-        // take the rest of the settings down with it.
         map.insert(
             "bindings".into(),
             serde_json::json!({ "transcribe": { "id": 42 } }),
@@ -1548,7 +1408,6 @@ mod tests {
     fn overlay_migration_keeps_disabled_overlay_off() {
         let mut settings = get_default_settings();
 
-        // Legacy store: overlay was hidden via the retired position "none".
         let raw = serde_json::json!({
             "selected_model": "",
             "overlay_position": "none"
@@ -1560,8 +1419,6 @@ mod tests {
 
     #[test]
     fn legacy_none_overlay_position_deserializes_to_bottom() {
-        // A persisted "none" must not fail the whole settings load; the serde
-        // alias folds it onto Bottom (visibility is owned by overlay_style).
         let raw = serde_json::json!({ "overlay_position": "none" });
         let position: OverlayPosition =
             serde_json::from_value(raw.get("overlay_position").unwrap().clone())

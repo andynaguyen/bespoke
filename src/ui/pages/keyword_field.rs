@@ -1,7 +1,3 @@
-//! The keyword input of Voice Scrub and Voice Submit. Edits stay local until
-//! blur or Enter, so a half-typed phrase is never saved; an invalid keyword
-//! turns the field red and swaps in the "invalid" description.
-
 use gpui::{prelude::*, rems, Context, Entity, Subscription, Window};
 use gpui_component::input::{InputEvent, InputState};
 
@@ -12,7 +8,6 @@ use crate::ui::components::{SettingContainer, TextField};
 use crate::ui::stores::SettingsStore;
 
 pub struct KeywordSetting {
-    /// Settings key, also the i18n prefix of the row.
     pub key: &'static str,
     pub i18n_prefix: &'static str,
     pub read: fn(&AppSettings) -> &str,

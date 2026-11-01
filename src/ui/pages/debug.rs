@@ -1,6 +1,3 @@
-//! The Debug page (`debug/DebugSettings.tsx`), shown in debug mode: log
-//! level, previews, timing knobs, diagnostics and the live log viewer.
-
 use std::time::Duration;
 
 use gpui::{
@@ -78,7 +75,6 @@ impl DebugPage {
         })
         .detach();
 
-        // Batch incoming lines so a burst of logging never re-renders per line.
         let flush = cx.spawn(async move |this, cx| loop {
             cx.background_executor().timer(FLUSH_INTERVAL).await;
             let alive = this

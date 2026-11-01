@@ -9,10 +9,6 @@ use tempfile::TempDir;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-// ── SHA256 verification tests ─────────────────────────────────────────────
-
-/// Helper: write `data` to a temp file and return (TempDir, path).
-/// TempDir must be kept alive for the duration of the test.
 fn write_temp_file(data: &[u8]) -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("model.partial");
@@ -23,7 +19,6 @@ fn write_temp_file(data: &[u8]) -> (TempDir, std::path::PathBuf) {
 
 #[test]
 fn test_verify_sha256_skipped_when_none() {
-    // Custom models have no expected hash — verification must be a no-op.
     let (_dir, path) = write_temp_file(b"anything");
     assert!(ModelManager::verify_sha256(&path, None, "custom").is_ok());
     assert!(
@@ -34,7 +29,6 @@ fn test_verify_sha256_skipped_when_none() {
 
 #[test]
 fn test_verify_sha256_passes_on_correct_hash() {
-    // Compute the real hash so the test is self-consistent.
     let (_dir, path) = write_temp_file(b"hello world");
     let actual = ModelManager::compute_sha256(&path).unwrap();
     assert!(
@@ -67,23 +61,14 @@ fn test_verify_sha256_fails_and_deletes_partial_on_mismatch() {
 
 #[test]
 fn test_verify_sha256_fails_and_deletes_partial_when_file_missing() {
-    // Simulate a partial file that was already removed (e.g. disk full mid-download).
     let dir = TempDir::new().unwrap();
     let missing_path = dir.path().join("gone.partial");
-    // Don't create the file — it should not exist.
 
     let result =
         ModelManager::verify_sha256(&missing_path, Some("anyexpectedhash"), "missing_model");
 
     assert!(result.is_err(), "missing file must return an error");
 }
-
-// ── Resumable HTTP downloader tests ───────────────────────────────────────
-//
-// Each test drives `download_http_resumable_with_events` against a scripted
-// single-connection server on a local socket — no Tauri, no real network.
-// Success means verified bytes are left in the partial (finalizing is the
-// caller's job), so "no Completed on a bad hash" is the rename gate too.
 
 fn sha_hex(data: &[u8]) -> String {
     format!("{:x}", Sha256::digest(data))
@@ -113,17 +98,12 @@ async fn read_request_head(sock: &mut TcpStream) -> String {
     String::from_utf8_lossy(&buf).into_owned()
 }
 
-/// Serve exactly one connection: capture the request head, write
-/// `response` verbatim, close. Returns the URL to fetch and a handle
-/// yielding the captured request head (lowercased for header asserts).
 async fn serve_once(response: Vec<u8>) -> (String, tokio::task::JoinHandle<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let handle = tokio::spawn(async move {
         let (mut sock, _) = listener.accept().await.unwrap();
         let head = read_request_head(&mut sock).await;
-        // The client may hang up early (error tests); that's not a
-        // server-side failure.
         let _ = sock.write_all(&response).await;
         let _ = sock.shutdown().await;
         head.to_lowercase()
@@ -215,8 +195,6 @@ async fn http_resume_appends_with_valid_content_range() {
 
 #[tokio::test]
 async fn http_wrong_content_range_discards_partial() {
-    // Server answers 206 but restarts the range at 0: appending would
-    // corrupt, so the partial must be dropped and the call must fail.
     let full = b"helloworld";
     let (url, _server) = serve_once(http_response(
         "206 Partial Content",
@@ -256,7 +234,7 @@ async fn http_range_ignored_200_restarts_from_zero() {
     .await;
     let dir = TempDir::new().unwrap();
     let partial = dir.path().join("m.partial");
-    fs::write(&partial, b"XXXXX").unwrap(); // stale bytes that must not survive
+    fs::write(&partial, b"XXXXX").unwrap();
 
     let out = run_download(
         &url,
@@ -274,8 +252,6 @@ async fn http_range_ignored_200_restarts_from_zero() {
 
 #[tokio::test]
 async fn http_416_with_hash_finalizes_complete_partial() {
-    // URL-model shape: no catalog size, but a hash — the one case where a
-    // 416 may bless the partial, because verification proves it.
     let body = b"the whole file";
     let (url, _server) = serve_once(http_response("416 Range Not Satisfiable", &[], b"")).await;
     let dir = TempDir::new().unwrap();
@@ -322,9 +298,6 @@ async fn http_416_with_wrong_hash_clears_partial() {
 
 #[tokio::test]
 async fn http_416_short_of_expected_size_clears_partial() {
-    // Mirror shape: catalog size known, partial shorter, yet the server
-    // says our offset is past EOF — its object is smaller than the catalog
-    // expects. Never blessed, even with a hash on hand.
     let (url, _server) = serve_once(http_response("416 Range Not Satisfiable", &[], b"")).await;
     let dir = TempDir::new().unwrap();
     let partial = dir.path().join("m.partial");
@@ -346,8 +319,6 @@ async fn http_416_short_of_expected_size_clears_partial() {
 
 #[tokio::test]
 async fn http_416_without_trust_signals_clears_partial() {
-    // No size, no hash: nothing can prove the partial complete, so a 416
-    // must restart clean instead of accepting unverified bytes.
     let (url, _server) = serve_once(http_response("416 Range Not Satisfiable", &[], b"")).await;
     let dir = TempDir::new().unwrap();
     let partial = dir.path().join("m.partial");
@@ -363,9 +334,6 @@ async fn http_416_without_trust_signals_clears_partial() {
 
 #[tokio::test]
 async fn http_full_size_partial_verified_without_network() {
-    // Crash-between-completion-and-finalize recovery: the partial already
-    // has every byte, so no request is issued at all (the URL points at a
-    // dead port to prove it).
     let body = b"complete content";
     let dir = TempDir::new().unwrap();
     let partial = dir.path().join("m.partial");
@@ -447,9 +415,6 @@ async fn http_conflicting_content_length_rejected_before_writing() {
 
 #[tokio::test]
 async fn http_body_exceeding_expected_size_aborts_and_clears() {
-    // Chunked response (no Content-Length to reject up-front) that keeps
-    // sending past the expected size: the disk-fill guard must cut the
-    // transfer at the first excess byte and clear the tainted partial.
     let (url, _server) = serve_once(http_response(
         "200 OK",
         &["Transfer-Encoding: chunked".to_string()],
@@ -501,8 +466,6 @@ async fn http_wrong_hash_after_download_clears_partial() {
 
 #[tokio::test]
 async fn http_cancel_while_awaiting_headers() {
-    // Server accepts and goes silent. Cancellation must win immediately —
-    // not after the stall timeout, and certainly not never.
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {

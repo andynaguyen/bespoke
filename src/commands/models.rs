@@ -16,8 +16,6 @@ pub async fn download_model(
         .map_err(|e| e.to_string());
 
     if let Err(ref error) = result {
-        // Log as well as emit: the toast is transient, and failed downloads have
-        // historically been undiagnosable because logs showed nothing (#1579).
         error!("Model download failed for {}: {}", model_id, error);
         let _ = app_handle.emit(
             "model-download-failed",
@@ -34,7 +32,6 @@ pub async fn delete_model(
     transcription_manager: State<Arc<TranscriptionManager>>,
     model_id: String,
 ) -> Result<(), String> {
-    // If deleting the active model, unload it and clear the setting
     let settings = get_settings(&app_handle);
     if settings.selected_model == model_id {
         transcription_manager.unload_model();
@@ -49,24 +46,14 @@ pub async fn delete_model(
         .map_err(|e| e.to_string())
 }
 
-/// Shared logic for switching the active model, used by both the Tauri command
-/// and the tray menu handler.
-///
-/// Validates the model, updates the persisted setting, and loads the model
-/// unless the unload timeout is set to "Immediately" (in which case the model
-/// will be loaded on-demand during the next transcription).
 pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String> {
     let model_manager = app.state::<Arc<ModelManager>>();
     let transcription_manager = app.state::<Arc<TranscriptionManager>>();
 
-    // Atomically claim the loading slot — prevents concurrent model loads
-    // from tray double-clicks or overlapping commands. The guard resets the
-    // flag on drop (including early returns, errors, and panics).
     let _loading_guard = transcription_manager
         .try_start_loading()
         .ok_or_else(|| "Model load already in progress".to_string())?;
 
-    // Check if model exists and is available
     let model_info = model_manager
         .get_model_info(model_id)
         .ok_or_else(|| format!("Model not found: {}", model_id))?;
@@ -80,19 +67,13 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
     let old_model = settings.selected_model.clone();
     let old_onboarding_completed = settings.onboarding_completed;
 
-    // Persist the new selection early so the frontend sees the correct model
-    // when it reacts to events emitted by load_model.
     let mut settings = settings;
     settings.selected_model = model_id.to_string();
     settings.onboarding_completed = true;
 
     write_settings(app, settings);
 
-    // Skip eager loading if unload is set to "Immediately" — the model
-    // will be loaded on-demand during the next transcription.
     if unload_timeout == ModelUnloadTimeout::Immediately {
-        // Notify frontend — load_model won't be called so no events
-        // would otherwise be emitted.
         let _ = app.emit(
             "model-state-changed",
             ModelStateEvent {
@@ -109,7 +90,6 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
         return Ok(());
     }
 
-    // Load the model. On failure, revert the persisted selection.
     if let Err(e) = transcription_manager.load_model(model_id) {
         let mut settings = get_settings(app);
         settings.selected_model = old_model;

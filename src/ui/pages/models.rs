@@ -1,6 +1,3 @@
-//! The Models page (`models/ModelsSettings.tsx`): search and filters, the
-//! downloaded models, then models available to download.
-
 use gpui::{
     div, prelude::*, px, rems, Context, Entity, FontWeight, PromptLevel, SharedString,
     Subscription, Window,
@@ -272,7 +269,6 @@ impl Render for ModelsPage {
             .cloned()
             .partition(|m| m.is_custom || m.is_downloaded || store.downloading.contains(&m.id));
         let current = store.current_model.clone();
-        // Active first, then catalog models, then custom ones.
         downloaded.sort_by_key(|m| (m.id != current, m.is_custom));
         let rescanning = store.is_rescanning;
 

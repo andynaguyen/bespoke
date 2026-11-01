@@ -1,7 +1,3 @@
-//! The Settings page (`settings-page/SettingsPage.tsx`): three tabs of
-//! setting groups. Experimental appears only when enabled. Dictation's
-//! settings live on the Dictate page (`dictation_settings.rs`).
-
 use gpui::{div, prelude::*, AnyElement, App, Context, Entity, SharedString, Window};
 
 use crate::app_handle::{AppEvent, AppHandle};
@@ -155,8 +151,6 @@ impl SettingsPage {
                                 } else {
                                     (TranscribeAcceleratorSetting::Auto, None)
                                 };
-                                // Save the device first so `gpu + null` is never
-                                // normalized to Auto.
                                 let stored = device.clone();
                                 set(
                                     cx,
@@ -329,7 +323,6 @@ impl super::Page for SettingsPage {
 impl Render for SettingsPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let experimental = self.store.read(cx).settings.experimental_enabled;
-        // Fall back to Appearance if the Experimental tab disappears while selected.
         if self.tab == Tab::Experimental && !experimental {
             self.tab = Tab::Appearance;
         }

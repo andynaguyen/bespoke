@@ -1,9 +1,3 @@
-//! The Annotate page. Its Captures tab lists the captures and opens one in place of Scrawl's
-//! Inspect window (`captures`). Its Settings tab holds Scrawl's settings (its General,
-//! Recording, Storage and Permissions panes). The shortcuts are ordinary Bespoke bindings.
-//! Everything else reads and writes Scrawl's own `config.json` through `scrawl::host`. Agent
-//! Access for `annotate::mcp` has its own page.
-
 use std::collections::BTreeSet;
 use std::time::Duration;
 
@@ -26,11 +20,8 @@ use super::captures::Captures;
 use super::shortcut_input::ShortcutInput;
 use super::PageLayout;
 
-/// How often the page re-reads the grants, the speech model and the microphones while it's open,
-/// so a grant made in System Settings shows up by itself.
 const POLL: Duration = Duration::from_millis(1500);
 
-/// A small secondary button with an icon, for the Captures row and the MCP page.
 pub(super) fn icon_button(
     id: &'static str,
     icon_name: &'static str,
@@ -44,7 +35,6 @@ pub(super) fn icon_button(
         .child(label)
 }
 
-/// The id a retention preset's strings are under (`annotate.retention.options.<id>`).
 fn retention_id(preset: Retention) -> &'static str {
     match preset {
         Retention::Week => "week",
@@ -66,9 +56,7 @@ pub struct AnnotatePage {
     paste_shortcut: Entity<ShortcutInput>,
     microphones: Option<Microphones>,
     grants: Option<Grants>,
-    /// Permissions whose button already asked macOS; the next press opens System Settings.
     requested: BTreeSet<Permission>,
-    /// `None` for a policy written into `config.json` by hand.
     retention: Option<Retention>,
     captures_size: Option<String>,
     speech: SpeechStatus,
@@ -117,7 +105,6 @@ impl AnnotatePage {
         page
     }
 
-    /// Re-reads how much space the captures take.
     fn measure(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let size = crate::runtime::spawn_blocking(scrawl::host::captures_size)
@@ -137,8 +124,6 @@ impl AnnotatePage {
             .map_or(PermissionStatus::NotDetermined, |g| g.status(permission))
     }
 
-    /// Like Scrawl's checklist: Screen Recording and Accessibility open System Settings with
-    /// the drag card; Microphone asks macOS first, then opens System Settings.
     fn grant(&mut self, permission: Permission) {
         let status = self.status(permission);
         if status == PermissionStatus::Granted {
@@ -165,7 +150,6 @@ impl AnnotatePage {
         let record = record_shortcut
             .as_ref()
             .map_or_else(|| "⌥⇧S".to_owned(), |c| c.label.clone());
-        // Pressing the record key again during a hold switches modes, as in the capsule's badge.
         let record_key = record_shortcut
             .as_ref()
             .map_or_else(|| "S".to_owned(), |c| c.key_label().to_owned());
@@ -218,13 +202,11 @@ impl AnnotatePage {
         let (selected, note) = match scrawl::host::microphone_choice() {
             MicrophoneChoice::Default => (SharedString::from("default"), None),
             MicrophoneChoice::Device { id, name } => {
-                // Until the first list arrives, a choice is shown as saved, not as missing.
                 let missing = self
                     .microphones
                     .as_ref()
                     .is_some_and(|inputs| inputs.find(&id).is_none());
                 if missing {
-                    // A chosen device that isn't connected stays listed by its saved name.
                     options.push(
                         DropdownOption::new(
                             id.clone(),
@@ -465,8 +447,6 @@ impl super::Page for AnnotatePage {
                     Button::new("captures-record")
                         .variant(ButtonVariant::Live)
                         .gap(rems(0.375))
-                        // The label's last letter carries space after it, so
-                        // the right side takes less padding to look even.
                         .pe(gpui::px(13.5))
                         .on_click(|_, _, _| scrawl::host::menu(scrawl::MenuAction::ChooseTarget))
                         .child(div().size(rems(0.5)).rounded_full().bg(gpui::white()))

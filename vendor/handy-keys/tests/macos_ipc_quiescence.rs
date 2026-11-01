@@ -1,19 +1,9 @@
-//! Guards against recurring WindowServer IPC from the macOS listener.
-//!
 //! handy-keys ≤ 0.3.2 polled CGEventTapIsEnabled every 100ms from the event
 //! tap run loop. Each call is a synchronous mach RPC to WindowServer; on
 //! macOS 26 those RPCs leaked kernel IPC vouchers until the machine kernel-
 //! panicked with "Cannot grow ipc space beyond IVAC_ENTRIES_MAX"
 //! (cjpais/Handy#1827). The fix made tap recovery event-driven, so an idle
 //! listener must send (nearly) zero mach messages.
-//!
-//! This test measures the task-wide `messages_sent` counter around a 5-second
-//! idle window. The old watchdog alone produced ≥50 sends in that window;
-//! the threshold below fails loudly if recurring IPC ever creeps back in.
-//!
-//! Requires accessibility permission (skips itself otherwise). Avoid typing
-//! or clicking while it runs: every tapped input event costs a couple of
-//! mach messages and inflates the measurement.
 
 #![cfg(target_os = "macos")]
 
@@ -22,13 +12,8 @@ use std::time::Duration;
 
 use handy_keys::KeyboardListener;
 
-/// Tests in this file measure task-wide IPC counters, so they must not run
-/// concurrently with each other (cargo runs same-binary tests in parallel by
-/// default and the churn in `shutdown_is_prompt` would pollute the idle
-/// measurement).
 static SERIAL: Mutex<()> = Mutex::new(());
 
-/// `struct task_events_info` from <mach/task_info.h>.
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
 struct TaskEventsInfo {
@@ -76,14 +61,8 @@ fn idle_listener_sends_no_recurring_ipc() {
         }
     };
 
-    // Let startup IPC (tap creation, first enable) settle.
     std::thread::sleep(Duration::from_millis(500));
 
-    // Real keyboard/mouse activity during a window inflates the count (each
-    // tapped event costs mach messages), but nothing can deflate one — so
-    // the *minimum* over several windows filters desktop-activity noise
-    // without ever masking real recurring IPC: the old 10Hz watchdog put a
-    // ≥100-message floor under every window, far above the threshold.
     let mut best = i64::MAX;
     for window in 1..=3 {
         let before = messages_sent();
@@ -106,9 +85,6 @@ fn idle_listener_sends_no_recurring_ipc() {
     drop(listener);
 }
 
-/// Shutdown must not hang: the listener thread parks in CFRunLoopRun with no
-/// periodic wakeups, so Drop's CFRunLoopStop is the only thing that ends it.
-/// Guards the stop-flag handoff (including the stop-before-run-entry race).
 #[test]
 fn shutdown_is_prompt() {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());

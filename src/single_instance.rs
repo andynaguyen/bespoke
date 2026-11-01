@@ -1,23 +1,12 @@
-//! Single-instance handling: a second launch forwards its arguments to the
-//! running instance over a local socket and exits. Remote-control flags
-//! (`--toggle-transcription`, `--cancel`, ...) rely on this.
-//!
-//! Unix uses a socket file in the per-user runtime/temp directory. Windows
-//! listens on a loopback TCP port recorded in the local data directory.
-
 use std::io::{BufRead, BufReader, Write};
 
 use crate::app_handle::APP_IDENTIFIER;
 
-/// Either we are the primary instance (and own the listener), or the
-/// arguments were delivered to the instance that already runs.
 pub enum Instance {
     Primary(Listener),
     Forwarded,
 }
 
-/// Tries to forward `args` to a running instance; otherwise claims the
-/// instance slot.
 pub fn acquire(args: &[String]) -> Instance {
     if imp::forward(args).is_ok() {
         return Instance::Forwarded;
@@ -34,8 +23,6 @@ pub fn acquire(args: &[String]) -> Instance {
 pub struct Listener(Option<imp::RawListener>);
 
 impl Listener {
-    /// Calls `on_args` with each forwarded argument list, on a background
-    /// thread, for the life of the process.
     pub fn serve(self, on_args: impl Fn(Vec<String>) + Send + 'static) {
         let Some(listener) = self.0 else {
             return;
@@ -83,8 +70,6 @@ mod imp {
 
     pub fn listen() -> std::io::Result<UnixListener> {
         let path = socket_path();
-        // A socket file left by a crashed instance refuses connections; the
-        // failed `forward` above proved nobody is listening, so replace it.
         let _ = std::fs::remove_file(&path);
         UnixListener::bind(path)
     }

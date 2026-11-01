@@ -1,5 +1,3 @@
-//! Transcription models and their download state, ported from `modelStore.ts`.
-
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
@@ -14,12 +12,10 @@ use crate::ui::event_bus::event_bus;
 use crate::ui::model_card::CardStatus;
 use crate::ui::toast;
 
-/// Download speed bookkeeping, smoothed like the React store.
 #[derive(Clone, Copy)]
 pub struct DownloadStats {
     last_update: Instant,
     total_downloaded: u64,
-    /// MiB/s.
     pub speed: f64,
 }
 
@@ -75,8 +71,6 @@ impl ModelStore {
         store
     }
 
-    /// The card status of a model that is downloading or verifying, or
-    /// `None` when no download is in flight.
     pub fn download_status(&self, id: &str) -> Option<CardStatus> {
         if self.verifying.contains(id) {
             Some(CardStatus::Verifying)
@@ -101,8 +95,6 @@ impl ModelStore {
 
     pub fn load_models(&mut self, cx: &mut Context<Self>) {
         self.models = self.manager().get_available_models();
-        // Merge the backend's downloading flags; drop entries the backend
-        // finished and that have no progress left (completed or cancelled).
         let backend: HashSet<String> = self
             .models
             .iter()
@@ -139,7 +131,6 @@ impl ModelStore {
         .detach();
     }
 
-    /// Switches the active model. `on_done` gets whether it worked.
     pub fn select_model(
         &mut self,
         model_id: String,
@@ -173,7 +164,6 @@ impl ModelStore {
         .detach();
     }
 
-    /// Starts a download. `on_done` gets whether the whole download worked.
     pub fn download_model(
         &mut self,
         model_id: String,
@@ -200,8 +190,6 @@ impl ModelStore {
                 crate::commands::models::download_model(app.clone(), manager, id).await
             })
             .await;
-            // Failures reach the user through the `model-download-failed`
-            // event, which `handle_event` turns into a toast.
             let _ = this.update(cx, |this, cx| {
                 let ok = result.is_ok();
                 if !ok {
@@ -214,7 +202,6 @@ impl ModelStore {
         .detach();
     }
 
-    /// Cancels a download. `on_done` gets whether the cancel worked.
     pub fn cancel_download(
         &mut self,
         model_id: String,
@@ -265,8 +252,6 @@ impl ModelStore {
         self.stats.remove(model_id);
     }
 
-    /// Switches to a model once its download finishes, unless the user is
-    /// recording.
     fn select_when_idle(&mut self, model_id: String, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             cx.background_executor()
@@ -331,8 +316,6 @@ impl ModelStore {
         }
     }
 
-    /// Speed in MiB/s, updated at most every half second and smoothed
-    /// (80% previous, 20% current).
     fn record_progress(&mut self, progress: &DownloadProgress) {
         let now = Instant::now();
         match self.stats.get_mut(&progress.model_id) {

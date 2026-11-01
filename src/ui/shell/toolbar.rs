@@ -1,8 +1,3 @@
-//! The toolbar above each page: the page name, the page's tabs as a
-//! segmented control, a muted summary, and the page's actions at the end.
-//! It has no bar of its own, so its controls float on the content surface.
-//! Empty space in it drags the window.
-
 use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, MouseButton, SharedString, Window};
 
 use crate::ui::components::{RowDirection, Typography};
@@ -10,9 +5,6 @@ use crate::ui::theme::palette;
 
 pub const TOOLBAR_HEIGHT: f32 = 56.;
 
-/// An area filling its parent that moves the window when dragged and
-/// zooms it on double-click, like a title bar. Controls drawn over it must
-/// occlude it.
 pub fn drag_region(id: impl Into<gpui::ElementId>) -> impl IntoElement {
     div()
         .id(id)
@@ -28,10 +20,8 @@ pub fn drag_region(id: impl Into<gpui::ElementId>) -> impl IntoElement {
             }
         })
 }
-/// The width the macOS traffic lights cover at the window's top left.
 const TRAFFIC_LIGHTS_WIDTH: f32 = 84.;
 
-/// What a page puts in the toolbar. Built on every render.
 #[derive(Default)]
 pub struct Toolbar {
     tabs: Option<AnyElement>,
@@ -44,30 +34,24 @@ impl Toolbar {
         Self::default()
     }
 
-    /// The page's tabs, usually a `SegmentedControl`, after the page name.
     pub fn tabs(mut self, tabs: impl IntoElement) -> Self {
         self.tabs = Some(tabs.into_any_element());
         self
     }
 
-    /// Muted text after the tabs, like "8 entries".
     pub fn meta(mut self, meta: impl Into<SharedString>) -> Self {
         self.meta = Some(meta.into());
         self
     }
 
-    /// A control at the end of the toolbar. Actions keep their order.
     pub fn action(mut self, action: impl IntoElement) -> Self {
         self.actions.push(action.into_any_element());
         self
     }
 }
 
-/// Draws `toolbar` with `title` as the page name.
 pub fn render(title: SharedString, toolbar: Toolbar, _window: &mut Window, cx: &App) -> AnyElement {
     let p = palette(cx);
-    // Controls block the mouse so a click on one never reaches the drag
-    // layer underneath.
     let control = |element: AnyElement| div().flex_none().occlude().child(element);
     div()
         .relative()

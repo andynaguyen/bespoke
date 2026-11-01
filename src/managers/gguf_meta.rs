@@ -1,12 +1,3 @@
-//! Minimal, dependency-free GGUF metadata reader.
-//!
-//! Parses ONLY the GGUF key/value header section — the magic, the version, the
-//! counts, and the `metadata_kv_count` key/value pairs that sit at the front of
-//! the file, before any tensor info or tensor data. We never touch tensors, so
-//! the exact same code works on a complete file on disk and on the leading
-//! bytes of a remote file fetched with an HTTP Range request: a too-short
-//! buffer surfaces cleanly as [`GgufError::Truncated`] instead of panicking.
-//!
 //! This is intentionally not a full GGUF library — it reads what Bespoke needs to
 //! display a model's capabilities before download. Format reference: GGUF v2/v3,
 //! little-endian. v1 (32-bit lengths) is not supported; every transcribe-cpp
@@ -14,10 +5,8 @@
 
 use std::collections::HashMap;
 
-/// GGUF magic: the ASCII bytes "GGUF" read as a little-endian u32.
 const GGUF_MAGIC: u32 = 0x4655_4747;
 
-// GGUF metadata value-type tags.
 const T_UINT8: u32 = 0;
 const T_INT8: u32 = 1;
 const T_UINT16: u32 = 2;
@@ -32,16 +21,11 @@ const T_UINT64: u32 = 10;
 const T_INT64: u32 = 11;
 const T_FLOAT64: u32 = 12;
 
-/// Sanity caps so malformed/garbage bytes can't be interpreted as an enormous
-/// allocation or an unbounded "need more bytes" hint. Real ASR model metadata
-/// is comfortably within these.
 const MAX_STRING_LEN: usize = 64 * 1024 * 1024;
 const MAX_ARRAY_LEN: u64 = 16 * 1024 * 1024;
 const MAX_STORED_ARRAY_LEN: u64 = 4096;
 const MAX_KV_COUNT: u64 = 1_000_000;
 
-/// A parsed GGUF metadata value. Only the shapes Bespoke consumes are given
-/// accessors; unrequested values are skipped without materializing them.
 #[derive(Debug, Clone, PartialEq)]
 pub enum GgufValue {
     U8(u8),
@@ -60,7 +44,6 @@ pub enum GgufValue {
 }
 
 impl GgufValue {
-    /// Interpret the value as a string, if it is one.
     pub fn as_str(&self) -> Option<&str> {
         match self {
             GgufValue::String(s) => Some(s.as_str()),
@@ -81,8 +64,6 @@ impl GgufValue {
         }
     }
 
-    /// Interpret the value as an array of strings (e.g. `general.languages`).
-    /// Returns `None` if it isn't an array, or if any element isn't a string.
     pub fn as_string_array(&self) -> Option<Vec<String>> {
         match self {
             GgufValue::Array(items) => items
@@ -94,12 +75,8 @@ impl GgufValue {
     }
 }
 
-/// The parsed front-of-file metadata of a GGUF model. Only the key/value block
-/// is retained — the version is validated during parsing and the tensor count is
-/// skipped, since Bespoke reads capabilities purely from the KV pairs.
 #[derive(Debug, Clone)]
 pub struct GgufMetadata {
-    /// Requested key/value metadata pairs, keyed by their GGUF key.
     pub kv: HashMap<String, GgufValue>,
 }
 
@@ -115,19 +92,11 @@ impl GgufMetadata {
     }
 }
 
-/// Why a parse did not produce metadata.
 #[derive(Debug)]
 pub enum GgufError {
-    /// Not a GGUF file (bad magic).
     NotGguf,
-    /// Unsupported GGUF version (we support v2 and v3).
     UnsupportedVersion(u32),
-    /// The buffer ended before the metadata section was fully parsed. `needed`
-    /// is a lower-bound hint for the total number of bytes to fetch and retry
-    /// with — because element sizes vary, callers should also grow geometrically
-    /// rather than trust this as the exact final size.
     Truncated { needed: usize },
-    /// The bytes were malformed in a way that isn't simple truncation.
     Malformed(&'static str),
 }
 
@@ -145,8 +114,6 @@ impl std::fmt::Display for GgufError {
 }
 impl std::error::Error for GgufError {}
 
-/// A forward-only cursor that reports running off the end as `Truncated`
-/// (carrying how many total bytes were wanted) rather than panicking.
 struct ByteCursor<'a> {
     buf: &'a [u8],
     pos: usize,
@@ -243,8 +210,6 @@ fn read_value(cur: &mut ByteCursor, value_type: u32) -> Result<GgufValue, GgufEr
             if len > MAX_STORED_ARRAY_LEN {
                 return Err(GgufError::Malformed("stored array length too large"));
             }
-            // Don't pre-allocate the claimed length: a truncated buffer can
-            // advertise a huge array it doesn't actually contain.
             let mut items = Vec::with_capacity(len.min(1024) as usize);
             for _ in 0..len {
                 items.push(read_value(cur, elem_type)?);
@@ -302,13 +267,6 @@ fn skip_value(cur: &mut ByteCursor, value_type: u32) -> Result<(), GgufError> {
     }
 }
 
-/// Parse the GGUF metadata header from `bytes`. `bytes` may be the whole file or
-/// just a leading prefix (e.g. an HTTP Range fetch); a prefix too short to hold
-/// the full metadata section returns [`GgufError::Truncated`].
-///
-/// Only keys listed in `wanted_keys` are materialized. Other values are skipped
-/// with checked cursor movement so large tokenizer metadata arrays do not become
-/// Bespoke allocations while probing a few capability fields.
 pub fn parse_header(bytes: &[u8], wanted_keys: &[&str]) -> Result<GgufMetadata, GgufError> {
     let mut cur = ByteCursor::new(bytes);
 
@@ -320,8 +278,6 @@ pub fn parse_header(bytes: &[u8], wanted_keys: &[&str]) -> Result<GgufMetadata, 
     if version != 2 && version != 3 {
         return Err(GgufError::UnsupportedVersion(version));
     }
-    // Tensor count precedes the KV count in the header; read past it (we never
-    // touch tensors) to reach the metadata block.
     cur.u64()?;
     let kv_count = cur.u64()?;
     if kv_count > MAX_KV_COUNT {
@@ -370,7 +326,6 @@ mod tests {
                 out.extend_from_slice(&n.to_le_bytes());
             }
             GgufValue::Array(items) => {
-                // Tests only build string arrays.
                 out.extend_from_slice(&T_ARRAY.to_le_bytes());
                 out.extend_from_slice(&T_STRING.to_le_bytes());
                 out.extend_from_slice(&(items.len() as u64).to_le_bytes());
@@ -387,8 +342,8 @@ mod tests {
     fn build_gguf(kvs: &[(&str, GgufValue)]) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&GGUF_MAGIC.to_le_bytes());
-        out.extend_from_slice(&3u32.to_le_bytes()); // version
-        out.extend_from_slice(&0u64.to_le_bytes()); // tensor_count
+        out.extend_from_slice(&3u32.to_le_bytes());
+        out.extend_from_slice(&0u64.to_le_bytes());
         out.extend_from_slice(&(kvs.len() as u64).to_le_bytes());
         for (k, v) in kvs {
             push_str(&mut out, k);
@@ -457,8 +412,6 @@ mod tests {
     #[test]
     fn stops_after_wanted_keys_without_reading_later_large_arrays() {
         let mut data = build_gguf(&[("general.architecture", GgufValue::String("whisper".into()))]);
-        // Patch kv_count from 1 to 2 and append an enormous, intentionally
-        // truncated array. The parser should stop after the wanted first key.
         data[16..24].copy_from_slice(&2u64.to_le_bytes());
         push_str(&mut data, "tokenizer.ggml.tokens");
         data.extend_from_slice(&T_ARRAY.to_le_bytes());
@@ -473,9 +426,9 @@ mod tests {
     fn skips_unwanted_arrays_without_storing_them() {
         let mut data = Vec::new();
         data.extend_from_slice(&GGUF_MAGIC.to_le_bytes());
-        data.extend_from_slice(&3u32.to_le_bytes()); // version
-        data.extend_from_slice(&0u64.to_le_bytes()); // tensor_count
-        data.extend_from_slice(&2u64.to_le_bytes()); // kv_count
+        data.extend_from_slice(&3u32.to_le_bytes());
+        data.extend_from_slice(&0u64.to_le_bytes());
+        data.extend_from_slice(&2u64.to_le_bytes());
 
         push_str(&mut data, "unwanted.bytes");
         data.extend_from_slice(&T_ARRAY.to_le_bytes());

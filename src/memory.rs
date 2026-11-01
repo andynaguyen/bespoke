@@ -19,12 +19,6 @@
 //! Both entry points are no-ops on non-glibc targets (Windows, macOS, musl):
 //! this failure mode is specific to glibc's dynamic-threshold heuristic.
 
-/// Pin glibc's mmap threshold so large transient buffers keep taking the
-/// mmap path and are returned to the OS as soon as they are freed.
-///
-/// Must run before the workload allocates (called at the top of `run()`);
-/// the cost is an mmap/munmap round-trip per multi-MB buffer, which is
-/// negligible at dictation frequency.
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 pub fn init_allocator() {
     // SAFETY: FFI call with no memory arguments; mallopt only updates
@@ -37,11 +31,6 @@ pub fn init_allocator() {
 #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
 pub fn init_allocator() {}
 
-/// Return freed-but-cached malloc arena memory to the OS.
-///
-/// Called once per finished transcription pipeline (see `FinishGuard`); it
-/// sweeps whatever smaller-than-threshold churn still accumulates in the
-/// arenas. Takes on the order of a millisecond, off the main thread.
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 pub fn trim_freed_memory() {
     // SAFETY: FFI call with no memory arguments; malloc_trim releases whole

@@ -1,10 +1,3 @@
-//! `ui/Dialog.tsx`: a modal panel over a dimmed backdrop. Escape, the close
-//! button and a click on the backdrop all dismiss it.
-//!
-//! On macOS a dialog has a window of its own over the main window
-//! (`ui::popup::DialogWindow`), and the panel sits on glass there. The main
-//! window dims itself under it, so the backdrop here stays clear.
-
 use std::rc::Rc;
 
 use gpui::{
@@ -19,11 +12,8 @@ use crate::ui::theme::{palette, radius, shadow_xl, Alpha};
 
 type CloseHandler = Rc<dyn Fn(&mut Window, &mut App)>;
 
-/// Key context of an open dialog; Tab is rebound inside it.
 pub const DIALOG_CONTEXT: &str = "BespokeDialog";
 
-/// Moves focus to the next or previous tab stop inside `trap`, wrapping
-/// around, the way `Dialog.tsx` keeps Tab inside the dialog.
 fn cycle_focus(trap: &FocusHandle, forward: bool, window: &mut Window, cx: &mut App) {
     // GPUI walks tab stops across the whole window; keep stepping until one
     // lands inside the dialog. The bound covers every stop in the window.
@@ -50,8 +40,6 @@ pub struct Dialog {
 }
 
 impl Dialog {
-    /// `focus` should be focused while the dialog is open, so Escape reaches
-    /// it; pass the focus handle of the first input when there is one.
     pub fn new(
         title: impl Into<SharedString>,
         focus: FocusHandle,

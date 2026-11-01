@@ -8,9 +8,6 @@ private struct CleanedTranscript: Sendable {
     let cleanedText: String
 }
 
-// MARK: - Swift implementation for Apple LLM integration
-// This file is compiled via Cargo build script for Apple Silicon targets
-
 private typealias ResponsePointer = UnsafeMutablePointer<AppleLLMResponse>
 
 private func duplicateCString(_ text: String) -> UnsafeMutablePointer<CChar>? {
@@ -79,7 +76,6 @@ public func processTextWithSystemPrompt(
     let tokenLimit = max(0, Int(maxTokens))
     let semaphore = DispatchSemaphore(value: 0)
 
-    // Thread-safe container to pass results from async task back to calling thread
     final class ResultBox: @unchecked Sendable {
         var response: String?
         var error: String?
@@ -117,7 +113,6 @@ public func processTextWithSystemPrompt(
 
     semaphore.wait()
 
-    // Write to responsePtr on the calling thread after task completes
     if let response = box.response {
         responsePtr.pointee.response = duplicateCString(response)
         responsePtr.pointee.success = 1

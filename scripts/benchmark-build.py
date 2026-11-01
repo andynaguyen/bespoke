@@ -14,10 +14,8 @@ import sys
 import tempfile
 import time
 
-
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -31,7 +29,6 @@ def main():
     )
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    # Recorded results touch this module. Keep it so new runs stay comparable.
     touch_source = root / "src/startup.rs"
     if not touch_source.is_file():
         parser.error(f"missing source file: {touch_source}")
@@ -44,7 +41,6 @@ def main():
     target = Path(tempfile.mkdtemp(prefix="build-", dir=builds))
     cargo_config = root / ".cargo/config.toml"
     env = os.environ.copy()
-    # Cache hits in a compiler wrapper must not masquerade as faster compilation.
     for key in ("RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"):
         env.pop(key, None)
     env["CARGO_TARGET_DIR"] = str(target)
@@ -113,7 +109,6 @@ def main():
                 and len(binaries) == 1
                 and (mode != "clean" or len(compiled) >= 100)
             )
-            # valid stays false until the binary also passes the CLI smoke check.
             sample = {
                 "seconds": elapsed,
                 "exit_code": completed.returncode,
@@ -147,7 +142,6 @@ def main():
     finally:
         if not args.keep_target:
             shutil.rmtree(target)
-
 
 if __name__ == "__main__":
     main()

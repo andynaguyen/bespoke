@@ -2,6 +2,14 @@ use crate::app_handle::AppHandle;
 use enigo::{Enigo, Key, Keyboard, Mouse, Settings};
 use std::sync::Mutex;
 
+#[cfg(target_os = "windows")]
+const VK_V: u32 = 0x56;
+#[cfg(target_os = "windows")]
+const VK_INSERT: u32 = 0x2D;
+/// X11 keycode 118, Insert.
+#[cfg(not(target_os = "windows"))]
+const XK_INSERT_KEYCODE: u32 = 0x76;
+
 #[cfg(target_os = "macos")]
 mod macos {
     use super::Key;
@@ -12,9 +20,6 @@ mod macos {
     type CfDataRef = *const c_void;
     type CfStringRef = *const c_void;
 
-    // kVK_ANSI_V. This is the behavior Bespoke used before layout-aware
-    // resolution and remains the safest fallback if macOS cannot expose the
-    // active layout.
     const ANSI_V_KEYCODE: u16 = 9;
     const KEYCODE_COUNT: u16 = 128;
     const UC_KEY_ACTION_DISPLAY: u16 = 3;
@@ -146,8 +151,6 @@ mod macos {
     }
 }
 
-/// Wrapper for Enigo to store in Tauri's managed state.
-/// Enigo is wrapped in a Mutex since it requires mutable access.
 pub struct EnigoState(pub Mutex<Enigo>);
 
 impl EnigoState {
@@ -158,18 +161,12 @@ impl EnigoState {
     }
 }
 
-/// Get the current mouse cursor position using the managed Enigo instance.
-/// Returns None if the state is not available or if getting the location fails.
 pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
     let enigo_state = app_handle.try_state::<EnigoState>()?;
     let enigo = enigo_state.0.lock().ok()?;
     enigo.location().ok()
 }
 
-/// Sends a Ctrl+V or Cmd+V paste command using platform-specific virtual key codes.
-/// This ensures the paste works regardless of keyboard layout (e.g., Russian, AZERTY, DVORAK).
-/// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
-///
 /// `hold_ms` is how long the modifier stays held after the V click before being
 /// released. Most applications read the modifier from the V event's flags and
 /// need no hold at all, but applications that poll global keyboard state when
@@ -180,21 +177,15 @@ pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> 
     send_paste_chord(enigo, false, hold_ms)
 }
 
-/// Sends a Ctrl+Shift+V paste command.
-/// This is commonly used in terminal applications on Linux to paste without formatting.
-/// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
 pub fn send_paste_ctrl_shift_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
     send_paste_chord(enigo, true, hold_ms)
 }
 
-/// Presses the platform paste modifier (and Shift when `shift` is set),
-/// clicks V, holds for `hold_ms`, then releases in reverse order.
 fn send_paste_chord(enigo: &mut Enigo, shift: bool, hold_ms: u64) -> Result<(), String> {
-    // Platform-specific key definitions
     #[cfg(target_os = "macos")]
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
     #[cfg(target_os = "windows")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Other(0x56)); // VK_V
+    let (modifier_key, v_key_code) = (Key::Control, Key::Other(VK_V));
     #[cfg(target_os = "linux")]
     let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
 
@@ -224,16 +215,12 @@ fn send_paste_chord(enigo: &mut Enigo, shift: bool, hold_ms: u64) -> Result<(), 
     Ok(())
 }
 
-/// Sends a Shift+Insert paste command (Windows and Linux only).
-/// This is more universal for terminal applications and legacy software.
-/// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
 pub fn send_paste_shift_insert(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
     #[cfg(target_os = "windows")]
-    let insert_key_code = Key::Other(0x2D); // VK_INSERT
+    let insert_key_code = Key::Other(VK_INSERT);
     #[cfg(not(target_os = "windows"))]
-    let insert_key_code = Key::Other(0x76); // XK_Insert (keycode 118 / 0x76, also used as fallback)
+    let insert_key_code = Key::Other(XK_INSERT_KEYCODE);
 
-    // Press Shift + Insert
     enigo
         .key(Key::Shift, enigo::Direction::Press)
         .map_err(|e| format!("Failed to press Shift key: {}", e))?;
@@ -250,8 +237,6 @@ pub fn send_paste_shift_insert(enigo: &mut Enigo, hold_ms: u64) -> Result<(), St
     Ok(())
 }
 
-/// Pastes text directly using the enigo text method.
-/// This tries to use system input methods if possible, otherwise simulates keystrokes one by one.
 pub fn paste_text_direct(enigo: &mut Enigo, text: &str) -> Result<(), String> {
     enigo
         .text(text)

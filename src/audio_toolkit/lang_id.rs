@@ -1,28 +1,7 @@
-//! Confidence-gated text-based language identification.
-//!
-//! Last-resort evidence for filler-word removal when neither the user's
-//! language selection nor the transcription model identifies the output
-//! language. Detection is constrained to the languages the active model can
-//! produce and fails closed: any doubt returns `None`, which callers treat as
-//! an unknown output language.
-
 use whatlang::{Detector, Lang};
 
-/// Minimum whatlang confidence (0.0–1.0) to accept a detection, on top of
-/// whatlang's own `is_reliable()` heuristic. A wrong accepted language can
-/// reintroduce real-word deletion (e.g. Portuguese "um"), so the gate is
-/// deliberately strict: calibrated on ~8k short Tatoeba sentences across the
-/// 16 filler-profile languages, `is_reliable() && confidence >= 0.9` fires on
-/// ~66% of sentences with 99.9% accuracy (script-distinct languages ~100%,
-/// Latin-script languages 22–64%). Missed detections merely skip gated filler
-/// removal; the universal tier still applies.
 const MIN_CONFIDENCE: f64 = 0.9;
 
-/// Converts a model language code to whatlang's ISO 639-3 enum.
-///
-/// Model metadata may use ISO 639-1, ISO 639-3, or BCP-47-style regional and
-/// script tags. Filler profiles only care about the primary language, so
-/// `pt-BR`/`PT_br` normalize to `pt` and `zh-Hant` normalizes to `zh`.
 /// Whatlang represents Mandarin as `cmn`, which has no ISO 639-1 form.
 fn whatlang_lang_for_model_code(code: &str) -> Option<Lang> {
     let primary = code
@@ -51,9 +30,6 @@ fn iso639_1_for_whatlang(lang: Lang) -> Option<&'static str> {
     }
 }
 
-/// Detects the language of transcribed text, constrained to the languages the
-/// model can output. Returns an ISO 639-1 code only for a reliable,
-/// high-confidence detection; `None` otherwise.
 pub fn detect_output_language(text: &str, supported_languages: &[String]) -> Option<String> {
     // Codes whatlang cannot represent (e.g. Maltese in Parakeet V3's list,
     // Cantonese in SenseVoice's) are dropped rather than disabling detection
@@ -67,11 +43,8 @@ pub fn detect_output_language(text: &str, supported_languages: &[String]) -> Opt
         .collect();
 
     let detector = if supported_languages.is_empty() {
-        // No published metadata means no constraint, not no detection.
         Detector::new()
     } else if allowlist.is_empty() {
-        // Metadata exists but none of it is representable: any detection
-        // would name a language the model cannot output.
         return None;
     } else {
         Detector::with_allowlist(allowlist)
@@ -127,8 +100,6 @@ mod tests {
 
     #[test]
     fn unmappable_codes_are_dropped_not_fatal() {
-        // SenseVoice lists Cantonese (`yue`), which whatlang cannot represent;
-        // detection must still work for the representable languages.
         let detected = detect_output_language(
             "um so the weather forecast said it would probably rain throughout the whole weekend",
             &langs(&["zh", "yue", "en", "ja", "ko"]),
@@ -138,8 +109,6 @@ mod tests {
 
     #[test]
     fn parakeet_v3_language_list_still_detects() {
-        // Parakeet V3's metadata includes Maltese (`mt`), unrepresentable in
-        // whatlang; the remaining 24 languages must stay detectable.
         let parakeet_v3 = langs(&[
             "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv",
             "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk",
@@ -153,8 +122,6 @@ mod tests {
 
     #[test]
     fn fully_unmappable_metadata_fails_closed() {
-        // If nothing the model outputs is representable, any answer would name
-        // a language the model cannot produce.
         let text = "eu vi um carro na rua ontem de manhã quando fui ao mercado";
         assert_eq!(detect_output_language(text, &langs(&["yue"])), None);
     }

@@ -1,12 +1,3 @@
-//! `ui/Dropdown.tsx`: a button showing the selected label that opens a menu
-//! under it. The menu matches the trigger's width unless a width is set, and
-//! closes on any click outside it.
-//!
-//! In the main window the menu is a glass popup (`ui::popup`), which never
-//! takes keyboard focus, so the keyboard stays on the trigger: the arrow keys
-//! move through the options, Enter or Space picks one, and Escape or Tab
-//! closes the menu.
-
 use std::rc::Rc;
 
 use gpui::{
@@ -53,7 +44,6 @@ struct DropdownState {
     open: bool,
     trigger: Bounds<Pixels>,
     trigger_focus: FocusHandle,
-    /// The option the arrow keys are on while the menu is open.
     highlight: Option<usize>,
 }
 
@@ -113,15 +103,11 @@ impl Dropdown {
         self
     }
 
-    /// Runs when the menu opens (the React `onRefresh`), e.g. to reload
-    /// device lists.
     pub fn on_open(mut self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_open = Some(Rc::new(handler));
         self
     }
 
-    /// A fixed menu width aligned to the trigger's end edge
-    /// (`menuClassName="right-0 w-80"`).
     pub fn menu_end_aligned(mut self, width: Rems) -> Self {
         self.menu_width = Some(width);
         self.menu_align_end = true;
@@ -137,11 +123,8 @@ impl Styled for Dropdown {
 
 type PickHandler = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 
-/// The menu's corner radius.
 const MENU_RADIUS: f32 = 14.;
 
-/// The next enabled option after `from`, or before it when `forward` is
-/// false. Stops at the ends, like a macOS menu.
 fn step(options: &[DropdownOption], from: Option<usize>, forward: bool) -> Option<usize> {
     let mut enabled = options
         .iter()
@@ -157,8 +140,6 @@ fn step(options: &[DropdownOption], from: Option<usize>, forward: bool) -> Optio
     next.or(from)
 }
 
-/// The menu's rows. `route` runs picks against the main window, for a menu
-/// drawn in a popup window.
 fn menu_items(
     id: &ElementId,
     options: &[DropdownOption],
@@ -242,7 +223,6 @@ impl RenderOnce for Dropdown {
         let trigger_focus = state.read(cx).trigger_focus.clone();
         let focus = FocusVisible::ring(cx);
         let options = Rc::new(self.options);
-        // The option the keyboard lands on when the menu opens.
         let first = options
             .iter()
             .position(|o| Some(&o.value) == self.selected.as_ref() && !o.disabled)
@@ -316,8 +296,6 @@ impl RenderOnce for Dropdown {
                     .when(open, |svg| svg.rotate(gpui::percentage(0.5))),
             )
             .when(disabled, |el| el.opacity(0.5).cursor_not_allowed())
-            // Clicks in the popup never reach this window, so any click that
-            // does, outside the trigger, closes the menu.
             .when(open && in_popup, |el| {
                 let close = set_open.clone();
                 el.on_mouse_down_out(move |_, window, cx| close(false, None, window, cx))
@@ -364,7 +342,6 @@ impl RenderOnce for Dropdown {
                                 cx.stop_propagation();
                                 key_open(false, None, window, cx);
                             }
-                            // Closes and lets Tab move on.
                             "tab" if is_open => key_open(false, None, window, cx),
                             _ => {}
                         }
@@ -406,7 +383,6 @@ impl RenderOnce for Dropdown {
                     interactive: true,
                 };
                 crate::ui::popup::anchor("dropdown-menu", spec, move |_, cx| {
-                    // The glass stays put while the rows scroll.
                     crate::ui::popup::surface("dropdown-menu", px(MENU_RADIUS))
                         .w_full()
                         .child(

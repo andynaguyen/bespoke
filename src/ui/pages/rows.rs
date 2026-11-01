@@ -1,6 +1,3 @@
-//! Setting rows without local state, shared by the Settings and Debug pages.
-//! Each mirrors one component in `src/components/settings/`.
-
 use gpui::{div, prelude::*, rems, AnyElement, App, FontWeight, SharedString};
 
 use crate::app_handle::AppHandle;
@@ -18,8 +15,6 @@ use crate::ui::components::{
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::palette;
 
-/// Writes one setting through the store: applied locally at once, persisted
-/// by `command` on a worker thread.
 pub fn set(
     cx: &mut App,
     key: &'static str,
@@ -33,7 +28,6 @@ fn store(cx: &App) -> &SettingsStore {
     SettingsStore::global(cx).read(cx)
 }
 
-/// A switch row bound to one boolean setting.
 pub fn toggle(
     key: &'static str,
     title: &str,
@@ -48,7 +42,6 @@ pub fn toggle(
         .into_any_element()
 }
 
-/// A dropdown row bound to one setting.
 pub fn dropdown(
     key: &'static str,
     title: &str,
@@ -117,7 +110,6 @@ pub fn shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// Device options with "Default" first, as the React selectors list them.
 fn device_options(devices: &[AudioDevice]) -> Vec<DropdownOption> {
     devices
         .iter()
@@ -132,8 +124,6 @@ fn device_selected(value: &Option<String>) -> SharedString {
     }
 }
 
-/// `"Default"` is stored as `"default"`, which the backend treats as the
-/// system device.
 fn device_value(name: &str) -> String {
     if name == "Default" {
         "default".into()
@@ -236,8 +226,6 @@ pub fn clamshell_microphone(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-/// One audio device setting. `id` is also the settings key, and the
-/// strings are translation keys.
 struct DeviceRow<'a> {
     id: &'static str,
     reset_id: &'static str,
@@ -247,14 +235,10 @@ struct DeviceRow<'a> {
     placeholder: &'static str,
     devices: &'a [AudioDevice],
     selected: &'a Option<String>,
-    /// Greys out the whole row.
     disabled: bool,
-    /// Reloads `devices` when the menu opens.
     refresh: fn(&mut SettingsStore, &mut gpui::Context<SettingsStore>),
 }
 
-/// A device dropdown with a reset button. `select` saves a device name,
-/// `"Default"` included.
 fn device_row(
     row: DeviceRow,
     select: impl Fn(String, &mut App) + Clone + 'static,
@@ -445,8 +429,6 @@ pub fn paste_method_options(current: PasteMethod) -> Vec<DropdownOption> {
             &[("modifier", &modifier)],
         ),
     )];
-    // Direct typing is unsupported on macOS; it stays listed (disabled) only
-    // when an older install still has it selected.
     if !mac || current == PasteMethod::Direct {
         options.push(
             DropdownOption::new("direct", t("settings.advanced.pasteMethod.options.direct"))
@@ -666,7 +648,6 @@ pub fn theme(s: &AppSettings, cx: &App) -> AnyElement {
                 "dark" => Theme::Dark,
                 _ => Theme::System,
             };
-            // Repaint right away, before the write lands.
             crate::ui::theme::apply_theme_setting(theme, cx);
             let value = value.to_string();
             set(
@@ -884,7 +865,6 @@ pub fn show_whats_new(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-/// The running version, and Update or Check Now (`crate::updater`).
 pub fn update_status() -> AnyElement {
     let version = env!("CARGO_PKG_VERSION");
     let enabled = crate::updater::is_enabled();
@@ -923,7 +903,6 @@ pub fn update_status() -> AnyElement {
         .into_any_element()
 }
 
-/// Whether Sparkle checks once a day. Sparkle stores the choice itself.
 pub fn automatic_updates() -> AnyElement {
     ToggleSwitchRow::new(
         "automatic_updates",
@@ -1078,9 +1057,6 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-/// App data or log directory with an Open button. `AppDataDirectory.tsx`
-/// replaces the whole row with its error box; `LogDirectory.tsx` keeps the
-/// title and shows the error in place of the path.
 pub fn directory_row(
     title: &str,
     description: &str,
@@ -1130,8 +1106,6 @@ pub fn directory_row(
         .child(body)
         .into_any_element()
 }
-
-// ---- Debug page rows -------------------------------------------------------
 
 pub fn log_level(s: &AppSettings, cx: &App) -> AnyElement {
     let selected = match s.log_level {
@@ -1452,7 +1426,6 @@ pub fn recording_retention(s: &AppSettings, cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-/// A small header label used above groups of controls, e.g. "Prompt Label".
 pub fn field_label(text: SharedString) -> impl IntoElement {
     div()
         .sm_text()

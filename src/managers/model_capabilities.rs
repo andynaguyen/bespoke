@@ -1,21 +1,3 @@
-//! Model capability probing — the seam between Bespoke's model UI and "what can
-//! this GGUF actually do".
-//!
-//! Capabilities are canonical *in the GGUF itself*: transcribe-cpp reads them
-//! from the model's metadata at load time, and the runtime reconciles the
-//! registry against that ground truth once a model is loaded — streaming,
-//! translation, language detection, and the supported-language set (see
-//! [`crate::managers::model::ModelManager::set_runtime_capabilities`]). This
-//! module covers the other half — reading the same values from the GGUF header
-//! *before* download, so search/listing can show them honestly ahead of a load.
-//!
-//! Everything goes through the [`CapabilityProber`] trait. Today the only
-//! implementation, [`GgufHeaderProber`], parses a local GGUF's header directly
-//! via [`crate::managers::gguf_meta`]. If transcribe-cpp later exposes a
-//! metadata-only probe (covering parakeet-style *inferred* streaming and legacy
-//! `.bin`), a `TranscribeCppProber` can be dropped in behind this same trait
-//! without touching any caller.
-
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -49,7 +31,6 @@ pub const KNOWN_ARCHES: &[&str] = &[
     "sortformer",
 ];
 
-// GGUF metadata keys transcribe-cpp writes for ASR models.
 const KEY_ARCH: &str = "general.architecture";
 const KEY_NAME: &str = "general.name";
 const KEY_VARIANT: &str = "stt.variant";
@@ -67,48 +48,29 @@ const PROBE_KEYS: &[&str] = &[
     KEY_CAP_LANG_DETECT,
 ];
 
-/// How confident we are that Bespoke can run a given model, judged from its GGUF
-/// header alone (pre-download).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Compatibility {
-    /// Parsed as GGUF and the architecture is one transcribe-cpp ships.
     Compatible,
-    /// Parsed as GGUF, but the architecture is unknown to us — might work.
     MaybeIncompatible,
-    /// Not a GGUF we can use (bad magic, unsupported version, malformed).
     Unsupported,
-    /// We haven't looked yet.
     #[default]
     Unknown,
 }
 
-/// Capabilities surfaced in the model UI. Every field is optional on purpose:
-/// `None` means "not known yet" — a community model whose header omits the key,
-/// or a field (parakeet streaming) the header parse can't determine. The UI
-/// renders that honestly as unknown, and the runtime fills it in for real once
-/// the model is loaded.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CapabilityProbe {
     pub verdict: Compatibility,
-    /// `general.name`, when present.
     pub display_name: Option<String>,
-    /// `general.architecture`, when present.
     pub architecture: Option<String>,
-    /// `stt.variant`, when present.
     pub variant: Option<String>,
-    /// `general.languages` — transcribable language codes.
     pub languages: Option<Vec<String>>,
-    /// `stt.capability.streaming` — native live-streaming support.
     pub supports_streaming: Option<bool>,
-    /// `stt.capability.translate` — translation to English.
     pub supports_translation: Option<bool>,
-    /// `stt.capability.lang_detect` — automatic language detection.
     pub supports_language_detect: Option<bool>,
 }
 
 impl CapabilityProbe {
-    /// A probe for something we definitively could not read as a usable GGUF.
     pub fn unsupported() -> Self {
         CapabilityProbe {
             verdict: Compatibility::Unsupported,
@@ -116,8 +78,6 @@ impl CapabilityProbe {
         }
     }
 
-    /// Build a probe from parsed GGUF metadata.
-    ///
     /// Streaming for the parakeet family is *inferred* by transcribe-cpp's
     /// native loader from encoder hparams rather than a flat bool, so when the
     /// explicit `stt.capability.streaming` key is absent we leave it `None`
@@ -141,16 +101,10 @@ impl CapabilityProbe {
     }
 }
 
-/// Reads model capabilities from a local GGUF's header. See the module docs for
-/// the substitution story (`GgufHeaderProber` now, a transcribe-cpp-backed
-/// prober later).
 pub trait CapabilityProber: Send + Sync {
-    /// Probe a GGUF already on disk (custom-dir + HF-cache scans, post-download).
     fn probe_file(&self, path: &Path) -> CapabilityProbe;
 }
 
-/// Pure-Rust prober backed by [`crate::managers::gguf_meta`]. The default and,
-/// for the foreseeable future, only implementation.
 pub struct GgufHeaderProber;
 
 impl CapabilityProber for GgufHeaderProber {
@@ -162,19 +116,15 @@ impl CapabilityProber for GgufHeaderProber {
     }
 }
 
-/// Read just enough of `path` to parse its GGUF metadata header, without ever
-/// loading the (potentially multi-GB) tensor data. Grows the prefix
-/// geometrically if a header is unusually large.
 fn read_header_metadata(path: &Path) -> Result<GgufMetadata, GgufError> {
     // The KV metadata block precedes the tensor-info table. Shipping ASR models
     // place all of it well within the first 64 KiB, so that's the common-case
     // read. Older / community GGUFs may carry it deeper, so the loop grows the
     // prefix geometrically (jumping straight to the size the parser reports it
     // needs) up to a hard cap.
-    const INITIAL_PREFIX: usize = 64 << 10; // 64 KiB
-    const MAX_PREFIX: usize = 16 << 20; // 16 MiB
+    const INITIAL_PREFIX: usize = 64 << 10;
+    const MAX_PREFIX: usize = 16 << 20;
 
-    /// Read up to `size` bytes from the start of `path`, tolerating short reads.
     fn read_prefix(path: &Path, size: usize) -> std::io::Result<Vec<u8>> {
         use std::io::Read;
         let mut file = std::fs::File::open(path)?;
@@ -200,7 +150,6 @@ fn read_header_metadata(path: &Path) -> Result<GgufMetadata, GgufError> {
             Ok(meta) => return Ok(meta),
             Err(GgufError::Truncated { needed }) => {
                 if read_len < size {
-                    // Hit EOF and still truncated → file shorter than its header.
                     return Err(GgufError::Malformed("file shorter than its header"));
                 }
                 let next = needed.max(size.saturating_mul(2)).min(MAX_PREFIX);
@@ -251,7 +200,6 @@ mod tests {
         assert_eq!(probe.architecture.as_deref(), Some("parakeet"));
         assert_eq!(probe.supports_streaming, Some(true));
         assert_eq!(probe.languages, Some(vec!["en".to_string()]));
-        // Absent key stays unknown rather than defaulting to false.
         assert_eq!(probe.supports_translation, None);
     }
 

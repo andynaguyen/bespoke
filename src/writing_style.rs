@@ -1,9 +1,5 @@
-//! Per-app writing styles applied to dictated text before it's pasted.
-
 use crate::settings::{AppStyleRule, WritingStyle};
 
-/// Style for a dictation started in the app with `bundle_id`. Apps without a
-/// rule, and platforms where the app is unknown, get `Formal`.
 pub fn style_for_app(rules: &[AppStyleRule], bundle_id: Option<&str>) -> WritingStyle {
     let Some(bundle_id) = bundle_id else {
         return WritingStyle::Formal;
@@ -14,15 +10,6 @@ pub fn style_for_app(rules: &[AppStyleRule], bundle_id: Option<&str>) -> Writing
         .map_or(WritingStyle::Formal, |rule| rule.style)
 }
 
-/// Formats `text` in `style`.
-///
-/// - Formal returns the text unchanged.
-/// - Casual removes commas (except inside numbers like "1,000") and drops one
-///   trailing period. `?`, `!`, `...`, and periods between sentences stay.
-/// - Very casual also lowercases the first letter of each sentence (acronyms
-///   like "API" excepted) and the pronoun "I" and its contractions anywhere,
-///   and drops apostrophes inside words ("don't" -> "dont") except in
-///   [`KEPT_CONTRACTIONS`].
 pub fn apply_style(text: &str, style: WritingStyle) -> String {
     if style == WritingStyle::Formal {
         return text.to_string();
@@ -49,13 +36,11 @@ pub fn apply_style(text: &str, style: WritingStyle) -> String {
             }
             styled.push(c);
         } else if c == ',' && !is_digit_group_separator(prev, next) {
-            // "a , b" would otherwise become "a  b"
             let spaced_before = styled.is_empty() || styled.ends_with(char::is_whitespace);
             if spaced_before && matches!(next, Some(' ' | '\t')) {
                 chars.next();
             }
         } else if very_casual && is_droppable_apostrophe(body, index, prev, next) {
-            // "don't" -> "dont"
         } else {
             let rest = &body[index..];
             let lowercase = very_casual
@@ -74,8 +59,6 @@ pub fn apply_style(text: &str, style: WritingStyle) -> String {
     styled
 }
 
-/// Contractions that read as a different word without the apostrophe ("we'll"
-/// vs "well"), so Very casual keeps it.
 const KEPT_CONTRACTIONS: [&str; 8] = [
     "we'll", "we're", "i'll", "he'll", "she'll", "i'd", "she'd", "we'd",
 ];
@@ -84,8 +67,6 @@ fn is_apostrophe(c: char) -> bool {
     matches!(c, '\'' | '\u{2019}')
 }
 
-/// Whether the apostrophe at `index` sits between two letters in a word that
-/// isn't one of [`KEPT_CONTRACTIONS`]. Quote marks at word edges don't count.
 fn is_droppable_apostrophe(
     body: &str,
     index: usize,
@@ -116,12 +97,10 @@ fn is_droppable_apostrophe(
     !KEPT_CONTRACTIONS.contains(&word.trim_matches('\''))
 }
 
-/// A comma between two digits, as in "1,000".
 fn is_digit_group_separator(prev: Option<char>, next: Option<char>) -> bool {
     prev.is_some_and(|c| c.is_ascii_digit()) && next.is_some_and(|c| c.is_ascii_digit())
 }
 
-/// Whether the word at the start of `word` should lose its capital letter.
 fn should_lowercase(word: &str) -> bool {
     let mut chars = word.chars();
     let Some(first) = chars.next() else {
@@ -130,12 +109,9 @@ fn should_lowercase(word: &str) -> bool {
     if !first.is_uppercase() {
         return false;
     }
-    // Acronyms like "API" or "NASA"
     !chars.next().is_some_and(char::is_uppercase)
 }
 
-/// Whether `rest` starts with the whole word "I", "I'm", "I'll", "I've", or
-/// "I'd" (straight or curly apostrophe). `prev` is the character before it.
 fn is_pronoun_i(prev: Option<char>, rest: &str) -> bool {
     if prev.is_some_and(char::is_alphanumeric) {
         return false;
@@ -221,7 +197,6 @@ mod tests {
     #[test]
     fn very_casual_only_lowercases_sentence_starts() {
         assert_eq!(very_casual("Meet Sarah in Paris."), "meet Sarah in Paris");
-        // A period not followed by whitespace doesn't end a sentence
         assert_eq!(very_casual("Version 2.Five"), "version 2.Five");
     }
 
@@ -247,7 +222,6 @@ mod tests {
             very_casual("We saw Italy and IBM. It was fun."),
             "we saw Italy and IBM. it was fun"
         );
-        // Neither a standalone "I" nor one of its contractions
         assert_eq!(very_casual("Say 'I' twice, or I's."), "say 'I' twice or Is");
     }
 

@@ -1,7 +1,6 @@
 use crate::types::{Key, Modifiers};
 use objc2_core_graphics::CGEventFlags;
 
-/// macOS virtual key code type
 pub type CGKeyCode = u16;
 
 // macOS virtual key codes from Carbon/HIToolbox/Events.h
@@ -136,7 +135,6 @@ mod keycodes {
     pub const DICTATION: u16 = 0xB0;
 }
 
-/// Convert a macOS virtual keycode to a Key enum
 pub fn keycode_to_key(keycode: CGKeyCode) -> Option<Key> {
     match keycode {
         keycodes::A => Some(Key::A),
@@ -252,7 +250,6 @@ pub fn keycode_to_key(keycode: CGKeyCode) -> Option<Key> {
     }
 }
 
-/// Convert a modifier keycode to the corresponding side-specific Modifier flag
 pub fn keycode_to_modifier(keycode: CGKeyCode) -> Option<Modifiers> {
     match keycode {
         keycodes::COMMAND => Some(Modifiers::CMD_LEFT),
@@ -277,7 +274,6 @@ pub fn flags_have_fn(flags: CGEventFlags) -> bool {
     flags.contains(CGEventFlags::MaskSecondaryFn)
 }
 
-/// Check whether CGEventFlags indicate the alpha-shift (Caps Lock) state.
 pub fn flags_have_alpha_shift(flags: CGEventFlags) -> bool {
     flags.contains(CGEventFlags::MaskAlphaShift)
 }

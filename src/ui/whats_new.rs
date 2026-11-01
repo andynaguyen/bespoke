@@ -1,6 +1,3 @@
-//! "What's New" after an update (`whats-new/`): the bundled release note for
-//! the newest version not seen yet, shown once in a dialog.
-
 use std::ops::Range;
 
 use gpui::{
@@ -45,8 +42,6 @@ fn notes() -> impl Iterator<Item = ReleaseNote> {
     })
 }
 
-/// The newest bundled note at or below `current` and above `last_seen` (when
-/// `last_seen` is a version).
 pub fn release_note_to_show(current: &str, last_seen: &str) -> Option<ReleaseNote> {
     newest_unseen(notes(), current, last_seen)
 }
@@ -67,12 +62,10 @@ fn newest_unseen(
         .max_by_key(|note| parse_version(&note.version))
 }
 
-/// The newest bundled note, for the debug preview.
 pub fn latest_release_note() -> Option<ReleaseNote> {
     notes().max_by_key(|note| parse_version(&note.version))
 }
 
-/// Opens the dialog. `mark_seen` records the version as seen on dismiss.
 pub fn open_modal(note: ReleaseNote, mark_seen: bool, window: &mut Window, cx: &mut App) {
     open_dialog(window, cx, move |window, cx| {
         cx.new(|cx| WhatsNewModal::new(note, mark_seen, window, cx))
@@ -80,12 +73,7 @@ pub fn open_modal(note: ReleaseNote, mark_seen: bool, window: &mut Window, cx: &
     });
 }
 
-/// Opens the newest unseen release note while "show What's New" is on, like
-/// `WhatsNewGate.tsx`. It re-checks whenever settings change, so turning the
-/// setting on shows a pending note at once.
 pub struct WhatsNewGate {
-    /// The note this session already opened. Dismissing marks it seen, and
-    /// this keeps it closed even if saving that fails.
     shown: Option<String>,
     _settings: Subscription,
 }
@@ -182,8 +170,6 @@ impl Render for WhatsNewModal {
     }
 }
 
-// ---- Markdown ----------------------------------------------------------------
-
 #[derive(Clone, Default, Debug)]
 struct Inline {
     text: String,
@@ -215,12 +201,10 @@ enum Block {
     },
 }
 
-/// Only http(s) and mailto links open; anything else renders as text.
 fn is_safe_url(url: &str) -> bool {
     url.starts_with("http://") || url.starts_with("https://") || url.starts_with("mailto:")
 }
 
-/// Images must be bundled release-note images.
 fn is_safe_image(src: &str) -> bool {
     src.starts_with("/release-notes/") && !src.contains("..") && !src.contains('\\')
 }
@@ -307,7 +291,6 @@ fn parse_markdown(markdown: &str) -> Vec<Block> {
                     });
                     inline = Some(Inline::default());
                 }
-                // Alt text is dropped; GPUI images have no alt rendering.
                 span.code = false;
             }
             Event::End(TagEnd::Image) => {
@@ -469,7 +452,6 @@ fn render_block(block: &Block, index: usize, cx: &App) -> AnyElement {
             }))
             .into_any_element(),
         Block::Quote(blocks) => div()
-            // `border-s-2 ps-3`.
             .when(crate::i18n::is_rtl(), |el| el.border_r_2())
             .when(!crate::i18n::is_rtl(), |el| el.border_l_2())
             .border_color(p.accent.a(0.5))

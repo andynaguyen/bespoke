@@ -1,7 +1,3 @@
-//! `ui/Slider.tsx`: a setting row with a range track, the formatted value
-//! and an optional reset button. Dragging reports every step, like the
-//! React `onChange`.
-
 use std::rc::Rc;
 
 use gpui::{
@@ -13,7 +9,6 @@ use super::RowDirection;
 use super::{misc::reset_button, KeyboardFocus, SettingContainer, Typography};
 use crate::ui::theme::{palette, shadow, Alpha};
 
-/// The WebKit default width of `<input type="range">`.
 const TRACK_WIDTH: f32 = 129.;
 const THUMB: f32 = 16.;
 
@@ -90,7 +85,6 @@ impl Slider {
     }
 }
 
-/// Maps a window x position to a stepped value inside the track.
 fn value_at(x: Pixels, track: Bounds<Pixels>, min: f32, max: f32, step: f32) -> f32 {
     let usable = (track.size.width - px(THUMB)).max(px(1.));
     let fraction = ((x - track.left() - px(THUMB / 2.)) / usable).clamp(0., 1.);
@@ -99,8 +93,6 @@ fn value_at(x: Pixels, track: Bounds<Pixels>, min: f32, max: f32, step: f32) -> 
     stepped.clamp(min, max)
 }
 
-/// The value a key press moves to, like `<input type="range">`: arrows step,
-/// Page Up/Down move a tenth of the range, Home and End jump to the ends.
 fn value_for_key(key: &str, value: f32, min: f32, max: f32, step: f32) -> Option<f32> {
     let page = ((max - min) / 10.).max(step);
     let next = match key {

@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Build Bespoke for macOS, wrap it in Bespoke.app, sign it, and replace
-# /Applications/Bespoke.app with it.
-#
-# Signs with $BESPOKE_SIGNING_IDENTITY (default "Bespoke Local Signing", made
-# by scripts/create-signing-identity.sh). A stable identity keeps the
-# Accessibility grant across reinstalls. Pass --no-build to reinstall the last
-# build without rebuilding. The app doesn't embed Sparkle, so it never updates
-# itself; scripts/release.sh builds the copy you share.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

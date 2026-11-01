@@ -1,16 +1,6 @@
-//! macOS reliable paste.
-//!
-//! Publishes the transcript with `declareTypes:owner:`, which puts a *promise*
-//! on the general pasteboard instead of data. When any consumer actually
-//! requests the text, AppKit calls `pasteboard:provideDataForType:` on our
-//! owner object — that callback is the read receipt. The previous clipboard is
-//! restored once receipts go quiet (see `paste_tx::evaluate`), guarded by the
-//! pasteboard `changeCount` so we never clobber a newer user copy.
-//!
 //! Threading: publishing and chord injection happen on the calling (main)
 //! thread, because promised pasteboard data is serviced by AppKit on the main
 //! run loop. The (potentially seconds-long) wait runs on a worker thread; the
-//! guarded restore is dispatched back to the main thread.
 
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -59,9 +49,6 @@ define_class!(
             let ivars = self.ivars();
             // SAFETY: NSPasteboardTypeString is a read-only framework static.
             let is_text = unsafe { data_type.isEqualToString(NSPasteboardTypeString) };
-            // Only a text read counts as a receipt: a request for one of the
-            // concealment marker types is a clipboard manager inspecting the
-            // markers, not the paste target reading the transcript.
             if is_text {
                 if let Ok(mut state) = ivars.state.lock() {
                     state.record_receipt(Instant::now());
@@ -70,7 +57,6 @@ define_class!(
             let payload = if is_text {
                 NSString::from_str(&ivars.text)
             } else {
-                // Concealment marker types are never handed out.
                 NSString::from_str("")
             };
             let _ = pasteboard.setString_forType(&payload, data_type);
@@ -99,23 +85,13 @@ struct MacPending {
     provider: Option<Retained<BespokePasteProvider>>,
     auto_submit: bool,
     auto_submit_key: AutoSubmitKey,
-    /// ClipboardHandling::CopyToClipboard — instead of restoring, settle by
-    /// re-writing the transcript as plain text (without the concealment
-    /// markers), so clipboard managers record it and it outlives the promise.
     preserve_transcript: bool,
-    /// The transcript, for the `preserve_transcript` re-write at settle time.
     transcript: String,
     settled: bool,
 }
 
-/// The transaction currently holding the clipboard, if any. A new paste
-/// settles it before snapshotting (see `flush_pending`).
 static PENDING: Mutex<Option<Arc<Mutex<MacPending>>>> = Mutex::new(None);
 
-/// Settles a transaction exactly once: sends the owed auto-submit Enter and
-/// restores the previous clipboard, guarded so we never clobber a newer copy.
-/// Must run on the main thread. Uses the already-locked enigo when called
-/// from within `paste` (which holds the lock), otherwise locks it itself.
 fn settle(
     pending: &Arc<Mutex<MacPending>>,
     app_handle: &AppHandle,
@@ -135,8 +111,6 @@ fn settle(
         Err(_) => (false, true),
     };
 
-    // Auto-submit only once the target demonstrably read the transcript;
-    // pressing Enter after an unconfirmed paste could submit stale content.
     if p.auto_submit && receipt_seen {
         match enigo {
             Some(e) => {
@@ -157,9 +131,6 @@ fn settle(
     if !still_ours {
         info!("[reliable-paste] clipboard changed externally; leaving it untouched");
     } else if p.preserve_transcript {
-        // The user asked for the transcript to stay on the clipboard: replace
-        // the concealed promise with plain text so clipboard managers record
-        // it and it survives this app exiting.
         let _ = app_handle.clipboard().write_text(&p.transcript);
         info!("[reliable-paste] left transcript on clipboard as plain text");
     } else {
@@ -167,13 +138,9 @@ fn settle(
         info!("[reliable-paste] restored previous clipboard");
     }
 
-    // Release the owner; any outstanding promise dies with the pasteboard
-    // contents we just replaced (or with the external change).
     p.provider = None;
 }
 
-/// If a previous transaction is still holding the clipboard, settle it now so
-/// the caller's snapshot captures the user's original clipboard content.
 fn flush_pending(app_handle: &AppHandle, enigo: &mut enigo::Enigo) {
     let previous = match PENDING.lock() {
         Ok(mut slot) => slot.take(),
@@ -194,7 +161,6 @@ fn spawn_waiter(pending: Arc<Mutex<MacPending>>, app_handle: AppHandle) {
                     Err(_) => return,
                 };
                 if p.settled {
-                    // A newer paste settled this transaction already.
                     return;
                 }
                 let result = match p.state.lock() {
@@ -253,8 +219,6 @@ pub(super) fn run(
     auto_submit_key: AutoSubmitKey,
     clipboard_handling: ClipboardHandling,
 ) -> Result<bool, String> {
-    // Settle any previous transaction first so the snapshot below captures the
-    // user's original clipboard, not the previous transcript.
     flush_pending(app_handle, enigo);
 
     let saved = app_handle.clipboard().snapshot();
@@ -279,8 +243,6 @@ pub(super) fn run(
     }
     info!("[reliable-paste] published transcript as lazy promise (changeCount {change_count})");
 
-    // Mark injection *before* sending: enigo holds the chord for ~100ms and a
-    // fast target may legitimately read while the chord is still held.
     if let Ok(mut st) = state.lock() {
         st.injected_at = Some(Instant::now());
     }
@@ -290,8 +252,6 @@ pub(super) fn run(
             true
         }
         Err(e) => {
-            // Keep the transaction alive: the waiter restores the clipboard
-            // after the short failed-injection timeout.
             if let Ok(mut st) = state.lock() {
                 st.injection_failed = true;
             }

@@ -6,14 +6,10 @@ use crate::TranscriptionCoordinator;
 use log::info;
 use std::sync::Arc;
 
-// Re-export all utility modules for easy access
-// pub use crate::audio_feedback::*;
 pub use crate::clipboard::*;
 pub use crate::overlay::*;
 pub use crate::tray::*;
 
-/// Preserve diagnostic text in development builds, but redact it in releases.
-/// Do not use for secrets such as API keys, which must always be redacted.
 pub fn redact_text(text: &str) -> &str {
     if cfg!(debug_assertions) {
         text
@@ -30,12 +26,6 @@ fn native_machine_is_arm64(native_machine: Option<u16>) -> bool {
     native_machine == Some(IMAGE_FILE_MACHINE_ARM64)
 }
 
-/// Whether this is the x64 Windows build running under emulation on Windows ARM64.
-///
-/// Only that exact process/host pairing disables the transcribe.cpp GPU path.
-/// Detection is deliberately fail-open: a native x64 host, an older Windows
-/// version without `IsWow64Process2`, or any API error leaves existing behavior
-/// unchanged.
 pub fn is_windows_x64_emulated_on_arm64() -> bool {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     {
@@ -81,15 +71,11 @@ fn native_windows_machine() -> Option<u16> {
     }
 }
 
-/// Centralized cancellation function that can be called from anywhere in the app.
-/// Handles cancelling both recording and transcription operations and updates UI state.
 pub fn cancel_current_operation(app: &AppHandle) {
     info!("Initiating operation cancellation...");
 
-    // Unregister the cancel shortcut asynchronously
     shortcut::unregister_cancel_shortcut(app);
 
-    // Cancel any ongoing recording
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     let recording_was_active = audio_manager.is_recording();
     audio_manager.cancel_recording();
@@ -97,18 +83,14 @@ pub fn cancel_current_operation(app: &AppHandle) {
     app.state::<Arc<crate::voice_submit::VoiceSubmit>>()
         .disarm();
 
-    // Abandon any live streaming transcription
     let tm = app.state::<Arc<TranscriptionManager>>();
     tm.cancel_stream();
 
-    // Update tray icon and hide overlay
     set_tray_state(app, crate::tray::TrayIconState::Idle);
     hide_recording_overlay(app);
 
-    // Unload model if immediate unload is enabled
     tm.maybe_unload_immediately("cancellation");
 
-    // Notify coordinator so it can keep lifecycle state coherent.
     if let Some(coordinator) = app.try_state::<TranscriptionCoordinator>() {
         coordinator.notify_cancel(recording_was_active);
     }
@@ -116,8 +98,6 @@ pub fn cancel_current_operation(app: &AppHandle) {
     info!("Operation cancellation completed - returned to idle state");
 }
 
-/// Display name of the app with keyboard focus, e.g. "Slack". Uses the
-/// localized name rather than deriving one from the bundle id.
 #[cfg(target_os = "macos")]
 pub fn frontmost_app_name() -> Option<String> {
     let app = objc2_app_kit::NSWorkspace::sharedWorkspace().frontmostApplication()?;
@@ -129,7 +109,6 @@ pub fn frontmost_app_name() -> Option<String> {
     None
 }
 
-/// Bundle id of the app with keyboard focus, e.g. "com.tinyspeck.slackmacgap".
 #[cfg(target_os = "macos")]
 pub fn frontmost_app_bundle_id() -> Option<String> {
     let app = objc2_app_kit::NSWorkspace::sharedWorkspace().frontmostApplication()?;
@@ -141,14 +120,12 @@ pub fn frontmost_app_bundle_id() -> Option<String> {
     None
 }
 
-/// An app that could get a writing style rule.
 #[derive(serde::Serialize, Clone)]
 pub struct RunningApp {
     pub bundle_id: String,
     pub name: String,
 }
 
-/// Running apps that show in the Dock (not Bespoke itself), sorted by name.
 #[cfg(target_os = "macos")]
 pub fn running_apps() -> Vec<RunningApp> {
     use objc2_app_kit::{NSApplicationActivationPolicy, NSWorkspace};
@@ -179,7 +156,6 @@ pub fn running_apps() -> Vec<RunningApp> {
     Vec::new()
 }
 
-/// Check if using the Wayland display server protocol
 #[cfg(target_os = "linux")]
 pub fn is_wayland() -> bool {
     std::env::var("WAYLAND_DISPLAY").is_ok()
@@ -188,7 +164,6 @@ pub fn is_wayland() -> bool {
             .unwrap_or(false)
 }
 
-/// Check if running on KDE Plasma desktop environment
 #[cfg(target_os = "linux")]
 pub fn is_kde_plasma() -> bool {
     std::env::var("XDG_CURRENT_DESKTOP")
@@ -197,13 +172,11 @@ pub fn is_kde_plasma() -> bool {
         || std::env::var("KDE_SESSION_VERSION").is_ok()
 }
 
-/// Check if running on KDE Plasma with Wayland
 #[cfg(target_os = "linux")]
 pub fn is_kde_wayland() -> bool {
     is_wayland() && is_kde_plasma()
 }
 
-/// Check if running on GNOME desktop environment
 #[cfg(target_os = "linux")]
 pub fn is_gnome() -> bool {
     std::env::var("XDG_CURRENT_DESKTOP")
@@ -211,16 +184,11 @@ pub fn is_gnome() -> bool {
         .unwrap_or(false)
 }
 
-/// Check if running on GNOME with Wayland
 #[cfg(target_os = "linux")]
 pub fn is_gnome_wayland() -> bool {
     is_wayland() && is_gnome()
 }
 
-/// Returns true when the environment variable is set to a truthy value
-/// (e.g. "1", "true", "yes", "on").
-/// "0", "false", "no", "off" and empty string are treated as falsy (case-insensitive).
-/// Returns false when the variable is not set.
 pub fn env_flag_enabled(name: &str) -> bool {
     match std::env::var(name) {
         Ok(v) => !matches!(
@@ -238,9 +206,9 @@ mod tests {
     #[test]
     fn arm64_native_machine_is_the_only_match() {
         assert!(native_machine_is_arm64(Some(IMAGE_FILE_MACHINE_ARM64)));
-        assert!(!native_machine_is_arm64(Some(0x8664))); // AMD64
-        assert!(!native_machine_is_arm64(Some(0x014c))); // I386
-        assert!(!native_machine_is_arm64(None)); // API unavailable or failed
+        assert!(!native_machine_is_arm64(Some(0x8664)));
+        assert!(!native_machine_is_arm64(Some(0x014c)));
+        assert!(!native_machine_is_arm64(None));
     }
 
     #[test]

@@ -9,15 +9,11 @@ default-run = "bespoke"
 
 [profile.dev]
 incremental = true
-# Keep file and line numbers in backtraces. For local variables in a debugger,
-# build with CARGO_PROFILE_DEV_DEBUG=2.
 debug = "line-tables-only"
 
-# Dependencies skip debug info, which shortens clean builds.
 [profile.dev.package."*"]
 debug = 0
 
-# The vendored shortcut crate keeps full debug info.
 [profile.dev.package.handy-keys]
 debug = 2
 
@@ -31,7 +27,6 @@ path = "src/main.rs"
 gpui = { version = "0.2.2", features = ["runtime_shaders"] }
 gpui-component = "0.5.1"
 
-# Replacements for the Tauri plugins the settings app used.
 tray-icon = "0.24.1"
 global-hotkey = "0.8.0"
 arboard = "3.6.1"
@@ -112,9 +107,7 @@ transcribe-cpp = { version = "0.2.3", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 transcribe-cpp = { version = "0.2.3", default-features = false, features = ["metal"] }
-# Annotate: Scrawl's screen, voice and ink capture, vendored with Bespoke's patches.
 scrawl = { path = "vendor/scrawl" }
-# Annotate's MCP server for coding agents (`annotate::mcp`).
 base64 = "0.22"
 getrandom = "0.3"
 http-body-util = "0.1"

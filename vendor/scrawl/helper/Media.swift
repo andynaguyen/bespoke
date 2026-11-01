@@ -2,9 +2,6 @@
 import CoreGraphics
 import Speech
 
-/// The on-device model that transcribes: SpeechTranscriber where this Mac supports it, else
-/// DictationTranscriber (Macs, and virtual machines, without SpeechTranscriber), for the user's
-/// locale, the nearest supported one in the same language, or en-US.
 struct SpeechChoice {
   let dictation: Bool
   let locale: Locale
@@ -62,9 +59,6 @@ enum SpeechModel {
     return ["engine": choice.name, "locale": choice.locale.identifier, "status": status]
   }
 
-  /// `speech-model [--install]`: one status line; with `--install`, installs the model if it
-  /// isn't, with progress lines about once a second and a last line that's `installed` or
-  /// `failed` (with `error`).
   static func run(install: Bool) async {
     let choice = await choose()
     guard let choice else {
@@ -101,9 +95,6 @@ enum SpeechModel {
   }
 }
 
-/// On-device transcription with SpeechAnalyzer: finalized results only, each word with its own
-/// audio time range. Without a usable model the output says why in `missing` (`downloading`,
-/// `unsupported` or `failed`, with `error`) and has no text, rather than failing.
 enum Transcriber {
   static func transcribe(_ url: URL) async throws -> [String: Any] {
     guard let choice = await SpeechModel.choose() else {
@@ -114,8 +105,6 @@ enum Transcriber {
     case "downloading": return missing(choice, "downloading")
     case "unsupported": return missing(choice, "unsupported")
     default:
-      // Supported but not installed for Scrawl: usually on disk already and only needs
-      // reserving, which is quick. A real download is left to the background install.
       do {
         let done = try await withThrowingTaskGroup(of: Bool.self) { group in
           group.addTask { try await SpeechModel.install(choice) { _ in }; return true }
@@ -208,8 +197,6 @@ enum Transcriber {
     let files: [(offsetMs: Int, url: URL)]
   }
 
-  /// Splits a 16 kHz mono 16-bit WAV longer than 22 s at silence midpoints (>= 300 ms) so
-  /// long recordings transcribe across concurrent SpeechAnalyzer instances without cutting words.
   private static func splitWavAtSilences(_ url: URL) throws -> WavChunks? {
     let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
     guard let fileSize = attrs[.size] as? Int, fileSize >= 22 * 32000 + 44 else { return nil }
@@ -221,7 +208,7 @@ enum Transcriber {
     let durationMs = sampleCount / 16
     guard durationMs >= 22000 else { return nil }
 
-    let windowSamples = 800 // 50 ms at 16 kHz
+    let windowSamples = 800
     let thresholdSq = (0.012 * 32768.0) * (0.012 * 32768.0)
     var silences: [(midMs: Int, lenMs: Int)] = []
     data.withUnsafeBytes { rawBuf in

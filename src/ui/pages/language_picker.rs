@@ -1,8 +1,3 @@
-//! A searchable language list in a popover. Settings uses it for the
-//! transcription language (`LanguageSelector.tsx`); the Models page uses it
-//! as the language filter. Enter picks the first match, Escape or a click
-//! outside closes and clears the search.
-
 use std::rc::Rc;
 
 use gpui::{
@@ -17,9 +12,7 @@ use crate::ui::theme::{palette, shadow_lg, Alpha};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PickerStyle {
-    /// The settings row button: label and chevron, `min-w-[200px]`.
     Setting,
-    /// The Models filter chip: globe icon, label and chevron.
     Filter,
 }
 
@@ -27,9 +20,7 @@ type SelectHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
 
 pub struct LanguagePicker {
     style: PickerStyle,
-    /// `(code, label)` in display order.
     options: Vec<(SharedString, SharedString)>,
-    /// An entry listed first that Enter never picks ("All Languages").
     all_option: Option<(SharedString, SharedString)>,
     selected: Option<SharedString>,
     disabled: bool,

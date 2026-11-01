@@ -1,11 +1,5 @@
-//! Which microphone Mac captures record from: `"microphone": {"id", "name"}` in
-//! `~/.config/scrawl/config.json` (absent = the macOS default, followed as it changes). The id is
-//! the CoreAudio device UID, which is also `AVCaptureDevice.uniqueID`; the name is kept only to
-//! say which device is missing. A chosen device that isn't connected falls back to the default.
-
 use serde::{Deserialize, Serialize};
 
-/// The `microphone` key: a device the user picked in Settings.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choice {
     pub id: String,
@@ -18,7 +12,6 @@ pub struct Input {
     pub name: String,
 }
 
-/// The input devices connected now, in CoreAudio's order, and the default's id.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Inputs {
     pub devices: Vec<Input>,
@@ -35,13 +28,10 @@ impl Inputs {
     }
 }
 
-/// What a recording uses, given the choice and what's connected.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Pick<'a> {
-    /// No choice: the macOS default (none when there's no microphone at all).
     Default(Option<&'a Input>),
     Chosen(&'a Input),
-    /// The chosen device isn't connected; the default stands in.
     Missing {
         wanted: &'a Choice,
         using: Option<&'a Input>,
@@ -62,7 +52,6 @@ impl<'a> Pick<'a> {
         }
     }
 
-    /// "AirPods Pro isn't connected. Using MacBook Pro Microphone." for a missing device.
     pub fn note(&self) -> Option<String> {
         let Pick::Missing { wanted, using } = self else {
             return None;
@@ -77,7 +66,6 @@ impl<'a> Pick<'a> {
     }
 }
 
-/// The configured choice, if any.
 pub fn choice() -> Option<Choice> {
     choice_in(&crate::handoff::default_config_path())
 }
@@ -88,8 +76,6 @@ pub fn choice_in(path: &std::path::Path) -> Option<Choice> {
         .filter(|c| !c.id.trim().is_empty())
 }
 
-/// Saves a pick from Settings: `"default"` clears the key; an id that isn't connected (so it
-/// can't be named) changes nothing.
 pub fn save_in(path: &std::path::Path, id: &str, inputs: &Inputs) -> anyhow::Result<()> {
     let value = if id == "default" {
         serde_json::Value::Null
@@ -104,7 +90,6 @@ pub fn save_in(path: &std::path::Path, id: &str, inputs: &Inputs) -> anyhow::Res
     crate::handoff::set_config_value_in(path, "microphone", value)
 }
 
-/// Enumerates input devices (CoreAudio, a few ms; never on the UI thread).
 pub fn inputs() -> Inputs {
     use cpal::traits::{DeviceTrait, HostTrait};
     let host = cpal::default_host();
@@ -128,7 +113,6 @@ pub fn inputs() -> Inputs {
     Inputs { devices, default }
 }
 
-/// The cpal device for `id`, if connected.
 pub fn device(id: &str) -> Option<cpal::Device> {
     use cpal::traits::{DeviceTrait, HostTrait};
     let uids = coreaudio::uids_by_name();
@@ -139,7 +123,6 @@ pub fn device(id: &str) -> Option<cpal::Device> {
     })
 }
 
-/// `device`'s CoreAudio UID, its id here.
 pub fn device_uid(device: &cpal::Device) -> Option<String> {
     use cpal::traits::DeviceTrait;
     coreaudio::uids_by_name().get(&device.name().ok()?).cloned()
@@ -214,7 +197,6 @@ mod coreaudio {
         Some(unsafe { CFString::wrap_under_create_rule(value) }.to_string())
     }
 
-    /// Every audio device's name and UID.
     pub fn uids_by_name() -> HashMap<String, String> {
         let address = global(code(b"dev#"));
         let mut size = 0_u32;
@@ -247,7 +229,6 @@ mod coreaudio {
     }
 }
 
-/// Logs a missing chosen device once, until it's back or another goes missing.
 pub fn note_pick(pick: &Pick) {
     static WARNED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
     let mut warned = WARNED

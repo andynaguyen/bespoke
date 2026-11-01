@@ -1,16 +1,8 @@
-//! Portable mode support for Bespoke.
-//!
-//! When a file named `portable` exists next to the executable, all user data
-//! (settings, models, recordings, database, logs) is stored in a `Data/`
-//! directory alongside the executable instead of `%APPDATA%`.
-
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 static PORTABLE_DATA_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
 
-/// Detect portable mode by looking for a `portable` marker file next to the exe.
-/// Must be called once at startup, before the app handle exists.
 pub fn init() {
     PORTABLE_DATA_DIR.get_or_init(|| {
         let exe_path = std::env::current_exe().ok()?;
@@ -22,9 +14,6 @@ pub fn init() {
         let is_portable = if is_valid_portable_marker(&marker_path) {
             true
         } else if marker_path.exists() && data_dir.exists() {
-            // Migration: v0.8.0 created an empty marker file. If we find an
-            // empty/invalid marker alongside an existing Data/ dir, this is a
-            // real portable install — upgrade the marker in place.
             eprintln!("[portable] upgrading legacy empty marker to magic string");
             let _ = std::fs::write(&marker_path, "Bespoke Portable Mode");
             true
@@ -53,18 +42,14 @@ fn hugging_face_home(data_dir: &Path) -> PathBuf {
     data_dir.join("huggingface")
 }
 
-/// Returns `true` if running in portable mode.
 pub fn is_portable() -> bool {
     PORTABLE_DATA_DIR.get().and_then(|v| v.as_ref()).is_some()
 }
 
-/// Get the portable data dir (if active). Does not require an AppHandle.
-/// Returns `None` when not in portable mode.
 pub fn data_dir() -> Option<&'static PathBuf> {
     PORTABLE_DATA_DIR.get().and_then(|v| v.as_ref())
 }
 
-/// Portable-aware replacement for `app.path().app_data_dir()`.
 pub fn app_data_dir(
     app: &crate::app_handle::AppHandle,
 ) -> Result<PathBuf, crate::app_handle::Error> {
@@ -75,7 +60,6 @@ pub fn app_data_dir(
     }
 }
 
-/// Portable-aware replacement for `app.path().app_log_dir()`.
 pub fn app_log_dir(
     app: &crate::app_handle::AppHandle,
 ) -> Result<PathBuf, crate::app_handle::Error> {
@@ -86,8 +70,6 @@ pub fn app_log_dir(
     }
 }
 
-/// Resolve a relative path against the app data directory (portable-aware).
-/// Replaces `app.path().resolve(path, BaseDirectory::AppData)`.
 pub fn resolve_app_data(
     app: &crate::app_handle::AppHandle,
     relative: &str,
@@ -95,9 +77,6 @@ pub fn resolve_app_data(
     Ok(app_data_dir(app)?.join(relative))
 }
 
-/// Get the path to use with `tauri-plugin-store`.
-/// Returns an absolute path in portable mode (so the store plugin writes to
-/// the portable Data dir) or the original relative path otherwise.
 pub fn store_path(relative: &str) -> PathBuf {
     if let Some(dir) = data_dir() {
         dir.join(relative)
@@ -106,8 +85,6 @@ pub fn store_path(relative: &str) -> PathBuf {
     }
 }
 
-/// Check if a marker file path contains the portable magic string.
-/// Extracted for testability.
 fn is_valid_portable_marker(path: &std::path::Path) -> bool {
     std::fs::read_to_string(path)
         .map(|s| s.trim().starts_with("Bespoke Portable Mode"))
@@ -159,7 +136,6 @@ mod tests {
 
     #[test]
     fn test_legacy_empty_marker_without_data_dir_does_not_enable_portable() {
-        // Empty marker alone (scoop scenario) — no Data/ dir → not portable
         let dir = std::env::temp_dir().join("bespoke_test_legacy_no_data");
         std::fs::create_dir_all(&dir).unwrap();
         let marker = dir.join("portable");

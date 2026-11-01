@@ -1,5 +1,3 @@
-//! Platform-agnostic hotkey manager built on top of KeyboardListener
-
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
@@ -9,11 +7,9 @@ use crate::error::{Error, Result};
 use crate::listener::{BlockingHotkeys, KeyboardListener};
 use crate::types::{Hotkey, HotkeyEvent, HotkeyId, HotkeyState, KeyEvent};
 
-/// Internal state shared between the manager and the processing thread
 struct ManagerState {
     hotkeys: HashMap<HotkeyId, Hotkey>,
     next_id: u32,
-    /// Track which hotkeys are currently pressed
     pressed_hotkeys: HashSet<HotkeyId>,
 }
 
@@ -26,12 +22,10 @@ impl ManagerState {
         }
     }
 
-    /// Process a key event and return any matching hotkey events
     fn process_event(&mut self, event: &KeyEvent) -> Vec<HotkeyEvent> {
         let mut results = Vec::new();
 
         if event.is_key_down {
-            // Check for hotkeys that should be pressed
             let to_press: Vec<HotkeyId> = self
                 .hotkeys
                 .iter()
@@ -51,12 +45,6 @@ impl ManagerState {
                 });
             }
         } else {
-            // Check for hotkeys that should be released
-            // A hotkey is released when its key is released, or — for modifier
-            // events — when the modifiers no longer match. A modifier event
-            // (key == None) whose modifiers still match must not release a
-            // modifier-only hotkey (e.g. tapping Shift while a Cmd-only hotkey
-            // is held).
             let to_release: Vec<HotkeyId> = self
                 .hotkeys
                 .iter()
@@ -94,7 +82,6 @@ pub struct HotkeyManager {
     event_receiver: Receiver<HotkeyEvent>,
     _thread_handle: Option<JoinHandle<()>>,
     running: Arc<std::sync::atomic::AtomicBool>,
-    /// Shared set of hotkeys to block
     blocking_hotkeys: Option<BlockingHotkeys>,
 }
 
@@ -156,7 +143,6 @@ impl HotkeyManager {
         })
     }
 
-    /// Event processing loop
     fn event_loop(
         listener: KeyboardListener,
         state: Arc<Mutex<ManagerState>>,
@@ -166,24 +152,20 @@ impl HotkeyManager {
         const RECV_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(100);
 
         while running.load(std::sync::atomic::Ordering::SeqCst) {
-            // Block until we receive an event or timeout (to check running flag)
             match listener.recv_timeout(RECV_TIMEOUT) {
                 Ok(key_event) => {
                     if let Ok(mut state) = state.lock() {
                         let hotkey_events = state.process_event(&key_event);
                         for event in hotkey_events {
                             if sender.send(event).is_err() {
-                                // Receiver dropped, exit
                                 return;
                             }
                         }
                     }
                 }
                 Err(crate::error::Error::Timeout) => {
-                    // No event received, loop continues to check running flag
                 }
                 Err(_) => {
-                    // Listener disconnected, exit
                     return;
                 }
             }
@@ -196,7 +178,6 @@ impl HotkeyManager {
     pub fn register(&self, hotkey: Hotkey) -> Result<HotkeyId> {
         let mut state = self.state.lock().map_err(|_| Error::MutexPoisoned)?;
 
-        // Check if already registered
         for (id, existing) in &state.hotkeys {
             if existing == &hotkey {
                 return Err(Error::HotkeyAlreadyRegistered(format!(
@@ -210,7 +191,6 @@ impl HotkeyManager {
         state.next_id += 1;
         state.hotkeys.insert(id, hotkey);
 
-        // Add to blocking set
         if let Some(blocking_hotkeys) = &self.blocking_hotkeys {
             if let Ok(mut blocking) = blocking_hotkeys.lock() {
                 blocking.insert(hotkey);
@@ -231,7 +211,6 @@ impl HotkeyManager {
             return Err(Error::HotkeyNotFound(id));
         }
 
-        // Remove from blocking set
         if let Some(blocking_hotkeys) = &self.blocking_hotkeys {
             if let Some(hotkey) = hotkey {
                 if let Ok(mut blocking) = blocking_hotkeys.lock() {
@@ -286,7 +265,6 @@ impl Drop for HotkeyManager {
     fn drop(&mut self) {
         self.running
             .store(false, std::sync::atomic::Ordering::SeqCst);
-        // Join the thread to ensure clean shutdown
         if let Some(handle) = self._thread_handle.take() {
             let _ = handle.join();
         }
@@ -372,7 +350,6 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Simulate Cmd+K key down (event uses side-specific modifier)
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), true);
             let results = state.process_event(&event);
 
@@ -389,11 +366,9 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Press first
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), true);
             state.process_event(&event);
 
-            // Then release the key
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), false);
             let results = state.process_event(&event);
 
@@ -410,12 +385,10 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Press once
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), true);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
 
-            // Press again (key repeat) - should not generate another event
             let results = state.process_event(&event);
             assert_eq!(results.len(), 0);
         }
@@ -427,12 +400,10 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Press Cmd+K
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), true);
             state.process_event(&event);
             assert!(state.pressed_hotkeys.contains(&id));
 
-            // Release Cmd (while K is still held) - modifier event
             let event = make_modifier_event(Modifiers::empty(), false, Modifiers::CMD_LEFT);
             let results = state.process_event(&event);
 
@@ -447,7 +418,6 @@ mod tests {
             let hotkey = Hotkey::new(Modifiers::CMD, Key::K).unwrap();
             state.hotkeys.insert(HotkeyId(0), hotkey);
 
-            // Press Shift+K instead of Cmd+K
             let event = make_key_event(Modifiers::SHIFT_LEFT, Some(Key::K), true);
             let results = state.process_event(&event);
 
@@ -461,7 +431,6 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Press Cmd+Shift (no key) — events use side-specific modifiers
             let event = make_modifier_event(
                 Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT,
                 true,
@@ -477,7 +446,6 @@ mod tests {
         fn multiple_hotkeys_same_key() {
             let mut state = ManagerState::new();
 
-            // Cmd+K and Ctrl+K
             let hotkey1 = Hotkey::new(Modifiers::CMD, Key::K).unwrap();
             let hotkey2 = Hotkey::new(Modifiers::CTRL, Key::K).unwrap();
             let id1 = HotkeyId(0);
@@ -485,14 +453,12 @@ mod tests {
             state.hotkeys.insert(id1, hotkey1);
             state.hotkeys.insert(id2, hotkey2);
 
-            // Press Cmd+K
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), true);
             let results = state.process_event(&event);
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].id, id1);
 
-            // Press Ctrl+K (release Cmd first)
             state.pressed_hotkeys.clear();
             let event = make_key_event(Modifiers::CTRL_LEFT, Some(Key::K), true);
             let results = state.process_event(&event);
@@ -508,14 +474,12 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Press F1 with no modifiers
             let event = make_key_event(Modifiers::empty(), Some(Key::F1), true);
             let results = state.process_event(&event);
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Pressed);
 
-            // F1 with modifiers should NOT trigger
             state.pressed_hotkeys.clear();
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::F1), true);
             let results = state.process_event(&event);
@@ -530,13 +494,11 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Cmd down — hotkey pressed
             let event = make_modifier_event(Modifiers::CMD_LEFT, true, Modifiers::CMD_LEFT);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Pressed);
 
-            // Shift down while Cmd held — no state change
             let event = make_modifier_event(
                 Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT,
                 true,
@@ -544,13 +506,10 @@ mod tests {
             );
             assert_eq!(state.process_event(&event).len(), 0);
 
-            // Shift up — Cmd is still held and still matches, so the hotkey
-            // must NOT be released
             let event = make_modifier_event(Modifiers::CMD_LEFT, false, Modifiers::SHIFT_LEFT);
             assert_eq!(state.process_event(&event).len(), 0);
             assert!(state.pressed_hotkeys.contains(&id));
 
-            // Cmd up — now it releases
             let event = make_modifier_event(Modifiers::empty(), false, Modifiers::CMD_LEFT);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
@@ -582,7 +541,6 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Cmd down, then Shift down — pressed once both are held
             let event = make_modifier_event(Modifiers::CMD_LEFT, true, Modifiers::CMD_LEFT);
             assert_eq!(state.process_event(&event).len(), 0);
             let event = make_modifier_event(
@@ -594,7 +552,6 @@ mod tests {
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Pressed);
 
-            // Releasing either modifier breaks the match — released
             let event = make_modifier_event(Modifiers::SHIFT_LEFT, false, Modifiers::CMD_LEFT);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
@@ -612,7 +569,6 @@ mod tests {
             state.process_event(&event);
             assert!(state.pressed_hotkeys.contains(&id));
 
-            // Release of a different key while Cmd+K is held — no release
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::J), false);
             assert_eq!(state.process_event(&event).len(), 0);
             assert!(state.pressed_hotkeys.contains(&id));
@@ -621,16 +577,13 @@ mod tests {
         #[test]
         fn side_specific_hotkey_matches_correct_side() {
             let mut state = ManagerState::new();
-            // Register CtrlRight+Space
             let hotkey = Hotkey::new(Modifiers::CTRL_RIGHT, Key::Space).unwrap();
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Left ctrl should not trigger
             let event = make_key_event(Modifiers::CTRL_LEFT, Some(Key::Space), true);
             assert_eq!(state.process_event(&event).len(), 0);
 
-            // Right ctrl should trigger
             let event = make_key_event(Modifiers::CTRL_RIGHT, Some(Key::Space), true);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
@@ -644,15 +597,12 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            // Left Cmd triggers
             let event = make_key_event(Modifiers::CMD_LEFT, Some(Key::K), true);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
 
-            // Release
             state.pressed_hotkeys.clear();
 
-            // Right Cmd also triggers
             let event = make_key_event(Modifiers::CMD_RIGHT, Some(Key::K), true);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);

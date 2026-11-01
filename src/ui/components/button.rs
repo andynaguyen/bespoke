@@ -1,5 +1,3 @@
-//! `ui/Button.tsx`.
-
 use gpui::{
     div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, SharedString,
     Window,
@@ -15,7 +13,6 @@ pub enum ButtonVariant {
     #[default]
     Primary,
     Secondary,
-    /// Starts a recording: the live red.
     Live,
     DangerGhost,
     Ghost,
@@ -58,7 +55,6 @@ impl Button {
         }
     }
 
-    /// Extra hover styling on top of the variant's (`hover:text-text`).
     pub fn hover(
         mut self,
         f: impl Fn(gpui::StyleRefinement) -> gpui::StyleRefinement + 'static,
@@ -82,7 +78,6 @@ impl Button {
         self
     }
 
-    /// Native-style tooltip text, like the HTML `title` attribute.
     pub fn title(mut self, title: impl Into<SharedString>) -> Self {
         self.title = Some(title.into());
         self
@@ -125,7 +120,6 @@ impl RenderOnce for Button {
             ButtonVariant::Primary => Colors {
                 text: p.accent_contrast,
                 bg: p.accent,
-                // A light rim, like tinted glass.
                 border: gpui::white().a(0.18),
                 hover_text: None,
                 hover_bg: p.accent.a(0.85),
@@ -181,8 +175,6 @@ impl RenderOnce for Button {
                 el.font_weight(FontWeight::SEMIBOLD)
                     .shadow(vec![crate::ui::theme::colored_shadow(p.ink, 0.35)])
             });
-        // Labels are mostly lowercase, whose letters sit low in the line, so
-        // a little bottom padding lifts the content to look centered.
         button = match self.size {
             ButtonSize::Sm => button.h(px(26.)).px(px(10.)).pb(px(1.)).text_px(12.),
             ButtonSize::Md => button

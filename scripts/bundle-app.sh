@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Wrap target/release/bespoke in target/release/bundle/Bespoke.app and sign it.
-# Shared by install-local.sh and release.sh. Run `cargo build --release` first.
-#
-# Signs with $BESPOKE_SIGNING_IDENTITY (default "Bespoke Local Signing", made
-# by scripts/create-signing-identity.sh). Pass --sparkle <Sparkle.framework>
-# to embed Sparkle, which turns on self-updates (src/updater.rs).
-# $BESPOKE_FEED_URL replaces Info.plist's SUFeedURL, for testing against a
-# local feed.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -33,11 +25,8 @@ VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 rm -rf "$STAGED_APP"
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
 cp target/release/bespoke "$STAGED_APP/Contents/MacOS/bespoke"
-# Annotate's Swift helper (speech, keyframe decoding, permission checks), built by
-# vendor/scrawl/build.rs beside the binary.
 cp target/release/scrawl-helper "$STAGED_APP/Contents/MacOS/scrawl-helper"
 cp icons/Bespoke.icns "$STAGED_APP/Contents/Resources/Bespoke.icns"
-# The app looks for its sounds, icons and VAD model in Contents/Resources/resources.
 ditto resources "$STAGED_APP/Contents/Resources/resources"
 cp Info.plist "$STAGED_APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy \

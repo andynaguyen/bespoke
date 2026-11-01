@@ -1,10 +1,3 @@
-//! A segmented control: a few options side by side in a track, the selected
-//! one raised in muted clay. Reads as a filter, where `Tabs` reads as
-//! navigation.
-//!
-//! Picking another option slides the thumb over to it, a little past it and
-//! back, while it takes on the new option's width.
-
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -17,11 +10,8 @@ use crate::ui::theme::{palette, Alpha, CONTROL_HEIGHT};
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 
-/// The gap between the track's edge and the thumb.
 const TRACK_PADDING: f32 = 3.;
-/// The thumb's height.
 const THUMB_HEIGHT: f32 = 26.;
-/// How long the thumb takes to move to another option.
 const SLIDE: Duration = Duration::from_millis(250);
 
 #[derive(IntoElement)]
@@ -33,7 +23,6 @@ pub struct SegmentedControl {
 }
 
 impl SegmentedControl {
-    /// `options` is `(id, label)` pairs in display order.
     pub fn new(
         id: impl Into<ElementId>,
         options: Vec<(SharedString, SharedString)>,
@@ -49,31 +38,24 @@ impl SegmentedControl {
     }
 }
 
-/// A thumb's place in the row of options: its left edge and width.
 #[derive(Clone, Copy, Default, PartialEq)]
 struct Span {
     left: f32,
     width: f32,
 }
 
-/// What the control remembers between frames to animate the thumb.
 #[derive(Default)]
 struct Slide {
     selected: SharedString,
-    /// Each option's span, measured on the last frame.
     spans: Vec<Span>,
-    /// Where the thumb set out from, and when.
     from: Option<(Span, Instant)>,
 }
 
 impl Slide {
-    /// The right edge of the last option.
     fn end(&self) -> f32 {
         self.spans.last().map_or(0., |span| span.left + span.width)
     }
 
-    /// Where the thumb is `progress` of the way from `from` to `to`. Its
-    /// overshoot stays inside the row of options, `0..end`.
     fn at(from: Span, to: Span, end: f32, progress: f32) -> Span {
         let travel = travel(progress);
         let width = from.width + (to.width - from.width) * travel;
@@ -89,8 +71,6 @@ impl Slide {
     }
 }
 
-/// Debug builds: `BESPOKE_DEV_SLIDE=<0..1>` holds every thumb that far along
-/// a slide from the first option to the selected one, for dev snapshots.
 #[cfg(debug_assertions)]
 fn dev_slide(state: &gpui::Entity<Slide>, selected: Option<usize>, cx: &App) -> Option<Span> {
     let progress: f32 = std::env::var("BESPOKE_DEV_SLIDE").ok()?.parse().ok()?;
@@ -105,9 +85,6 @@ fn dev_slide(state: &gpui::Entity<Slide>, selected: Option<usize>, cx: &App) -> 
     ))
 }
 
-/// How far along its path the thumb is: it speeds up, slows into the new
-/// option by 80% of the slide, then drifts a little past it and back, like
-/// a spring with some give.
 fn travel(t: f32) -> f32 {
     let u = (t / 0.8).clamp(0., 1.);
     let smooth = u * u * u * (u * (u * 6. - 15.) + 10.);
@@ -124,7 +101,6 @@ impl RenderOnce for SegmentedControl {
         });
         let selected_index = self.options.iter().position(|(id, _)| *id == self.selected);
 
-        // Set the thumb off when the selection changes, from wherever it is.
         let now = Instant::now();
         let thumb = state.update(cx, |slide, _| {
             let to = selected_index.and_then(|index| slide.spans.get(index).copied());
@@ -185,7 +161,6 @@ impl RenderOnce for SegmentedControl {
                     .row_dir()
                     .items_center()
                     .gap(px(2.))
-                    // The first child is the thumb; the rest are the options.
                     .on_children_prepainted(move |bounds: Vec<Bounds<Pixels>>, _, cx| {
                         let Some(first) = bounds.get(1) else {
                             return;
@@ -221,7 +196,6 @@ impl RenderOnce for SegmentedControl {
                             .enumerate()
                             .map(|(index, (id, label))| {
                                 let selected = id == self.selected;
-                                // While the thumb slides, it draws apart from the options.
                                 let raised = selected && thumb.is_none();
                                 let on_select = self.on_select.clone();
                                 div()

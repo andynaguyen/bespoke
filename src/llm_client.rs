@@ -35,9 +35,6 @@ struct ReasoningConfig {
     exclude: Option<bool>,
 }
 
-/// Request fields used to ask an endpoint to skip reasoning/thinking.
-/// Providers disagree on the field name and accepted values, so at most one of
-/// these is set per request (see `reasoning_disable_params`).
 #[derive(Debug, Serialize, Clone, Default, PartialEq)]
 struct ReasoningParams {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,9 +51,6 @@ impl ReasoningParams {
     }
 }
 
-/// Pick the reasoning-disable request fields an endpoint understands.
-/// Unknown endpoints get the common OpenAI-style field; if they reject it,
-/// the request is retried without it (see `send_chat_completion_with_schema`).
 fn reasoning_disable_params(provider: &PostProcessProvider) -> ReasoningParams {
     let base_url = provider.base_url.to_lowercase();
     if base_url.contains("api.deepseek.com") {
@@ -67,8 +61,6 @@ fn reasoning_disable_params(provider: &PostProcessProvider) -> ReasoningParams {
             ..Default::default()
         }
     } else if provider.id == "openrouter" {
-        // OpenRouter nested object; exclude:true also keeps reasoning text out
-        // of the response so it can't pollute structured-output JSON parsing
         ReasoningParams {
             reasoning: Some(ReasoningConfig {
                 effort: Some("none".to_string()),
@@ -84,9 +76,6 @@ fn reasoning_disable_params(provider: &PostProcessProvider) -> ReasoningParams {
     }
 }
 
-/// Endpoints (base_url|model) that rejected the reasoning-disable fields with a
-/// 4xx. Remembered for the lifetime of the process so every dictation after the
-/// first skips the doomed attempt and goes straight to a plain request.
 fn reasoning_rejections() -> &'static Mutex<HashSet<String>> {
     static REJECTED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
     REJECTED.get_or_init(|| Mutex::new(HashSet::new()))
@@ -135,11 +124,9 @@ struct ChatMessageResponse {
     content: Option<String>,
 }
 
-/// Build headers for API requests based on provider type
 fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<HeaderMap, String> {
     let mut headers = HeaderMap::new();
 
-    // Common headers
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers.insert(
         REFERER,
@@ -155,7 +142,6 @@ fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<Header
     );
     headers.insert("X-Title", HeaderValue::from_static("Bespoke"));
 
-    // Provider-specific auth headers
     if !api_key.is_empty() {
         if provider.id == "anthropic" {
             headers.insert(
@@ -176,7 +162,6 @@ fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<Header
     Ok(headers)
 }
 
-/// Create an HTTP client with provider-specific headers
 fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwest::Client, String> {
     let headers = build_headers(provider, api_key)?;
     reqwest::Client::builder()
@@ -195,7 +180,6 @@ fn error_source_chain(error: &(dyn StdError + 'static)) -> Vec<String> {
     let mut causes = Vec::new();
     let mut source = error.source();
 
-    // Defensive cap in case a third-party error exposes a cyclic source chain.
     for _ in 0..16 {
         let Some(cause) = source else {
             break;
@@ -248,8 +232,6 @@ fn reqwest_error_kinds(error: &reqwest::Error) -> String {
 fn sanitized_url(url: &reqwest::Url) -> String {
     let mut url = url.clone();
 
-    // Custom endpoints should not contain credentials or query-string tokens,
-    // but omit them from diagnostics in case one does.
     let _ = url.set_username("");
     let _ = url.set_password(None);
     url.set_query(None);
@@ -261,8 +243,6 @@ fn sanitized_url(url: &reqwest::Url) -> String {
 fn sanitized_url_for_log(url: &str) -> String {
     reqwest::Url::parse(url)
         .map(|url| sanitized_url(&url))
-        // Do not echo an invalid URL: the parse failure might have been caused
-        // by sensitive data entered in the custom endpoint field.
         .unwrap_or_else(|_| "<invalid URL>".to_string())
 }
 
@@ -285,11 +265,8 @@ fn report_reqwest_error(context: &str, error: &reqwest::Error) -> String {
     let cause_details = if !causes.is_empty() {
         format!(": caused by: {}", causes.join(" -> "))
     } else if error.url().is_none() {
-        // Reqwest's short Display text is safe when it cannot append a raw URL.
         format!(": {error}")
     } else {
-        // The sanitized URL is already included above. Avoid formatting the
-        // original error because its Display implementation includes the raw URL.
         String::new()
     };
 
@@ -298,14 +275,6 @@ fn report_reqwest_error(context: &str, error: &reqwest::Error) -> String {
     details
 }
 
-/// Send a chat completion request to an OpenAI-compatible API.
-/// Returns Ok(Some(content)) on success, Ok(None) if the response has no
-/// content, or Err on actual errors (HTTP, parsing, etc.).
-///
-/// Supports structured output:
-/// When json_schema is provided, uses structured outputs mode.
-/// system_prompt is used as the system message when provided.
-///
 /// When disable_reasoning is set, the request carries the reasoning-disable
 /// fields the endpoint is expected to understand. Not every OpenAI-compatible
 /// endpoint accepts them (DeepSeek, Gemini's compat layer, and some OpenRouter
@@ -331,10 +300,8 @@ pub async fn send_chat_completion_with_schema(
 
     let client = create_client(provider, &api_key)?;
 
-    // Build messages vector
     let mut messages = Vec::new();
 
-    // Add system prompt if provided
     if let Some(system) = system_prompt {
         messages.push(ChatMessage {
             role: "system".to_string(),
@@ -342,13 +309,11 @@ pub async fn send_chat_completion_with_schema(
         });
     }
 
-    // Add user message
     messages.push(ChatMessage {
         role: "user".to_string(),
         content: user_content,
     });
 
-    // Build response_format if schema is provided
     let response_format = json_schema.map(|schema| ResponseFormat {
         format_type: "json_schema".to_string(),
         json_schema: JsonSchema {
@@ -387,8 +352,6 @@ pub async fn send_chat_completion_with_schema(
         sanitized_url(response.url())
     );
 
-    // A 400/422 on a request carrying reasoning-disable fields is almost always
-    // the endpoint rejecting those fields — retry once without them.
     if !status.is_success()
         && matches!(status.as_u16(), 400 | 422)
         && !request_body.reasoning.is_empty()
@@ -447,8 +410,6 @@ pub async fn send_chat_completion_with_schema(
         .and_then(|choice| choice.message.content.clone()))
 }
 
-/// Fetch available models from an OpenAI-compatible API
-/// Returns a list of model IDs
 pub async fn fetch_models(
     provider: &PostProcessProvider,
     api_key: String,
@@ -491,7 +452,6 @@ pub async fn fetch_models(
 
     let mut models = Vec::new();
 
-    // Handle OpenAI format: { data: [ { id: "..." }, ... ] }
     if let Some(data) = parsed.get("data").and_then(|d| d.as_array()) {
         for entry in data {
             if let Some(id) = entry.get("id").and_then(|i| i.as_str()) {
@@ -500,9 +460,7 @@ pub async fn fetch_models(
                 models.push(name.to_string());
             }
         }
-    }
-    // Handle array format: [ "model1", "model2", ... ]
-    else if let Some(array) = parsed.as_array() {
+    } else if let Some(array) = parsed.as_array() {
         for entry in array {
             if let Some(model) = entry.as_str() {
                 models.push(model.to_string());
@@ -712,7 +670,6 @@ mod tests {
         assert!(!is_known_rejected(&key));
         remember_rejection(key.clone());
         assert!(is_known_rejected(&key));
-        // A different model on the same endpoint is tracked separately
         assert!(!is_known_rejected(&endpoint_key(&deepseek, "other-model")));
     }
 }

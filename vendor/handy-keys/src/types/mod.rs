@@ -1,5 +1,3 @@
-//! Core types for keyboard shortcuts
-
 mod hotkey;
 mod key;
 mod modifiers;

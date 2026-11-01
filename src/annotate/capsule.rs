@@ -1,13 +1,3 @@
-//! Annotate's capsule, drawn by Bespoke with the capsule dictation uses
-//! (`ui::capsule`). Scrawl's coordinator decides what it shows and sends a
-//! snapshot over a `CapsuleLink` whenever that changes; clicks go back over
-//! the link as `PillAction`s.
-//!
-//! The window is wider than any form of the capsule, so outside the capsule
-//! it lets clicks through to the apps below. A timer polls the pointer for
-//! that, as Scrawl's Metal capsule did, and reports hovering, which keeps the
-//! switch chips open while recording.
-
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,21 +21,15 @@ use crate::ui::components::icon;
 use crate::ui::platform::capsule::{self as native, CapsuleWindow};
 use crate::ui::theme::{mix, Alpha};
 
-/// Wide enough for the widest form, recording with the switch chips open.
 const WINDOW_W: f32 = 720.;
-/// Margins that keep the glass's shadow inside the window.
 const PAD_X: f32 = 18.;
 const PAD_TOP: f32 = 10.;
 const PAD_BOTTOM: f32 = 18.;
 const WINDOW_H: f32 = capsule::HEIGHT + PAD_TOP + PAD_BOTTOM;
-/// The capsule's distance from the menu bar, or from the Dock.
 const EDGE_GAP: f64 = 12.;
-/// How often the pointer is checked while the capsule shows.
 const POLL: Duration = Duration::from_millis(33);
-/// A Paste press that moves this far drags the capture to where it ends.
 const PASTE_DRAG: f64 = 24.;
 
-/// The window of the capsule opened last, for dev snapshots.
 #[cfg(debug_assertions)]
 #[derive(Default)]
 struct LastWindow(Option<gpui::AnyWindowHandle>);
@@ -58,9 +42,6 @@ pub fn window_handle(cx: &App) -> Option<gpui::AnyWindowHandle> {
     cx.try_global::<LastWindow>().and_then(|last| last.0)
 }
 
-/// Debug builds: shows the capsule in one of its forms with sample data.
-/// `kind` is `choose`, `choose-screen`, `recording`, `switch`,
-/// `processing` or `done`.
 #[cfg(debug_assertions)]
 pub fn dev_preview(kind: &str, cx: &mut App) {
     let pres = match kind {
@@ -98,8 +79,6 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
     let _ = cx;
 }
 
-/// Registers Bespoke as the host that draws Annotate's capsules. Call before
-/// `scrawl::start`.
 pub fn init(app: &AppHandle) {
     let ui = app.clone();
     scrawl::host::on_capsule(move |link| {
@@ -162,8 +141,6 @@ fn open(link: CapsuleLink, cx: &mut App) {
         cx.default_global::<LastWindow>().0 = Some(handle.into());
     }
 
-    // The link closes when the coordinator drops the capsule; the window goes
-    // with it.
     cx.spawn(async move |cx| {
         while let Ok(command) = commands.recv_async().await {
             let _ = cx.update(|cx| view.update(cx, |capsule, cx| capsule.apply(command, cx)));
@@ -181,13 +158,9 @@ pub struct AnnotateCapsule {
     state: Arc<CapsuleState>,
     window: Option<CapsuleWindow>,
     snapshot: Option<PillSnapshot>,
-    /// The point the coordinator anchors the capsule to.
     anchor: Option<[f64; 2]>,
-    /// Bumped each time the capsule appears, to replay its fade-in.
     shown: u64,
-    /// The capsule's bounds in the window, from the last frame.
     card: Bounds<Pixels>,
-    /// Where a press on Paste started, to tell a click from a drag.
     paste_press: Option<[f64; 2]>,
     poll: Option<Task<()>>,
 }
@@ -233,8 +206,6 @@ impl AnnotateCapsule {
         }
     }
 
-    /// Centers the window on the anchor's display, near the edge the
-    /// dictation overlay uses.
     fn place(&self, cx: &App) {
         let Some(window) = &self.window else {
             return;
@@ -248,7 +219,6 @@ impl AnnotateCapsule {
         let Some(mut origin) = scrawl::host::capsule_origin(anchor, size, at_top, EDGE_GAP) else {
             return;
         };
-        // The window's margins sit between the capsule and the edge.
         if at_top {
             origin[1] -= f64::from(PAD_TOP);
         } else {
@@ -291,8 +261,6 @@ impl AnnotateCapsule {
         }));
     }
 
-    /// Lets clicks through outside the capsule, reports hovering, and ends a
-    /// Paste drag.
     fn check_pointer(&mut self) {
         let Some(window) = self.window.clone() else {
             return;
@@ -328,7 +296,6 @@ impl AnnotateCapsule {
         let _ = self.actions.send(action);
     }
 
-    /// A chip that sends `action` when clicked.
     fn action_chip(
         &self,
         id: &'static str,
@@ -360,7 +327,6 @@ impl AnnotateCapsule {
             .child(text.into())
     }
 
-    /// A shortcut hint on a chip: a clay keycap in `color` labeled in `label`.
     fn hint(
         &self,
         text: &str,
@@ -371,8 +337,6 @@ impl AnnotateCapsule {
         keycap(text.to_string(), 18., color, label, c.dark)
     }
 
-    /// The Area, Window and Screen chips as a segmented control. `active`
-    /// is the highlighted one; `switch` picks what a click sends.
     fn modes(
         &self,
         active: Option<SelectionMode>,

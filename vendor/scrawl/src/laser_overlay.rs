@@ -26,11 +26,7 @@ use crate::sketch::{slice_laser_window, smooth_ink_points, smooth_laser_points};
 const TAIL_DURATION_SEC: f32 = 0.42;
 const MAX_SEGMENTS: usize = 16_384;
 const MAX_PINS: usize = 64;
-/// Side of a culling tile, in points. Each pixel runs only the segments binned into its tile.
 const TILE_PT: f32 = 32.0;
-/// How far a segment can colour a pixel, in points. They must stay at or past the shader's
-/// cutoffs, or the stroke is clipped at tile edges: the laser glow ends at three sigma
-/// (`glow_sigma` <= 6.2 * (0.28 + 0.72 * 1.25) = 7.32), the ink at `r + 2.0` (`r` <= 2.59).
 const LASER_REACH_PT: f32 = 22.0;
 const INK_REACH_PT: f32 = 4.6;
 
@@ -55,6 +51,10 @@ struct LaserUniforms {
     _pad2: f32,
 }
 
+/// `PathSegment::kind` values, matched by `laser_overlay.metal`.
+const SEGMENT_LASER: f32 = 0.0;
+const SEGMENT_INK: f32 = 1.0;
+
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 struct PathSegment {
@@ -78,12 +78,9 @@ pub struct MetalLaserOverlay {
     window: Retained<NSPanel>,
     display_link: CVDisplayLink,
     display_link_context: *const SharedMetalOverlay,
-    /// The screen it covers, global points.
     screen: [f64; 4],
 }
 
-/// The screen for a rect in global points: the one holding its centre (else most of it), else
-/// the one under the pointer. Returns it with its AppKit frame, scale and display.
 fn pick_screen(
     mtm: MainThreadMarker,
     on: Option<[f64; 4]>,
@@ -103,8 +100,6 @@ fn pick_screen(
 }
 
 impl MetalLaserOverlay {
-    /// Opens over the screen holding the centre of `on` (global points, top-left origin, like
-    /// capture targets), else the screen under the pointer.
     pub fn open(
         telemetry: Arc<SharedCaptureTelemetry>,
         on: Option<[f64; 4]>,
@@ -157,8 +152,6 @@ impl MetalLaserOverlay {
         );
         unsafe { window.setReleasedWhenClosed(false) };
         window.setFrame_display(frame, true);
-        // Present Frame 0 synchronously so the cutout and border are already on screen
-        // before TargetPickerWindow closes (zero 1-frame blink).
         shared.draw();
         window.orderFrontRegardless();
 
@@ -189,8 +182,6 @@ impl MetalLaserOverlay {
         self.window.windowNumber().max(0) as u32
     }
 
-    /// Moves to the screen `rect` (global points) belongs to, taking its size, scale and origin.
-    /// Returns whether it moved.
     pub fn move_to(&mut self, rect: [f64; 4]) -> bool {
         let Some(mtm) = MainThreadMarker::new() else {
             return false;
@@ -263,7 +254,6 @@ struct MetalLaserRenderer {
     device: metal::Device,
     command_queue: metal::CommandQueue,
     pipeline: RenderPipelineState,
-    /// The screen's top-left in global points: telemetry is global, the shader draws locally.
     origin: [f32; 2],
     width: f32,
     height: f32,
@@ -308,7 +298,6 @@ impl SharedMetalOverlay {
         })
     }
 
-    /// Takes another screen's origin, size and scale (`MetalLaserOverlay::move_to`).
     fn place(&self, origin: [f32; 2], width: f32, height: f32, scale: f32) {
         let mut renderer = self
             .renderer
@@ -460,12 +449,11 @@ impl SharedMetalOverlay {
                         b,
                         w0,
                         w1,
-                        kind: 0.0,
+                        kind: SEGMENT_LASER,
                         width: 3.0,
                     });
                 }
             } else {
-                // Keep live Shift strokes at 100% while held, then hold for 650ms and fade out over 650ms.
                 let fade_alpha = if *is_live {
                     1.0
                 } else {
@@ -491,15 +479,13 @@ impl SharedMetalOverlay {
                         b: pair[1].0,
                         w0: pair[0].1,
                         w1: pair[1].1,
-                        kind: 1.0,
+                        kind: SEGMENT_INK,
                         width: fade_alpha,
                     });
                 }
             }
         }
 
-        // Strokes run oldest to newest, the live ones last. Past the cap, drop from the front, so
-        // the tip being drawn keeps showing and a long scribble never runs out of ink.
         if segments.len() > MAX_SEGMENTS {
             segments.drain(..segments.len() - MAX_SEGMENTS);
         }
@@ -592,13 +578,10 @@ impl SharedMetalOverlay {
     }
 }
 
-/// Sorts segments into a `cols`×`rows` grid of `size`-point tiles by the area each can colour.
-/// One buffer: `cols * rows + 1` offsets, then each tile's segment indices from its offset to
-/// the next tile's. A segment off the screen lands in no tile.
 fn bin_segments(segments: &[PathSegment], cols: u32, rows: u32, size: f32) -> Vec<u32> {
     let tile_count = (cols * rows) as usize;
     let span = |seg: &PathSegment| {
-        let reach = if seg.kind < 0.5 {
+        let reach = if seg.kind == SEGMENT_LASER {
             LASER_REACH_PT
         } else {
             INK_REACH_PT
@@ -650,7 +633,6 @@ fn bin_segments(segments: &[PathSegment], cols: u32, rows: u32, size: f32) -> Ve
 }
 
 fn overlay_pipeline(device: &metal::DeviceRef) -> Result<RenderPipelineState, String> {
-    // Compiled at launch, like GPUI's `runtime_shaders`, so building needs no Metal toolchain.
     let library = device
         .new_library_with_source(
             include_str!("laser_overlay.metal"),
@@ -695,9 +677,6 @@ fn encode_overlay(
         size_of::<LaserUniforms>() as u64,
         std::ptr::from_ref(uniforms).cast(),
     );
-    // Up to MAX_SEGMENTS * 32 B = 512 KB, past the 4 KB `set_fragment_bytes` limit (128
-    // segments), so segments go in a fresh buffer each frame. The command buffer retains it
-    // until the GPU is done, so a frame never overwrites one still being read.
     let segment_buffer = device.new_buffer_with_data(
         segments.as_ptr().cast(),
         (segments.len() * size_of::<PathSegment>()) as u64,
@@ -732,16 +711,12 @@ mod tests {
     /// `setFragmentBytes` aborts in the driver past 4 KB.
     const SET_BYTES_LIMIT: usize = 4096;
 
-    /// Uniforms and pins still go through `set_fragment_bytes`; segments don't fit and use a buffer.
     #[test]
     fn inline_fragment_bytes_fit_the_metal_limit() {
         assert!(size_of::<LaserUniforms>() <= SET_BYTES_LIMIT);
         assert!(MAX_PINS * size_of::<PinMarker>() <= SET_BYTES_LIMIT);
     }
 
-    /// Renders the real shader offscreen with `MAX_SEGMENTS` segments (512 KB; 48 KB aborted in
-    /// `setFragmentBytes`). Only the last segment is on screen, so the ink shows only if the
-    /// shader read the whole array.
     #[test]
     fn renders_a_full_segment_buffer() {
         let Some(device) = metal::Device::system_default() else {
@@ -762,7 +737,7 @@ mod tests {
             b: [-400.0, -500.0],
             w0: 1.0,
             w1: 1.0,
-            kind: 1.0,
+            kind: SEGMENT_INK,
             width: 1.0,
         };
         let mut segments = vec![off_screen; MAX_SEGMENTS];
@@ -830,9 +805,6 @@ mod tests {
         assert_eq!(bgra(32, 4)[3], 0, "nothing drawn away from the stroke");
     }
 
-    /// Tiles only skip work: the frame matches one where every pixel runs every segment, as
-    /// before tiling, byte for byte. A reach shorter than the shader's cutoff fails here as a
-    /// seam along a tile edge.
     #[test]
     fn tiled_frame_matches_an_untiled_one() {
         let Some(device) = metal::Device::system_default() else {
@@ -853,18 +825,16 @@ mod tests {
                 b: pair[1].0,
                 w0: pair[0].1,
                 w1: pair[1].1,
-                kind: 1.0,
+                kind: SEGMENT_INK,
                 width: 1.0,
             })
             .collect();
-        // Ink at full pressure and a laser at full weight reach the furthest, both crossing
-        // tile edges both ways.
         segments.extend((0..12).map(|i| PathSegment {
             a: [10.0 + i as f32 * 20.0, 170.0 - i as f32 * 13.0],
             b: [30.0 + i as f32 * 20.0, 157.0 - i as f32 * 13.0],
             w0: 1.15,
             w1: 1.15,
-            kind: 1.0,
+            kind: SEGMENT_INK,
             width: 1.0,
         }));
         segments.extend((0..12).map(|i| PathSegment {
@@ -872,7 +842,7 @@ mod tests {
             b: [38.0 + i as f32 * 18.0, 41.0 + i as f32 * 11.0],
             w0: 1.25,
             w1: 1.25,
-            kind: 0.0,
+            kind: SEGMENT_LASER,
             width: 3.0,
         }));
         let n = segments.len() as u32;
@@ -920,7 +890,6 @@ mod tests {
         };
 
         let tiled = render(&uniforms);
-        // One tile bigger than the screen holds every segment.
         let untiled = render(&LaserUniforms {
             tile_cols: 1,
             tile_rows: 1,
@@ -936,10 +905,6 @@ mod tests {
         assert_eq!(differ, 0, "{differ} pixels differ from the untiled frame");
     }
 
-    /// Times one overlay frame on a 14" MacBook Pro's built-in display (2056×1329 pt at 2x)
-    /// while Shift ink is on screen: a big loop (120 pointer samples, ~900 segments) and a
-    /// scribble that fills `MAX_SEGMENTS`. Run with
-    /// `cargo test --release overlay_frame_time -- --ignored --nocapture`.
     #[test]
     #[ignore = "benchmark"]
     fn overlay_frame_time() {
@@ -956,7 +921,6 @@ mod tests {
         descriptor.set_storage_mode(metal::MTLStorageMode::Private);
         let texture = device.new_texture(&descriptor);
 
-        // One big loop, then a long fast scribble that fills the whole segment cap.
         let big_loop: Vec<[f32; 2]> = (0..120)
             .map(|i| {
                 let t = i as f32 / 120.0 * std::f32::consts::TAU * 1.1;
@@ -983,7 +947,7 @@ mod tests {
                     b: pair[1].0,
                     w0: pair[0].1,
                     w1: pair[1].1,
-                    kind: 1.0,
+                    kind: SEGMENT_INK,
                     width: 1.0,
                 })
                 .collect();

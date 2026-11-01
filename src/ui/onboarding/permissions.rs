@@ -1,7 +1,3 @@
-//! The permission step (`AccessibilityOnboarding.tsx`). macOS asks for the
-//! microphone and Accessibility, Windows for the microphone only, and other
-//! platforms skip the step.
-
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -57,8 +53,7 @@ fn microphone_granted() -> bool {
     #[cfg(target_os = "windows")]
     {
         let status = crate::commands::audio::get_windows_microphone_permission_status();
-        !status.supported
-            || status.overall_access != crate::commands::audio::PermissionAccess::Denied
+        status.overall_access != crate::commands::audio::PermissionAccess::Denied
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
@@ -66,7 +61,6 @@ fn microphone_granted() -> bool {
     }
 }
 
-/// Starts the paste engine and shortcuts once Accessibility is granted.
 fn initialize_input() {
     let app = AppHandle::global().clone();
     std::thread::spawn(move || {
@@ -103,8 +97,6 @@ impl AccessibilityOnboarding {
             completing: false,
             polling: None,
         };
-        // Previews show the request screen without checking or changing
-        // operating-system permissions.
         if preview {
             if PLATFORM != Platform::MacOs {
                 this.accessibility = Status::Granted;
@@ -145,8 +137,6 @@ impl AccessibilityOnboarding {
         self.accessibility == Status::Granted && self.microphone == Status::Granted
     }
 
-    /// Refreshes the device lists, then moves on after the "All set!" screen
-    /// has shown for 300ms.
     fn complete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.completing {
             return;
@@ -166,7 +156,6 @@ impl AccessibilityOnboarding {
         .detach();
     }
 
-    /// Checks every second until both permissions are granted.
     fn start_polling(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.polling.is_some() {
             return;
@@ -180,7 +169,6 @@ impl AccessibilityOnboarding {
         }));
     }
 
-    /// One polling tick. Returns true once polling can stop.
     fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if PLATFORM == Platform::MacOs
             && self.accessibility != Status::Granted

@@ -1,5 +1,3 @@
-//! Liquid Glass behind GPUI elements.
-//!
 //! GPUI draws every window into one Metal layer and has no backdrop blur. On
 //! macOS 26 and later, [`glass`] keeps an `NSGlassEffectView` under the
 //! element's bounds instead: the view sits in the window's content view just
@@ -10,9 +8,6 @@
 //! The window must not paint an opaque background over the glass, so windows
 //! that use it open with `WindowBackgroundAppearance::Transparent` or
 //! `Blurred`.
-//!
-//! Each painted [`glass`] element creates or moves its native view. After the
-//! frame, views that no element painted are removed.
 
 use gpui::{
     canvas, div, fill, App, Bounds, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled,
@@ -21,10 +16,6 @@ use gpui::{
 
 use super::theme::palette;
 
-/// The materials. `Window` is the heavy blur behind a whole window, like
-/// AppKit's window backgrounds. `Regular` glass suits floating panels that
-/// hold text; `Clear` glass keeps what is behind it visible and suits small
-/// floating controls like the recording capsule.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GlassStyle {
     Window,
@@ -32,19 +23,13 @@ pub enum GlassStyle {
     Clear,
 }
 
-/// The parameters of one native glass view.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GlassSpec {
     pub style: GlassStyle,
     pub radius: Pixels,
-    /// Tints the glass, for example blue for a primary button. On the
-    /// window material it is a layer of color over the blur.
     pub tint: Option<Hsla>,
 }
 
-/// An element that fills its parent with glass. Put it first in a
-/// `.relative()` parent so the parent's other children draw over it.
-/// `id` must be unique within the window.
 pub fn glass(id: impl Into<SharedString>, style: GlassStyle, radius: Pixels) -> impl IntoElement {
     glass_with(
         id,
@@ -56,7 +41,6 @@ pub fn glass(id: impl Into<SharedString>, style: GlassStyle, radius: Pixels) -> 
     )
 }
 
-/// [`glass`] with a tint.
 pub fn glass_with(id: impl Into<SharedString>, spec: GlassSpec) -> impl IntoElement {
     let id = id.into();
     div().absolute().inset_0().child(
@@ -68,8 +52,6 @@ pub fn glass_with(id: impl Into<SharedString>, spec: GlassSpec) -> impl IntoElem
     )
 }
 
-/// Whether native glass draws on this machine. When false, [`glass`] paints
-/// a translucent fill instead.
 pub fn native_available() -> bool {
     imp::available()
 }
@@ -84,7 +66,6 @@ fn paint_glass(
     if imp::place(id, bounds, spec, window, cx) {
         return;
     }
-    // No native glass: a translucent fill in the palette's panel color.
     let p = palette(cx);
     let color = spec.tint.unwrap_or(match spec.style {
         GlassStyle::Window | GlassStyle::Regular => p.glass,
@@ -101,7 +82,10 @@ mod imp {
     use objc2::rc::Retained;
     use objc2::runtime::AnyClass;
     use objc2::{msg_send, ClassType, Message};
-    use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSView, NSWindowOrderingMode};
+    use objc2_app_kit::{
+        NSAutoresizingMaskOptions, NSColor, NSView, NSVisualEffectBlendingMode,
+        NSVisualEffectMaterial, NSVisualEffectState, NSWindowOrderingMode,
+    };
     use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -110,13 +94,10 @@ mod imp {
     struct Entry {
         view: Retained<NSView>,
         generation: u64,
-        /// Paint order within the frame; later entries stack higher.
         order: usize,
         frame: Option<(NSRect, GlassSpec)>,
     }
 
-    /// One window's state: its frame count, GPUI's view (the glass sits
-    /// right below it), and the stacking order of its last frame.
     struct WindowGlass {
         frame: u64,
         painted: usize,
@@ -124,14 +105,10 @@ mod imp {
         stack: Vec<SharedString>,
     }
 
-    /// The native views, keyed by GPUI's view pointer and the element id.
-    /// Each window counts its own frames, so a frame in one window never
-    /// removes another window's glass.
     #[derive(Default)]
     struct Registry {
         entries: HashMap<(usize, SharedString), Entry>,
         windows: HashMap<usize, WindowGlass>,
-        /// Windows that painted glass since the last sweep.
         painted: HashSet<usize>,
     }
 
@@ -160,8 +137,6 @@ mod imp {
         NSColor::colorWithSRGBRed_green_blue_alpha(c.r.into(), c.g.into(), c.b.into(), c.a.into())
     }
 
-    /// Whether `style` draws with `NSGlassEffectView` (else with
-    /// `NSVisualEffectView`).
     fn uses_glass(style: GlassStyle) -> bool {
         style != GlassStyle::Window && glass_class().is_some()
     }
@@ -177,21 +152,21 @@ mod imp {
         unsafe {
             let view: Retained<NSView> = msg_send![msg_send![class, alloc], initWithFrame: frame];
             if !uses_glass(style) {
-                // NSVisualEffectMaterialUnderWindowBackground for the window,
-                // NSVisualEffectMaterialHUDWindow for older macOS's panels.
-                let material: isize = if style == GlassStyle::Window { 21 } else { 13 };
-                // Behind the window, unless a debug backdrop stands in for it
-                // inside the window.
-                let blending: isize = if cfg!(debug_assertions)
+                let material = if style == GlassStyle::Window {
+                    NSVisualEffectMaterial::UnderWindowBackground
+                } else {
+                    NSVisualEffectMaterial::HUDWindow
+                };
+                let blending = if cfg!(debug_assertions)
                     && std::env::var_os("BESPOKE_DEV_BACKDROP").is_some()
                 {
-                    1
+                    NSVisualEffectBlendingMode::WithinWindow
                 } else {
-                    0
+                    NSVisualEffectBlendingMode::BehindWindow
                 };
                 let _: () = msg_send![&view, setMaterial: material];
                 let _: () = msg_send![&view, setBlendingMode: blending];
-                let _: () = msg_send![&view, setState: 1isize];
+                let _: () = msg_send![&view, setState: NSVisualEffectState::Active];
                 view.setWantsLayer(true);
             }
             view
@@ -221,11 +196,8 @@ mod imp {
         }
     }
 
-    /// The identifier of the view that tints an `NSVisualEffectView`.
     const TINT_ID: &str = "bespoke-glass-tint";
 
-    /// Lays `tint` over an effect view's blur with a subview that fills it,
-    /// or removes that subview when there is no tint.
     fn set_material_tint(view: &NSView, tint: Option<Hsla>) {
         let identifier = NSString::from_str(TINT_ID);
         // SAFETY: NSView adopts NSUserInterfaceItemIdentification, and
@@ -264,8 +236,6 @@ mod imp {
         }
     }
 
-    /// Creates or moves the glass view for `id`. Returns false when there is
-    /// no native view to draw into.
     pub fn place(
         id: &SharedString,
         bounds: Bounds<Pixels>,
@@ -351,9 +321,6 @@ mod imp {
         true
     }
 
-    /// Debug builds: `BESPOKE_DEV_BACKDROP=<png>` fills the window behind its
-    /// glass with an image, so a snapshot shows what the glass refracts
-    /// without capturing other apps.
     #[cfg(debug_assertions)]
     fn dev_backdrop(content: &NSView) {
         use objc2::AnyThread;
@@ -380,8 +347,6 @@ mod imp {
         content.addSubview_positioned_relativeTo(&view, NSWindowOrderingMode::Below, None);
     }
 
-    /// Runs after a frame: removes the views no element painted in it, in
-    /// the windows that painted, and the views of closed windows.
     fn sweep(cx: &mut App) {
         let registry = cx.default_global::<Registry>();
         let painted = std::mem::take(&mut registry.painted);
@@ -402,8 +367,6 @@ mod imp {
             .windows
             .retain(|_, window| window.gpui_view.window().is_some());
 
-        // Restack a window's glass when its paint order changed, so a view
-        // created late (or recreated) does not cover the ones painted after it.
         for window_key in painted {
             let mut stack: Vec<(usize, SharedString)> = registry
                 .entries

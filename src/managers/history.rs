@@ -9,13 +9,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-/// Database migrations for transcription history.
-/// Each migration is applied in order. The library tracks which migrations
-/// have been applied using SQLite's user_version pragma.
-///
-/// Note: For users upgrading from tauri-plugin-sql, migrate_from_tauri_plugin_sql()
-/// converts the old _sqlx_migrations table tracking to the user_version pragma,
-/// ensuring migrations don't re-run on existing databases.
 fn migrations() -> Migrations<'static> {
     Migrations::new(vec![
     M::up(
@@ -31,7 +24,6 @@ fn migrations() -> Migrations<'static> {
     M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;"),
-    // Usage stats live in their own table so history retention cleanup doesn't erase them.
     M::up_with_hook(
         "CREATE TABLE usage_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,9 +33,7 @@ fn migrations() -> Migrations<'static> {
         );",
         backfill_usage_stats,
     ),
-    // Null for backfilled rows and platforms that can't detect the focused app.
     M::up("ALTER TABLE usage_stats ADD COLUMN app_name TEXT;"),
-    // Annotate captures. Their own table keeps them out of the dictation streak.
     M::up(
         "CREATE TABLE annotate_usage (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,8 +46,6 @@ fn migrations() -> Migrations<'static> {
     ])
 }
 
-/// Seed usage stats from existing history. Old entries have no recorded
-/// duration, so they get 0 and are left out of the words-per-minute average.
 fn backfill_usage_stats(tx: &Transaction) -> HookResult {
     let mut stmt = tx.prepare(
         "SELECT timestamp, transcription_text FROM transcription_history WHERE transcription_text != ''",
@@ -79,8 +67,6 @@ fn backfill_usage_stats(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
-/// Count words in a transcription. Chinese and Japanese are written without
-/// spaces, so each ideograph or kana character counts as one word.
 fn count_words(text: &str) -> i64 {
     let mut count = 0;
     let mut in_word = false;
@@ -102,10 +88,10 @@ fn count_words(text: &str) -> i64 {
 
 fn is_cjk(c: char) -> bool {
     matches!(c,
-        '\u{3040}'..='\u{30FF}' // Hiragana, Katakana
-        | '\u{3400}'..='\u{4DBF}' // CJK Extension A
-        | '\u{4E00}'..='\u{9FFF}' // CJK Unified Ideographs
-        | '\u{F900}'..='\u{FAFF}' // CJK Compatibility Ideographs
+        '\u{3040}'..='\u{30FF}'
+        | '\u{3400}'..='\u{4DBF}'
+        | '\u{4E00}'..='\u{9FFF}'
+        | '\u{F900}'..='\u{FAFF}'
     )
 }
 
@@ -115,43 +101,31 @@ pub struct PaginatedHistory {
     pub has_more: bool,
 }
 
-/// Usage totals for one local calendar day. Days without dictation are omitted.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DailyUsage {
-    /// YYYY-MM-DD in the user's local timezone.
     pub date: String,
     pub words: i64,
     pub transcriptions: i64,
-    /// Words from transcriptions with a recorded duration. Entries backfilled
-    /// from history have none, so words per minute uses this instead of `words`.
     pub timed_words: i64,
     pub duration_ms: i64,
-    /// Distinct apps dictated into. 0 when no dictation recorded an app.
     pub apps_used: i64,
-    /// App that received the most words, or None when no app was recorded.
     pub top_app: Option<String>,
 }
 
-/// One finished Annotate capture.
 #[derive(Clone, Debug)]
 pub struct CaptureUsage {
-    /// Unix seconds when the recording started.
     pub timestamp: i64,
     pub duration_ms: i64,
     pub marks: i64,
-    /// The app recorded. None for a whole display or an area.
     pub app_name: Option<String>,
 }
 
-/// Annotate totals for one local calendar day. Days without captures are omitted.
 #[derive(Clone, Debug)]
 pub struct DailyCaptures {
-    /// YYYY-MM-DD in the user's local timezone.
     pub date: String,
     pub captures: i64,
     pub duration_ms: i64,
     pub marks: i64,
-    /// App captured most often, or None when no capture recorded an app.
     pub top_app: Option<String>,
 }
 
@@ -197,12 +171,10 @@ pub struct HistoryManager {
 
 impl HistoryManager {
     pub fn new(app_handle: &AppHandle) -> Result<Self> {
-        // Create recordings directory in app data dir
         let app_data_dir = crate::portable::app_data_dir(app_handle)?;
         let recordings_dir = app_data_dir.join("recordings");
         let db_path = app_data_dir.join("history.db");
 
-        // Ensure recordings directory exists
         if !recordings_dir.exists() {
             fs::create_dir_all(&recordings_dir)?;
             debug!("Created recordings directory: {:?}", recordings_dir);
@@ -214,7 +186,6 @@ impl HistoryManager {
             db_path,
         };
 
-        // Initialize database and run migrations synchronously
         manager.init_database()?;
 
         Ok(manager)
@@ -225,25 +196,19 @@ impl HistoryManager {
 
         let mut conn = Connection::open(&self.db_path)?;
 
-        // Handle migration from tauri-plugin-sql to rusqlite_migration
-        // tauri-plugin-sql used _sqlx_migrations table, rusqlite_migration uses user_version pragma
         self.migrate_from_tauri_plugin_sql(&conn)?;
 
         let migrations = migrations();
 
-        // Validate migrations in debug builds
         #[cfg(debug_assertions)]
         migrations.validate().expect("Invalid migrations");
 
-        // Get current version before migration
         let version_before: i32 =
             conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         debug!("Database version before migration: {}", version_before);
 
-        // Apply any pending migrations
         migrations.to_latest(&mut conn)?;
 
-        // Get version after migration
         let version_after: i32 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
 
         if version_after > version_before {
@@ -263,7 +228,6 @@ impl HistoryManager {
     /// SQLite's user_version pragma. This function checks if the old system was in use
     /// and sets the user_version accordingly so migrations don't re-run.
     fn migrate_from_tauri_plugin_sql(&self, conn: &Connection) -> Result<()> {
-        // Check if the old _sqlx_migrations table exists
         let has_sqlx_migrations: bool = conn
             .query_row(
                 "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='_sqlx_migrations'",
@@ -276,16 +240,13 @@ impl HistoryManager {
             return Ok(());
         }
 
-        // Check current user_version
         let current_version: i32 =
             conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
 
         if current_version > 0 {
-            // Already migrated to rusqlite_migration system
             return Ok(());
         }
 
-        // Get the highest version from the old migrations table
         let old_version: i32 = conn
             .query_row(
                 "SELECT COALESCE(MAX(version), 0) FROM _sqlx_migrations WHERE success = 1",
@@ -300,11 +261,7 @@ impl HistoryManager {
                 old_version
             );
 
-            // Set user_version to match the old migration state
             conn.pragma_update(None, "user_version", old_version)?;
-
-            // Optionally drop the old migrations table (keeping it doesn't hurt)
-            // conn.execute("DROP TABLE IF EXISTS _sqlx_migrations", [])?;
 
             info!(
                 "Migration tracking converted: user_version set to {}",
@@ -337,8 +294,6 @@ impl HistoryManager {
         &self.recordings_dir
     }
 
-    /// Save a new history entry to the database.
-    /// The WAV file should already have been written to the recordings directory.
     pub fn save_entry(
         &self,
         file_name: String,
@@ -390,7 +345,6 @@ impl HistoryManager {
 
         self.cleanup_old_entries()?;
 
-        // Emit typed event for real-time frontend updates
         if let Err(e) = (HistoryUpdatePayload::Added {
             entry: entry.clone(),
         })
@@ -402,7 +356,6 @@ impl HistoryManager {
         Ok(entry)
     }
 
-    /// Update an existing history entry with new transcription results (used by retry).
     pub fn update_transcription(
         &self,
         id: i64,
@@ -454,19 +407,12 @@ impl HistoryManager {
         let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
 
         match retention_period {
-            crate::settings::RecordingRetentionPeriod::Never => {
-                // Don't delete anything
-                Ok(())
-            }
+            crate::settings::RecordingRetentionPeriod::Never => Ok(()),
             crate::settings::RecordingRetentionPeriod::PreserveLimit => {
-                // Use the old count-based logic with history_limit
                 let limit = crate::settings::get_history_limit(&self.app_handle);
                 self.cleanup_by_count(limit)
             }
-            _ => {
-                // Use time-based logic
-                self.cleanup_by_time(retention_period)
-            }
+            _ => self.cleanup_by_time(retention_period),
         }
     }
 
@@ -479,13 +425,11 @@ impl HistoryManager {
         let mut deleted_count = 0;
 
         for (id, file_name) in entries {
-            // Delete database entry
             conn.execute(
                 "DELETE FROM transcription_history WHERE id = ?1",
                 params![id],
             )?;
 
-            // Delete WAV file
             let file_path = self.recordings_dir.join(file_name);
             if file_path.exists() {
                 if let Err(e) = fs::remove_file(&file_path) {
@@ -503,7 +447,6 @@ impl HistoryManager {
     fn cleanup_by_count(&self, limit: usize) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Get all entries that are not saved, ordered by timestamp desc
         let mut stmt = conn.prepare(
             "SELECT id, file_name FROM transcription_history WHERE saved = 0 ORDER BY timestamp DESC"
         )?;
@@ -535,16 +478,14 @@ impl HistoryManager {
     ) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Calculate cutoff timestamp (current time minus retention period)
         let now = Utc::now().timestamp();
         let cutoff_timestamp = match retention_period {
-            crate::settings::RecordingRetentionPeriod::Days3 => now - (3 * 24 * 60 * 60), // 3 days in seconds
-            crate::settings::RecordingRetentionPeriod::Weeks2 => now - (2 * 7 * 24 * 60 * 60), // 2 weeks in seconds
-            crate::settings::RecordingRetentionPeriod::Months3 => now - (3 * 30 * 24 * 60 * 60), // 3 months in seconds (approximate)
+            crate::settings::RecordingRetentionPeriod::Days3 => now - (3 * 24 * 60 * 60),
+            crate::settings::RecordingRetentionPeriod::Weeks2 => now - (2 * 7 * 24 * 60 * 60),
+            crate::settings::RecordingRetentionPeriod::Months3 => now - (3 * 30 * 24 * 60 * 60),
             _ => unreachable!("Should not reach here"),
         };
 
-        // Get all unsaved entries older than the cutoff timestamp
         let mut stmt = conn.prepare(
             "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND timestamp < ?1",
         )?;
@@ -577,7 +518,6 @@ impl HistoryManager {
     ) -> Result<PaginatedHistory> {
         let conn = self.get_connection()?;
         let limit = limit.min(100);
-        // One extra row tells whether another page follows.
         let fetch_count = (limit + 1) as i64;
 
         let mut entries: Vec<HistoryEntry> = match cursor {
@@ -616,7 +556,6 @@ impl HistoryManager {
         Ok(PaginatedHistory { entries, has_more })
     }
 
-    /// Get the latest entry with non-empty transcription text.
     pub fn get_latest_completed_entry(&self) -> Result<Option<HistoryEntry>> {
         let conn = self.get_connection()?;
         Self::get_latest_completed_entry_with_conn(&conn)
@@ -644,8 +583,6 @@ impl HistoryManager {
         Ok(entry)
     }
 
-    /// Record one completed transcription for the stats page. `app_name` is
-    /// the app the text is pasted into, when the platform can tell.
     pub fn record_usage(&self, text: &str, duration_ms: i64, app_name: Option<&str>) -> Result<()> {
         let conn = self.get_connection()?;
         Self::record_usage_with_conn(&conn, Utc::now().timestamp(), text, duration_ms, app_name)
@@ -670,7 +607,6 @@ impl HistoryManager {
         Ok(())
     }
 
-    /// Per-day usage, oldest first.
     pub fn get_daily_usage(&self) -> Result<Vec<DailyUsage>> {
         let conn = self.get_connection()?;
         Self::get_daily_usage_with_conn(&conn)
@@ -703,7 +639,6 @@ impl HistoryManager {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
-        // Each day's apps, most words first, so the first row per day is its top app.
         let mut stmt = conn.prepare(
             "SELECT
                 date(timestamp, 'unixepoch', 'localtime') AS day,
@@ -724,7 +659,6 @@ impl HistoryManager {
         Ok(days)
     }
 
-    /// Record one finished Annotate capture for the stats page.
     pub fn record_capture(&self, capture: &CaptureUsage) -> Result<()> {
         let conn = self.get_connection()?;
         Self::record_capture_with_conn(&conn, capture)
@@ -744,9 +678,6 @@ impl HistoryManager {
         Ok(())
     }
 
-    /// Seed Annotate stats from the captures `load` finds on disk, while none
-    /// are recorded yet: captures made before Bespoke counted them, or before
-    /// an update added the table. Returns how many were recorded.
     pub fn seed_captures(&self, load: impl FnOnce() -> Vec<CaptureUsage>) -> Result<usize> {
         let mut conn = self.get_connection()?;
         Self::seed_captures_with_conn(&mut conn, load)
@@ -772,7 +703,6 @@ impl HistoryManager {
         Ok(captures.len())
     }
 
-    /// Per-day Annotate captures, oldest first.
     pub fn get_daily_captures(&self) -> Result<Vec<DailyCaptures>> {
         let conn = self.get_connection()?;
         Self::get_daily_captures_with_conn(&conn)
@@ -801,7 +731,6 @@ impl HistoryManager {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
-        // Each day's apps, most captures first, so the first row per day is its top app.
         let mut stmt = conn.prepare(
             "SELECT
                 date(timestamp, 'unixepoch', 'localtime') AS day,
@@ -825,7 +754,6 @@ impl HistoryManager {
     pub async fn toggle_saved_status(&self, id: i64) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Get current saved status
         let current_saved: bool = conn.query_row(
             "SELECT saved FROM transcription_history WHERE id = ?1",
             params![id],
@@ -841,7 +769,6 @@ impl HistoryManager {
 
         debug!("Toggled saved status for entry {}: {}", id, new_saved);
 
-        // Emit history updated event
         if let Err(e) = (HistoryUpdatePayload::Toggled { id }).emit(&self.app_handle) {
             error!("Failed to emit history-updated event: {}", e);
         }
@@ -878,19 +805,15 @@ impl HistoryManager {
     pub async fn delete_entry(&self, id: i64) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Get the entry to find the file name
         if let Some(entry) = self.get_entry_by_id(id).await? {
-            // Delete the audio file first
             let file_path = self.get_audio_file_path(&entry.file_name);
             if file_path.exists() {
                 if let Err(e) = fs::remove_file(&file_path) {
                     error!("Failed to delete audio file {}: {}", entry.file_name, e);
-                    // Continue with database deletion even if file deletion fails
                 }
             }
         }
 
-        // Delete from database
         conn.execute(
             "DELETE FROM transcription_history WHERE id = ?1",
             params![id],
@@ -898,7 +821,6 @@ impl HistoryManager {
 
         debug!("Deleted history entry with id: {}", id);
 
-        // Emit history updated event
         if let Err(e) = (HistoryUpdatePayload::Deleted { id }).emit(&self.app_handle) {
             error!("Failed to emit history-updated event: {}", e);
         }
@@ -908,7 +830,6 @@ impl HistoryManager {
 
     fn format_timestamp_title(&self, timestamp: i64) -> String {
         if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
-            // Convert UTC to local timezone
             let local_datetime = utc_datetime.with_timezone(&Local);
             local_datetime.format("%B %e, %Y - %l:%M%p").to_string()
         } else {
@@ -994,7 +915,6 @@ mod tests {
         let sum = |field: fn(&DailyUsage) -> i64| days.iter().map(field).sum::<i64>();
         assert_eq!(sum(|d| d.words), 7);
         assert_eq!(sum(|d| d.transcriptions), 2);
-        // Only the recorded dictation has a duration.
         assert_eq!(sum(|d| d.timed_words), 4);
         assert_eq!(sum(|d| d.duration_ms), 2_000);
     }
@@ -1005,7 +925,7 @@ mod tests {
         migrations()
             .to_latest(&mut conn)
             .expect("migrate to latest");
-        let day = 1_788_264_000; // Noon UTC, so every timezone sees the same date.
+        let day = 1_788_264_000;
         let next_day = day + 2 * 86_400;
         let record = |timestamp, text, app| {
             HistoryManager::record_usage_with_conn(&conn, timestamp, text, 1_000, app)
@@ -1019,7 +939,6 @@ mod tests {
 
         let days = HistoryManager::get_daily_usage_with_conn(&conn).expect("daily usage");
         assert_eq!(days.len(), 2);
-        // Slack's 4 words beat Codex's 3; the untracked dictation counts toward neither.
         assert_eq!(days[0].apps_used, 2);
         assert_eq!(days[0].top_app.as_deref(), Some("Slack"));
         assert_eq!(days[1].apps_used, 0);
@@ -1032,7 +951,7 @@ mod tests {
         migrations()
             .to_latest(&mut conn)
             .expect("migrate to latest");
-        let day = 1_788_264_000; // Noon UTC, so every timezone sees the same date.
+        let day = 1_788_264_000;
         let record = |timestamp, duration_ms, marks, app: Option<&str>| {
             let capture = CaptureUsage {
                 timestamp,

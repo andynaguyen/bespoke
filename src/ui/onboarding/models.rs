@@ -1,7 +1,3 @@
-//! The model picker step (`Onboarding.tsx`). Picking a model downloads it,
-//! and once it is downloaded, verified and extracted it becomes the active
-//! model and onboarding ends.
-
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -25,12 +21,9 @@ pub struct ModelOnboarding {
     store: Entity<ModelStore>,
     preview: bool,
     on_done: WindowCallback,
-    /// The model being downloaded or switched to. Set means busy.
     selected: Option<String>,
     started_selection: bool,
     show_all: bool,
-    /// Whether "Show all" was clicked, so the chevron only animates after
-    /// a toggle and not on first paint.
     toggled: bool,
     scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -61,10 +54,7 @@ impl ModelOnboarding {
         }
     }
 
-    /// Switches to the selected model once it is fully on disk, then ends
-    /// onboarding.
     fn check_ready(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // Previews never switch the user's active model.
         if self.preview {
             return;
         }
@@ -91,7 +81,6 @@ impl ModelOnboarding {
                     if ok {
                         let _ = handle.update(cx, |_, window, cx| on_done(window, cx));
                     } else {
-                        // The store shows the error toast.
                         let _ = weak.update(cx, |this, cx| {
                             this.started_selection = false;
                             this.selected = None;
@@ -109,7 +98,6 @@ impl ModelOnboarding {
             return;
         }
         self.selected = Some(id.to_string());
-        // The store shows the error toast when a download fails.
         let weak = cx.entity().downgrade();
         self.store.update(cx, |store, cx| {
             store.download_model(
@@ -218,9 +206,6 @@ impl Render for ModelOnboarding {
         let p = palette(cx);
         let models = self.store.read(cx).models.clone();
 
-        // Legacy (.bin/ONNX) downloads are deprecated and never offered here.
-        // The catalog arrives in rank order, so the first two recommended
-        // models are the featured picks and the rest hide behind "Show all".
         let downloadable: Vec<&ModelInfo> = models
             .iter()
             .filter(|m| !m.is_downloaded && !is_legacy(m))
@@ -254,7 +239,6 @@ impl Render for ModelOnboarding {
         }
         if !downloadable.is_empty() {
             let show_all = self.show_all;
-            // `transition-transform duration-200` to `rotate-180`.
             let chevron = icon("chevron-down").size(rems(1.));
             let chevron = if self.toggled {
                 chevron

@@ -7,16 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::ScrawlBundle;
 
-/// Where captures go: `captures/` in Bespoke's Annotate folder.
 pub fn default_captures_dir() -> PathBuf {
     match crate::host::data_dir() {
         Some(dir) => dir.join("captures"),
-        // Tests and a host that never called `host::configure`.
         None => std::env::temp_dir().join("scrawl-captures"),
     }
 }
 
-/// Opens a file, folder or URL with its default app (Finder, the browser).
 pub fn open_path(target: &Path) -> Result<()> {
     let status = Command::new("/usr/bin/open").arg(target).status()?;
     ensure!(status.success(), "open {} failed", target.display());
@@ -67,7 +64,6 @@ fn newest_bundle(captures: &Path) -> Result<PathBuf> {
         let entry = entry?;
         let path = entry.path();
         if path.extension().is_some_and(|ext| ext == "scrawl") && path.is_dir() {
-            // Bundle creation time is stable even after later zoom-frame extraction.
             let created = fs::read(path.join("scrawl.json"))
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<ScrawlBundle>(&bytes).ok())
@@ -102,32 +98,22 @@ pub fn load_bundle(bundle_dir: &Path) -> Result<(PathBuf, ScrawlBundle)> {
     Ok((directory, bundle))
 }
 
-/// A capture as the host's MCP server reads it for an agent, which may run on another machine.
 pub struct Capture {
     dir: PathBuf,
     bundle: ScrawlBundle,
 }
 
-/// One keyframe, for a timeline: when it is, what they did, what they said while it was on
-/// screen, and its image.
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyframeRow {
     pub index: usize,
-    /// Like `0:10`.
     pub clock: String,
-    /// What they did, like `Clicked Save`, without the details in parentheses.
     pub action: String,
     pub said: Option<String>,
-    /// Whether one of their marks made this keyframe.
     pub mark: bool,
     pub path: PathBuf,
 }
 
 impl Capture {
-    /// The capture `reference` names in `captures`: `latest`, an id like
-    /// `scrawl-1792561826739-14c29-6`, or a path from a paste, which may be another machine's
-    /// path to the same bundle or a file inside it. Only the `.scrawl` folder's name counts, so
-    /// a reference can't reach outside `captures`.
     pub fn find(captures: &Path, reference: &str) -> Result<Self> {
         let reference = reference.trim();
         if reference.is_empty() || reference == "latest" {
@@ -162,7 +148,6 @@ impl Capture {
         Self::load(&dir)
     }
 
-    /// Up to `limit` captures, newest first. Skips bundles whose manifest doesn't load.
     pub fn recent(captures: &Path, limit: usize) -> Vec<Self> {
         let Ok(entries) = fs::read_dir(captures) else {
             return Vec::new();
@@ -183,7 +168,6 @@ impl Capture {
         Ok(Self { dir, bundle })
     }
 
-    /// The folder's name without `.scrawl`, like `bespoke-1792561826739-14c29-6`.
     pub fn id(&self) -> String {
         self.dir
             .file_stem()
@@ -195,12 +179,10 @@ impl Capture {
         self.bundle.created_at_ms
     }
 
-    /// Like `0:16`.
     pub fn duration(&self) -> String {
         crate::model::format_clock(self.bundle.duration_ms)
     }
 
-    /// The app and window recorded, like `Slack “Inbox”`, or `Display`.
     pub fn target(&self) -> String {
         crate::sketch::target_label(&self.bundle.target)
     }
@@ -209,17 +191,14 @@ impl Capture {
         self.bundle.keyframes.len()
     }
 
-    /// The `.scrawl` folder.
     pub fn dir(&self) -> &Path {
         &self.dir
     }
 
-    /// How many marks they drew.
     pub fn marks(&self) -> usize {
         self.bundle.marks.len()
     }
 
-    /// The keyframes in order, with the images the contact sheet uses.
     pub fn keyframe_rows(&self) -> Vec<KeyframeRow> {
         self.bundle
             .keyframes
@@ -263,13 +242,10 @@ impl Capture {
             .filter(|note| !note.is_empty())
     }
 
-    /// `summary.md`, with the id where the bundle path goes: the path is this Mac's, and the
-    /// agent reading it may run elsewhere.
     pub fn summary(&self) -> String {
         crate::sketch::summary_markdown(&self.bundle, Path::new(&self.id()))
     }
 
-    /// The contact sheet, uncropped when `full` and the capture was cropped.
     pub fn contact_sheet(&self, full: bool) -> Result<PathBuf> {
         match &self.bundle.autocrop {
             Some(crop) if full => self.full_size_file(&crop.full_contact_sheet),
@@ -277,8 +253,6 @@ impl Capture {
         }
     }
 
-    /// Keyframe `#index` as a label like `#3 (0:10)` and its image, uncropped when `full` and
-    /// the capture was cropped.
     pub fn keyframe(&self, index: usize, full: bool) -> Result<(String, PathBuf)> {
         let keyframes = &self.bundle.keyframes;
         let Some(keyframe) = keyframes.iter().find(|keyframe| keyframe.index == index) else {
@@ -307,8 +281,6 @@ impl Capture {
         Ok((label, path))
     }
 
-    /// `scrawl.json` as compact JSON, without `cursor`, `windows` and the strokes' `pts` unless
-    /// `include` names them. They are most of the file and rarely help an agent.
     pub fn manifest(&self, include: &[&str]) -> Result<String> {
         let path = self.dir.join("scrawl.json");
         let mut manifest: serde_json::Value = serde_json::from_slice(
@@ -334,7 +306,6 @@ impl Capture {
         Ok(serde_json::to_string(&manifest)?)
     }
 
-    /// A file the manifest names, which must stay inside the bundle.
     fn file(&self, relative: &str) -> Result<PathBuf> {
         let relative = Path::new(relative);
         ensure!(
@@ -349,7 +320,6 @@ impl Capture {
         Ok(path)
     }
 
-    /// Like `file`, for the uncropped copies retention trashes with the video.
     fn full_size_file(&self, relative: &str) -> Result<PathBuf> {
         self.file(relative).map_err(|_| {
             anyhow!(
@@ -401,10 +371,6 @@ pub fn copy_bundle_to_clipboard(bundle_dir: &Path) -> Result<()> {
     copy_string_to_clipboard(&summary)
 }
 
-/// Pastes both the contact-sheet image and the transcript/keyframe text into the active app
-/// as a two-step sequence (`⌘V` image, then `⌘V` text). If `click_target` is
-/// provided (from dragging the Paste chip onto a window/input), clicks at that screen coordinate
-/// first to focus it.
 pub fn paste_bundle_at_target(bundle_dir: &Path, click_target: Option<[f32; 2]>) -> Result<()> {
     if let Some([x, y]) = click_target {
         crate::capture::post_synthetic_click(f64::from(x), f64::from(y));
@@ -444,19 +410,14 @@ pub fn paste_bundle_image_and_text(bundle_dir: &Path) -> Result<()> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    /// `false` turns Screen-capture auto-crop off; an object overrides its settings.
     #[serde(default)]
     pub autocrop: Option<serde_json::Value>,
-    /// The old Metal capsule's style. The host draws the capsule now and ignores it; kept so
-    /// existing configs round-trip.
     #[serde(default)]
     pub pill_style: Option<String>,
-    /// The microphone Mac captures record from (`mic`); absent follows the macOS default.
     #[serde(default)]
     pub microphone: Option<crate::mic::Choice>,
 }
 
-/// Config problems are logged once per process, not on every read.
 fn log_config_once(message: String) {
     static SEEN: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
     let mut seen = SEEN
@@ -483,8 +444,6 @@ pub fn load_config_from(path: &Path) -> Config {
         .unwrap_or_default()
 }
 
-/// The config in `value`. A key whose value doesn't fit (`"autoSend": "maybe"`) is dropped and
-/// logged on its own, so one bad setting never resets the others to their defaults.
 fn config_from_value(value: serde_json::Value) -> Config {
     let serde_json::Value::Object(map) = value else {
         return Config::default();
@@ -492,7 +451,6 @@ fn config_from_value(value: serde_json::Value) -> Config {
     if let Ok(config) = serde_json::from_value(serde_json::Value::Object(map.clone())) {
         return config;
     }
-    // Add keys one at a time, keeping each only if everything so far still reads.
     let mut kept = serde_json::Map::new();
     for (key, value) in map {
         kept.insert(key.clone(), value.clone());
@@ -506,8 +464,6 @@ fn config_from_value(value: serde_json::Value) -> Config {
     serde_json::from_value(serde_json::Value::Object(kept)).unwrap_or_default()
 }
 
-
-/// Sets one top-level key in `path` (`null` removes it), keeping the rest.
 pub fn set_config_value_in(path: &Path, key: &str, value: serde_json::Value) -> Result<()> {
     let mut config = fs::read(path)
         .ok()
@@ -537,7 +493,6 @@ pub fn set_config_value_in(path: &Path, key: &str, value: serde_json::Value) -> 
     fs::rename(&tmp, path).with_context(|| format!("Could not write {}", path.display()))
 }
 
-/// What retention trashes first: the video, audio and full-size frames.
 pub const HEAVY_MEDIA: [&str; 4] = [
     "recording.mp4",
     "audio.wav",
@@ -641,7 +596,6 @@ mod tests {
         assert_eq!(id("").unwrap(), "scrawl-2-b");
         assert_eq!(id("scrawl-1-a").unwrap(), "scrawl-1-a");
         assert_eq!(id("scrawl-1-a.scrawl").unwrap(), "scrawl-1-a");
-        // Another machine's path to the same bundle, or a file inside it.
         assert_eq!(
             id("/Users/someone/Library/Application Support/x/captures/scrawl-1-a.scrawl").unwrap(),
             "scrawl-1-a"
@@ -654,7 +608,6 @@ mod tests {
         assert!(id("scrawl-9-z").is_err());
         assert!(id("..").is_err());
         assert!(id("../scrawl-1-a/../../etc").is_err());
-        // A bundle outside the folder resolves to the folder's copy, which doesn't exist.
         let outside = Fixture::new();
         let elsewhere = outside.bundle("scrawl-3-c", 300);
         assert!(id(&elsewhere.display().to_string()).is_err());
@@ -685,7 +638,6 @@ mod tests {
 
         assert!(capture.summary().starts_with("[Bespoke annotation 0:07 · Display · scrawl-1-a]"));
         assert!(capture.contact_sheet(false).unwrap().ends_with("contact-sheet.png"));
-        // Without autocrop the frames are already full size.
         assert!(capture.contact_sheet(true).unwrap().ends_with("contact-sheet.png"));
         let (label, path) = capture.keyframe(3, true).unwrap();
         assert_eq!(label, "#3 (0:04)");
@@ -712,7 +664,6 @@ mod tests {
         assert_eq!(all["cursor"], manifest["cursor"]);
         assert_eq!(all["strokes"], manifest["strokes"]);
 
-        // Retention trashed the uncropped copies.
         assert!(capture.contact_sheet(true).unwrap_err().to_string().contains("gone"));
         assert!(capture.keyframe(3, true).is_err());
         fs::create_dir_all(dir.join("frames-full")).unwrap();

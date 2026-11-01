@@ -10,25 +10,16 @@ use crate::model::{
     CaptureMode, InteractionEvent, RgbaFrame, SCALE, Stroke, TargetFrame, TargetInfo,
 };
 
-// The operating system side of capture: global shortcuts, input monitoring, the frontmost app,
-// displays and windows, and the screen recorder. Each platform module provides the same items.
 #[cfg_attr(target_os = "macos", path = "capture/macos.rs")]
 #[cfg_attr(target_os = "windows", path = "capture/windows.rs")]
 mod platform;
 pub use platform::*;
 
 pub const FRAME_SAMPLE_INTERVAL: Duration = Duration::from_millis(220);
-/// Candidate frames only feed scene diffs and keyframe selection; the keyframes themselves are
-/// decoded from `recording.mp4` at full size afterwards.
 pub const CANDIDATE_EDGE: f64 = 480.0;
-/// Without a recording to decode from, the candidates are the keyframes, so keep them sharper.
 pub(crate) const CANDIDATE_EDGE_NO_VIDEO: f64 = 1280.0;
-/// The candidates' memory ceiling, however long the capture runs.
 pub const CANDIDATE_BUDGET_BYTES: usize = 384 << 20;
 
-/// The candidate frames of a capture, bounded in memory. When full it drops every other frame
-/// (keeping the first and the ones taken for a click, stroke or shortcut) and samples half as
-/// often from then on, so a long capture keeps its whole timeline, evenly, at a coarser step.
 pub struct CandidateBuffer {
     frames: Vec<(RgbaFrame, bool)>,
     cap: usize,
@@ -46,7 +37,6 @@ impl CandidateBuffer {
         }
     }
 
-    /// How often to sample now.
     pub fn interval(&self) -> Duration {
         self.interval
     }
@@ -80,7 +70,6 @@ impl CandidateBuffer {
             })
             .map(|(_, f)| f)
             .collect();
-        // Mostly urgent frames (a storm of clicks): thin those too.
         if kept.len() > self.cap * 3 / 4 {
             kept = kept
                 .into_iter()
@@ -93,7 +82,6 @@ impl CandidateBuffer {
         self.interval *= 2;
     }
 
-    /// Forgets frames taken after `t_ms`, except the first.
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn drop_since(&mut self, t_ms: u64) {
         let mut index = 0;
@@ -108,29 +96,22 @@ impl CandidateBuffer {
     }
 }
 
-/// What a finished screen capture leaves behind.
 pub struct ScreenRecording {
-    /// Small candidate frames for keyframe selection (see `CANDIDATE_EDGE`).
     pub frames: Vec<RgbaFrame>,
     pub video: Option<PathBuf>,
     pub duration_ms: u64,
-    /// The capture time (on the frames' clock) of the video's start.
     pub video_offset_ms: u64,
 }
 
-/// Live UI events emitted by the global input monitor to drive Scrawl's HUD & Review windows.
 #[derive(Clone, Debug)]
 pub enum LiveOverlayEvent {
-    /// ⌥⇧S (or the configured shortcut) went down; `hold::Switcher` decides what it means.
     CaptureShortcut,
     PasteLatestShortcut,
     UndoStroke,
     RequestSnapshot,
-    /// What macOS has granted, read by a fresh helper at start.
     Grants(crate::permissions::Grants),
 }
 
-// Carbon HIToolbox modifier bits. The shortcut is stored with them on every platform.
 pub const CARBON_CMD_KEY: u32 = 1 << 8;
 pub const CARBON_SHIFT_KEY: u32 = 1 << 9;
 pub const CARBON_OPTION_KEY: u32 = 1 << 11;
@@ -149,13 +130,10 @@ impl Default for ShortcutConfig {
     }
 }
 
-/// Scrawl's two global shortcuts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ShortcutKind {
-    /// Start, switch or finish a recording (⌥⇧S).
     Record,
-    /// Paste the latest capture into the app in front (⌥⇧V).
     Paste,
 }
 
@@ -169,7 +147,6 @@ impl ShortcutKind {
         }
     }
 
-    /// The letter of the default, on the active layout (Dvorak's S is not ANSI's).
     fn default_char(self) -> char {
         match self {
             Self::Record => 's',
@@ -209,8 +186,6 @@ impl ShortcutConfig {
         }
     }
 
-    /// Whether this is `kind`'s default, which also answers to its aliases (⌃⌥⇧, ⌘⌥⇧, ⌃⌥⌘
-    /// and the ANSI key).
     pub fn is_default_for(&self, kind: ShortcutKind) -> bool {
         self.carbon_modifiers == CARBON_OPTION_KEY | CARBON_SHIFT_KEY
             && shortcut_parts(&self.label).1 == kind.default_char().to_ascii_uppercase().to_string()
@@ -221,7 +196,6 @@ impl ShortcutConfig {
     }
 }
 
-/// A shortcut as this platform writes it: `⌥⇧S` on macOS, `Alt+Shift+S` on Windows.
 pub fn shortcut_label(carbon_modifiers: u32, key: &str) -> String {
     let held = |bit: u32| carbon_modifiers & bit != 0;
     if cfg!(target_os = "windows") {
@@ -280,10 +254,7 @@ pub fn scrawl_log(msg: impl AsRef<str>) {
     }
 }
 
-/// A shortcut label split into its modifiers and key: `⌥⇧S` → (`⌥⇧`, `S`), and on Windows
-/// `Alt+Shift+S` → (`Alt+Shift`, `S`).
 pub fn shortcut_parts(label: &str) -> (&str, &str) {
-    // The key itself may be "+" (`Ctrl++`), or a letter outside ASCII.
     let before_key = label.char_indices().last().map_or("", |(i, _)| &label[..i]);
     if let Some(plus) = before_key.rfind('+') {
         return (&label[..plus], &label[plus + 1..]);
@@ -295,9 +266,6 @@ pub fn shortcut_parts(label: &str) -> (&str, &str) {
     label.split_at(split)
 }
 
-/// Whether a key press is the record shortcut. A custom one matches exactly; the default ⌥⇧S
-/// also answers with ⌃ or ⌘ added and as ⌃⌥⌘S, on the active layout's S key (`s_code`) or the
-/// ANSI one.
 pub fn is_capture_shortcut(
     cfg: &ShortcutConfig,
     s_code: u16,
@@ -319,8 +287,6 @@ pub fn is_capture_shortcut(
     )
 }
 
-/// `is_capture_shortcut` for any of Scrawl's shortcuts; `layout_code` is the default key on the
-/// active layout.
 #[allow(clippy::too_many_arguments)]
 pub fn shortcut_matches(
     kind: ShortcutKind,
@@ -348,7 +314,6 @@ pub fn shortcut_matches(
     cfg.is_default_for(kind) && is_key && alt && (shift || (ctrl && cmd))
 }
 
-/// The active layout's key for `kind`'s default letter (Windows' hooks and poller match on it).
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 pub fn layout_default_keycode(kind: ShortcutKind) -> u16 {
     key_code_for_char(kind.default_char()).unwrap_or(kind.ansi_code())
@@ -365,8 +330,6 @@ fn clean_label(input: &str) -> String {
     }
 }
 
-/// Which display to record: the one under `point`, else the one holding the focused window's
-/// centre, else the first. Frames and points are global, top-left origin.
 pub fn pick_display(
     displays: &[[f64; 4]],
     point: Option<[f64; 2]>,
@@ -390,7 +353,6 @@ pub fn selectable_window_at(windows: &[TargetInfo], x: f64, y: f64) -> Option<&T
     })
 }
 
-/// Resolves region metadata from the picker's snapshot, without another SCK query.
 pub fn region_target(
     x: f64,
     y: f64,
@@ -402,8 +364,6 @@ pub fn region_target(
     let mid_y = y + height * 0.5;
     let hit = selectable_window_at(windows, mid_x, mid_y);
     let frontmost = frontmost_app_info();
-    // One display per recording: the area's (by its centre), trimmed to that display and at
-    // least `MIN_AREA` a side inside it, so this frame is exactly the recorded `sourceRect`.
     let screens = crate::screens::displays();
     let (display_id, scale, [x, y, width, height]) =
         crate::screens::area_on_display(&screens, [x, y, width, height]).map_or_else(
@@ -435,9 +395,6 @@ pub fn region_target(
     }
 }
 
-/// The capture size for `target` with its long edge at most `long_edge` px (and at most its
-/// display's pixels: a 1x display isn't upscaled, and on Windows frames are pixels already,
-/// `MAX_CAPTURE_SCALE`).
 pub fn capture_size(target: &TargetInfo, long_edge: f64) -> (u32, u32) {
     let max_dim = target.frame.width.max(target.frame.height).max(1.0);
     let native = target.frame.scale.clamp(1.0, MAX_CAPTURE_SCALE);
@@ -448,13 +405,9 @@ pub fn capture_size(target: &TargetInfo, long_edge: f64) -> (u32, u32) {
     )
 }
 
-/// What the platform's sampler thread records into. It runs until `stopping`, pushes candidate
-/// frames (at once when `urgent`), stores when the movie started into `video_offset_ms`, and
-/// returns the movie it wrote.
 pub(crate) struct Sampler {
     pub target: TargetInfo,
     pub video_output_path: Option<PathBuf>,
-    /// Scrawl's own windows to leave out of the recording.
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub excluded_window_ids: Arc<Mutex<Vec<u32>>>,
     pub started_at: Instant,
@@ -464,8 +417,6 @@ pub(crate) struct Sampler {
     pub video_offset_ms: Arc<AtomicU64>,
 }
 
-/// Active screen + optional MP4 recorder (ScreenCaptureKit on macOS, Windows.Graphics.Capture
-/// and Media Foundation on Windows).
 pub struct ScreenCaptureSession {
     started_at: Instant,
     stopping: Arc<AtomicBool>,
@@ -574,16 +525,13 @@ impl Drop for ScreenCaptureSession {
     }
 }
 
-/// Shared state collected by the global input monitor during an active capture session.
 pub struct SharedCaptureTelemetry {
     pub active: AtomicBool,
     pub selecting: AtomicBool,
     pub shift_held: AtomicBool,
     pub capture_mode: AtomicU64,
-    /// The record shortcut (`crate::settings` loads and saves it).
     pub shortcut: Mutex<ShortcutConfig>,
     pub paste_shortcut: Mutex<ShortcutConfig>,
-    /// Settings is recording a new shortcut: none of Scrawl's fire (`pause_shortcuts`).
     pub shortcuts_paused: AtomicBool,
     pub started_at: Mutex<Instant>,
     pub picker_started_at: Mutex<Instant>,
@@ -595,37 +543,23 @@ pub struct SharedCaptureTelemetry {
     pub active_laser: Mutex<Option<Stroke>>,
     pub live_ink: Mutex<Option<Stroke>>,
     pub excluded_window_ids: Arc<Mutex<Vec<u32>>>,
-    /// Raised when a click, ink stroke or shortcut starts, so the Screen-mode window log takes
-    /// a snapshot right away.
     pub window_log_request: Arc<AtomicBool>,
     pub ui_sender: flume::Sender<LiveOverlayEvent>,
-    /// Scrawl's windows that let clicks through (the ink overlay), skipped when deciding whether
-    /// a click landed on Scrawl itself.
     pub passthrough_window_ids: Mutex<Vec<u32>>,
-    /// macOS's key event tap (`CFMachPortRef`), made once Accessibility is on (`check_key_tap`).
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_port: AtomicU64,
-    /// The key event tap thread's run loop (retained), so `check_key_tap` can stop it.
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_run_loop: AtomicU64,
-    /// A key tap thread is being started.
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_starting: AtomicBool,
-    /// When the last key tap was tried (ms since `UNIX_EPOCH`), to space out retries.
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_tried_ms: AtomicU64,
-    /// Whether key presses are arriving (macOS's key tap, Windows' keyboard hook).
     tap_live: AtomicBool,
-    /// Esc went down since the switcher last looked (`take_escape`).
     escape_pressed: AtomicBool,
-    /// A Screen recording started straight from the shortcut: the overlay flashes an edge glow.
     pub start_glow: AtomicBool,
-    /// Clicks are arriving (macOS's global mouse monitor, Windows' mouse hook). Until then the
-    /// poller records clicks from polled button state.
     mouse_live: AtomicBool,
     last_shortcut_ms: AtomicU64,
     drag_start: Mutex<Option<(u64, f32, f32, Option<String>, TargetFrame)>>,
-    /// A ⇧-press inside the target: when, where (global points) and on which frame.
     shift_press: Mutex<Option<(u64, f64, f64, TargetFrame)>>,
 }
 
@@ -672,9 +606,6 @@ impl SharedCaptureTelemetry {
         })
     }
 
-    /// Both sources (the host's shortcut through `host::press`, and the key tap) report the same
-    /// press within a few ms; a press after that is a new one, as when S is pressed again to switch
-    /// modes.
     pub fn emit_capture_shortcut(&self) {
         if self.shortcuts_paused.load(Ordering::Acquire) {
             return;
@@ -820,7 +751,6 @@ impl SharedCaptureTelemetry {
         scrawl_log(format!("session clicks from {clicks}, keys from {keys}"));
     }
 
-    /// Whether Esc went down since the last call (the switcher cancels on it).
     pub fn take_escape(&self) -> bool {
         self.escape_pressed.swap(false, Ordering::AcqRel)
     }
@@ -847,7 +777,6 @@ impl SharedCaptureTelemetry {
             && screen_y <= frame.y + frame.height
     }
 
-    /// A mouse button went down at a global point.
     fn pointer_down(&self, t_ms: u64, screen_x: f64, screen_y: f64) {
         if !self.contains_screen_point(screen_x, screen_y) {
             return;
@@ -872,7 +801,6 @@ impl SharedCaptureTelemetry {
             Some((t_ms, nx, ny, None, start_frame));
     }
 
-    /// A mouse button came up: records the click or drag that `pointer_down` began.
     fn pointer_up(&self, t_ms: u64, screen_x: f64, screen_y: f64, right: bool) {
         let Some((t0, x0, y0, start_label, start_frame)) = self
             .drag_start
@@ -920,7 +848,6 @@ impl SharedCaptureTelemetry {
             .push(event);
     }
 
-    /// The left button went down with only ⇧ held: a pin if it comes up as a click (`shift_up`).
     fn shift_down(&self, t_ms: u64, screen_x: f64, screen_y: f64) {
         if !self.contains_screen_point(screen_x, screen_y) {
             return;
@@ -936,9 +863,6 @@ impl SharedCaptureTelemetry {
             Some((t_ms, screen_x, screen_y, frame));
     }
 
-    /// The button of a ⇧-press came up (with or without ⇧ still held). A ⇧-click drops the next
-    /// numbered pin where it went down; a ⇧-drag is left to the ink the poller is drawing.
-    /// Returns whether a ⇧-press was waiting, so the release isn't also taken as a click's.
     fn shift_up(&self, t_ms: u64, screen_x: f64, screen_y: f64) -> bool {
         let Some((t0, x0, y0, start_frame)) = self
             .shift_press
@@ -958,8 +882,6 @@ impl SharedCaptureTelemetry {
             return true;
         }
         let (nx, ny, fw, fh) = self.normalize_point(x0, y0);
-        // ⇧ draws as it's held, so the live ink ends in the click's jitter; what was drawn
-        // before the press is kept, and further ink starts a new stroke.
         let earlier = self
             .live_ink
             .lock()
@@ -993,8 +915,6 @@ impl SharedCaptureTelemetry {
         true
     }
 
-    /// Whether the topmost window at a global point is Scrawl's own (ignoring the click-through
-    /// ink overlay).
     fn on_scrawl_window(&self, x: f64, y: f64) -> bool {
         let passthrough = self
             .passthrough_window_ids
@@ -1089,9 +1009,6 @@ impl SharedCaptureTelemetry {
     }
 }
 
-/// Clicks from the mouse buttons' polled state, while the mouse monitor (or hook) is missing: a
-/// press starts a click (unless it lands on Scrawl's own window), a release ends it. A ⇧-press may
-/// be a pin, as in the mouse monitor's handler.
 fn poll_clicks(
     telemetry: &SharedCaptureTelemetry,
     prev: &mut [bool; 2],
@@ -1121,20 +1038,15 @@ fn poll_clicks(
     }
 }
 
-/// A press that moves less than this (points) before it's let go is a click, not a drag.
 const CLICK_SLOP_PT: f32 = 12.0;
-/// A ⇧-press held still for longer than this drops no pin.
 const PIN_MAX_PRESS_MS: u64 = 1_000;
-/// Ink spanning less than this (points) is a stationary ⇧ tap, not a stroke.
 const MIN_INK_SPAN_PT: f32 = 6.0;
 
-/// Whether a ⇧-press (`t`, global `x`, `y`) let go at `up` is a ⇧-click, which drops a pin.
 fn is_pin_click(down: (u64, f64, f64), up: (u64, f64, f64)) -> bool {
     up.0.saturating_sub(down.0) <= PIN_MAX_PRESS_MS
         && ((up.1 - down.1).hypot(up.2 - down.2) as f32) < CLICK_SLOP_PT
 }
 
-/// How far (points) the ink reaches from where it started.
 fn ink_span_pt(stroke: &Stroke) -> f32 {
     let Some(first) = stroke.pts.get(0..2) else {
         return 0.0;
@@ -1150,12 +1062,10 @@ fn ink_span_pt(stroke: &Stroke) -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
-/// Whether finished ink is worth keeping as a stroke.
 fn is_real_ink(stroke: &Stroke) -> bool {
     stroke.pts.len() >= 6 && ink_span_pt(stroke) >= MIN_INK_SPAN_PT
 }
 
-/// The part of live ink drawn before `t_ms`.
 fn ink_before(mut stroke: Stroke, t_ms: u64) -> Stroke {
     let t0 = stroke.t0;
     let at = |p: &[i32]| t0.saturating_add(p[2].max(0) as u64);
@@ -1178,9 +1088,6 @@ fn same_target_frame(a: TargetFrame, b: TargetFrame) -> bool {
         && (a.height - b.height).abs() <= 0.5
 }
 
-/// One poll of the Shift ink: holding Shift alone and moving the cursor inside the capture
-/// target draws a persistent stroke; letting go of Shift commits it. `pure_shift` is Shift
-/// without other modifiers (and not left over from a chord such as the capture shortcut).
 fn track_shift_ink(
     telemetry: &SharedCaptureTelemetry,
     (x, y): (f64, f64),
@@ -1228,7 +1135,6 @@ fn track_shift_ink(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .take()
-            // Ignore stationary Shift taps (e.g. typing a capital letter without moving the mouse).
             && is_real_ink(&stroke)
         {
             telemetry
@@ -1257,7 +1163,6 @@ pub fn is_frontmost_terminal() -> bool {
         "wezterm",
         "alacritty",
         "warp",
-        // Windows Terminal, the console host and the shells it runs.
         "windowsterminal",
         "conhost",
         "powershell",
@@ -1269,8 +1174,6 @@ pub fn is_frontmost_terminal() -> bool {
     .any(|needle| a.contains(needle) || b.contains(needle))
 }
 
-/// Writes all bundle artifacts (`scrawl.json`, `summary.md`, `contact-sheet.png`, `frames/frame-XX.png`)
-/// into a new or specified `.scrawl` bundle directory.
 pub fn write_bundle_artifacts(
     out_dir: &Path,
     bundle: &crate::model::ScrawlBundle,
@@ -1355,9 +1258,6 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
-    /// Kit's Screen capture on the Pro: the old listen-only event tap was off (no Input
-    /// Monitoring), so his clicks on OpenCode's composer never reached the bundle. Clicks now
-    /// come from the mouse monitor; polled button state stands in if it couldn't be installed.
     #[test]
     fn clicks_are_recorded_from_polled_buttons_while_the_mouse_monitor_is_missing() {
         let (sender, _receiver) = flume::unbounded();
@@ -1373,7 +1273,6 @@ mod tests {
         let mut prev = [false; 2];
         let not_scrawl = |_: f64, _: f64| false;
         let composer = (778.0, 1050.0);
-        // A ⇧-click is a pin, not a click.
         poll_clicks(
             &telemetry,
             &mut prev,
@@ -1390,7 +1289,6 @@ mod tests {
             true,
             not_scrawl,
         );
-        // A click on the composer.
         poll_clicks(
             &telemetry,
             &mut prev,
@@ -1415,7 +1313,6 @@ mod tests {
             false,
             not_scrawl,
         );
-        // Then the stop button, which is Scrawl's own.
         let stop = (860.0, 20.0);
         poll_clicks(&telemetry, &mut prev, [true, false], stop, false, |_, _| {
             true
@@ -1428,7 +1325,6 @@ mod tests {
             false,
             |_, _| true,
         );
-        // While the mouse monitor is installed it reports clicks itself.
         telemetry.mouse_live.store(true, Ordering::Release);
         poll_clicks(
             &telemetry,
@@ -1461,13 +1357,12 @@ mod tests {
 
     #[test]
     fn the_capture_shortcut_matches_its_aliases_and_a_custom_one() {
-        let s = 1_u16; // the S key on this layout
+        let s = 1_u16;
         let default = ShortcutConfig {
             key_code: u32::from(s),
             carbon_modifiers: CARBON_OPTION_KEY | CARBON_SHIFT_KEY,
             label: "⌥⇧S".into(),
         };
-        // (cmd, ctrl, alt, shift)
         let hit = |cfg: &ShortcutConfig, key, (cmd, ctrl, alt, shift)| {
             is_capture_shortcut(cfg, s, key, cmd, ctrl, alt, shift)
         };
@@ -1489,11 +1384,9 @@ mod tests {
         assert!(hit(&custom, 15, (false, true, true, false)));
         assert!(!hit(&custom, 15, (true, true, true, false)));
         assert!(!hit(&custom, 15, (false, false, true, false)));
-        // Once changed, ⌥⇧S and its aliases are free for other apps.
         assert!(!hit(&custom, s, (false, false, true, true)), "⌥⇧S");
         assert!(!hit(&custom, KEY_S, (true, true, true, true)), "hyper S");
 
-        // The paste shortcut works the same way.
         let v = 9_u16;
         let paste = ShortcutConfig {
             key_code: u32::from(v),
@@ -1535,22 +1428,17 @@ mod tests {
         let displays = [[0.0, 0.0, 1728.0, 1117.0], [1728.0, -200.0, 2560.0, 1440.0]];
         assert_eq!(pick_display(&displays, Some([2000.0, 300.0]), None), 1);
         assert_eq!(pick_display(&displays, Some([100.0, 100.0]), None), 0);
-        // No cursor: the display holding the focused window's centre.
         let focused = Some([1900.0, 0.0, 800.0, 600.0]);
         assert_eq!(pick_display(&displays, None, focused), 1);
         assert_eq!(pick_display(&displays, Some([-50.0, 0.0]), focused), 1);
         assert_eq!(pick_display(&displays, None, None), 0);
-        // A display left of the laptop, at negative x.
         let left = [[0.0, 0.0, 1728.0, 1117.0], [-1920.0, 37.0, 1920.0, 1080.0]];
         assert_eq!(pick_display(&left, Some([-5.0, 600.0]), None), 1);
-        // One above it, at negative y.
         let above = [[0.0, 0.0, 1728.0, 1117.0], [0.0, -1440.0, 2560.0, 1440.0]];
         assert_eq!(pick_display(&above, Some([10.0, -1.0]), None), 1);
         assert_eq!(pick_display(&above, Some([10.0, 0.0]), None), 0);
     }
 
-    /// Clicks and ink on a display left of, right of or above the laptop normalize into that
-    /// display, and land on the recording's pixels at its own scale.
     #[test]
     fn input_on_an_external_display_normalizes_into_it() {
         let (sender, _receiver) = flume::unbounded();
@@ -1560,13 +1448,10 @@ mod tests {
         let above = [0.0, -1440.0, 2560.0, 1440.0];
         let small_left = [-1280.0, -100.0, 1280.0, 800.0];
         let below = [0.0, 1117.0, 1920.0, 1080.0];
-        // (display, scale, global point, expected normalized point, recording size)
         let cases = [
-            // 1x displays are recorded at their own pixels
             (left, 1.0, [-960.0, 577.0], (0.5, 0.5), (1920, 1080)),
             (right, 1.0, [2208.0, 270.0], (0.25, 0.25), (1920, 1080)),
             (below, 1.0, [480.0, 1387.0], (0.25, 0.25), (1920, 1080)),
-            // 2x ones at the 2560 px long edge
             (above, 2.0, [640.0, -360.0], (0.25, 0.75), (2560, 1440)),
             (small_left, 2.0, [-320.0, 500.0], (0.75, 0.75), (2560, 1600)),
         ];
@@ -1581,18 +1466,15 @@ mod tests {
                 display_id: 2,
                 frame,
             };
-            // Windows frames are pixels already and never upscaled.
             if cfg!(target_os = "macos") {
                 assert_eq!(capture_size(&target, 2560.0), size, "{rect:?}");
             }
             telemetry.reset_for_session(frame);
             assert!(telemetry.contains_screen_point(point[0], point[1]));
-            // The laptop's centre is outside this target.
             assert!(!telemetry.contains_screen_point(864.0, 558.0));
             let (nx, ny, fw, fh) = telemetry.normalize_point(point[0], point[1]);
             assert_eq!((nx, ny), expected, "{rect:?}");
             assert_eq!((fw, fh), (rect[2] as u32, rect[3] as u32));
-            // A click there is recorded at those coordinates.
             telemetry.pointer_down(10, point[0], point[1]);
             telemetry.pointer_up(20, point[0], point[1], false);
             let (events, _) = telemetry.finish_session();
@@ -1601,12 +1483,10 @@ mod tests {
                 "{events:?}"
             );
         }
-        // In recording pixels: the left 1x display's centre is (960, 540).
         let frame = crate::screens::with_scale([-1920.0, 37.0, 1920.0, 1080.0], 1.0);
         telemetry.reset_for_session(frame);
         let (nx, ny, _, _) = telemetry.normalize_point(-960.0, 577.0);
         assert_eq!((nx * 1920.0, ny * 1080.0), (960.0, 540.0));
-        // Above 2x: (640, -360) is a quarter in → (640, 1080) px of 2560×1440.
         let frame = crate::screens::with_scale([0.0, -1440.0, 2560.0, 1440.0], 2.0);
         telemetry.reset_for_session(frame);
         let (nx, ny, _, _) = telemetry.normalize_point(640.0, -360.0);
@@ -1637,8 +1517,6 @@ mod tests {
         assert!(!is_pin_click(down, (1_100, 10.0, 10.0 + slop)));
     }
 
-    /// The poller draws ink while ⇧ is held, so the ⇧ goes down (and the cursor may wander)
-    /// before the click: ink from before the press stays a stroke, the click's jitter doesn't.
     #[test]
     fn a_shift_click_keeps_earlier_ink_and_drops_its_own_jitter() {
         let telemetry = session(1000.0, 1000.0);
@@ -1655,7 +1533,6 @@ mod tests {
         let press = telemetry.elapsed_ms() + 50;
         let p = press as i32;
         let s = SCALE;
-        // A line drawn while ⇧ was held, then the click's jitter at its end.
         *telemetry.live_ink.lock().unwrap() = Some(ink(&[
             (s / 10, s / 2, 0),
             (s / 5, s / 2, p - 20),
@@ -1665,7 +1542,6 @@ mod tests {
         assert!(telemetry.shift_up(press + 80, 201.0, 500.0));
         assert!(telemetry.live_ink.lock().unwrap().is_none());
 
-        // A ⇧-click with only its own few points of jitter leaves no stroke.
         let jitter = ink(&[(s / 2, s / 2, 0), (s / 2 + 2, s / 2, 30)]);
         *telemetry.live_ink.lock().unwrap() = Some(jitter);
         let t = telemetry.elapsed_ms();
@@ -1682,7 +1558,6 @@ mod tests {
     fn shift_clicks_drop_pins_from_polled_buttons_too() {
         let telemetry = session(1000.0, 1000.0);
         let mut prev = [false; 2];
-        // ⇧-clicks at a point, the second on Scrawl's own window.
         for (at, on_scrawl) in [((250.0, 750.0), false), ((400.0, 400.0), true)] {
             for buttons in [[true, false], [false, false]] {
                 poll_clicks(&telemetry, &mut prev, buttons, at, true, |_, _| on_scrawl);
@@ -1697,12 +1572,10 @@ mod tests {
 
     #[test]
     fn candidate_buffer_stays_bounded_and_keeps_the_whole_timeline() {
-        // A 1 MB budget of 4 KB frames: a 256-frame cap.
         let mut buffer = CandidateBuffer::new(1 << 20);
         let frame = |t| RgbaFrame::new(t, 32, 32, vec![0; 32 * 32 * 4]);
         let mut t = 0;
         let mut peak = 0;
-        // Three hours at the sampler's pace, with a click frame every 10 s.
         while t < 3 * 3_600_000 {
             buffer.push(frame(t), t % 10_000 == 0);
             peak = peak.max(buffer.len());
@@ -1713,7 +1586,6 @@ mod tests {
         let frames = buffer.into_frames();
         assert_eq!(frames[0].t_ms, 0, "the start is kept");
         assert!(frames.windows(2).all(|w| w[0].t_ms < w[1].t_ms));
-        // Spread over the whole capture, not bunched at the end.
         let first_half = frames.iter().filter(|f| f.t_ms < 3 * 1_800_000).count();
         assert!(
             first_half * 3 > frames.len(),
@@ -1771,7 +1643,6 @@ mod tests {
         let region = target(CaptureMode::Region, 480.0, 320.0);
         assert_eq!(capture_size(&region, CANDIDATE_EDGE), (480, 320));
         if cfg!(target_os = "windows") {
-            // Frames are in pixels: never upscaled past the screen's own.
             assert_eq!(capture_size(&display, 2560.0), (1728, 1116));
             assert_eq!(capture_size(&region, 1280.0), (480, 320));
             let wide = target(CaptureMode::Display, 3440.0, 1440.0);
@@ -1781,7 +1652,6 @@ mod tests {
             assert_eq!(capture_size(&region, 1280.0), (960, 640));
         }
 
-        // A 1x external display is recorded at its own pixels, never upscaled.
         let external = |mode, width, height| TargetInfo {
             frame: crate::screens::with_scale([-1920.0, 37.0, width, height], 1.0),
             ..target(mode, width, height)
@@ -1791,7 +1661,6 @@ mod tests {
         assert_eq!(capture_size(&screen, CANDIDATE_EDGE), (480, 270));
         let region = external(CaptureMode::Region, 480.0, 320.0);
         assert_eq!(capture_size(&region, 1280.0), (480, 320));
-        // A 2x one above the laptop keeps the 2560 px long edge.
         let above = TargetInfo {
             frame: crate::screens::with_scale([0.0, -1440.0, 2560.0, 1440.0], 2.0),
             ..target(CaptureMode::Display, 2560.0, 1440.0)

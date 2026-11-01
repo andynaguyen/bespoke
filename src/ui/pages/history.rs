@@ -1,8 +1,3 @@
-//! The Dictate page's History tab (`history/HistorySettings.tsx`):
-//! recordings grouped by day, newest first, loaded 30 at a time as the list
-//! scrolls. The selected recording opens in a column on the right, like a
-//! keyframe in Annotate's Inspect window.
-
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -35,7 +30,6 @@ use crate::ui::toast;
 use super::rows;
 
 const PAGE_SIZE: usize = 30;
-/// The inspector column, as wide as Inspect's.
 const INSPECTOR_WIDTH: f32 = 300.;
 
 pub struct HistoryPage {
@@ -44,7 +38,6 @@ pub struct HistoryPage {
     loading_more: bool,
     has_more: bool,
     show_settings: bool,
-    /// The entry open in the inspector. `None` shows the newest.
     selected: Option<i64>,
     list_scroll: ScrollHandle,
     inspector_scroll: ScrollHandle,
@@ -52,7 +45,6 @@ pub struct HistoryPage {
     players: HashMap<i64, Entity<PlayerState>>,
     copied: HashSet<i64>,
     retrying: HashSet<i64>,
-    /// Re-renders while a recording plays, to move the playhead.
     ticker: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -67,14 +59,12 @@ fn manager() -> Arc<HistoryManager> {
 impl HistoryPage {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let limit = SettingsStore::get(cx).history_limit.to_string();
-        // `<input type="number" min="0">`: digits only.
         let history_limit = cx.new(|cx| {
             InputState::new(window, cx)
                 .pattern(regex::Regex::new(r"^\d*$").expect("valid pattern"))
                 .default_value(limit)
         });
         let subscriptions = vec![
-            // The field follows the stored value while it is not being edited.
             cx.observe_in(
                 &SettingsStore::global(cx),
                 window,
@@ -96,7 +86,6 @@ impl HistoryPage {
             }),
             cx.subscribe(&history_limit, |_, input, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
-                    // Ignore anything that is not a non-negative number.
                     if let Ok(limit) = input.read(cx).value().trim().parse::<usize>() {
                         save_history_limit(limit, cx);
                     }
@@ -165,7 +154,6 @@ impl HistoryPage {
                     *existing = entry;
                 }
             }
-            // Applied optimistically when the user acted.
             HistoryUpdatePayload::Deleted { .. } | HistoryUpdatePayload::Toggled { .. } => {}
         }
         cx.notify();
@@ -228,7 +216,6 @@ impl HistoryPage {
             let result = crate::runtime::run(async move { manager().delete_entry(id).await }).await;
             if let Err(e) = result {
                 log::error!("Failed to delete entry: {e}");
-                // Reload so the list matches what is stored.
                 let _ = this.update(cx, |this, cx| this.load_page(None, cx));
             }
         })
@@ -266,7 +253,6 @@ impl HistoryPage {
             .clone()
     }
 
-    /// Keeps the playhead moving while any recording plays.
     fn ensure_ticker(&mut self, cx: &mut Context<Self>) {
         if self.ticker.is_some() {
             return;
@@ -282,8 +268,6 @@ impl HistoryPage {
         }));
     }
 
-    /// Adds the settings and recordings-folder buttons to the Dictate
-    /// page's toolbar while there is no inspector to hold them.
     pub fn toolbar_actions(
         &mut self,
         toolbar: Toolbar,
@@ -302,8 +286,6 @@ impl HistoryPage {
         !self.loading && !self.entries.is_empty()
     }
 
-    /// The settings toggle and the recordings folder. `compact` leaves the
-    /// folder button an icon, to fit the inspector's top row.
     fn actions(&mut self, compact: bool, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let show_settings = self.show_settings;
         let folder = t("settings.history.openFolder");
@@ -340,8 +322,6 @@ impl HistoryPage {
         ]
     }
 
-    /// The selected entry's details, for the shell to show along the
-    /// window's edge (`Page::inspector`).
     pub fn inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         if !self.has_inspector() {
             return None;
@@ -372,8 +352,6 @@ impl HistoryPage {
         ))
     }
 
-    /// The history limit and retention, shown above the list from the
-    /// toolbar's Settings button.
     fn render_settings(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let settings = SettingsStore::get(cx).clone();
@@ -399,8 +377,6 @@ impl HistoryPage {
                                     .gap_2()
                                     .child(
                                         div()
-                                            // Arrow keys step like a number input's
-                                            // spinner, within `min="0" max="1000"`.
                                             .capture_key_down(cx.listener(
                                                 |this, event: &gpui::KeyDownEvent, window, cx| {
                                                     let step: i64 =
@@ -446,15 +422,12 @@ impl HistoryPage {
             )
     }
 
-    /// The entry the inspector shows: the selected one, or the newest.
     fn selected_entry(&self) -> Option<&HistoryEntry> {
         self.selected
             .and_then(|id| self.entries.iter().find(|e| e.id == id))
             .or_else(|| self.entries.first())
     }
 
-    /// One line in the list: the time, the text cut to two lines, and a
-    /// star when saved.
     fn render_row(
         &self,
         entry: &HistoryEntry,
@@ -474,7 +447,6 @@ impl HistoryPage {
         } else if text.is_empty() {
             (t("settings.history.transcriptionFailed"), true)
         } else {
-            // One paragraph, so a multi-line dictation keeps the row short.
             (
                 SharedString::from(text.split_whitespace().collect::<Vec<_>>().join(" ")),
                 false,
@@ -537,7 +509,6 @@ impl HistoryPage {
             .into_any_element()
     }
 
-    /// The selected entry in full: its text, playback, actions and details.
     fn render_inspector(
         &mut self,
         entry: &HistoryEntry,
@@ -643,7 +614,6 @@ impl HistoryPage {
             button
                 .tooltip(move |window, cx| Tooltip::text(title.clone(), window, cx))
                 .child(if spin {
-                    // `spin 1s linear infinite reverse`.
                     icon(glyph)
                         .size(px(14.))
                         .with_animation(
@@ -794,8 +764,6 @@ impl HistoryPage {
     }
 }
 
-/// `day_label` with its first letter capitalized ("yesterday" starts a
-/// heading).
 fn capitalize(label: &str) -> String {
     let mut chars = label.chars();
     match chars.next() {
@@ -804,7 +772,6 @@ fn capitalize(label: &str) -> String {
     }
 }
 
-/// A small muted heading in the inspector, like Inspect's sidebar headings.
 fn heading(label: SharedString, cx: &App) -> impl IntoElement {
     div()
         .mb_2()
@@ -814,7 +781,6 @@ fn heading(label: SharedString, cx: &App) -> impl IntoElement {
         .child(label)
 }
 
-/// Saves the history limit and trims old entries to it.
 fn save_history_limit(limit: usize, cx: &mut App) {
     SettingsStore::global(cx).update(cx, |store, cx| {
         let app = store.app().clone();
@@ -857,7 +823,6 @@ impl Render for HistoryPage {
             );
         }
 
-        // Entries arrive newest first, so each day's entries are contiguous.
         let selected_id = self.selected_entry().map(|e| e.id);
         let mut list: Vec<AnyElement> = Vec::new();
         let mut last_day = None;
@@ -884,7 +849,6 @@ impl Render for HistoryPage {
             list.push(self.render_row(&entry, Some(entry.id) == selected_id, cx));
         }
 
-        // Load the next page once the end of the list scrolls into view.
         let has_more = self.has_more && !self.loading_more;
         let last_id = self.entries.last().map(|e| e.id);
         let entity = cx.entity().downgrade();

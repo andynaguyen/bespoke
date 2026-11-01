@@ -1,5 +1,3 @@
-//! `ui/ToggleSwitch.tsx`: the switch control, and the setting row around it.
-
 use std::time::Duration;
 
 use gpui::{
@@ -14,14 +12,11 @@ use crate::ui::theme::{mix, palette, Alpha};
 
 type ChangeHandler = Box<dyn Fn(bool, &mut Window, &mut App)>;
 
-/// Remembers the last rendered value so the knob only animates on change.
 struct SwitchMemory {
     checked: bool,
     changes: u64,
 }
 
-/// The 37.5 x 22.5 switch: mid-gray track and white knob when off, accent
-/// track and contrast knob when on. The knob is clay and slides over 150ms.
 #[derive(IntoElement)]
 pub struct ToggleSwitch {
     id: ElementId,
@@ -40,7 +35,6 @@ impl ToggleSwitch {
         }
     }
 
-    /// Shows a spinner over the switch and blocks input while a write runs.
     pub fn updating(mut self, updating: bool) -> Self {
         self.updating = updating;
         self
@@ -76,7 +70,6 @@ impl RenderOnce for ToggleSwitch {
             memory.changes
         });
 
-        // The knob starts at the inline start: the right edge in RTL.
         let rtl = crate::i18n::is_rtl();
         let paint = move |el: gpui::Div, t: f32| {
             let offset = if rtl { 1. - t } else { t };
@@ -151,7 +144,6 @@ impl RenderOnce for ToggleSwitch {
     }
 }
 
-/// A setting row with a switch on the right (`ToggleSwitch` with a label).
 #[derive(IntoElement)]
 pub struct ToggleSwitchRow {
     toggle: ToggleSwitch,

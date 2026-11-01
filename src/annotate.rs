@@ -1,10 +1,3 @@
-//! Annotate: Scrawl's screen, voice and ink capture (`vendor/scrawl`), running inside Bespoke.
-//! Bespoke registers its two shortcuts like any other binding and forwards their presses, keeps
-//! Scrawl's captures and config under its own data folder, counts the captures for the Stats
-//! page, draws the capsule (`capsule`) with the one dictation uses, and shows the Annotate page
-//! wherever Scrawl would open its own Settings or welcome window. `mcp` serves the captures to
-//! coding agents.
-
 pub mod capsule;
 pub mod mcp;
 
@@ -17,16 +10,13 @@ use crate::managers::history::{CaptureUsage, HistoryManager};
 use crate::settings::{get_settings, AppSettings};
 use crate::ui::shell::Section;
 
-/// Starts recording, switches the target, or finishes (`option+shift+s`).
 pub const RECORD_BINDING: &str = "annotate";
-/// Pastes the latest capture into the app in front (`option+shift+v`).
 pub const PASTE_BINDING: &str = "annotate_paste";
 
 pub fn is_annotate_binding(id: &str) -> bool {
     id == RECORD_BINDING || id == PASTE_BINDING
 }
 
-/// Captures and `config.json` live here; the Annotate page reads and writes the config.
 pub fn data_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
     crate::portable::app_data_dir(app)
         .ok()
@@ -53,8 +43,6 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     mcp::sync(app);
 }
 
-/// Records each finished capture for the Stats page. Until one is recorded, it also counts the
-/// captures already on disk, which Annotate made before it kept stats.
 fn count_captures(app: &AppHandle) {
     let history = Arc::clone(&app.state::<Arc<HistoryManager>>());
     let seed = Arc::clone(&history);
@@ -101,15 +89,11 @@ pub fn handle_shortcut(binding_id: &str, is_pressed: bool) {
     scrawl::host::press(kind);
 }
 
-/// Gives Scrawl the current bindings, so its own windows and key tap match the record combo and
-/// the capsule shows the right labels.
 pub fn sync_shortcuts(settings: &AppSettings) {
     let config = |id: &str, kind: scrawl::ShortcutKind| {
         let Some(binding) = settings.bindings.get(id) else {
             return kind.default_config();
         };
-        // A mouse button or lone modifier: Bespoke still forwards its presses, and Scrawl's
-        // key tap matches nothing.
         scrawl::host::shortcut_from_binding(&binding.current_binding).unwrap_or_else(|| {
             scrawl::ShortcutConfig {
                 key_code: u32::MAX,

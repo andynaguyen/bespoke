@@ -2,17 +2,6 @@
 # requires-python = ">=3.10"
 # dependencies = ["huggingface_hub", "fsspec"]
 # ///
-"""
-Bespoke model catalog generator.
-
-Merges three sources into one catalog.json:
-  1. HF card `transcribe_cpp` block  -> capabilities + benchmarks (canonical)
-  2. a tiny GGUF header range-read    -> display labels only
-  3. local CURATION (this file)       -> recommended set, editorial descriptions
-
-Emits catalog.json to be committed and `include_str!`'d into the Rust binary.
-Run:  HF_TOKEN=$(hf auth token) uv run gen_catalog.py [out_path]
-"""
 import json, os, re, sys, math, struct, datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from huggingface_hub import HfApi, HfFileSystem
@@ -20,53 +9,35 @@ from huggingface_hub import HfApi, HfFileSystem
 ORG = "handy-computer"
 CATALOG_VERSION = 2
 
-# Download sources tried in order after Hugging Face itself. Each entry is a
-# base URL; the full file URL is `{mirror}/{repo_id}/{revision}/{filename}`
-# (the same three values that form the HF resolve URL, so a mirror is a plain
-# static file host). Mirrors are untrusted: every download is verified against
-# the per-file `sha256` below, so listing one only affects availability.
 MIRRORS = ["https://blob.handy.computer"]
 
-# ───────────────────────── scoring (one constant each) ──────────────────────
-SPEED_SCALE = 8.0    # speed = 100·(1 − e^(−rtf/8))     grows toward 100
-ACC_SCALE   = 15.0   # accuracy = 100·e^(−wer/15)        decays from 100
-SPEED_FLOOR = 10     # no reference-machine rtf (too heavy to benchmark) → floor, it's slow
+SPEED_SCALE = 8.0
+ACC_SCALE   = 15.0
+SPEED_FLOOR = 10
 def speed_from_rtf(rtf):
     return SPEED_FLOOR if not rtf or rtf <= 0 else round(100 * (1 - math.exp(-rtf / SPEED_SCALE)))
 def acc_from_wer(wer):
     return None if wer is None else round(100 * math.exp(-wer / ACC_SCALE))
 
-# ───────────────────────── curation (CJ owns; editorial, not derivable) ──────
-# slug -> {rank?, rec?, desc?, use_case?, default_quant?, hidden?}.  All optional.
-# desc is hand-written UI copy; models without one use factual generated summaries.
-# rank = editorial sort position (broad ordering). rec = the small "Recommended"
-# badge / onboarding subset — independent of rank, so a model can rank high
-# without carrying the recommended tag.
 CURATION = {
     "parakeet-unified-en-0.6b":        {"rank": 1, "rec": True, "desc": "Fast, accurate live English transcription"},
     "nemotron-3.5-asr-streaming-0.6b": {"rank": 2, "rec": True, "desc": "Live multilingual transcription across 28 languages"},
     "canary-180m-flash":               {"rank": 3, "rec": True, "desc": "Tiny and instant, runs well on any hardware"},
     "cohere-transcribe-03-2026":       {"rank": 4, "rec": True, "desc": "Highest accuracy, 14 languages, slower"},
     "whisper-medium":                  {"rank": 5, "rec": True, "desc": "Broadest language, but may run a bit slow"},
-    # ranked (sorted high) but NOT tagged recommended
     "Voxtral-Mini-4B-Realtime-2602":   {"rank": 6, "desc": "Live multilingual, excellent on powerful machines"},
     "parakeet-tdt-0.6b-v3":            {"rank": 7, "desc": "Fast and accurate. Supports 25 European languages"},
     "parakeet-tdt-0.6b-v2":            {"rank": 8, "desc": "English only. The best model for English speakers"},
     "Qwen3-ASR-0.6B":                  {"rank": 9, "desc": "Excellent multilingual model"},
     "Fun-ASR-MLT-Nano-2512":           {"rank": 10, "desc": "A tiny multilingual model"},
-    # description-only (unranked, not recommended) — carried over from the legacy .bin entry
     "Breeze-ASR-25":                   {"desc": "Optimized for Taiwanese Mandarin. Code-switching support."},
-    # Sortformer emits speaker segments only; Bespoke's catalog is for models
-    # that produce transcription text.
     "diar_streaming_sortformer_4spk-v2.1": {"hidden": True},
 }
-# temporary capability corrections pending a card re-push (remove once cards fixed)
 OVERRIDES = {
     "granite-4.0-1b-speech": {"timestamps": "none"},
     "granite-speech-4.1-2b": {"timestamps": "none"},
 }
 
-# ───────────────────────── helpers ──────────────────────────────────────────
 ARCH = ["whisper","moonshine-streaming","moonshine","parakeet","canary-qwen","canary","voxtral",
         "granite-speech","granite","qwen3","gigaam","sensevoice","cohere","fun-asr","nemotron","medasr",
         "moss","sortformer"]
@@ -88,7 +59,6 @@ def pretty(s):
 def quant_of(fn):
     m = re.search(r"-(F32|F16|BF16|Q\d[\w_]*?)\.gguf$", fn);  return m.group(1) if m else "?"
 def parse_params(size_label):
-    """`general.size_label` ("0.6B" / "1.7B" / "62M") -> count in billions, or None."""
     m = re.match(r"([\d.]+)\s*([BM])", str(size_label or "").strip(), re.I)
     if not m: return None
     v = float(m.group(1));  return v if m.group(2).upper() == "B" else v / 1000
@@ -112,7 +82,6 @@ def auto_desc(langs, caps):
     if len(langs) > 1:
         base = f"{len(langs)}-language speech-to-text"
     else:
-        # unknown code falls back to the raw code so it's caught in diff review
         lang = LANG_NAMES.get(langs[0], langs[0]) if langs else "English"
         base = f"{lang} speech-to-text"
     return base + (" with " + ", ".join(feats) + "." if feats else ".")
@@ -122,12 +91,6 @@ fs  = HfFileSystem(token=os.environ.get("HF_TOKEN"))
 
 GGUF_WANT = {"general.architecture", "general.name", "general.basename", "general.size_label"}
 def probe_header(repo, filename, nbytes=65536):
-    """Range-read only friendly general.* labels (no tensors, no capabilities).
-
-    Capabilities come from HF card data here and from Rust's GGUF probe at
-    runtime. Keep this as a narrow display-label reader so the catalog generator
-    does not become a second source of truth for model behavior.
-    """
     out = {}
     try:
         with fs.open(f"{repo}/{filename}", "rb", block_size=nbytes) as f:
@@ -148,8 +111,9 @@ def probe_header(repo, filename, nbytes=65536):
                 for _ in range(cnt): o += 8 + u64(o)
                 return o
         raise ValueError
-    off = 24                      # magic+ver+n_tensors+n_kv
-    n_kv = u64(16)
+    MAGIC, VERSION, COUNT = 4, 4, 8
+    n_kv = u64(MAGIC + VERSION + COUNT)
+    off = MAGIC + VERSION + 2 * COUNT
     try:
         for _ in range(n_kv):
             key, off = rstr(off); vt = u32(off); off += 4
@@ -161,26 +125,15 @@ def probe_header(repo, filename, nbytes=65536):
                 off = skip(off, vt)
             if GGUF_WANT.issubset(out): break
     except Exception:
-        pass                      # ran past the buffer (hit tokenizer) — keep what we got
+        pass
     return out
 
 def lfs_sha256(x):
-    """Content sha256 from the sibling's LFS/Xet info (dataclass or dict by hub version)."""
     lfs = getattr(x, "lfs", None)
     if lfs is None: return None
     return getattr(lfs, "sha256", None) or (lfs.get("sha256") if isinstance(lfs, dict) else None)
 
 def gguf_files(repo, siblings):
-    """Return GGUF files with mandatory size + sha256 metadata.
-
-    `QuantFile.size_bytes` is a non-null `u64` in Rust. Failing generation here
-    keeps a transient/malformed HF listing from producing a catalog that panics
-    at app startup when deserialized by `include_str!("catalog.json")`.
-
-    `sha256` is the trust anchor for downloads (HF or mirror alike), so it is
-    equally mandatory. Every GGUF is LFS/Xet-tracked; a missing hash means the
-    listing is broken, not that the file is small.
-    """
     files = []
     invalid = []
     for x in siblings:
@@ -219,11 +172,6 @@ def build(repo):
     ryz = b.get("rtf_ryzen_4750u") or {};  rtf = ryz.get("vulkan", ryz.get("cpu"))
     eval_set, werd = pick_wer(b);  hw, hwq = headline_wer(werd)
 
-    # Default-quant policy by model size (params from general.size_label):
-    #   >=1B  -> Q5_K_M   (large models tolerate it; ~30% less download/RAM)
-    #   <1B   -> Q8_0     (already small; keep reference quality)
-    # A per-model CURATION `default_quant` overrides the policy. If the policy
-    # quant is absent for a model, fall back: Q8_0 → any Q8 → Q5_K_M → smallest.
     params = parse_params(gg.get("general.size_label"))
     policy = "Q5_K_M" if (params is not None and params >= 1.0) else "Q8_0"
     have = lambda q: next((f["quant"] for f in files if f["quant"] == q), None)
@@ -236,15 +184,12 @@ def build(repo):
 
     return {
         "id": repo,
-        # Pinned commit: downloads fetch `resolve/{revision}/{file}` so the bytes
-        # provably match the hashes below even if the repo moves on. Identity
-        # stays repo+filename; the pin only scopes acquisition.
         "revision": info.sha,
         "slug": s,
-        "name": gg.get("general.name") or pretty(s),         # friendly name (from GGUF)
+        "name": gg.get("general.name") or pretty(s),
         "architecture": gg.get("general.architecture"),
         "family": family(s, info.tags),
-        "parameters": gg.get("general.size_label"),          # "0.6B" / "1.7B" / "62M"
+        "parameters": gg.get("general.size_label"),
         "description": cur.get("desc") or auto_desc(langs, caps),
         "base_model": cd.get("base_model"),
         "license": cd.get("license"),
@@ -255,8 +200,8 @@ def build(repo):
         "accuracy_score": acc_from_wer(hw),
         "files": files,
         "default_quant": default_quant,
-        "recommended": bool(cur.get("rec")),         # small badge/onboarding subset
-        "recommended_rank": cur.get("rank"),          # editorial sort position (independent)
+        "recommended": bool(cur.get("rec")),
+        "recommended_rank": cur.get("rank"),
     }
 
 def main():
@@ -284,12 +229,9 @@ def main():
         "models": models,
     }
     text = json.dumps(catalog, indent=2, ensure_ascii=False)
-    # print each `languages` array on a single line for readability
     text = re.sub(r'"languages": \[(.*?)\]',
                   lambda m: '"languages": [' + ", ".join(re.findall(r'"[^"]*"', m.group(1))) + ']',
                   text, flags=re.S)
-    # one line per `files[]` entry: a file is one diff line, so schema additions
-    # and hash changes don't cascade into per-key comma churn
     text = re.sub(r'\{\s+("filename":.*?"sha256": "[0-9a-f]{64}")\s+\}',
                   lambda m: "{" + re.sub(r",\s+", ", ", m.group(1)) + "}",
                   text, flags=re.S)

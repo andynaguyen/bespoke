@@ -1,19 +1,9 @@
-//! Self-updates through Sparkle (macOS only).
-//!
-//! `scripts/release.sh` embeds `Sparkle.framework` in `Contents/Frameworks`,
-//! and [`start`] loads it at runtime. Builds without the framework (`cargo
-//! run`, `scripts/install-local.sh`) leave the updater off, and the UI hides
-//! its update controls.
-//!
 //! Sparkle checks the feed in `Info.plist` (`SUFeedURL`) once a day. When a
 //! scheduled check finds an update, Sparkle leaves showing it to Bespoke
 //! ("gentle reminders"): [`pending_version`] returns the new version, and the
 //! sidebar card and the tray menu offer it. [`check_now`] opens Sparkle's own
 //! window, which shows the release notes, downloads, installs and relaunches.
-//!
-//! Every change emits [`STATE_CHANGED`].
 
-/// Emitted when an update is found or dismissed, or a check finishes.
 pub const STATE_CHANGED: &str = "update-state-changed";
 
 #[cfg(target_os = "macos")]
@@ -43,7 +33,6 @@ mod macos {
     use crate::app_handle::AppHandle;
 
     static ENABLED: AtomicBool = AtomicBool::new(false);
-    /// The version a scheduled check found, until its update session ends.
     static PENDING: Mutex<Option<String>> = Mutex::new(None);
 
     struct Updater {
@@ -85,8 +74,6 @@ mod macos {
                 true
             }
 
-            // Bespoke shows scheduled updates itself, in the sidebar and the
-            // tray, instead of Sparkle opening a window unprompted.
             #[unsafe(method(standardUserDriverShouldHandleShowingScheduledUpdate:andInImmediateFocus:))]
             fn should_handle_scheduled_update(&self, _update: &AnyObject, _immediate: bool) -> bool {
                 false
@@ -101,7 +88,6 @@ mod macos {
                 set_pending(Some(version.to_string()));
             }
 
-            // The user installed, skipped or postponed the update, or it failed.
             #[unsafe(method(standardUserDriverWillFinishUpdateSession))]
             fn will_finish_session(&self) {
                 set_pending(None);
@@ -114,13 +100,11 @@ mod macos {
         }
     );
 
-    /// Loads Sparkle and starts its schedule. Call once, on the main thread.
     pub fn start() {
         if MainThreadMarker::new().is_none() {
             log::error!("updater::start must run on the main thread");
             return;
         }
-        // Dev snapshots show the update card without Sparkle.
         #[cfg(debug_assertions)]
         if let Ok(version) = std::env::var("BESPOKE_DEV_UPDATE") {
             set_pending(Some(version));
@@ -152,7 +136,6 @@ mod macos {
         notify();
     }
 
-    /// Sparkle's controller class, if this bundle embeds Sparkle and names a feed.
     fn load_sparkle() -> Option<&'static AnyClass> {
         let main = NSBundle::mainBundle();
         let feed = main.objectForInfoDictionaryKey(&NSString::from_str("SUFeedURL"));
@@ -190,18 +173,14 @@ mod macos {
         })
     }
 
-    /// Whether Sparkle is running. Safe from any thread.
     pub fn is_enabled() -> bool {
         ENABLED.load(Ordering::Acquire)
     }
 
-    /// The version a scheduled check found and the user hasn't acted on.
-    /// Safe from any thread.
     pub fn pending_version() -> Option<String> {
         PENDING.lock().ok().and_then(|pending| pending.clone())
     }
 
-    /// Opens Sparkle's window: the pending update, or a fresh check.
     pub fn check_now() {
         if MainThreadMarker::new().is_none() {
             return;
@@ -231,7 +210,6 @@ mod macos {
         notify();
     }
 
-    /// When Sparkle last checked the feed.
     pub fn last_checked() -> Option<SystemTime> {
         with_updater(|spu| {
             // SAFETY: a nullable NSDate property of SPUUpdater.

@@ -1,13 +1,3 @@
-// scrawl-helper: the parts of Annotate (Scrawl in Bespoke) that need Swift-only Apple frameworks.
-//
-//   scrawl-helper transcribe FILE                       SpeechAnalyzer transcript with word timings
-//   scrawl-helper speech-model [--install]              the speech model's status; install it (JSON lines)
-//   scrawl-helper frames MOVIE --out-dir DIR (--every MS | --at MS,MS…) [--max-edge PX]
-//   scrawl-helper permissions                           what Bespoke has been granted, as JSON
-//   scrawl-helper permission-panel --permission P [--from X,Y,W,H]   drag-to-allow card (PermissionPanel.swift)
-//
-// Every timestamp in the output is integer milliseconds.
-
 import AVFoundation
 import AppKit
 import ApplicationServices
@@ -34,7 +24,6 @@ func option(_ name: String, in arguments: [String]) -> String? {
   return arguments[index + 1]
 }
 
-/// Runs async work from a synchronous entry point, keeping the main queue free for AVFoundation.
 func runAsync(_ body: @escaping () async throws -> Void) -> Never {
   Task {
     do {

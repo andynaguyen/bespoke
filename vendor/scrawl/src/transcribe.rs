@@ -1,15 +1,10 @@
-//! Transcription: Apple's SpeechAnalyzer through `scrawl-helper`, with measured word and segment
-//! timings.
-
 use std::path::Path;
 
 use crate::audio::RecordedAudio;
 use crate::model::TranscriptData;
 
-/// The engine's name in log lines and missing-transcript notes.
 pub const ENGINE_TITLE: &str = "Apple Speech";
 
-/// Missing microphones and a failed transcriber never prevent saving a bundle.
 pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> TranscriptData {
     let (Some(wav), Some(_)) = (wav, audio.filter(|audio| audio.sample_count > 0)) else {
         return TranscriptData {

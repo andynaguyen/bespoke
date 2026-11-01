@@ -1,6 +1,3 @@
-//! The Dictate page's Settings tab: how a dictation starts, records,
-//! cleans up and pastes, in that order, with feedback sounds last.
-
 use gpui::{div, prelude::*, rems, AnyElement, App, Context, Entity, SharedString, Window};
 use gpui_component::input::{InputEvent, InputState};
 
@@ -32,12 +29,10 @@ pub struct DictationSettings {
     scrub_keyword: Entity<KeywordField>,
     submit_keyword: Entity<KeywordField>,
     external_script: Entity<InputState>,
-    /// Channel count of the selected microphone, and which device it is for.
     channels: (String, u16),
     typing_tools: Vec<String>,
 }
 
-/// The canonical picker entry for a language code (`pickerLanguage`).
 fn picker_language(code: &str) -> String {
     if selectable_languages().any(|(c, _)| *c == code) {
         code.to_string()
@@ -46,8 +41,6 @@ fn picker_language(code: &str) -> String {
     }
 }
 
-/// The language actually used: the stored intent resolved against what the
-/// model supports (`effectiveLanguage` in LanguageSelector.tsx).
 fn effective_language(intent: &str, supported: &[String], detection: bool) -> String {
     if supported.is_empty() {
         return picker_language(intent);
@@ -154,7 +147,6 @@ impl DictationSettings {
             }),
             external_script,
             channels: (String::new(), 1),
-            // `TypingTool.tsx` starts from "auto" while the probe runs.
             typing_tools: if cfg!(target_os = "linux") {
                 vec!["auto".into()]
             } else {
@@ -166,8 +158,6 @@ impl DictationSettings {
         this.refresh_channels(cx);
         this.sync_language(cx);
         if cfg!(target_os = "linux") {
-            // The probe runs the typing tools' binaries; keep it off the UI
-            // thread.
             cx.spawn(async move |this, cx| {
                 let Ok(tools) =
                     crate::runtime::spawn_blocking(shortcut::get_available_typing_tools).await
@@ -184,7 +174,6 @@ impl DictationSettings {
         this
     }
 
-    /// Reloads the channel count whenever the selected microphone changes.
     fn refresh_channels(&mut self, cx: &mut Context<Self>) {
         let device = self
             .store
@@ -196,7 +185,6 @@ impl DictationSettings {
         if device == self.channels.0 {
             return;
         }
-        // The count resets to 1 on every device change, like the React row.
         self.channels = (device.clone(), 1);
         cx.spawn(async move |this, cx| {
             let lookup = device.clone();
@@ -288,7 +276,6 @@ impl DictationSettings {
                                 cx,
                             )),
                     )
-                    // The saving overlay over the control column.
                     .when(updating, |el| {
                         el.child(
                             div()
@@ -468,7 +455,6 @@ impl Render for DictationSettings {
             .child(self.transcribe_shortcut.clone())
             .child(rows::shortcut_activation(&s, cx));
         if !cfg!(target_os = "linux") {
-            // Dynamic cancel shortcut registration is unstable on Linux.
             shortcut_group = shortcut_group.child(self.cancel_shortcut.clone());
         }
         let microphone = SettingsGroup::new()

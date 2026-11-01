@@ -1,7 +1,3 @@
-//! Notices at the top of every page: the macOS Accessibility permission
-//! request (`AccessibilityPermissions.tsx`) and the Secure Input warning
-//! (`SecureInputWarning.tsx`).
-
 use std::collections::BTreeSet;
 
 use gpui::{div, prelude::*, px, rems, Context, FontWeight, SharedString, Window};
@@ -20,7 +16,6 @@ enum PermissionState {
     Granted,
 }
 
-/// Asks for Accessibility access until it is granted. macOS only.
 pub struct AccessibilityBanner {
     state: PermissionState,
 }
@@ -64,7 +59,6 @@ impl Render for AccessibilityBanner {
             return div().into_any_element();
         }
         let p = palette(cx);
-        // A strip under the toolbar, as wide as the page.
         div()
             .w_full()
             .flex_none()
@@ -112,8 +106,6 @@ impl Render for AccessibilityBanner {
     }
 }
 
-/// Warns that macOS Secure Input is blocking shortcuts. Dismissing hides it
-/// until the episode ends; the next episode warns again.
 pub struct SecureInputWarning {
     status: SecureInputStatus,
     dismissed: bool,
@@ -144,7 +136,6 @@ impl SecureInputWarning {
 
     fn set_status(&mut self, status: SecureInputStatus, cx: &mut Context<Self>) {
         self.status = status;
-        // A new episode warns again.
         if !self.impacted() {
             self.dismissed = false;
         }

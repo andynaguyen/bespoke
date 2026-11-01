@@ -23,8 +23,6 @@ fn main() {
     }
 }
 
-/// Builds `scrawl-helper` (Swift: SpeechAnalyzer, iPhone capture, movie decoding) beside the
-/// app binary, where `helper::path` and `scripts/install-local.sh` look for it.
 fn compile_helper() {
     let manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let helper_dir = manifest_dir.join("helper");
@@ -40,7 +38,6 @@ fn compile_helper() {
     }
     let plist = helper_dir.join("Info.plist");
     println!("cargo:rerun-if-changed={}", plist.display());
-    // OUT_DIR is target/<profile>/build/scrawl-<hash>/out.
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let profile_dir = out_dir
         .ancestors()

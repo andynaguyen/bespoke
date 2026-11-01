@@ -1,7 +1,3 @@
-//! The Stats page (`stats/StatsSettings.tsx`): a Dictate and an Annotate tab,
-//! each with totals for a chosen range, a streak, and a 20-week activity
-//! heatmap.
-
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -69,7 +65,6 @@ impl Range {
     }
 }
 
-/// Both tabs' days, loaded together.
 #[derive(Clone)]
 struct Usage {
     dictation: Vec<DailyUsage>,
@@ -84,11 +79,8 @@ fn load_usage() -> anyhow::Result<Usage> {
     })
 }
 
-/// A row of the day hover card: label, then value.
 type PopoverRow = (SharedString, String);
 
-/// Whether `date` (YYYY-MM-DD) is on or after `since`. Without `since`, or
-/// for a date that doesn't parse, every day counts.
 fn in_range(date: &str, since: Option<NaiveDate>) -> bool {
     match (since, NaiveDate::parse_from_str(date, "%Y-%m-%d")) {
         (Some(since), Ok(date)) => date >= since,
@@ -102,7 +94,6 @@ struct Summary {
     words_per_minute: Option<f64>,
 }
 
-/// Totals for days on or after `since`, or all days.
 fn summarize(days: &[DailyUsage], since: Option<NaiveDate>) -> Summary {
     let mut summary = Summary {
         words: 0,
@@ -129,7 +120,6 @@ struct CaptureSummary {
     marks: i64,
 }
 
-/// Annotate totals for days on or after `since`, or all days.
 fn summarize_captures(days: &[DailyCaptures], since: Option<NaiveDate>) -> CaptureSummary {
     days.iter().filter(|day| in_range(&day.date, since)).fold(
         CaptureSummary::default(),
@@ -141,7 +131,6 @@ fn summarize_captures(days: &[DailyCaptures], since: Option<NaiveDate>) -> Captu
     )
 }
 
-/// `45s`, `7m 58s`, `2h 05m`.
 fn duration(ms: i64) -> String {
     let seconds = ms / 1000;
     if seconds < 60 {
@@ -167,8 +156,6 @@ fn duration(ms: i64) -> String {
     }
 }
 
-/// Current and longest runs of consecutive active days. The current streak
-/// survives until a whole day passes without activity.
 fn streaks(active: &[NaiveDate], today: NaiveDate) -> (i64, i64) {
     let mut longest = 0;
     let mut run = 0;
@@ -193,7 +180,6 @@ fn streaks(active: &[NaiveDate], today: NaiveDate) -> (i64, i64) {
     (current, longest)
 }
 
-/// Week columns, oldest first, Sunday to Saturday. `None` is a future day.
 fn heatmap(
     values: &HashMap<NaiveDate, i64>,
     today: NaiveDate,
@@ -213,7 +199,6 @@ fn heatmap(
         .collect()
 }
 
-/// 0 for no activity, otherwise 1-4 relative to the busiest day.
 fn intensity(value: i64, max: i64) -> usize {
     if value <= 0 || max <= 0 {
         return 0;
@@ -221,7 +206,6 @@ fn intensity(value: i64, max: i64) -> usize {
     ((value as f64 / max as f64 * 4.).ceil() as usize).min(4)
 }
 
-/// Days keyed by date, skipping any that don't parse.
 fn by_date<T: Clone>(days: &[T], date: impl Fn(&T) -> &str) -> HashMap<NaiveDate, T> {
     days.iter()
         .filter_map(|day| {
@@ -238,18 +222,10 @@ pub struct StatsPage {
     tab: Tab,
     range: Range,
     grid_width: Pixels,
-    /// The heatmap cell that takes Tab focus; arrow keys move it. `None`
-    /// means today.
     focus_date: Option<NaiveDate>,
     cell_focus: HashMap<NaiveDate, FocusHandle>,
-    /// The heatmap day under the pointer, whose card shows. It clears when
-    /// the pointer leaves the grid, so crossing the gaps between days keeps
-    /// the card up.
     hover_date: Option<NaiveDate>,
-    /// The day whose card shows: the hovered one, else the keyboard-focused
-    /// one.
     card_date: Option<NaiveDate>,
-    /// Each heatmap day's bounds in the window, from the last frame.
     cell_bounds: HashMap<NaiveDate, Bounds<Pixels>>,
 }
 
@@ -282,7 +258,6 @@ impl StatsPage {
         }
     }
 
-    /// Shows the Dictate or Annotate tab by id.
     pub fn select_tab(&mut self, id: &str, cx: &mut Context<Self>) {
         self.tab = match id {
             "annotate" => Tab::Annotate,
@@ -291,8 +266,6 @@ impl StatsPage {
         cx.notify();
     }
 
-    /// The streak and the 20-week heatmap. `values` holds each active day's
-    /// amount, shaded in `color`, and `popover_rows` fills a day's hover card.
     fn activity_card(
         &mut self,
         values: &HashMap<NaiveDate, i64>,
@@ -323,8 +296,6 @@ impl StatsPage {
             color,
         ];
 
-        // A label column, then 20 equal columns of square cells sized from
-        // the measured grid width.
         let label_width = px(26.);
         let cell = ((self.grid_width - label_width - px(GAP) * HEATMAP_WEEKS as f32)
             / HEATMAP_WEEKS as f32)
@@ -357,7 +328,6 @@ impl StatsPage {
                     .child(label)
             }));
 
-        // Roving focus: one cell is the tab stop, arrows move between cells.
         let dates: Vec<Vec<Option<NaiveDate>>> = weeks
             .iter()
             .map(|week| week.iter().map(|cell| cell.map(|(d, _)| d)).collect())
@@ -407,8 +377,6 @@ impl StatsPage {
                     .row_dir()
                     .items_center()
                     .gap(px(GAP))
-                    // Where each day sits, to put its card over it. The
-                    // first child is the weekday label.
                     .on_children_prepainted(move |bounds, _, cx| {
                         let _ = measured.update(cx, |this, _| {
                             for (date, bounds) in row_dates.iter().zip(bounds.iter().skip(1)) {
@@ -479,7 +447,6 @@ impl StatsPage {
                                 let empty = value == 0;
                                 let cell = cell.on_hover(cx.listener(
                                     move |this, hovered: &bool, _, cx| {
-                                        // Empty days get no card.
                                         let next = (!empty).then_some(date);
                                         if *hovered && this.hover_date != next {
                                             this.hover_date = next;
@@ -499,8 +466,6 @@ impl StatsPage {
             })
             .collect();
 
-        // The card floats in its own window over the day (`ui::hover_card`),
-        // so its glass shows over the grid.
         let active = |date: &NaiveDate| values.get(date).is_some_and(|v| *v > 0);
         let card_date = self
             .hover_date
@@ -767,7 +732,6 @@ impl Render for StatsPage {
     }
 }
 
-/// A Dictate day's hover card. Apps show only when a dictation recorded one.
 fn dictation_rows(day: &DailyUsage) -> Vec<PopoverRow> {
     let mut rows = vec![(t("settings.stats.dayPopover.words"), number(day.words))];
     if let Some(top_app) = &day.top_app {
@@ -780,7 +744,6 @@ fn dictation_rows(day: &DailyUsage) -> Vec<PopoverRow> {
     rows
 }
 
-/// An Annotate day's hover card. The app shows only when a capture recorded one.
 fn capture_rows(day: &DailyCaptures) -> Vec<PopoverRow> {
     let mut rows = vec![
         (

@@ -1,15 +1,3 @@
-//! The shortcut recorder row (`ShortcutInput.tsx`).
-//!
-//! macOS, and anyone on the handy-keys backend, records through the backend
-//! listener (`HandyKeysShortcutInput.tsx`): it reports key events as
-//! `handy-keys-event` and the combo commits when its key is released, or when
-//! every modifier is released for a modifier-only shortcut.
-//!
-//! The global-hotkey backend records keys in the window instead
-//! (`GlobalShortcutInput.tsx`), with all shortcuts suspended meanwhile.
-//!
-//! In both, a plain left click outside the recorder cancels.
-
 use std::collections::BTreeSet;
 
 use gpui::{
@@ -37,7 +25,6 @@ const MODIFIERS: &[&str] = &[
     "windows",
 ];
 
-/// State of an in-window (global-hotkey) recording.
 #[derive(Default)]
 struct WindowCapture {
     pressed: BTreeSet<String>,
@@ -50,12 +37,9 @@ pub struct ShortcutInput {
     binding_id: String,
     store: Entity<SettingsStore>,
     recording: bool,
-    /// Keys shown while recording.
     current: String,
     original: String,
-    /// Last combo that included a main key (handy-keys).
     keyed: String,
-    /// Last modifier-only combo (handy-keys).
     modifier_only: String,
     committing: bool,
     capture: WindowCapture,
@@ -68,8 +52,6 @@ fn uses_handy_keys(cx: &App) -> bool {
         || SettingsStore::get(cx).keyboard_implementation == KeyboardImplementation::HandyKeys
 }
 
-/// The stored token for a mouse button, or `None` when the click is not a
-/// recordable shortcut (unmodified left and right clicks stay clicks).
 fn mouse_shortcut(button: MouseButton, modifiers: &Modifiers) -> Option<String> {
     let name = match button {
         MouseButton::Left => "mouseleft",
@@ -99,7 +81,6 @@ fn mouse_shortcut(button: MouseButton, modifiers: &Modifiers) -> Option<String> 
     Some(parts.join("+"))
 }
 
-/// GPUI key name → stored token (`getKeyName` in keyboard.ts).
 fn key_token(key: &str) -> String {
     match key {
         "escape" => "esc".into(),
@@ -107,8 +88,6 @@ fn key_token(key: &str) -> String {
     }
 }
 
-/// Only the global-hotkey recorder calls this, and it never runs on macOS,
-/// so the names are the Windows and Linux ones.
 fn modifier_tokens(modifiers: &Modifiers) -> Vec<&'static str> {
     let mut tokens = Vec::new();
     if modifiers.shift {
@@ -193,7 +172,6 @@ impl ShortcutInput {
                 }
             }
         } else {
-            // Unregister every binding so recorded keys don't fire actions.
             crate::shortcut::suspend_all_shortcuts(&Self::app());
             self.capture = WindowCapture::default();
             self.focus.focus(window);
@@ -225,7 +203,6 @@ impl ShortcutInput {
         cx.notify();
     }
 
-    /// Saves `keys`, restoring the previous binding if the backend refuses.
     fn commit(&mut self, keys: String, cx: &mut Context<Self>) {
         if self.committing {
             return;
@@ -270,7 +247,6 @@ impl ShortcutInput {
         self.reset_state(cx);
     }
 
-    /// A plain click outside: stop and keep the old binding.
     fn cancel(&mut self, cx: &mut Context<Self>) {
         if !self.recording || self.committing {
             return;
@@ -326,8 +302,6 @@ impl ShortcutInput {
                 .next()
                 .is_some_and(|last| last == "mouseleft" || last == "mouseright");
             if primary_button {
-                // The native listener omits primary button releases once all
-                // modifiers are up.
                 self.commit(self.keyed.clone(), cx);
             } else if self.keyed.is_empty() && !self.modifier_only.is_empty() {
                 self.commit(self.modifier_only.clone(), cx);
@@ -438,9 +412,6 @@ impl ShortcutInput {
     fn render_row(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
         let p = palette(cx);
         let store = self.store.read(cx);
-        // get_settings merges in every default binding, and every
-        // ShortcutInput names a default one, so the lookup only fails on a
-        // programming error.
         let Some(binding) = store.settings.bindings.get(&self.binding_id).cloned() else {
             return div().into_any_element();
         };
@@ -469,8 +440,6 @@ impl ShortcutInput {
             .text_px(12.5)
             .font_weight(FontWeight::MEDIUM)
             .whitespace_nowrap();
-        // At rest the shortcut is a clay keycap; while recording it turns
-        // into a field ringed in the accent.
         let chip = if self.recording {
             let text: SharedString = if self.current.is_empty() {
                 t("settings.general.shortcut.pressKeysOrMouse")
@@ -506,8 +475,6 @@ impl ShortcutInput {
         let entity = cx.entity().downgrade();
         let paint_entity = entity.clone();
         let recording = self.recording;
-        // While recording, every click in the window goes through the
-        // recorder: mouse shortcuts are captured, a plain left click cancels.
         let tracker = canvas(
             move |bounds, _, cx| {
                 let _ = entity.update(cx, |this, _| this.chip = bounds);

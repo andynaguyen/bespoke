@@ -1,24 +1,3 @@
-//! Menus, toasts, tooltips and dialogs on Liquid Glass.
-//!
-//! Native glass sits under GPUI's drawing in its window (`ui::glass`), so a
-//! menu drawn inside the main window would hide its glass under the page
-//! painted there. Each of these surfaces gets a borderless child window of
-//! the main window instead, which moves with it and draws the surface over
-//! glass.
-//!
-//! The main window drives menus, toasts and tooltips by painting an
-//! [`anchor`] each frame: an element that draws nothing and shows its popup
-//! next to its own bounds. A main window frame that paints no anchor for a
-//! popup hides it, which [`frame_marker`] tracks. The popup measures its
-//! content and sizes its window to it, like `ui::hover_card`.
-//!
-//! These popups never become key, so the main window keeps keyboard focus.
-//! A click in one runs its handler with the popup's window, and [`in_host`]
-//! hands the handler the main window instead.
-//!
-//! A dialog needs the keyboard for its fields, so [`DialogWindow`] is a key
-//! window over the whole main window that draws the dialog itself.
-
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -36,48 +15,30 @@ use super::theme::palette;
 
 type Builder = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 
-/// The window's size before its content is measured. Content wider than
-/// this still lays out at full size.
 const START_SIZE: (f32, f32) = (480., 640.);
-/// The closest a popup comes to the main window's edges.
 const EDGE_MARGIN: f32 = 8.;
 
-/// Where a popup goes relative to its anchor.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Placement {
-    /// `gap` below the anchor, lined up with its left edge, or with its
-    /// right edge when `end` is set.
     Below { gap: Pixels, end: bool },
-    /// With its top-left corner on the anchor's.
     At,
-    /// In the anchor's bottom-right corner, `margin` in from both edges.
     BottomRight { margin: Pixels },
 }
 
-/// How a popup's window looks and behaves.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Spec {
     pub placement: Placement,
-    /// The content's width. `None` sizes the window to the content.
     pub width: Option<Pixels>,
-    /// Rounds the window's frame at this radius and gives it the system
-    /// shadow and hairline. `None` for content that draws several shapes,
-    /// like a stack of toasts.
     pub frame_radius: Option<Pixels>,
-    /// Whether the popup takes clicks. A tooltip lets them through.
     pub interactive: bool,
 }
 
-/// Whether `window` can host popups: the main window on macOS. Elsewhere
-/// callers draw the surface inside the window, on an opaque background.
 pub fn hosts(window: &Window, cx: &App) -> bool {
     cfg!(target_os = "macos")
         && super::main_window(cx)
             .is_some_and(|handle| handle.window_id() == window.window_handle().window_id())
 }
 
-/// Runs `f` with the main window. A click handler in a popup gets the
-/// popup's window, and most handlers expect the window the control lives in.
 pub fn in_host(window: &mut Window, cx: &mut App, f: impl FnOnce(&mut Window, &mut App)) {
     match super::main_window(cx) {
         Some(handle) if handle.window_id() != window.window_handle().window_id() => {
@@ -87,8 +48,6 @@ pub fn in_host(window: &mut Window, cx: &mut App, f: impl FnOnce(&mut Window, &m
     }
 }
 
-/// A glass panel `radius` round for popup content. Children draw over the
-/// glass. `id` must be unique within the popup's window.
 pub fn surface(id: impl Into<SharedString>, radius: Pixels) -> Div {
     div()
         .relative()
@@ -96,10 +55,6 @@ pub fn surface(id: impl Into<SharedString>, radius: Pixels) -> Div {
         .child(glass(id, GlassStyle::Regular, radius))
 }
 
-/// Shows popup `id` next to this element's bounds while the main window
-/// paints it. Size the element to the anchor: a dropdown's trigger, or the
-/// window for a toast. `content` builds the popup's content in the popup's
-/// window on each of its frames.
 pub fn anchor(
     id: impl Into<SharedString>,
     spec: Spec,
@@ -126,9 +81,6 @@ pub fn anchor(
     .size_full()
 }
 
-/// Counts the main window's frames, so a frame that paints no anchor for a
-/// shown popup hides it. Make it the main window's first child, so it paints
-/// before every anchor.
 pub fn frame_marker() -> impl IntoElement {
     canvas(
         |_, _, _| {},
@@ -141,7 +93,6 @@ pub fn frame_marker() -> impl IntoElement {
     .size_0()
 }
 
-/// Draws a popup's content and reports its size.
 struct PopupView {
     id: SharedString,
     content: Option<Builder>,
@@ -164,7 +115,6 @@ impl Render for PopupView {
             .text_size(px(13.))
             .line_height(px(18.))
             .when(crate::i18n::is_rtl(), |el| el.text_right())
-            // The window takes the content's size (`fit`).
             .on_children_prepainted(move |bounds, _, cx| {
                 if let Some(content) = bounds.first() {
                     let (id, measured) = (id.clone(), content.size);
@@ -186,26 +136,17 @@ struct Popup {
     #[cfg(target_os = "macos")]
     native: super::platform::capsule::CapsuleWindow,
     spec: Spec,
-    /// The anchor and the main window, in global screen points with the
-    /// origin at the top left of the main display, as `Window::bounds`
-    /// counts them.
     anchor: Bounds<Pixels>,
     host: Bounds<Pixels>,
-    /// The content's measured size.
     size: Option<Size<Pixels>>,
-    /// The main window frame that last painted the anchor.
     seen: u64,
     shown: bool,
-    /// Whether the window is opaque again after appearing. It orders in
-    /// transparent and stays so until its content is measured and placed,
-    /// so it never shows the last popup's content or size.
     revealed: bool,
 }
 
 #[derive(Default)]
 struct Popups {
     entries: HashMap<SharedString, Popup>,
-    /// Counts the main window's frames (`frame_marker`).
     frame: u64,
 }
 
@@ -278,7 +219,6 @@ fn show(
     }
 }
 
-/// Records the content's measured size and moves the window over it.
 fn fit(id: &SharedString, measured: Size<Pixels>, cx: &mut App) {
     let Some(popup) = cx.default_global::<Popups>().entries.get_mut(id) else {
         return;
@@ -298,7 +238,6 @@ fn fit(id: &SharedString, measured: Size<Pixels>, cx: &mut App) {
     }
 }
 
-/// Moves the window to its place by the anchor, inside the main window.
 fn place(id: &SharedString, cx: &App) {
     let Some(popup) = cx.global::<Popups>().entries.get(id) else {
         return;
@@ -317,8 +256,6 @@ fn place(id: &SharedString, cx: &App) {
     let _ = frame;
 }
 
-/// The popup's frame for content of `size`, kept `EDGE_MARGIN` inside the
-/// main window where it fits.
 fn frame_for(
     placement: Placement,
     anchor: Bounds<Pixels>,
@@ -362,14 +299,11 @@ fn frame_for(
     )
 }
 
-/// AppKit's points for `pixels`.
 #[cfg(target_os = "macos")]
 fn points(pixels: Pixels) -> f64 {
     f64::from(f32::from(pixels))
 }
 
-/// Runs after a main window frame: hides the popups whose anchor it did not
-/// paint.
 fn sweep(cx: &mut App) {
     let popups = cx.default_global::<Popups>();
     let frame = popups.frame;
@@ -421,7 +355,6 @@ fn open(id: &SharedString, spec: Spec, cx: &mut App) -> Option<Popup> {
     };
     let root = view.clone();
     let window = match cx.open_window(options, move |window, cx| {
-        // Never key, so the main window keeps the keyboard.
         super::platform::prepare_overlay_window(window);
         cx.new(|cx| Root::new(root, window, cx))
     }) {
@@ -462,10 +395,6 @@ fn open(id: &SharedString, spec: Spec, cx: &mut App) -> Option<Popup> {
     })
 }
 
-/// A modal dialog's window: a transparent key window over the whole main
-/// window that draws the dialog over its own glass. The main window dims
-/// itself underneath and calls [`DialogWindow::sync`] as it paints, so the
-/// dialog's window follows it when it resizes.
 #[derive(Clone)]
 pub struct DialogWindow {
     handle: AnyWindowHandle,
@@ -476,8 +405,6 @@ pub struct DialogWindow {
     frame: Rc<Cell<Bounds<Pixels>>>,
 }
 
-/// Holds the dialog's view and reports keyboard use for focus rings, like
-/// the main window's root.
 struct DialogHost {
     view: AnyView,
 }
@@ -503,8 +430,6 @@ impl Render for DialogHost {
 }
 
 impl DialogWindow {
-    /// Opens a window over `host`, the main window, with `build`'s view and
-    /// gives it keyboard focus. `build` gets the dialog's window.
     pub fn open(
         host: &Window,
         build: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static,
@@ -560,9 +485,6 @@ impl DialogWindow {
         })
     }
 
-    /// Keeps the window over the main window, whose frame is `host`. A
-    /// dialog opened while the main window was hidden (What's New at a
-    /// hidden launch) comes in here, once the main window draws.
     pub fn sync(&self, host: Bounds<Pixels>, cx: &App) {
         #[cfg(target_os = "macos")]
         if !self.native.is_visible() {
@@ -581,8 +503,6 @@ impl DialogWindow {
         let _ = cx;
     }
 
-    /// Closes the window. Deferred, since the dialog may be closing itself
-    /// from inside its own window.
     pub fn close(self, cx: &mut App) {
         cx.defer(move |cx| {
             #[cfg(target_os = "macos")]
@@ -615,13 +535,11 @@ mod tests {
             frame_for(below, trigger, host, menu),
             bounds(300., 238., 180., 120.)
         );
-        // Near the bottom it moves up to stay inside the window.
         let low = bounds(300., 640., 180., 34.);
         assert_eq!(
             frame_for(below, low, host, menu).origin.y,
             px(100. + 600. - 8. - 120.)
         );
-        // End-aligned menus line up with the trigger's right edge.
         let end = Placement::Below {
             gap: px(4.),
             end: true,

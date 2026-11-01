@@ -1,5 +1,3 @@
-//! A Lucide icon that, like an inline SVG with `stroke="currentColor"`,
-//! takes the inherited text color at paint time, so it follows its parent's
 //! hover and active colors. GPUI's `svg()` paints only with a color set on
 //! the element itself.
 
@@ -16,7 +14,6 @@ pub struct Icon {
     rotation: Option<Radians>,
 }
 
-/// An icon from `assets/icons/<name>.svg`.
 pub fn icon(name: &str) -> Icon {
     Icon {
         path: SharedString::from(format!("icons/{name}.svg")),
@@ -27,13 +24,11 @@ pub fn icon(name: &str) -> Icon {
 }
 
 impl Icon {
-    /// Paints in `color` instead of the inherited text color.
     pub fn text_color(mut self, color: impl Into<Hsla>) -> Self {
         self.color = Some(color.into());
         self
     }
 
-    /// Rotates around the center, e.g. a chevron flipped open.
     pub fn rotate(mut self, angle: impl Into<Radians>) -> Self {
         self.rotation = Some(angle.into());
         self
