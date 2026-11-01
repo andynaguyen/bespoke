@@ -18,7 +18,7 @@ use crate::app_handle::AppHandle;
 
 #[cfg(not(target_os = "linux"))]
 use crate::settings::get_settings;
-use crate::settings::{self, ShortcutBinding};
+use crate::settings::ShortcutBinding;
 
 use super::handler::handle_shortcut_event;
 
@@ -87,24 +87,7 @@ fn with_manager<R: Send + 'static>(
 
 /// Initialize shortcuts using the global-hotkey backend
 pub fn init_shortcuts(app: &AppHandle) {
-    let default_bindings = settings::get_default_settings().bindings;
-    let user_settings = settings::load_or_create_app_settings(app);
-
-    // Register all default shortcuts, applying user customizations
-    for (id, default_binding) in default_bindings {
-        if id == "cancel" {
-            continue; // Skip cancel shortcut, it will be registered dynamically
-        }
-        // Skip post-processing shortcut when the feature is disabled
-        if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
-            continue;
-        }
-        let binding = user_settings
-            .bindings
-            .get(&id)
-            .cloned()
-            .unwrap_or(default_binding);
-
+    for (id, binding) in super::startup_bindings(app) {
         if let Err(e) = register_shortcut(app, binding) {
             error!("Failed to register shortcut {} during init: {}", id, e);
         }

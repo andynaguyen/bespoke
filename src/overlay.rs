@@ -74,10 +74,6 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
     app_handle.with_ui(crate::ui::overlay::hide);
 }
 
-/// The overlay window is created on first show, so there is nothing to do at
-/// startup. Kept so startup code reads the same as before.
-pub fn create_recording_overlay(_app_handle: &AppHandle) {}
-
 // Cached "overlay is enabled" flag, kept in sync with overlay_style. Avoids
 // reading the settings store on every audio callback (~24 Hz during
 // recording). Defaults to false so the audio path doesn't emit until startup

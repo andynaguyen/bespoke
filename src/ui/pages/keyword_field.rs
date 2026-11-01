@@ -28,14 +28,6 @@ pub struct KeywordField {
     _subscriptions: Vec<Subscription>,
 }
 
-/// Non-empty, and every word has a letter or digit.
-fn is_valid_keyword(keyword: &str) -> bool {
-    !keyword.is_empty()
-        && keyword
-            .split_whitespace()
-            .all(|word| word.chars().any(char::is_alphanumeric))
-}
-
 impl KeywordField {
     pub fn new(setting: KeywordSetting, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = SettingsStore::global(cx);
@@ -78,12 +70,11 @@ impl KeywordField {
 
     fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let raw = self.input.read(cx).value().to_string();
-        let normalized = raw.split_whitespace().collect::<Vec<_>>().join(" ");
-        if !is_valid_keyword(&normalized) {
+        let Some(normalized) = crate::shortcut::normalize_keyword(&raw) else {
             self.invalid = true;
             cx.notify();
             return;
-        }
+        };
         self.invalid = false;
         if normalized != raw {
             let value = normalized.clone();
@@ -126,18 +117,5 @@ impl Render for KeywordField {
                     .disabled(updating)
                     .w(rems(12.)),
             )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_valid_keyword;
-
-    #[test]
-    fn keyword_needs_a_letter_or_digit_per_word() {
-        assert!(is_valid_keyword("scrub that"));
-        assert!(is_valid_keyword("go 2"));
-        assert!(!is_valid_keyword(""));
-        assert!(!is_valid_keyword("scrub !!"));
     }
 }

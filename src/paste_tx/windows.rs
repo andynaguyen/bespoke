@@ -416,15 +416,12 @@ fn on_timer(_hwnd: HWND, shared: &WinTxShared) {
             Ok(st) => st,
             Err(_) => return,
         };
-        if st.cancelled {
-            true
-        } else {
-            match evaluate(&st, now) {
-                WaitDecision::KeepWaiting => false,
-                WaitDecision::Finish => {
-                    st.cancelled = true;
-                    true
-                }
+        // evaluate finishes a cancelled transaction too.
+        match evaluate(&st, now) {
+            WaitDecision::KeepWaiting => false,
+            WaitDecision::Finish => {
+                st.cancelled = true;
+                true
             }
         }
     };

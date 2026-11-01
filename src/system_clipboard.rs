@@ -51,4 +51,34 @@ impl Clipboard {
     pub fn clear(&self) -> Result<(), String> {
         with_clipboard(|c| c.clear())
     }
+
+    /// Saves the clipboard before a paste. Probes for an image only when
+    /// there is no text: text is the common case, and reading an image
+    /// decodes the full bitmap.
+    pub fn snapshot(&self) -> ClipboardSnapshot {
+        if let Some(text) = self.read_text().ok().filter(|t| !t.is_empty()) {
+            ClipboardSnapshot::Text(text)
+        } else if let Ok(image) = self.read_image() {
+            ClipboardSnapshot::Image(image)
+        } else {
+            ClipboardSnapshot::Empty
+        }
+    }
+
+    /// Puts a [`ClipboardSnapshot`] back. An empty snapshot clears the
+    /// clipboard, so the transcript doesn't stay behind.
+    pub fn restore(&self, snapshot: &ClipboardSnapshot) {
+        let _ = match snapshot {
+            ClipboardSnapshot::Text(text) => self.write_text(text),
+            ClipboardSnapshot::Image(image) => self.write_image(image),
+            ClipboardSnapshot::Empty => self.clear(),
+        };
+    }
+}
+
+/// What the clipboard held before a paste.
+pub enum ClipboardSnapshot {
+    Text(String),
+    Image(ClipboardImage),
+    Empty,
 }

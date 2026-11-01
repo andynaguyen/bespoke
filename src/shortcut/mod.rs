@@ -103,7 +103,6 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
 #[derive(Serialize)]
 pub struct BindingResponse {
     pub success: bool,
-    pub binding: Option<ShortcutBinding>,
     pub error: Option<String>,
 }
 
@@ -119,31 +118,15 @@ pub fn change_binding(
 
     let mut settings = settings::get_settings(&app);
 
-    // Get the binding to modify, or create it from defaults if it doesn't exist
-    let binding_to_modify = match settings.bindings.get(&id) {
-        Some(binding) => binding.clone(),
-        None => {
-            // Try to get the default binding for this id
-            let default_settings = settings::get_default_settings();
-            match default_settings.bindings.get(&id) {
-                Some(default_binding) => {
-                    warn!(
-                        "Binding '{}' not found in settings, creating from defaults",
-                        id
-                    );
-                    default_binding.clone()
-                }
-                None => {
-                    let error_msg = format!("Binding with id '{}' not found in defaults", id);
-                    warn!("change_binding error: {}", error_msg);
-                    return Ok(BindingResponse {
-                        success: false,
-                        binding: None,
-                        error: Some(error_msg),
-                    });
-                }
-            }
-        }
+    // get_settings merges in every default binding, so an id missing here
+    // is unknown.
+    let Some(binding_to_modify) = settings.bindings.get(&id).cloned() else {
+        let error_msg = format!("Binding with id '{}' not found", id);
+        warn!("change_binding error: {}", error_msg);
+        return Ok(BindingResponse {
+            success: false,
+            error: Some(error_msg),
+        });
     };
 
     validate_shortcut_for_implementation(&binding, settings.keyboard_implementation)?;
@@ -164,12 +147,11 @@ pub fn change_binding(
     if id == "cancel" {
         if let Some(mut b) = settings.bindings.get(&id).cloned() {
             b.current_binding = binding;
-            settings.bindings.insert(id.clone(), b.clone());
+            settings.bindings.insert(id.clone(), b);
             settings::write_settings(&app, settings);
             crate::secure_input::reconcile_fallback(&app);
             return Ok(BindingResponse {
                 success: true,
-                binding: Some(b.clone()),
                 error: None,
             });
         }
@@ -192,15 +174,12 @@ pub fn change_binding(
         restore_registration(&app, &binding_to_modify);
         return Ok(BindingResponse {
             success: false,
-            binding: None,
             error: Some(error_msg),
         });
     }
 
     // Update the binding in the settings
-    settings
-        .bindings
-        .insert(id.clone(), updated_binding.clone());
+    settings.bindings.insert(id.clone(), updated_binding);
 
     // Save the settings and synchronize any active Secure Input shadows.
     #[cfg(target_os = "macos")]
@@ -213,7 +192,6 @@ pub fn change_binding(
     // Return the updated binding
     Ok(BindingResponse {
         success: true,
-        binding: Some(updated_binding),
         error: None,
     })
 }
@@ -232,6 +210,29 @@ fn restore_registration(app: &AppHandle, binding: &ShortcutBinding) {
 pub fn reset_binding(app: AppHandle, id: String) -> Result<BindingResponse, String> {
     let binding = settings::get_stored_binding(&settings::get_settings(&app), &id)?;
     change_binding(app, id, binding.default_binding)
+}
+
+/// The bindings each backend registers at startup: every default binding with
+/// the user's customization applied, minus `cancel` (registered per
+/// recording) and the post-processing binding while that feature is off.
+fn startup_bindings(app: &AppHandle) -> Vec<(String, ShortcutBinding)> {
+    let user_settings = settings::load_or_create_app_settings(app);
+    settings::get_default_settings()
+        .bindings
+        .into_iter()
+        .filter(|(id, _)| {
+            id != "cancel"
+                && (id != "transcribe_with_post_process" || user_settings.post_process_enabled)
+        })
+        .map(|(id, default_binding)| {
+            let binding = user_settings
+                .bindings
+                .get(&id)
+                .cloned()
+                .unwrap_or(default_binding);
+            (id, binding)
+        })
+        .collect()
 }
 
 /// Unregister every binding while the user is recording a new shortcut in
@@ -275,19 +276,6 @@ pub fn resume_all_shortcuts(app: &AppHandle) {
     }
 }
 
-/// Temporarily unregister all bindings while the user is recording a
-/// shortcut in the UI. This avoids firing actions while keys are recorded.
-pub fn suspend_all_bindings(app: AppHandle) -> Result<(), String> {
-    suspend_all_shortcuts(&app);
-    Ok(())
-}
-
-/// Re-register all bindings after the user has finished recording.
-pub fn resume_all_bindings(app: AppHandle) -> Result<(), String> {
-    resume_all_shortcuts(&app);
-    Ok(())
-}
-
 // ============================================================================
 // Keyboard Implementation Switching
 // ============================================================================
@@ -295,7 +283,6 @@ pub fn resume_all_bindings(app: AppHandle) -> Result<(), String> {
 /// Result of changing keyboard implementation
 #[derive(Serialize)]
 pub struct ImplementationChangeResult {
-    pub success: bool,
     /// List of binding IDs that were reset to defaults due to incompatibility
     pub reset_bindings: Vec<String>,
 }
@@ -315,7 +302,6 @@ pub fn change_keyboard_implementation_setting(
     // If same implementation, nothing to do
     if current_impl == new_impl {
         return Ok(ImplementationChangeResult {
-            success: true,
             reset_bindings: vec![],
         });
     }
@@ -344,7 +330,6 @@ pub fn change_keyboard_implementation_setting(
         // Shortcuts already registered during init.
         crate::secure_input::reconcile_fallback(&app);
         return Ok(ImplementationChangeResult {
-            success: true,
             reset_bindings: vec![],
         });
     }
@@ -365,10 +350,7 @@ pub fn change_keyboard_implementation_setting(
 
     info!("Keyboard implementation switched to {:?}", new_impl);
 
-    Ok(ImplementationChangeResult {
-        success: true,
-        reset_bindings,
-    })
+    Ok(ImplementationChangeResult { reset_bindings })
 }
 
 // ============================================================================
@@ -579,7 +561,6 @@ pub fn change_theme_setting(app: AppHandle, theme: String) -> Result<(), String>
     settings.theme = parsed;
     settings::write_settings(&app, settings);
     apply_window_theme(&app, parsed);
-    let _ = app.emit("theme-changed", parsed);
     Ok(())
 }
 
@@ -898,17 +879,21 @@ pub fn change_voice_submit_enabled_setting(app: AppHandle, enabled: bool) -> Res
     Ok(())
 }
 
-/// Rejects keywords with no letters or digits, since they could never match
-/// a spoken word.
+/// Collapses runs of whitespace in a spoken keyword to single spaces.
+/// Returns `None` when the keyword is empty or a word has no letters or
+/// digits, since it could never match a spoken word.
+pub fn normalize_keyword(raw: &str) -> Option<String> {
+    let words: Vec<&str> = raw.split_whitespace().collect();
+    let valid = !words.is_empty()
+        && words
+            .iter()
+            .all(|word| word.chars().any(char::is_alphanumeric));
+    valid.then(|| words.join(" "))
+}
+
 pub fn change_voice_submit_keyword_setting(app: AppHandle, keyword: String) -> Result<(), String> {
-    let keyword = keyword.split_whitespace().collect::<Vec<_>>().join(" ");
-    if !keyword
-        .split(' ')
-        .all(|word| word.chars().any(char::is_alphanumeric))
-        || keyword.is_empty()
-    {
-        return Err("Voice submit keyword must contain letters or digits".to_string());
-    }
+    let keyword =
+        normalize_keyword(&keyword).ok_or("Voice submit keyword must contain letters or digits")?;
     let mut settings = settings::get_settings(&app);
     settings.voice_submit_keyword = keyword;
     settings::write_settings(&app, settings);
@@ -922,16 +907,9 @@ pub fn change_scrub_enabled_setting(app: AppHandle, enabled: bool) -> Result<(),
     Ok(())
 }
 
-/// Rejects keywords with no letters or digits, like the voice submit keyword.
 pub fn change_scrub_keyword_setting(app: AppHandle, keyword: String) -> Result<(), String> {
-    let keyword = keyword.split_whitespace().collect::<Vec<_>>().join(" ");
-    if !keyword
-        .split(' ')
-        .all(|word| word.chars().any(char::is_alphanumeric))
-        || keyword.is_empty()
-    {
-        return Err("Scrub keyword must contain letters or digits".to_string());
-    }
+    let keyword =
+        normalize_keyword(&keyword).ok_or("Scrub keyword must contain letters or digits")?;
     let mut settings = settings::get_settings(&app);
     settings.scrub_keyword = keyword;
     settings::write_settings(&app, settings);
@@ -1316,6 +1294,18 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn keyword_needs_a_letter_or_digit_per_word() {
+        use super::normalize_keyword;
+        assert_eq!(
+            normalize_keyword("scrub  that ").as_deref(),
+            Some("scrub that")
+        );
+        assert_eq!(normalize_keyword("go 2").as_deref(), Some("go 2"));
+        assert_eq!(normalize_keyword("   "), None);
+        assert_eq!(normalize_keyword("scrub !!"), None);
+    }
+
     use global_hotkey::hotkey::HotKey as Shortcut;
     use handy_keys::Hotkey;
 

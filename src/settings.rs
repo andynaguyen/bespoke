@@ -126,10 +126,6 @@ pub struct PostProcessProvider {
     pub label: String,
     pub base_url: String,
     #[serde(default)]
-    pub allow_base_url_edit: bool,
-    #[serde(default)]
-    pub models_endpoint: Option<String>,
-    #[serde(default)]
     pub supports_structured_output: bool,
 }
 
@@ -397,14 +393,13 @@ impl std::ops::DerefMut for SecretMap {
 /// guarantees every field — including ones added in the future — falls back to
 /// its `get_default_settings()` value when missing from a stored settings
 /// object, so a partial store can never fail the whole load (#1619).
-/// Field-level defaults below take precedence where present.
+/// `bindings` is the one field-level exception.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct AppSettings {
     /// Internal settings schema marker for one-time migrations. Fresh installs
     /// start at the current version; existing stores missing this key are
     /// treated as version 0 and migrated forward.
-    #[serde(default = "default_settings_schema_version")]
     pub settings_schema_version: u32,
     /// Defaults to empty on partial stores; the load path merges in the
     /// default bindings for any missing keys before the settings are used.
@@ -412,140 +407,80 @@ pub struct AppSettings {
     pub bindings: HashMap<String, ShortcutBinding>,
     /// Replaces the pre-0.10 `push_to_talk` bool; stores missing this key are
     /// migrated from it in `apply_settings_migrations`.
-    #[serde(default)]
     pub shortcut_activation: ShortcutActivation,
     /// Hold-or-toggle only: a press held at least this long is push-to-talk,
     /// anything shorter is a tap that locks recording on.
-    #[serde(default = "default_hold_threshold_ms")]
     pub hold_threshold_ms: u64,
-    #[serde(default)]
     pub audio_feedback: bool,
-    #[serde(default = "default_audio_feedback_volume")]
     pub audio_feedback_volume: f32,
-    #[serde(default = "default_sound_theme")]
     pub sound_theme: SoundTheme,
-    #[serde(default = "default_start_hidden")]
     pub start_hidden: bool,
-    #[serde(default = "default_autostart_enabled")]
     pub autostart_enabled: bool,
-    #[serde(default = "default_show_whats_new_on_update")]
     pub show_whats_new_on_update: bool,
     /// The app version whose What's New the user has already seen. Fresh installs
     /// default to the current version (nothing is "new" to them). Existing users
     /// upgrading from before this key existed are blanked by the migration so they
     /// see the current release's notes — see `apply_settings_migrations`.
-    #[serde(default = "default_whats_new_last_seen_version")]
     pub whats_new_last_seen_version: String,
-    #[serde(default = "default_model")]
     pub selected_model: String,
-    #[serde(default)]
     pub onboarding_completed: bool,
-    #[serde(default = "default_always_on_microphone")]
     pub always_on_microphone: bool,
-    #[serde(default)]
     pub selected_microphone: Option<String>,
     /// Which input channel to use on the selected microphone device.
     /// None means "average all channels" (original behavior).
-    #[serde(default)]
     pub selected_channel: Option<u16>,
-    #[serde(default)]
     pub clamshell_microphone: Option<String>,
-    #[serde(default)]
     pub selected_output_device: Option<String>,
-    #[serde(default = "default_translate_to_english")]
     pub translate_to_english: bool,
-    #[serde(default = "default_selected_language")]
     pub selected_language: String,
-    #[serde(default = "default_overlay_position")]
     pub overlay_position: OverlayPosition,
-    #[serde(default = "default_debug_mode")]
     pub debug_mode: bool,
-    #[serde(default = "default_log_level")]
     pub log_level: LogLevel,
-    #[serde(default)]
     pub custom_words: Vec<String>,
-    #[serde(default)]
     pub snippets: Vec<Snippet>,
-    #[serde(default = "default_app_styles")]
     pub app_styles: Vec<AppStyleRule>,
-    #[serde(default)]
     pub model_unload_timeout: ModelUnloadTimeout,
-    #[serde(default = "default_word_correction_threshold")]
     pub word_correction_threshold: f64,
-    #[serde(default = "default_history_limit")]
     pub history_limit: usize,
-    #[serde(default = "default_recording_retention_period")]
     pub recording_retention_period: RecordingRetentionPeriod,
-    #[serde(default)]
     pub paste_method: PasteMethod,
-    #[serde(default)]
     pub clipboard_handling: ClipboardHandling,
-    #[serde(default = "default_auto_submit")]
     pub auto_submit: bool,
-    #[serde(default)]
     pub auto_submit_key: AutoSubmitKey,
     /// Ending a dictation with `voice_submit_keyword` stops recording on the
     /// following pause, removes the keyword, and presses `auto_submit_key`.
-    #[serde(default)]
     pub voice_submit_enabled: bool,
-    #[serde(default = "default_voice_submit_keyword")]
     pub voice_submit_keyword: String,
     /// Saying `scrub_keyword` throws away everything dictated before it in the
     /// current recording.
-    #[serde(default = "default_scrub_enabled")]
     pub scrub_enabled: bool,
-    #[serde(default = "default_scrub_keyword")]
     pub scrub_keyword: String,
-    #[serde(default = "default_post_process_enabled")]
     pub post_process_enabled: bool,
-    #[serde(default = "default_post_process_provider_id")]
     pub post_process_provider_id: String,
-    #[serde(default = "default_post_process_providers")]
     pub post_process_providers: Vec<PostProcessProvider>,
-    #[serde(default = "default_post_process_api_keys")]
     pub post_process_api_keys: SecretMap,
-    #[serde(default = "default_post_process_models")]
     pub post_process_models: HashMap<String, String>,
-    #[serde(default = "default_post_process_prompts")]
     pub post_process_prompts: Vec<LLMPrompt>,
-    #[serde(default)]
     pub post_process_selected_prompt_id: Option<String>,
-    #[serde(default)]
     pub mute_while_recording: bool,
-    #[serde(default)]
     pub append_trailing_space: bool,
-    #[serde(default = "default_app_language")]
     pub app_language: String,
-    #[serde(default = "default_theme")]
     pub theme: Theme,
-    #[serde(default)]
     pub experimental_enabled: bool,
-    #[serde(default)]
     pub lazy_stream_close: bool,
-    #[serde(default)]
     pub keyboard_implementation: KeyboardImplementation,
-    #[serde(default = "default_show_tray_icon")]
     pub show_tray_icon: bool,
-    #[serde(default = "default_paste_delay_ms")]
     pub paste_delay_ms: u64,
-    #[serde(default = "default_paste_delay_after_ms")]
     pub paste_delay_after_ms: u64,
     /// Debug-gated ("beta") receipt-sequenced paste: restore the clipboard only
     /// after the target app actually reads the transcript, instead of after a
     /// fixed delay. See `paste_tx`. macOS and Windows only.
-    #[serde(default)]
     pub reliable_paste: bool,
-    #[serde(default = "default_typing_tool")]
     pub typing_tool: TypingTool,
-    #[serde(default)]
     pub external_script_path: Option<String>,
-    #[serde(default = "default_filler_word_removal_enabled")]
     pub filler_word_removal_enabled: bool,
-    #[serde(default)]
     pub custom_filler_words: Option<Vec<String>>,
-    #[serde(default)]
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
-    #[serde(default)]
     pub ort_accelerator: OrtAcceleratorSetting,
     /// Stable transcribe.cpp device selector. This is derived from the backend's
     /// `device_id` when available (or its name for backends such as Metal),
@@ -555,26 +490,17 @@ pub struct AppSettings {
         deserialize_with = "deserialize_transcribe_gpu_device"
     )]
     pub transcribe_gpu_device: Option<String>,
-    #[serde(default)]
     pub extra_recording_buffer_ms: u64,
-    #[serde(default = "default_vad_enabled")]
     pub vad_enabled: bool,
     /// Experimental detector implementation. Silero remains the stable default.
-    #[serde(default)]
     pub vad_backend: VadBackend,
     /// Which recording overlay to show: None / Minimal / Live. Streaming mode is
     /// not gated on this — that follows model capability. Migrated from the old
     /// `overlay_position` (position `none` → style `None`).
-    #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
     /// Where Annotate's MCP server listens for coding agents (`annotate::mcp`). Migrated from
     /// the old `annotate_mcp_enabled` switch.
-    #[serde(default)]
     pub annotate_mcp_reach: McpReach,
-}
-
-fn default_model() -> String {
-    "".to_string()
 }
 
 const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 2;
@@ -585,14 +511,6 @@ fn default_settings_schema_version() -> u32 {
 
 fn default_hold_threshold_ms() -> u64 {
     300
-}
-
-fn default_always_on_microphone() -> bool {
-    false
-}
-
-fn default_translate_to_english() -> bool {
-    false
 }
 
 fn default_start_hidden() -> bool {
@@ -609,10 +527,6 @@ fn default_show_whats_new_on_update() -> bool {
 
 fn default_whats_new_last_seen_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
-}
-
-fn default_selected_language() -> String {
-    "auto".to_string()
 }
 
 fn default_overlay_position() -> OverlayPosition {
@@ -636,10 +550,6 @@ fn default_vad_enabled() -> bool {
 
 fn default_filler_word_removal_enabled() -> bool {
     true
-}
-
-fn default_debug_mode() -> bool {
-    false
 }
 
 fn default_log_level() -> LogLevel {
@@ -732,48 +642,36 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             id: "openai".to_string(),
             label: "OpenAI".to_string(),
             base_url: "https://api.openai.com/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
         },
         PostProcessProvider {
             id: "zai".to_string(),
             label: "Z.AI".to_string(),
             base_url: "https://api.z.ai/api/paas/v4".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
         },
         PostProcessProvider {
             id: "openrouter".to_string(),
             label: "OpenRouter".to_string(),
             base_url: "https://openrouter.ai/api/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
         },
         PostProcessProvider {
             id: "anthropic".to_string(),
             label: "Anthropic".to_string(),
             base_url: "https://api.anthropic.com/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
             supports_structured_output: false,
         },
         PostProcessProvider {
             id: "groq".to_string(),
             label: "Groq".to_string(),
             base_url: "https://api.groq.com/openai/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
             supports_structured_output: false,
         },
         PostProcessProvider {
             id: "cerebras".to_string(),
             label: "Cerebras".to_string(),
             base_url: "https://api.cerebras.ai/v1".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
         },
     ];
@@ -788,8 +686,6 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             id: APPLE_INTELLIGENCE_PROVIDER_ID.to_string(),
             label: "Apple Intelligence".to_string(),
             base_url: "apple-intelligence://local".to_string(),
-            allow_base_url_edit: false,
-            models_endpoint: None,
             supports_structured_output: true,
         });
     }
@@ -799,8 +695,6 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         id: "bedrock_mantle".to_string(),
         label: "AWS Bedrock (Mantle)".to_string(),
         base_url: "https://bedrock-mantle.us-east-1.api.aws/v1".to_string(),
-        allow_base_url_edit: false,
-        models_endpoint: Some("/models".to_string()),
         supports_structured_output: true,
     });
 
@@ -809,8 +703,6 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         id: "custom".to_string(),
         label: "Custom".to_string(),
         base_url: "http://localhost:11434/v1".to_string(),
-        allow_base_url_edit: true,
-        models_endpoint: Some("/models".to_string()),
         supports_structured_output: false,
     });
 
@@ -1462,8 +1354,6 @@ mod tests {
                     "id": "openai",
                     "label": "OpenAI",
                     "base_url": "https://api.openai.com/v1",
-                    "allow_base_url_edit": false,
-                    "models_endpoint": null,
                     "supports_structured_output": true
                 }
             ],

@@ -180,13 +180,6 @@ impl AppHandle {
         }
     }
 
-    /// Tauri-compatible form of [`AppHandle::with_ui`] for closures that only
-    /// need to be on the main thread (AppKit calls, for example).
-    pub fn run_on_main_thread(&self, f: impl FnOnce() + Send + 'static) -> Result<(), Error> {
-        self.with_ui(move |_| f());
-        Ok(())
-    }
-
     /// Runs `f` on the main thread and waits for its result. Runs inline when
     /// already on the main thread. Platform APIs that bind to the main run
     /// loop (global hotkeys, AppKit) go through here.
@@ -203,14 +196,6 @@ impl AppHandle {
         });
         rx.recv()
             .map_err(|_| anyhow::anyhow!("main thread dropped the call"))
-    }
-
-    /// Quits the app. `code` is ignored, as in Tauri's `exit` for code 0.
-    pub fn exit(&self, code: i32) {
-        if code != 0 {
-            log::warn!("exit({code}) requested; GPUI quits with status 0");
-        }
-        self.with_ui(|cx| cx.quit());
     }
 
     /// Relaunches the app from the same executable.
@@ -284,18 +269,6 @@ impl PathResolver {
         dir.ok_or_else(|| anyhow::anyhow!("no log directory for this platform"))
     }
 
-    pub fn app_config_dir(&self) -> Result<PathBuf, Error> {
-        dirs::config_dir()
-            .map(|dir| dir.join(APP_IDENTIFIER))
-            .ok_or_else(|| anyhow::anyhow!("no config directory for this platform"))
-    }
-
-    pub fn app_cache_dir(&self) -> Result<PathBuf, Error> {
-        dirs::cache_dir()
-            .map(|dir| dir.join(APP_IDENTIFIER))
-            .ok_or_else(|| anyhow::anyhow!("no cache directory for this platform"))
-    }
-
     /// The directory bundled resources live in. Relative resource paths in
     /// the code start with `resources/`, as in the Tauri bundle.
     pub fn resource_dir(&self) -> Result<PathBuf, Error> {
@@ -306,8 +279,6 @@ impl PathResolver {
         let base = match base {
             BaseDirectory::Resource => self.resource_dir()?,
             BaseDirectory::AppData => self.app_data_dir()?,
-            BaseDirectory::AppLog => self.app_log_dir()?,
-            BaseDirectory::AppConfig => self.app_config_dir()?,
         };
         Ok(base.join(path))
     }
@@ -317,8 +288,6 @@ impl PathResolver {
 pub enum BaseDirectory {
     Resource,
     AppData,
-    AppLog,
-    AppConfig,
 }
 
 /// Renames each folder named [`LEGACY_IDENTIFIER`] (data, config, cache and,
@@ -408,29 +377,10 @@ impl Store {
         self.values.lock().get(key).cloned()
     }
 
-    pub fn has(&self, key: &str) -> bool {
-        self.values.lock().contains_key(key)
-    }
-
     pub fn set(&self, key: impl Into<String>, value: serde_json::Value) {
         let mut values = self.values.lock();
         values.insert(key.into(), value);
         self.write(&values);
-    }
-
-    pub fn delete(&self, key: &str) -> bool {
-        let mut values = self.values.lock();
-        let removed = values.remove(key).is_some();
-        if removed {
-            self.write(&values);
-        }
-        removed
-    }
-
-    /// Kept for call sites written against tauri-plugin-store; `set` already
-    /// persists.
-    pub fn save(&self) -> Result<(), Error> {
-        Ok(())
     }
 
     fn write(&self, values: &serde_json::Map<String, serde_json::Value>) {

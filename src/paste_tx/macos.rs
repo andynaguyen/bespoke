@@ -94,8 +94,7 @@ impl BespokePasteProvider {
 
 struct MacPending {
     state: Arc<Mutex<TxState>>,
-    saved_text: Option<String>,
-    saved_image: Option<crate::system_clipboard::ClipboardImage>,
+    saved: crate::system_clipboard::ClipboardSnapshot,
     change_count: NSInteger,
     provider: Option<Retained<BespokePasteProvider>>,
     auto_submit: bool,
@@ -164,14 +163,7 @@ fn settle(
         let _ = app_handle.clipboard().write_text(&p.transcript);
         info!("[reliable-paste] left transcript on clipboard as plain text");
     } else {
-        let clipboard = app_handle.clipboard();
-        if let Some(text) = &p.saved_text {
-            let _ = clipboard.write_text(text);
-        } else if let Some(image) = &p.saved_image {
-            let _ = clipboard.write_image(image);
-        } else {
-            let _ = clipboard.clear();
-        }
+        app_handle.clipboard().restore(&p.saved);
         info!("[reliable-paste] restored previous clipboard");
     }
 
@@ -237,7 +229,7 @@ fn spawn_waiter(pending: Arc<Mutex<MacPending>>, app_handle: AppHandle) {
 
         let pending_for_finish = pending.clone();
         let app_for_finish = app_handle.clone();
-        let _ = app_handle.run_on_main_thread(move || {
+        app_handle.with_ui(move |_| {
             settle(&pending_for_finish, &app_for_finish, None);
             if let Ok(mut slot) = PENDING.lock() {
                 let is_us = slot
@@ -265,15 +257,7 @@ pub(super) fn run(
     // user's original clipboard, not the previous transcript.
     flush_pending(app_handle, enigo);
 
-    let clipboard = app_handle.clipboard();
-    let saved_text = clipboard.read_text().ok().filter(|t| !t.is_empty());
-    // Only probe for an image when there is no text; reading an image decodes
-    // the full bitmap (mirrors the legacy path).
-    let saved_image = if saved_text.is_none() {
-        clipboard.read_image().ok().map(|image| image.to_owned())
-    } else {
-        None
-    };
+    let saved = app_handle.clipboard().snapshot();
 
     let state = Arc::new(Mutex::new(TxState::new()));
     let provider = BespokePasteProvider::new(state.clone(), text.to_string());
@@ -318,8 +302,7 @@ pub(super) fn run(
 
     let pending = Arc::new(Mutex::new(MacPending {
         state,
-        saved_text,
-        saved_image,
+        saved,
         change_count,
         provider: Some(provider),
         auto_submit,

@@ -240,6 +240,4 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Apply the autostart preference (SMAppService login item on macOS 13+,
     // the auto-launch crate elsewhere)
     autostart::apply_autostart(app_handle, settings.autostart_enabled);
-
-    utils::create_recording_overlay(app_handle);
 }

@@ -180,8 +180,7 @@ impl ShortcutInput {
             .unwrap_or_default();
 
         if uses_handy_keys(cx) {
-            let id = self.binding_id.clone();
-            match crate::shortcut::handy_keys::start_handy_keys_recording(Self::app(), id) {
+            match crate::shortcut::handy_keys::start_handy_keys_recording(Self::app()) {
                 Ok(()) => {}
                 Err(error) => {
                     if error.contains("secure-input-active") {
@@ -202,9 +201,8 @@ impl ShortcutInput {
                 }
             }
         } else {
-            if let Err(e) = crate::shortcut::suspend_all_bindings(Self::app()) {
-                log::error!("Failed to suspend bindings: {e}");
-            }
+            // Unregister every binding so recorded keys don't fire actions.
+            crate::shortcut::suspend_all_shortcuts(&Self::app());
             self.capture = WindowCapture::default();
             self.focus.focus(window);
         }
@@ -220,8 +218,8 @@ impl ShortcutInput {
             if let Err(e) = crate::shortcut::handy_keys::stop_handy_keys_recording(Self::app()) {
                 log::error!("{e}");
             }
-        } else if let Err(e) = crate::shortcut::resume_all_bindings(Self::app()) {
-            log::error!("{e}");
+        } else {
+            crate::shortcut::resume_all_shortcuts(&Self::app());
         }
     }
 

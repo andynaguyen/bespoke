@@ -177,35 +177,19 @@ pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
 /// against those. Callers that can detect a failed chord (e.g. the
 /// receipt-sequenced paste path) may use a much shorter hold.
 pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    // Platform-specific key definitions
-    #[cfg(target_os = "macos")]
-    let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
-    #[cfg(target_os = "windows")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Other(0x56)); // VK_V
-    #[cfg(target_os = "linux")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
-
-    // Press modifier + V
-    enigo
-        .key(modifier_key, enigo::Direction::Press)
-        .map_err(|e| format!("Failed to press modifier key: {}", e))?;
-    enigo
-        .key(v_key_code, enigo::Direction::Click)
-        .map_err(|e| format!("Failed to click V key: {}", e))?;
-
-    std::thread::sleep(std::time::Duration::from_millis(hold_ms));
-
-    enigo
-        .key(modifier_key, enigo::Direction::Release)
-        .map_err(|e| format!("Failed to release modifier key: {}", e))?;
-
-    Ok(())
+    send_paste_chord(enigo, false, hold_ms)
 }
 
 /// Sends a Ctrl+Shift+V paste command.
 /// This is commonly used in terminal applications on Linux to paste without formatting.
 /// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
 pub fn send_paste_ctrl_shift_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
+    send_paste_chord(enigo, true, hold_ms)
+}
+
+/// Presses the platform paste modifier (and Shift when `shift` is set),
+/// clicks V, holds for `hold_ms`, then releases in reverse order.
+fn send_paste_chord(enigo: &mut Enigo, shift: bool, hold_ms: u64) -> Result<(), String> {
     // Platform-specific key definitions
     #[cfg(target_os = "macos")]
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
@@ -214,22 +198,25 @@ pub fn send_paste_ctrl_shift_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), St
     #[cfg(target_os = "linux")]
     let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
 
-    // Press Ctrl/Cmd + Shift + V
     enigo
         .key(modifier_key, enigo::Direction::Press)
         .map_err(|e| format!("Failed to press modifier key: {}", e))?;
-    enigo
-        .key(Key::Shift, enigo::Direction::Press)
-        .map_err(|e| format!("Failed to press Shift key: {}", e))?;
+    if shift {
+        enigo
+            .key(Key::Shift, enigo::Direction::Press)
+            .map_err(|e| format!("Failed to press Shift key: {}", e))?;
+    }
     enigo
         .key(v_key_code, enigo::Direction::Click)
         .map_err(|e| format!("Failed to click V key: {}", e))?;
 
     std::thread::sleep(std::time::Duration::from_millis(hold_ms));
 
-    enigo
-        .key(Key::Shift, enigo::Direction::Release)
-        .map_err(|e| format!("Failed to release Shift key: {}", e))?;
+    if shift {
+        enigo
+            .key(Key::Shift, enigo::Direction::Release)
+            .map_err(|e| format!("Failed to release Shift key: {}", e))?;
+    }
     enigo
         .key(modifier_key, enigo::Direction::Release)
         .map_err(|e| format!("Failed to release modifier key: {}", e))?;

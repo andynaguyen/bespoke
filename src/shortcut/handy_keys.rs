@@ -65,8 +65,6 @@ pub struct HandyKeysState {
     recording_listener: Mutex<Option<KeyboardListener>>,
     /// Flag indicating if we're in recording mode
     is_recording: AtomicBool,
-    /// The binding ID being recorded (if any)
-    recording_binding_id: Mutex<Option<String>>,
     /// Flag to stop recording loop
     recording_running: Arc<AtomicBool>,
 }
@@ -105,7 +103,6 @@ impl HandyKeysState {
             thread_handle: Mutex::new(Some(thread_handle)),
             recording_listener: Mutex::new(None),
             is_recording: AtomicBool::new(false),
-            recording_binding_id: Mutex::new(None),
             recording_running: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -269,8 +266,8 @@ impl HandyKeysState {
             .map_err(|_| "Failed to receive unregister response")?
     }
 
-    /// Start recording mode for a specific binding
-    pub fn start_recording(&self, app: &AppHandle, binding_id: String) -> Result<(), String> {
+    /// Start recording mode
+    pub fn start_recording(&self, app: &AppHandle) -> Result<(), String> {
         if self.is_recording.load(Ordering::SeqCst) {
             return Err("Already recording".into());
         }
@@ -285,13 +282,6 @@ impl HandyKeysState {
                 .lock()
                 .map_err(|_| "Failed to lock recording_listener")?;
             *recording = Some(listener);
-        }
-        {
-            let mut binding = self
-                .recording_binding_id
-                .lock()
-                .map_err(|_| "Failed to lock recording_binding_id")?;
-            *binding = Some(binding_id);
         }
 
         self.is_recording.store(true, Ordering::SeqCst);
@@ -370,13 +360,6 @@ impl HandyKeysState {
                 .lock()
                 .map_err(|_| "Failed to lock recording_listener")?;
             *recording = None;
-        }
-        {
-            let mut binding = self
-                .recording_binding_id
-                .lock()
-                .map_err(|_| "Failed to lock recording_binding_id")?;
-            *binding = None;
         }
 
         debug!("Stopped handy-keys recording mode");
@@ -487,25 +470,7 @@ fn ensure_initialized(app: &AppHandle) -> Result<(), String> {
 pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
     ensure_initialized(app)?;
 
-    let default_bindings = settings::get_default_settings().bindings;
-    let user_settings = settings::load_or_create_app_settings(app);
-
-    // Register all bindings except cancel (which is dynamic)
-    for (id, default_binding) in default_bindings {
-        if id == "cancel" {
-            continue;
-        }
-        // Skip post-processing shortcut when the feature is disabled
-        if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
-            continue;
-        }
-
-        let binding = user_settings
-            .bindings
-            .get(&id)
-            .cloned()
-            .unwrap_or(default_binding);
-
+    for (id, binding) in super::startup_bindings(app) {
         if let Err(e) = register_shortcut(app, binding) {
             error!(
                 "Failed to register handy-keys shortcut {} during init: {}",
@@ -582,7 +547,7 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
 }
 
 /// Start key recording mode
-pub fn start_handy_keys_recording(app: AppHandle, binding_id: String) -> Result<(), String> {
+pub fn start_handy_keys_recording(app: AppHandle) -> Result<(), String> {
     let settings = get_settings(&app);
     if settings.keyboard_implementation != settings::KeyboardImplementation::HandyKeys
         && !cfg!(target_os = "macos")
@@ -609,7 +574,7 @@ pub fn start_handy_keys_recording(app: AppHandle, binding_id: String) -> Result<
     // binding can't fire it (or have its keys swallowed) mid-capture.
     super::suspend_all_shortcuts(&app);
 
-    let result = state.start_recording(&app, binding_id);
+    let result = state.start_recording(&app);
     if result.is_err() {
         super::resume_all_shortcuts(&app);
     }

@@ -298,29 +298,11 @@ fn report_reqwest_error(context: &str, error: &reqwest::Error) -> String {
     details
 }
 
-/// Send a chat completion request to an OpenAI-compatible API
-/// Returns Ok(Some(content)) on success, Ok(None) if response has no content,
-/// or Err on actual errors (HTTP, parsing, etc.)
-pub async fn send_chat_completion(
-    provider: &PostProcessProvider,
-    api_key: String,
-    model: &str,
-    prompt: String,
-    disable_reasoning: bool,
-) -> Result<Option<String>, String> {
-    send_chat_completion_with_schema(
-        provider,
-        api_key,
-        model,
-        prompt,
-        None,
-        None,
-        disable_reasoning,
-    )
-    .await
-}
-
-/// Send a chat completion request with structured output support.
+/// Send a chat completion request to an OpenAI-compatible API.
+/// Returns Ok(Some(content)) on success, Ok(None) if the response has no
+/// content, or Err on actual errors (HTTP, parsing, etc.).
+///
+/// Supports structured output:
 /// When json_schema is provided, uses structured outputs mode.
 /// system_prompt is used as the system message when provided.
 ///
@@ -562,8 +544,6 @@ mod tests {
             id: id.to_string(),
             label: id.to_string(),
             base_url: base_url.to_string(),
-            allow_base_url_edit: true,
-            models_endpoint: None,
             supports_structured_output: false,
         }
     }
