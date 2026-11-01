@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-mod annotate;
+pub mod annotate;
 pub mod captures;
 mod debug;
 mod dictate;
@@ -124,5 +124,7 @@ pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) 
         dictate.update(cx, |page, cx| page.select_tab(tab, window, cx));
     } else if let Ok(stats) = page.clone().downcast::<stats::StatsPage>() {
         stats.update(cx, |page, cx| page.select_tab(tab, cx));
+    } else if let Ok(annotate) = page.clone().downcast::<annotate::AnnotatePage>() {
+        annotate.update(cx, |page, cx| page.select_tab(tab, cx));
     }
 }

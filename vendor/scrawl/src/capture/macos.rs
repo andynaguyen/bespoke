@@ -359,10 +359,8 @@ pub fn screen_capture_probe() -> Result<(u32, u32), String> {
     Ok((w, h))
 }
 
-pub fn request_screen_capture() {
-    unsafe {
-        let _ = CGRequestScreenCaptureAccess();
-    }
+pub fn request_screen_capture() -> bool {
+    unsafe { CGRequestScreenCaptureAccess() }
 }
 
 /// Whether ⌥⇧V may post ⌘V into the app in front (System Settings › Accessibility). Unlike

@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use gpui::{div, prelude::*, rems, AnyElement, Context, Entity, FontWeight, SharedString, Task};
+use gpui::{
+    div, prelude::*, rems, AnyElement, App, Context, Entity, FontWeight, SharedString, Task,
+};
 use scrawl::host::{
     Grants, MicrophoneChoice, Microphones, Permission, PermissionStatus, Retention, SpeechState,
     SpeechStatus,
@@ -12,7 +14,7 @@ use crate::ui::components::{
     icon, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
     SegmentedControl, SettingContainer, SettingsGroup, Typography,
 };
-use crate::ui::shell::Toolbar;
+use crate::ui::shell::{Section, Toolbar};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, tw, Alpha};
 
@@ -33,6 +35,36 @@ pub(super) fn icon_button(
         .gap(rems(0.375))
         .child(icon(icon_name).size(rems(0.875)))
         .child(label)
+}
+
+fn permission_key(permission: Permission) -> &'static str {
+    match permission {
+        Permission::ScreenRecording => "screenRecording",
+        Permission::Microphone => "microphone",
+        Permission::Accessibility => "accessibility",
+    }
+}
+
+/// Opens the Settings tab, where the permission rows are, and names the permissions that held
+/// back a recording. Record and the shortcut land here, and the Captures tab alone doesn't say
+/// why nothing started.
+pub fn show_missing_permissions(missing: &[Permission], cx: &mut App) {
+    crate::ui::show_section_tab(Section::Annotate, "settings", cx);
+    let names = missing
+        .iter()
+        .map(|p| {
+            t(&format!(
+                "annotate.permissions.{}.title",
+                permission_key(*p)
+            ))
+            .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    crate::ui::toast::warning(
+        t_with("annotate.permissions.blocked", &[("permissions", &names)]),
+        cx,
+    );
 }
 
 fn retention_id(preset: Retention) -> &'static str {
@@ -130,11 +162,38 @@ impl AnnotatePage {
             return;
         }
         let first = self.requested.insert(permission) && status != PermissionStatus::Denied;
-        if permission == Permission::Microphone && first {
-            crate::ui::platform::request_microphone();
-        } else {
-            scrawl::host::open_permission_settings(permission);
+        match permission {
+            Permission::Microphone if first => crate::ui::platform::request_microphone(),
+            // Bespoke isn't in the Screen Recording list until it asks, so the user would have to
+            // drag it in. Asking adds it, and the user only switches it on. The panel still
+            // opens, because macOS prompts only once per app and a later launch gets no prompt.
+            Permission::ScreenRecording if first => {
+                std::thread::spawn(|| {
+                    scrawl::host::request_screen_capture();
+                    scrawl::host::open_permission_settings(Permission::ScreenRecording);
+                });
+            }
+            _ => scrawl::host::open_permission_settings(permission),
         }
+    }
+
+    pub fn select_tab(&mut self, id: &str, cx: &mut Context<Self>) {
+        self.tab = if id == "settings" {
+            Tab::Settings
+        } else {
+            Tab::Captures
+        };
+        if self.tab == Tab::Captures {
+            self.captures.update(cx, |captures, cx| captures.reload(cx));
+        }
+        cx.notify();
+    }
+
+    /// Whether a permission row shows something other than Allowed, once the first read is in.
+    fn permission_missing(&self) -> bool {
+        self.grants.as_ref().is_some_and(|g| {
+            g.screen_needs_relaunch || Permission::ALL.iter().any(|p| !g.granted(*p))
+        })
     }
 
     fn how_it_works(&self, cx: &Context<Self>) -> AnyElement {
@@ -341,11 +400,7 @@ impl AnnotatePage {
 
     fn permission_row(&self, permission: Permission, cx: &mut Context<Self>) -> AnyElement {
         let p = palette(cx);
-        let key = match permission {
-            Permission::ScreenRecording => "screenRecording",
-            Permission::Microphone => "microphone",
-            Permission::Accessibility => "accessibility",
-        };
+        let key = permission_key(permission);
         let status = self.status(permission);
         let relaunch = permission == Permission::ScreenRecording
             && self
@@ -418,18 +473,7 @@ impl super::Page for AnnotatePage {
                 Tab::Settings => "settings",
             },
             move |id, _, cx| {
-                let tab = if id.as_ref() == "settings" {
-                    Tab::Settings
-                } else {
-                    Tab::Captures
-                };
-                let _ = entity.update(cx, |this, cx| {
-                    this.tab = tab;
-                    if tab == Tab::Captures {
-                        this.captures.update(cx, |captures, cx| captures.reload(cx));
-                    }
-                    cx.notify();
-                });
+                let _ = entity.update(cx, |this, cx| this.select_tab(id, cx));
             },
         ));
         if self.tab == Tab::Captures {
@@ -508,15 +552,22 @@ impl Render for AnnotatePage {
         let permissions = SettingsGroup::new()
             .title(t("annotate.groups.permissions"))
             .children(Permission::ALL.map(|permission| self.permission_row(permission, cx)));
+        // A missing permission blocks every recording, so its rows go first.
+        let (first, last) = if self.permission_missing() {
+            (Some(permissions), None)
+        } else {
+            (None, Some(permissions))
+        };
         div()
             .w_full()
             .flex()
             .flex_col()
             .gap_5()
+            .children(first)
             .child(shortcuts)
             .child(recording)
             .child(storage)
-            .child(permissions)
+            .children(last)
             .into_any_element()
     }
 }

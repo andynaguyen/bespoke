@@ -11,13 +11,15 @@ pub struct Paths {
 }
 
 static PATHS: OnceLock<Paths> = OnceLock::new();
-static OPEN_SETTINGS: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+static OPEN_SETTINGS: OnceLock<Box<dyn Fn(&[Permission]) + Send + Sync>> = OnceLock::new();
 static ON_CAPTURE: OnceLock<Box<dyn Fn(Finished) + Send + Sync>> = OnceLock::new();
 static TELEMETRY: OnceLock<Arc<SharedCaptureTelemetry>> = OnceLock::new();
 static MENU: OnceLock<(flume::Sender<MenuAction>, flume::Receiver<MenuAction>)> = OnceLock::new();
 static PENDING_SHORTCUTS: Mutex<Option<(ShortcutConfig, ShortcutConfig)>> = Mutex::new(None);
 
-pub fn configure(paths: Paths, open_settings: impl Fn() + Send + Sync + 'static) {
+/// `open_settings` opens the Annotate page. It gets the permissions that held back a recording,
+/// or none when the user asked for the page.
+pub fn configure(paths: Paths, open_settings: impl Fn(&[Permission]) + Send + Sync + 'static) {
     let _ = PATHS.set(paths);
     let _ = OPEN_SETTINGS.set(Box::new(open_settings));
 }
@@ -30,9 +32,9 @@ pub(crate) fn log_dir() -> Option<&'static Path> {
     PATHS.get().map(|paths| paths.log_dir.as_path())
 }
 
-pub(crate) fn open_settings() {
+pub(crate) fn open_settings(missing: &[Permission]) {
     if let Some(open) = OPEN_SETTINGS.get() {
-        open();
+        open(missing);
     }
 }
 
@@ -325,12 +327,17 @@ pub fn speech_status() -> SpeechStatus {
 }
 
 /// Asks macOS for Screen Recording. The prompt is attributed to this process, so the host app
-/// gets the grant.
+/// gets the grant. macOS prompts once per app and adds it to the Screen Recording list, switched
+/// off. Later calls return without a prompt.
 pub fn request_screen_capture() {
-    crate::capture::request_screen_capture();
+    let granted = crate::capture::request_screen_capture();
+    crate::capture::scrawl_log(format!(
+        "screen recording: asked macOS, CGRequestScreenCaptureAccess -> {granted}"
+    ));
 }
 
 pub fn open_permission_settings(permission: Permission) {
+    crate::capture::scrawl_log(format!("permission settings: opening for {permission:?}"));
     if permission.draggable() {
         let name = match permission {
             Permission::ScreenRecording => "screen-recording",

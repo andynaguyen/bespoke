@@ -885,6 +885,7 @@
       "allow": "Allow",
       "openSettings": "Open System Settings",
       "relaunch": "Allowed. Quit and reopen Bespoke to record the screen.",
+      "blocked": "Turn on {{permissions}} to record.",
       "screenRecording": {
         "title": "Screen & System Audio Recording",
         "description": "Records the screen. Required."

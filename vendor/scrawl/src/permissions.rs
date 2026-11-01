@@ -58,10 +58,36 @@ pub fn read_grants() -> Option<Grants> {
         .inspect_err(|error| crate::capture::scrawl_log(format!("permissions: {error:#}")))
         .ok()?;
     let screen = statuses.get(&Permission::ScreenRecording) == Some(&Status::Granted);
-    Some(Grants {
+    let grants = Grants {
         statuses,
         screen_needs_relaunch: screen && !crate::capture::screen_capture_usable(true),
-    })
+    };
+    log_change(&grants);
+    Some(grants)
+}
+
+/// Logs the grants when they differ from the last ones logged. The Annotate page reads them every
+/// 1.5 s, so logging each read would bury the rest of `annotate.log`.
+fn log_change(grants: &Grants) {
+    static LAST: std::sync::Mutex<Option<Grants>> = std::sync::Mutex::new(None);
+    let mut last = LAST
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if last.as_ref() == Some(grants) {
+        return;
+    }
+    crate::capture::scrawl_log(describe(grants));
+    *last = Some(grants.clone());
+}
+
+fn describe(grants: &Grants) -> String {
+    let statuses = Permission::ALL
+        .map(|p| format!("{p:?}={:?}", grants.status(p)))
+        .join(", ");
+    format!(
+        "permissions (fresh helper): {statuses}; screen needs relaunch: {}",
+        grants.screen_needs_relaunch
+    )
 }
 
 pub fn missing_to_record(
@@ -160,5 +186,16 @@ mod tests {
         assert!(g.granted(ScreenRecording));
         assert_eq!(g.status(Microphone), Status::Denied);
         assert_eq!(g.status(Accessibility), Status::NotDetermined);
+    }
+
+    #[test]
+    fn the_log_line_names_every_permission() {
+        let mut g = grants(&[Microphone]);
+        g.screen_needs_relaunch = true;
+        assert_eq!(
+            describe(&g),
+            "permissions (fresh helper): ScreenRecording=NotDetermined, Microphone=Granted, \
+             Accessibility=NotDetermined; screen needs relaunch: true"
+        );
     }
 }

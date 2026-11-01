@@ -29,8 +29,15 @@ pub fn start(app: &AppHandle, cx: &mut App) {
         return;
     };
     let ui = app.clone();
-    scrawl::host::configure(scrawl::host::Paths { data_dir, log_dir }, move || {
-        ui.with_ui(|cx| crate::ui::show_section(Section::Annotate, cx));
+    scrawl::host::configure(scrawl::host::Paths { data_dir, log_dir }, move |missing| {
+        let missing = missing.to_vec();
+        ui.with_ui(move |cx| {
+            if missing.is_empty() {
+                crate::ui::show_section(Section::Annotate, cx);
+            } else {
+                crate::ui::pages::annotate::show_missing_permissions(&missing, cx);
+            }
+        });
     });
     count_captures(app);
     sync_shortcuts(&get_settings(app));

@@ -329,7 +329,7 @@ impl ScrawlCoordinator {
     }
 
     pub fn open_settings(&mut self) {
-        crate::host::open_settings();
+        crate::host::open_settings(&[]);
     }
 
     fn note_grants(&mut self, grants: crate::permissions::Grants) {
@@ -363,12 +363,8 @@ impl ScrawlCoordinator {
     }
 
     pub fn tick_gate(&mut self) {
-        if self
-            .gate
-            .tick(crate::capture::modifier_flags() != 0)
-            .is_some()
-        {
-            self.open_settings();
+        if let Some(missing) = self.gate.tick(crate::capture::modifier_flags() != 0) {
+            crate::host::open_settings(&missing);
         }
     }
 
