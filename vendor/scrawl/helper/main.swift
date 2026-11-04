@@ -56,8 +56,10 @@ enum Permissions {
 let arguments = Array(CommandLine.arguments.dropFirst())
 switch arguments.first {
 case "transcribe":
-  guard arguments.count >= 2 else { fail("transcribe needs a file") }
-  runAsync { emit(try await Transcriber.transcribe(URL(filePath: arguments[1]))) }
+  guard arguments.count >= 2 else { fail("transcribe needs a file [--contextual-strings JSON]") }
+  let contextualStrings = option("--contextual-strings", in: arguments)
+    .flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? []
+  runAsync { emit(try await Transcriber.transcribe(URL(filePath: arguments[1]), contextualStrings: contextualStrings)) }
 case "speech-model":
   let install = arguments.contains("--install")
   runAsync { await SpeechModel.run(install: install) }

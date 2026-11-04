@@ -98,11 +98,14 @@ struct Transcript {
     error: Option<String>,
 }
 
-pub fn transcribe(audio: &Path) -> Result<TranscriptData> {
-    let transcript: Transcript = run(
-        &[os("transcribe"), audio.as_os_str()],
-        Duration::from_secs(180),
-    )?;
+pub fn transcribe(audio: &Path, contextual_strings: &[String]) -> Result<TranscriptData> {
+    let contextual = serde_json::to_string(contextual_strings)
+        .context("Could not encode the contextual strings")?;
+    let mut args = vec![os("transcribe"), audio.as_os_str()];
+    if !contextual_strings.is_empty() {
+        args.extend([os("--contextual-strings"), os(&contextual)]);
+    }
+    let transcript: Transcript = run(&args, Duration::from_secs(180))?;
     let engine = transcript
         .engine
         .unwrap_or_else(|| "SpeechTranscriber".into());

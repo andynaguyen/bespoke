@@ -29,13 +29,22 @@ pub enum EngineType {
     GigaAM,
     Canary,
     Cohere,
+    AppleSpeech,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ModelSource {
-    Url { url: String, sha256: Option<String> },
-    HuggingFace { repo_id: String, revision: String },
+    Url {
+        url: String,
+        sha256: Option<String>,
+    },
+    HuggingFace {
+        repo_id: String,
+        revision: String,
+    },
     Local,
+    /// Part of the OS. macOS downloads and stores it, so Bespoke has no file to delete.
+    System,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1004,6 +1013,13 @@ impl ModelManager {
 
         Self::seed_catalog_models(&mut available_models);
 
+        if crate::apple_speech::status() != crate::apple_speech::Status::Unsupported {
+            available_models.insert(
+                crate::apple_speech::MODEL_ID.to_string(),
+                crate::apple_speech::model_info(),
+            );
+        }
+
         if let Err(e) = Self::discover_custom_transcribe_models(&models_dir, &mut available_models)
         {
             warn!("Failed to discover custom models: {}", e);
@@ -1200,6 +1216,17 @@ impl ModelManager {
         let mut vanished_models: Vec<String> = Vec::new();
 
         for model in models.values_mut() {
+            if let ModelSource::System = model.source {
+                use crate::apple_speech::Status;
+                let status = crate::apple_speech::status();
+                model.is_downloaded = matches!(status, Status::Installed | Status::Unchecked);
+                model.is_downloading = status == Status::Downloading;
+                model.partial_size = 0;
+                if status == Status::Unsupported {
+                    vanished_models.push(model.id.clone());
+                }
+                continue;
+            }
             if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
                 let local_path = self.models_dir.join(&model.filename);
                 let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
@@ -1914,10 +1941,53 @@ impl ModelManager {
                 self.download_hf_model(&model_info, repo_id.clone(), revision.clone())
                     .await
             }
+            ModelSource::System => self.install_system_model(&model_info.id).await,
             ModelSource::Url { .. } | ModelSource::Local => {
                 Err(anyhow::anyhow!("No download source for model"))
             }
         }
+    }
+
+    async fn install_system_model(&self, model_id: &str) -> Result<()> {
+        use crate::apple_speech::Status;
+        let attempt = crate::apple_speech::install();
+        loop {
+            match crate::apple_speech::status() {
+                Status::Installed => break,
+                Status::Unsupported => {
+                    self.refresh_system_models();
+                    return Err(anyhow::anyhow!(
+                        "This Mac has no Apple speech model for its language"
+                    ));
+                }
+                Status::Failed if crate::apple_speech::attempts() >= attempt => {
+                    return Err(anyhow::anyhow!(crate::apple_speech::error()
+                        .unwrap_or_else(
+                            || "macOS couldn't install Apple's speech model".to_string()
+                        )));
+                }
+                Status::Failed | Status::Unchecked | Status::Downloading => {}
+            }
+            let percentage = crate::apple_speech::progress() * 100.0;
+            let _ = self.app_handle.emit(
+                "model-download-progress",
+                &DownloadProgress {
+                    model_id: model_id.to_string(),
+                    downloaded: percentage as u64,
+                    total: 100,
+                    percentage,
+                },
+            );
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+        self.update_download_status();
+        let _ = self.app_handle.emit("model-download-complete", model_id);
+        Ok(())
+    }
+
+    pub fn refresh_system_models(&self) {
+        self.update_download_status();
+        let _ = self.app_handle.emit("models-updated", ());
     }
 
     pub fn delete_model(&self, model_id: &str) -> Result<()> {
@@ -1932,6 +2002,10 @@ impl ModelManager {
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
         debug!("ModelManager: Found model info: {:?}", model_info);
+
+        if let ModelSource::System = model_info.source {
+            return Err(anyhow::anyhow!("{} is part of macOS", model_info.name));
+        }
 
         if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
             let is_alternate_quant =

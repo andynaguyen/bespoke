@@ -105,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "A large, slower, but very accurate multilingual model."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Built into macOS. Runs on this Mac with Apple's speech model."
       }
     },
     "errors": {
@@ -154,7 +158,8 @@
       "translation": "Can translate to English",
       "translate": "Translate",
       "streaming": "Shows live transcription as you speak"
-    }
+    },
+    "builtIn": "Built into macOS"
   },
   "settings": {
     "general": {
@@ -851,12 +856,13 @@
     },
     "transcription": {
       "title": "Transcription",
-      "description": "Apple Speech transcribes your narration on this Mac, with the time of every word.",
+      "description": "Annotate uses the model picked on the Models page and fixes names with your dictionary. With no model picked, Apple Speech runs.",
       "checking": "Checking the speech model…",
       "downloading": "Downloading the speech model ({{percent}}%)",
       "ready": "Ready",
       "unavailable": "No speech model for this language",
-      "failed": "The speech model failed to download"
+      "failed": "The speech model failed to download",
+      "appleSpeech": "Apple Speech"
     },
     "retention": {
       "title": "Keep Recordings",

@@ -2,6 +2,7 @@ use crate::app_handle::AppHandle;
 use crate::audio_toolkit::{
     apply_custom_words, detect_output_language, normalize_transcription_output,
     remove_filler_words, scrub_before_keyword, strip_trailing_keyword, OutputLanguageEvidence,
+    TimedText,
 };
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::model::{EngineType, ModelManager};
@@ -176,6 +177,7 @@ enum LoadedEngine {
     GigaAM(GigaAMModel),
     Canary(CanaryModel),
     Cohere(CohereModel),
+    AppleSpeech,
 }
 
 pub struct LoadingGuard {
@@ -255,9 +257,118 @@ pub struct RecordingTranscript {
 
 struct RawTranscript {
     text: String,
+    segments: Vec<TimedText>,
+    words: Vec<TimedText>,
     output_language: OutputLanguageEvidence,
     model_languages: Vec<String>,
     model_is_whisper: bool,
+}
+
+#[derive(Default)]
+struct EngineOutput {
+    text: String,
+    segments: Vec<TimedText>,
+    words: Vec<TimedText>,
+}
+
+impl EngineOutput {
+    fn from_cpp(transcript: transcribe_cpp::Transcript) -> Self {
+        let timed = |t0: i64, t1: i64, text: &str| TimedText {
+            t0: t0.max(0) as u64,
+            t1: t1.max(0) as u64,
+            text: text.trim().to_string(),
+        };
+        Self {
+            segments: transcript
+                .segments
+                .iter()
+                .map(|s| timed(s.t0_ms, s.t1_ms, &s.text))
+                .collect(),
+            words: transcript
+                .words
+                .iter()
+                .map(|w| timed(w.t0_ms, w.t1_ms, &w.text))
+                .collect(),
+            text: transcript.text,
+        }
+    }
+
+    fn from_rs(result: transcribe_rs::TranscriptionResult) -> Self {
+        Self {
+            segments: result
+                .segments
+                .unwrap_or_default()
+                .iter()
+                .map(|s| TimedText {
+                    t0: (s.start.max(0.0) * 1000.0) as u64,
+                    t1: (s.end.max(0.0) * 1000.0) as u64,
+                    text: s.text.trim().to_string(),
+                })
+                .collect(),
+            words: Vec::new(),
+            text: result.text,
+        }
+    }
+
+    /// For SenseVoice, whose segments are tokenizer pieces such as `▁hel` and `lo`, not words.
+    fn without_times(self) -> Self {
+        Self {
+            text: self.text,
+            ..Self::default()
+        }
+    }
+
+    /// For Parakeet run with word granularity, whose segments are words.
+    fn segments_as_words(mut self) -> Self {
+        self.words = std::mem::take(&mut self.segments);
+        self
+    }
+
+    #[cfg(target_os = "macos")]
+    fn from_apple(transcript: scrawl::host::TranscriptData) -> Result<Self> {
+        if let Some(missing) = transcript.missing {
+            anyhow::bail!("Apple Speech: {}", missing.reason);
+        }
+        let timed = |t0: u64, t1: u64, text: &str| TimedText {
+            t0,
+            t1,
+            text: text.trim().to_string(),
+        };
+        Ok(Self {
+            segments: transcript
+                .segments
+                .iter()
+                .map(|s| timed(s.t0, s.t1, &s.text))
+                .collect(),
+            words: transcript
+                .words
+                .iter()
+                .map(|w| timed(w.t0, w.t1, &w.text))
+                .collect(),
+            text: transcript.text,
+        })
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn run_apple_speech(audio: &[f32], settings: &AppSettings) -> Result<EngineOutput> {
+    EngineOutput::from_apple(crate::apple_speech::transcribe(
+        audio,
+        &settings.custom_words,
+    )?)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_apple_speech(_audio: &[f32], _settings: &AppSettings) -> Result<EngineOutput> {
+    anyhow::bail!("Apple Speech needs macOS 26")
+}
+
+/// Times are milliseconds from the start of the audio.
+pub struct TimedTranscript {
+    pub text: String,
+    pub segments: Vec<TimedText>,
+    pub words: Vec<TimedText>,
+    pub dictionary_prompted: bool,
 }
 
 fn split_voice_submit(raw: String, keyword: Option<&str>) -> (String, bool) {
@@ -497,10 +608,13 @@ impl TranscriptionManager {
             return Err(anyhow::anyhow!(error_msg));
         }
 
-        let model_path = self
-            .model_manager
-            .get_model_path(model_id)
-            .inspect_err(|error| emit_loading_failed(&error.to_string()))?;
+        let model_path = if matches!(model_info.engine_type, EngineType::AppleSpeech) {
+            std::path::PathBuf::new()
+        } else {
+            self.model_manager
+                .get_model_path(model_id)
+                .inspect_err(|error| emit_loading_failed(&error.to_string()))?
+        };
 
         {
             let mut engine = self.lock_engine();
@@ -647,6 +761,7 @@ impl TranscriptionManager {
                 })?;
                 LoadedEngine::Cohere(engine)
             }
+            EngineType::AppleSpeech => LoadedEngine::AppleSpeech,
         };
 
         {
@@ -718,6 +833,7 @@ impl TranscriptionManager {
             Some(LoadedEngine::TranscribeCpp(session)) => {
                 Some(session.model().backend().to_string())
             }
+            Some(LoadedEngine::AppleSpeech) => Some("apple-speech".to_string()),
             Some(_) => Some("onnx".to_string()),
             None => None,
         }
@@ -1120,7 +1236,7 @@ impl TranscriptionManager {
         }
 
         let settings = get_settings(&self.app_handle);
-        let raw = self.run_engine(&audio, &settings)?;
+        let raw = self.run_engine(&audio, &settings, false)?;
 
         let (text, submit) = split_voice_submit(raw.text, voice_submit_keyword);
         let (text, scrubbed) = apply_scrub(text, &settings);
@@ -1166,11 +1282,28 @@ impl TranscriptionManager {
         })
     }
 
+    /// Transcribes with segment and word times, for Annotate. Loads the selected model first
+    /// when no model is loaded. Dictation can run between two calls. Annotate calls this once per
+    /// piece of a capture, so it unloads the model itself with `maybe_unload_immediately` after
+    /// the last one.
+    pub fn transcribe_timed(&self, audio: &[f32]) -> Result<TimedTranscript> {
+        self.touch_activity();
+        self.initiate_model_load();
+        let settings = get_settings(&self.app_handle);
+        let raw = self.run_engine(audio, &settings, true)?;
+        Ok(TimedTranscript {
+            text: raw.text,
+            segments: raw.segments,
+            words: raw.words,
+            dictionary_prompted: raw.model_is_whisper && !settings.custom_words.is_empty(),
+        })
+    }
+
     pub fn voice_submit_probe(&self, audio: Vec<f32>, keyword: &str) -> bool {
         self.touch_activity();
         let settings = get_settings(&self.app_handle);
         let started = Instant::now();
-        match self.run_engine(&audio, &settings) {
+        match self.run_engine(&audio, &settings, false) {
             Ok(raw) => {
                 let matched = strip_trailing_keyword(&raw.text, keyword).is_some();
                 debug!(
@@ -1188,7 +1321,12 @@ impl TranscriptionManager {
         }
     }
 
-    fn run_engine(&self, audio: &[f32], settings: &AppSettings) -> Result<RawTranscript> {
+    fn run_engine(
+        &self,
+        audio: &[f32],
+        settings: &AppSettings,
+        word_times: bool,
+    ) -> Result<RawTranscript> {
         let _inference = self
             .inference_lock
             .lock()
@@ -1265,7 +1403,7 @@ impl TranscriptionManager {
                 );
             }
 
-            let transcribe_result = catch_unwind(AssertUnwindSafe(|| -> Result<String> {
+            let transcribe_result = catch_unwind(AssertUnwindSafe(|| -> Result<EngineOutput> {
                 match &mut engine {
                     LoadedEngine::TranscribeCpp(session) => {
                         let family = if settings.custom_words.is_empty() || !model_is_whisper {
@@ -1303,9 +1441,9 @@ impl TranscriptionManager {
 
                         session
                             .run(audio, &run_options)
-                            .map(|t| {
-                                model_detected_language = t.language;
-                                t.text
+                            .map(|mut t| {
+                                model_detected_language = t.language.take();
+                                EngineOutput::from_cpp(t)
                             })
                             .map_err(|e| {
                                 anyhow::anyhow!("transcribe-cpp transcription failed: {}", e)
@@ -1313,21 +1451,32 @@ impl TranscriptionManager {
                     }
                     LoadedEngine::Parakeet(parakeet_engine) => {
                         let params = ParakeetParams {
-                            timestamp_granularity: Some(TimestampGranularity::Segment),
+                            timestamp_granularity: Some(if word_times {
+                                TimestampGranularity::Word
+                            } else {
+                                TimestampGranularity::Segment
+                            }),
                             ..Default::default()
                         };
                         parakeet_engine
                             .transcribe_with(audio, &params)
-                            .map(|r| r.text)
+                            .map(|r| {
+                                let output = EngineOutput::from_rs(r);
+                                if word_times {
+                                    output.segments_as_words()
+                                } else {
+                                    output
+                                }
+                            })
                             .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))
                     }
                     LoadedEngine::Moonshine(moonshine_engine) => moonshine_engine
                         .transcribe(audio, &TranscribeOptions::default())
-                        .map(|r| r.text)
+                        .map(EngineOutput::from_rs)
                         .map_err(|e| anyhow::anyhow!("Moonshine transcription failed: {}", e)),
                     LoadedEngine::MoonshineStreaming(streaming_engine) => streaming_engine
                         .transcribe(audio, &TranscribeOptions::default())
-                        .map(|r| r.text)
+                        .map(EngineOutput::from_rs)
                         .map_err(|e| {
                             anyhow::anyhow!("Moonshine streaming transcription failed: {}", e)
                         }),
@@ -1349,12 +1498,12 @@ impl TranscriptionManager {
                         };
                         sense_voice_engine
                             .transcribe_with(audio, &params)
-                            .map(|r| r.text)
+                            .map(|r| EngineOutput::from_rs(r).without_times())
                             .map_err(|e| anyhow::anyhow!("SenseVoice transcription failed: {}", e))
                     }
                     LoadedEngine::GigaAM(gigaam_engine) => gigaam_engine
                         .transcribe(audio, &TranscribeOptions::default())
-                        .map(|r| r.text)
+                        .map(EngineOutput::from_rs)
                         .map_err(|e| anyhow::anyhow!("GigaAM transcription failed: {}", e)),
                     LoadedEngine::Canary(canary_engine) => {
                         output_was_translated = settings.translate_to_english;
@@ -1371,9 +1520,10 @@ impl TranscriptionManager {
                         };
                         canary_engine
                             .transcribe(audio, &options)
-                            .map(|r| r.text)
+                            .map(EngineOutput::from_rs)
                             .map_err(|e| anyhow::anyhow!("Canary transcription failed: {}", e))
                     }
+                    LoadedEngine::AppleSpeech => run_apple_speech(audio, settings),
                     LoadedEngine::Cohere(cohere_engine) => {
                         let lang = if validated_language == "auto" {
                             None
@@ -1390,13 +1540,13 @@ impl TranscriptionManager {
                         };
                         cohere_engine
                             .transcribe(audio, &options)
-                            .map(|r| r.text)
+                            .map(EngineOutput::from_rs)
                             .map_err(|e| anyhow::anyhow!("Cohere transcription failed: {}", e))
                     }
                 }
             }));
 
-            let text = match transcribe_result {
+            let output = match transcribe_result {
                 Ok(inner_result) => {
                     self.return_engine(engine, &active_model);
                     inner_result?
@@ -1444,11 +1594,13 @@ impl TranscriptionManager {
             );
             debug!("Output language evidence: {:?}", output_language);
 
-            (text, output_language, model_languages)
+            (output, output_language, model_languages)
         };
 
         Ok(RawTranscript {
-            text: result,
+            text: result.text,
+            segments: result.segments,
+            words: result.words,
             output_language,
             model_languages,
             model_is_whisper,

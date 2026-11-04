@@ -10,12 +10,14 @@ use scrawl::host::{
 };
 
 use crate::i18n::{t, t_with};
+use crate::managers::model::EngineType;
 use crate::ui::components::{
     icon, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
     SegmentedControl, SettingContainer, SettingsGroup, Typography,
 };
+use crate::ui::format::model_name;
 use crate::ui::shell::{Section, Toolbar};
-use crate::ui::stores::SettingsStore;
+use crate::ui::stores::{ModelStore, SettingsStore};
 use crate::ui::theme::{palette, tw, Alpha};
 
 use super::captures::Captures;
@@ -98,6 +100,8 @@ pub struct AnnotatePage {
 impl AnnotatePage {
     pub fn new(cx: &mut Context<Self>) -> Self {
         cx.observe(&SettingsStore::global(cx), |_, _, cx| cx.notify())
+            .detach();
+        cx.observe(&ModelStore::global(cx), |_, _, cx| cx.notify())
             .detach();
         let poll = cx.spawn(async move |this, cx| loop {
             let (grants, microphones) = crate::runtime::spawn_blocking(|| {
@@ -300,18 +304,30 @@ impl AnnotatePage {
 
     fn transcription_row(&self, cx: &Context<Self>) -> AnyElement {
         let p = palette(cx);
-        let state = match self.speech.state {
-            SpeechState::Unknown | SpeechState::Checking => t("annotate.transcription.checking"),
-            SpeechState::Downloading => t_with(
-                "annotate.transcription.downloading",
-                &[(
-                    "percent",
-                    &format!("{}", (self.speech.progress * 100.0).round() as u32),
-                )],
-            ),
-            SpeechState::Ready => t("annotate.transcription.ready"),
-            SpeechState::Unavailable => t("annotate.transcription.unavailable"),
-            SpeechState::Failed => t("annotate.transcription.failed"),
+        let picked = ModelStore::global(cx)
+            .read(cx)
+            .current_model_info()
+            .filter(|model| {
+                model.is_downloaded && !matches!(model.engine_type, EngineType::AppleSpeech)
+            })
+            .map(model_name);
+        let state = match picked {
+            Some(name) => name,
+            None => match self.speech.state {
+                SpeechState::Unknown | SpeechState::Checking => {
+                    t("annotate.transcription.checking")
+                }
+                SpeechState::Downloading => t_with(
+                    "annotate.transcription.downloading",
+                    &[(
+                        "percent",
+                        &format!("{}", (self.speech.progress * 100.0).round() as u32),
+                    )],
+                ),
+                SpeechState::Ready => t("annotate.transcription.appleSpeech"),
+                SpeechState::Unavailable => t("annotate.transcription.unavailable"),
+                SpeechState::Failed => t("annotate.transcription.failed"),
+            },
         };
         SettingContainer::new(t("annotate.transcription.title"))
             .description(t("annotate.transcription.description"))

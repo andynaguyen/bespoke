@@ -37,6 +37,8 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `commands/` - Functions the UI calls into the backend (audio, history, models, transcription)
 - `actions.rs`, `transcription_coordinator.rs` - Start, stop, and cancel a dictation
 - `annotate.rs` - Annotate (macOS only): starts the Scrawl capture vendored in `vendor/scrawl` and forwards its two shortcut bindings. `annotate/capsule.rs` draws Scrawl's capsule with `ui::capsule`, and `ui/pages/captures.rs` lists captures and opens one in place of Scrawl's Inspect window. Read `vendor/scrawl/BESPOKE.md` before changing the vendored code
+- `annotate/transcribe.rs` - Transcribes each capture with the model picked on the Models page, in runs of at most 28 seconds, then corrects the words with the dictionary. Apple Speech runs when no model is picked or the picked one fails. Whisper reports segment times only, so its words get times spread evenly over their segment
+- `apple_speech.rs` - Apple Speech as a model (macOS 26). It runs `SpeechTranscriber` through Scrawl's helper, takes the dictionary as contextual strings, and has no live text. macOS downloads the speech model, and Annotate's start asks it to
 - `annotate/mcp.rs` - Agent Access: an MCP server on `127.0.0.1:47790` that serves captures to coding agents. Claude Code and Codex on a remote machine reach it through an SSH `RemoteForward`, or through this Mac's Tailscale address when Agent Access is set to Tailnet. The tools are in `annotate/mcp/tools.rs`, and the guide sent to agents is `annotate/mcp/instructions.md`. Its Off, This Mac and Tailnet control and the setup to copy are on the MCP page, `ui/pages/mcp.rs`
 - `shortcut/` - Global shortcuts. `handy_keys.rs` wraps the patched `handy-keys` crate in `vendor/`, and `hotkey_impl.rs` wraps `global-hotkey`
 - `settings.rs` - Settings schema, defaults, and migrations
@@ -69,9 +71,9 @@ Backend code emits events with `AppHandle::emit`. The UI receives them on the GP
 
 ### Pipeline
 
-Annotate has its own pipeline in `vendor/scrawl`: the shortcut starts a screen, voice and ink recording, and finishing it writes a `.scrawl` bundle (keyframes, a contact sheet and `summary.md`) and copies it to the clipboard.
+Annotate has its own pipeline in `vendor/scrawl`: the shortcut starts a screen, voice and ink recording, and finishing it transcribes the narration with dictation's model and dictionary (`annotate/transcribe.rs`), writes a `.scrawl` bundle (keyframes, a contact sheet and `summary.md`) and copies it to the clipboard.
 
-Dictation: shortcut press, then audio recording with VAD, then transcription (`transcribe-cpp` for GGML/GGUF models, `transcribe-rs` for ONNX models), then optional post-processing, then paste into the front app.
+Dictation: shortcut press, then audio recording with VAD, then transcription (`transcribe-cpp` for GGML/GGUF models, `transcribe-rs` for ONNX models, Scrawl's helper for Apple Speech), then optional post-processing, then paste into the front app.
 
 ## Internationalization
 

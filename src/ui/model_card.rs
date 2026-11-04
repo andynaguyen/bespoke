@@ -436,14 +436,19 @@ impl RenderOnce for ModelCard {
                             })
                             .size(rems(0.875)),
                         )
-                        .child(model_size(model.size_mb))
+                        .child(if matches!(model.source, ModelSource::System) {
+                            t("modelSelector.builtIn").to_string()
+                        } else {
+                            model_size(model.size_mb)
+                        })
                         .children(quant.map(|q| div().text_color(p.text.a(0.4)).child(q))),
                 )
             })
             .when_some(
                 self.on_delete
                     .clone()
-                    .filter(|_| matches!(status, CardStatus::Available | CardStatus::Active)),
+                    .filter(|_| matches!(status, CardStatus::Available | CardStatus::Active))
+                    .filter(|_| !matches!(model.source, ModelSource::System)),
                 |el, on_delete| {
                     let id = model.id.clone();
                     el.child(

@@ -96,7 +96,7 @@ enum SpeechModel {
 }
 
 enum Transcriber {
-  static func transcribe(_ url: URL) async throws -> [String: Any] {
+  static func transcribe(_ url: URL, contextualStrings: [String] = []) async throws -> [String: Any] {
     guard let choice = await SpeechModel.choose() else {
       return missing(nil, "unsupported")
     }
@@ -126,7 +126,7 @@ enum Transcriber {
       let ordered = try await withThrowingTaskGroup(of: (Int, [[String: Any]], [[String: Any]]).self) { group in
         for (idx, item) in chunks.files.enumerated() {
           group.addTask {
-            let (segs, wrds) = try await transcribeSingle(item.url, choice: choice, offsetMs: item.offsetMs)
+            let (segs, wrds) = try await transcribeSingle(item.url, choice: choice, offsetMs: item.offsetMs, contextualStrings: contextualStrings)
             return (idx, segs, wrds)
           }
         }
@@ -150,7 +150,7 @@ enum Transcriber {
         "words": words,
       ]
     }
-    let (segments, words) = try await transcribeSingle(url, choice: choice, offsetMs: 0)
+    let (segments, words) = try await transcribeSingle(url, choice: choice, offsetMs: 0, contextualStrings: contextualStrings)
     return [
       "engine": choice.name,
       "locale": locale.identifier,
@@ -166,7 +166,7 @@ enum Transcriber {
     return result
   }
 
-  private static func transcribeSingle(_ url: URL, choice: SpeechChoice, offsetMs: Int) async throws -> ([[String: Any]], [[String: Any]]) {
+  private static func transcribeSingle(_ url: URL, choice: SpeechChoice, offsetMs: Int, contextualStrings: [String]) async throws -> ([[String: Any]], [[String: Any]]) {
     let file = try AVAudioFile(forReading: url)
     var segments: [[String: Any]] = []
     var words: [[String: Any]] = []
@@ -182,7 +182,9 @@ enum Transcriber {
       segments.append(["t0": ms(range.start) + offsetMs, "t1": ms(range.end) + offsetMs, "text": line])
     }
     let module = choice.module()
-    let analyzer = try await SpeechAnalyzer(inputAudioFile: file, modules: [module], finishAfterFile: true)
+    let context = AnalysisContext()
+    if !contextualStrings.isEmpty { context.contextualStrings[.general] = contextualStrings }
+    let analyzer = try await SpeechAnalyzer(inputAudioFile: file, modules: [module], analysisContext: context, finishAfterFile: true)
     if let transcriber = module as? SpeechTranscriber {
       for try await result in transcriber.results { collect(result.text, result.range) }
     } else if let transcriber = module as? DictationTranscriber {
