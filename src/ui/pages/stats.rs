@@ -225,7 +225,6 @@ pub struct StatsPage {
     focus_date: Option<NaiveDate>,
     cell_focus: HashMap<NaiveDate, FocusHandle>,
     hover_date: Option<NaiveDate>,
-    card_date: Option<NaiveDate>,
     cell_bounds: HashMap<NaiveDate, Bounds<Pixels>>,
 }
 
@@ -252,7 +251,6 @@ impl StatsPage {
             grid_width: px(0.),
             focus_date: None,
             hover_date: None,
-            card_date: None,
             cell_bounds: HashMap::new(),
             cell_focus: HashMap::new(),
         }
@@ -351,6 +349,15 @@ impl StatsPage {
         let show_focused_card = keyboard_modality(cx);
         let rtl = crate::i18n::is_rtl();
         let dates = Arc::new(dates);
+
+        // The hovered or focused day, computed before the cells so the
+        // bordered cell matches this frame's hover and not the last one.
+        let active = |date: &NaiveDate| values.get(date).is_some_and(|v| *v > 0);
+        let card_date = self
+            .hover_date
+            .or(focused.filter(|_| show_focused_card))
+            .filter(active)
+            .filter(|_| window.is_window_active());
 
         let measured = cx.entity().downgrade();
         let row_dates: Vec<Vec<Option<NaiveDate>>> = (0..7)
@@ -457,7 +464,7 @@ impl StatsPage {
                                 if empty {
                                     return cell.into_any_element();
                                 }
-                                let marked = self.card_date == Some(date);
+                                let marked = card_date == Some(date);
                                 cell.when(marked, |el| el.border_1().border_color(p.text.a(0.6)))
                                     .into_any_element()
                             }
@@ -466,13 +473,6 @@ impl StatsPage {
             })
             .collect();
 
-        let active = |date: &NaiveDate| values.get(date).is_some_and(|v| *v > 0);
-        let card_date = self
-            .hover_date
-            .or(focused.filter(|_| show_focused_card))
-            .filter(active)
-            .filter(|_| window.is_window_active());
-        self.card_date = card_date;
         let card = card_date.and_then(|date| {
             let cell = self.cell_bounds.get(&date)?;
             let anchor = Bounds::new(window.bounds().origin + cell.origin, cell.size);
