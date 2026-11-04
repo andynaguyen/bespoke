@@ -103,14 +103,56 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
     if custom_words.is_empty() {
         return text.to_string();
     }
+    let words: Vec<&str> = text.split_whitespace().collect();
+    custom_word_spans(&words, custom_words, threshold)
+        .into_iter()
+        .map(|span| span.text)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
+/// A word or segment with its start and end in milliseconds.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TimedText {
+    pub t0: u64,
+    pub t1: u64,
+    pub text: String,
+}
+
+/// `apply_custom_words` over words that carry times. A dictionary entry that replaces several
+/// heard words becomes one word, from the first one's start to the last one's end.
+pub fn apply_custom_words_to_timed(
+    words: &[TimedText],
+    custom_words: &[String],
+    threshold: f64,
+) -> Vec<TimedText> {
+    if custom_words.is_empty() {
+        return words.to_vec();
+    }
+    let texts: Vec<&str> = words.iter().map(|word| word.text.trim()).collect();
+    custom_word_spans(&texts, custom_words, threshold)
+        .into_iter()
+        .map(|span| TimedText {
+            t0: words[span.start].t0,
+            t1: words[span.start + span.len - 1].t1,
+            text: span.text,
+        })
+        .collect()
+}
+
+struct WordSpan {
+    start: usize,
+    len: usize,
+    text: String,
+}
+
+fn custom_word_spans(words: &[&str], custom_words: &[String], threshold: f64) -> Vec<WordSpan> {
     let custom_word_match_keys: Vec<CustomWordMatchKey> = custom_words
         .iter()
         .enumerate()
         .flat_map(|(index, word)| build_custom_word_match_keys(word, index))
         .collect();
 
-    let words: Vec<&str> = text.split_whitespace().collect();
     let mut result = Vec::new();
     let mut i = 0;
 
@@ -150,15 +192,23 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
 
             let corrected = preserve_case_pattern(ngram_words[0], replacement);
 
-            result.push(format!("{}{}{}", prefix, corrected, suffix));
+            result.push(WordSpan {
+                start: i,
+                len: n,
+                text: format!("{}{}{}", prefix, corrected, suffix),
+            });
             i += n;
         } else {
-            result.push(words[i].to_string());
+            result.push(WordSpan {
+                start: i,
+                len: 1,
+                text: words[i].to_string(),
+            });
             i += 1;
         }
     }
 
-    result.join(" ")
+    result
 }
 
 fn preserve_case_pattern(original: &str, replacement: &str) -> String {
@@ -922,6 +972,31 @@ mod tests {
         let custom_words = vec!["ChatGPT".to_string()];
         let result = apply_custom_words(text, &custom_words, 0.5);
         assert!(result.contains("ChatGPT"));
+    }
+
+    #[test]
+    fn timed_words_merge_into_one_dictionary_entry_spanning_their_times() {
+        let word = |t0, t1, text: &str| TimedText {
+            t0,
+            t1,
+            text: text.to_string(),
+        };
+        let heard = vec![
+            word(0, 200, "ask"),
+            word(250, 400, "Charge"),
+            word(400, 600, "B,"),
+            word(700, 900, "today"),
+        ];
+        let custom_words = vec!["ChargeBee".to_string()];
+        assert_eq!(
+            apply_custom_words_to_timed(&heard, &custom_words, 0.5),
+            vec![
+                word(0, 200, "ask"),
+                word(250, 600, "ChargeBee,"),
+                word(700, 900, "today"),
+            ]
+        );
+        assert_eq!(apply_custom_words_to_timed(&heard, &[], 0.5), heard);
     }
 
     #[test]

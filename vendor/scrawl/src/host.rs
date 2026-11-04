@@ -326,6 +326,51 @@ pub fn speech_status() -> SpeechStatus {
     crate::speech_model::current()
 }
 
+static ON_SPEECH_STATUS: OnceLock<Box<dyn Fn(&SpeechStatus) + Send + Sync>> = OnceLock::new();
+
+/// Runs `changed` each time Apple's speech model changes state or download progress.
+pub fn on_speech_status(changed: impl Fn(&SpeechStatus) + Send + Sync + 'static) {
+    let _ = ON_SPEECH_STATUS.set(Box::new(changed));
+}
+
+pub(crate) fn speech_status_changed(status: &SpeechStatus) {
+    if let Some(changed) = ON_SPEECH_STATUS.get() {
+        changed(status);
+    }
+}
+
+/// Starts installing Apple's speech model, or starts the next try now after a failure. Returns
+/// the `SpeechStatus::attempts` number of the try that answers this call.
+pub fn ensure_speech_model() -> u32 {
+    crate::speech_model::ensure()
+}
+
+pub use crate::model::{MissingTranscript, TranscriptData, TranscriptSegment, WordTiming};
+
+type Transcriber = Box<dyn Fn(&Path) -> anyhow::Result<TranscriptData> + Send + Sync>;
+
+static TRANSCRIBER: OnceLock<Transcriber> = OnceLock::new();
+
+/// Replaces Apple Speech as the engine that transcribes a capture's `audio.wav`, a 16 kHz mono
+/// WAV. The transcript needs word or segment times, because each keyframe gets the words said
+/// while it was on screen. An error leaves the capture without a transcript.
+pub fn on_transcribe(
+    transcribe: impl Fn(&Path) -> anyhow::Result<TranscriptData> + Send + Sync + 'static,
+) {
+    let _ = TRANSCRIBER.set(Box::new(transcribe));
+}
+
+pub(crate) fn transcriber() -> Option<&'static Transcriber> {
+    TRANSCRIBER.get()
+}
+
+/// Transcribes a 16 kHz mono WAV with Apple Speech, with word times. `contextual_strings` bias
+/// recognition toward those words. When the model is still downloading, the transcript is empty
+/// and `missing` says so.
+pub fn apple_speech(wav: &Path, contextual_strings: &[String]) -> anyhow::Result<TranscriptData> {
+    crate::helper::transcribe(wav, contextual_strings)
+}
+
 /// Asks macOS for Screen Recording. The prompt is attributed to this process, so the host app
 /// gets the grant. macOS prompts once per app and adds it to the Screen Recording list, switched
 /// off. Later calls return without a prompt.

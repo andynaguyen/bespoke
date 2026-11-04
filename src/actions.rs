@@ -631,7 +631,11 @@ impl ShortcutAction for TranscribeAction {
         let settings = get_settings(app);
         let style = settings.overlay_style;
         let start_app = self.start_app.lock().unwrap().take();
-        let writing_style = style_for_app(&settings.app_styles, start_app.as_deref());
+        let writing_style = style_for_app(
+            &settings.app_styles,
+            settings.default_style,
+            start_app.as_deref(),
+        );
         debug!("Writing style for {:?}: {:?}", start_app, writing_style);
         let voice_submit_keyword = settings
             .voice_submit_enabled
@@ -785,7 +789,7 @@ impl ShortcutAction for TranscribeAction {
                             if let Err(err) = hm.record_usage(
                                 &transcription,
                                 duration_ms,
-                                utils::frontmost_app_name().as_deref(),
+                                Some(&crate::managers::history::PasteTarget::frontmost()),
                             ) {
                                 error!("Failed to record usage stats: {}", err);
                             }

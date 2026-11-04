@@ -1,9 +1,9 @@
 use std::path::Path;
 
+use anyhow::Result;
+
 use crate::audio::RecordedAudio;
 use crate::model::TranscriptData;
-
-pub const ENGINE_TITLE: &str = "Apple Speech";
 
 pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> TranscriptData {
     let (Some(wav), Some(_)) = (wav, audio.filter(|audio| audio.sample_count > 0)) else {
@@ -12,12 +12,12 @@ pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> Transcri
             ..Default::default()
         };
     };
-    let transcript = crate::helper::transcribe(wav).unwrap_or_else(|error| {
-        crate::capture::scrawl_log(format!("{ENGINE_TITLE} failed: {error:#}"));
+    let transcript = run(wav).unwrap_or_else(|error| {
+        crate::capture::scrawl_log(format!("Transcription failed: {error:#}"));
         TranscriptData {
             source: "offline".into(),
             missing: Some(crate::model::MissingTranscript {
-                reason: format!("{ENGINE_TITLE} failed ({error:#})."),
+                reason: format!("Transcription failed ({error:#})."),
                 retry: false,
             }),
             ..Default::default()
@@ -30,4 +30,11 @@ pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> Transcri
         }
     }
     transcript
+}
+
+pub fn run(wav: &Path) -> Result<TranscriptData> {
+    match crate::host::transcriber() {
+        Some(transcribe) => transcribe(wav),
+        None => crate::helper::transcribe(wav, &[]),
+    }
 }

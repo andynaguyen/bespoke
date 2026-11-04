@@ -1,5 +1,6 @@
 pub mod capsule;
 pub mod mcp;
+mod transcribe;
 
 use std::sync::Arc;
 
@@ -40,6 +41,7 @@ pub fn start(app: &AppHandle, cx: &mut App) {
         });
     });
     count_captures(app);
+    transcribe::init(app);
     sync_shortcuts(&get_settings(app));
     capsule::init(app);
     let ui = app.clone();

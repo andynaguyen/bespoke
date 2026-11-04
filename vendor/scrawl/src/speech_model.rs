@@ -4,8 +4,7 @@
 //! first capture. Onboarding and Settings show how that's going (`view`).
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Condvar, Mutex};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -44,6 +43,8 @@ pub struct Status {
     pub progress: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Install attempts started since launch.
+    pub attempts: u32,
 }
 
 static STATUS: Mutex<Status> = Mutex::new(Status {
@@ -52,8 +53,18 @@ static STATUS: Mutex<Status> = Mutex::new(Status {
     locale: None,
     progress: 0.0,
     error: None,
+    attempts: 0,
 });
-static RUNNING: AtomicBool = AtomicBool::new(false);
+struct Worker {
+    running: bool,
+    retry_now: bool,
+}
+
+static WORKER: Mutex<Worker> = Mutex::new(Worker {
+    running: false,
+    retry_now: false,
+});
+static RETRY_WAKE: Condvar = Condvar::new();
 
 pub fn current() -> Status {
     STATUS
@@ -63,79 +74,123 @@ pub fn current() -> Status {
 }
 
 fn update(change: impl FnOnce(&mut Status)) {
-    change(
-        &mut STATUS
+    let (before, after) = {
+        let mut status = STATUS
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
-    );
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let before = status.clone();
+        change(&mut status);
+        (before, status.clone())
+    };
+    if before != after {
+        crate::host::speech_status_changed(&after);
+    }
 }
 
-pub fn ensure() {
-    if matches!(current().state, State::Ready | State::Unavailable)
-        || RUNNING.swap(true, Ordering::AcqRel)
-    {
-        return;
+fn lock_worker() -> std::sync::MutexGuard<'static, Worker> {
+    WORKER
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+pub fn ensure() -> u32 {
+    let status = current();
+    if matches!(status.state, State::Ready | State::Unavailable) {
+        return status.attempts;
     }
+    let mut worker = lock_worker();
+    if worker.running {
+        worker.retry_now = true;
+        RETRY_WAKE.notify_all();
+        return status.attempts + 1;
+    }
+    worker.running = true;
+    drop(worker);
     let spawned = std::thread::Builder::new()
         .name("scrawl-speech-model".into())
-        .spawn(|| {
-            work();
-            RUNNING.store(false, Ordering::Release);
-        });
+        .spawn(work);
     if spawned.is_err() {
-        RUNNING.store(false, Ordering::Release);
+        lock_worker().running = false;
     }
+    status.attempts + 1
 }
 
 fn work() {
-    for attempt in 0..=RETRY_AFTER.len() {
+    let mut attempt = 0;
+    loop {
+        if let Attempt::Done = install_once() {
+            lock_worker().running = false;
+            return;
+        }
+        let worker = lock_worker();
+        let mut worker = match RETRY_AFTER.get(attempt) {
+            Some(&after) => {
+                RETRY_WAKE
+                    .wait_timeout_while(worker, after, |worker| !worker.retry_now)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .0
+            }
+            None => worker,
+        };
+        if !worker.retry_now && attempt >= RETRY_AFTER.len() {
+            worker.running = false;
+            return;
+        }
+        worker.retry_now = false;
+        attempt += 1;
+    }
+}
+
+enum Attempt {
+    Done,
+    Retry,
+}
+
+fn install_once() -> Attempt {
+    update(|s| {
+        if s.state != State::Downloading {
+            s.state = State::Checking;
+        }
+        s.attempts += 1;
+    });
+    let result = crate::helper::install_speech_model(|line| {
         update(|s| {
-            if s.state != State::Downloading {
-                s.state = State::Checking;
-            }
+            s.engine = line.engine.clone().or(s.engine.take());
+            s.locale = line.locale.clone().or(s.locale.take());
+            s.state = match line.status.as_str() {
+                "installed" => State::Ready,
+                "unsupported" => State::Unavailable,
+                "failed" => State::Failed,
+                _ => State::Downloading,
+            };
+            s.progress = line.progress.unwrap_or(s.progress);
+            s.error = line.error.clone();
         });
-        let result = crate::helper::install_speech_model(|line| {
-            update(|s| {
-                s.engine = line.engine.clone().or(s.engine.take());
-                s.locale = line.locale.clone().or(s.locale.take());
-                s.state = match line.status.as_str() {
-                    "installed" => State::Ready,
-                    "unsupported" => State::Unavailable,
-                    "failed" => State::Failed,
-                    _ => State::Downloading,
-                };
-                s.progress = line.progress.unwrap_or(s.progress);
-                s.error = line.error.clone();
-            });
+    });
+    let status = current();
+    if let Err(error) = result {
+        update(|s| {
+            s.state = State::Failed;
+            s.error = Some(format!("{error:#}"));
         });
-        let status = current();
-        if let Err(error) = result {
-            update(|s| {
-                s.state = State::Failed;
-                s.error = Some(format!("{error:#}"));
-            });
+    }
+    crate::capture::scrawl_log(format!(
+        "speech model: {:?} {} {}{}",
+        current().state,
+        status.engine.as_deref().unwrap_or("?"),
+        status.locale.as_deref().unwrap_or("?"),
+        current()
+            .error
+            .map(|e| format!(" ({e})"))
+            .unwrap_or_default()
+    ));
+    match current().state {
+        State::Ready => {
+            transcribe_pending(&crate::handoff::default_captures_dir());
+            Attempt::Done
         }
-        crate::capture::scrawl_log(format!(
-            "speech model: {:?} {} {}{}",
-            current().state,
-            status.engine.as_deref().unwrap_or("?"),
-            status.locale.as_deref().unwrap_or("?"),
-            current()
-                .error
-                .map(|e| format!(" ({e})"))
-                .unwrap_or_default()
-        ));
-        match current().state {
-            State::Ready => {
-                transcribe_pending(&crate::handoff::default_captures_dir());
-                return;
-            }
-            State::Unavailable => return,
-            _ => {}
-        }
-        if let Some(wait) = RETRY_AFTER.get(attempt) {
-            std::thread::sleep(*wait);
-        }
+        State::Unavailable => Attempt::Done,
+        _ => Attempt::Retry,
     }
 }
 
@@ -207,7 +262,7 @@ pub fn transcribe_again(dir: &Path) -> Result<bool> {
     let (dir, mut bundle) = crate::handoff::load_bundle(dir)?;
     let wav = dir.join(bundle.audio.as_deref().unwrap_or("audio.wav"));
     anyhow::ensure!(wav.is_file(), "the bundle has no audio.wav any more");
-    let transcript = crate::helper::transcribe(&wav)?;
+    let transcript = crate::transcribe::run(&wav)?;
     if transcript
         .missing
         .as_ref()

@@ -43,6 +43,7 @@ fn migrations() -> Migrations<'static> {
             app_name TEXT
         );",
     ),
+    M::up("ALTER TABLE usage_stats ADD COLUMN bundle_id TEXT;"),
     ])
 }
 
@@ -99,6 +100,21 @@ fn is_cjk(c: char) -> bool {
 pub struct PaginatedHistory {
     pub entries: Vec<HistoryEntry>,
     pub has_more: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PasteTarget {
+    pub name: Option<String>,
+    pub bundle_id: Option<String>,
+}
+
+impl PasteTarget {
+    pub fn frontmost() -> Self {
+        Self {
+            name: crate::utils::frontmost_app_name(),
+            bundle_id: crate::utils::frontmost_app_bundle_id(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -583,9 +599,14 @@ impl HistoryManager {
         Ok(entry)
     }
 
-    pub fn record_usage(&self, text: &str, duration_ms: i64, app_name: Option<&str>) -> Result<()> {
+    pub fn record_usage(
+        &self,
+        text: &str,
+        duration_ms: i64,
+        app: Option<&PasteTarget>,
+    ) -> Result<()> {
         let conn = self.get_connection()?;
-        Self::record_usage_with_conn(&conn, Utc::now().timestamp(), text, duration_ms, app_name)
+        Self::record_usage_with_conn(&conn, Utc::now().timestamp(), text, duration_ms, app)
     }
 
     fn record_usage_with_conn(
@@ -593,16 +614,22 @@ impl HistoryManager {
         timestamp: i64,
         text: &str,
         duration_ms: i64,
-        app_name: Option<&str>,
+        app: Option<&PasteTarget>,
     ) -> Result<()> {
         let word_count = count_words(text);
         if word_count == 0 {
             return Ok(());
         }
         conn.execute(
-            "INSERT INTO usage_stats (timestamp, word_count, duration_ms, app_name)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![timestamp, word_count, duration_ms, app_name],
+            "INSERT INTO usage_stats (timestamp, word_count, duration_ms, app_name, bundle_id)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                timestamp,
+                word_count,
+                duration_ms,
+                app.and_then(|app| app.name.as_deref()),
+                app.and_then(|app| app.bundle_id.as_deref()),
+            ],
         )?;
         Ok(())
     }
@@ -927,8 +954,12 @@ mod tests {
             .expect("migrate to latest");
         let day = 1_788_264_000;
         let next_day = day + 2 * 86_400;
-        let record = |timestamp, text, app| {
-            HistoryManager::record_usage_with_conn(&conn, timestamp, text, 1_000, app)
+        let record = |timestamp, text, app: Option<&str>| {
+            let app = app.map(|name| PasteTarget {
+                name: Some(name.to_string()),
+                bundle_id: None,
+            });
+            HistoryManager::record_usage_with_conn(&conn, timestamp, text, 1_000, app.as_ref())
                 .expect("record usage");
         };
         record(day, "one two", Some("Slack"));

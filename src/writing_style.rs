@@ -1,13 +1,13 @@
 use crate::settings::{AppStyleRule, WritingStyle};
 
-pub fn style_for_app(rules: &[AppStyleRule], bundle_id: Option<&str>) -> WritingStyle {
-    let Some(bundle_id) = bundle_id else {
-        return WritingStyle::Formal;
-    };
-    rules
-        .iter()
-        .find(|rule| rule.bundle_id == bundle_id)
-        .map_or(WritingStyle::Formal, |rule| rule.style)
+pub fn style_for_app(
+    rules: &[AppStyleRule],
+    default: WritingStyle,
+    bundle_id: Option<&str>,
+) -> WritingStyle {
+    bundle_id
+        .and_then(|bundle_id| rules.iter().find(|rule| rule.bundle_id == bundle_id))
+        .map_or(default, |rule| rule.style)
 }
 
 pub fn apply_style(text: &str, style: WritingStyle) -> String {
@@ -339,23 +339,24 @@ mod tests {
     }
 
     #[test]
-    fn apps_without_a_rule_are_formal() {
+    fn apps_without_a_rule_use_the_default_style() {
         let rules = [
             rule("com.tinyspeck.slackmacgap", WritingStyle::VeryCasual),
             rule("com.apple.mail", WritingStyle::Formal),
         ];
+        let default = WritingStyle::Casual;
         assert_eq!(
-            style_for_app(&rules, Some("com.tinyspeck.slackmacgap")),
+            style_for_app(&rules, default, Some("com.tinyspeck.slackmacgap")),
             WritingStyle::VeryCasual
         );
         assert_eq!(
-            style_for_app(&rules, Some("com.apple.mail")),
+            style_for_app(&rules, default, Some("com.apple.mail")),
             WritingStyle::Formal
         );
         assert_eq!(
-            style_for_app(&rules, Some("com.apple.Notes")),
-            WritingStyle::Formal
+            style_for_app(&rules, default, Some("com.apple.Notes")),
+            WritingStyle::Casual
         );
-        assert_eq!(style_for_app(&rules, None), WritingStyle::Formal);
+        assert_eq!(style_for_app(&rules, default, None), WritingStyle::Casual);
     }
 }

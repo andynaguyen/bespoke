@@ -89,9 +89,10 @@ pub struct Snippet {
     pub text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum WritingStyle {
+    #[default]
     Formal,
     Casual,
     VeryCasual,
@@ -388,6 +389,7 @@ pub struct AppSettings {
     pub custom_words: Vec<String>,
     pub snippets: Vec<Snippet>,
     pub app_styles: Vec<AppStyleRule>,
+    pub default_style: WritingStyle,
     pub model_unload_timeout: ModelUnloadTimeout,
     pub word_correction_threshold: f64,
     pub history_limit: usize,
@@ -852,6 +854,7 @@ pub fn get_default_settings() -> AppSettings {
         custom_words: Vec::new(),
         snippets: Vec::new(),
         app_styles: default_app_styles(),
+        default_style: WritingStyle::default(),
         model_unload_timeout: ModelUnloadTimeout::default(),
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),
