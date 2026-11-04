@@ -482,6 +482,7 @@ impl StatsPage {
                     .into_iter()
                     .map(|(label, value)| (label, value.into()))
                     .collect(),
+                body: None,
             };
             Some((card, anchor))
         });

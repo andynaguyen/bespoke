@@ -93,8 +93,6 @@ fn lock_worker() -> std::sync::MutexGuard<'static, Worker> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-/// Starts an install attempt, or asks a waiting worker to start its next one now. Returns the
-/// number the attempt that answers this call will have in `Status::attempts`.
 pub fn ensure() -> u32 {
     let status = current();
     if matches!(status.state, State::Ready | State::Unavailable) {
@@ -120,7 +118,7 @@ pub fn ensure() -> u32 {
 fn work() {
     let mut attempt = 0;
     loop {
-        if install_once() {
+        if let Attempt::Done = install_once() {
             lock_worker().running = false;
             return;
         }
@@ -143,9 +141,12 @@ fn work() {
     }
 }
 
-/// Runs one install attempt. True when the model is installed or this Mac has none for its
-/// language, so there is nothing left to retry.
-fn install_once() -> bool {
+enum Attempt {
+    Done,
+    Retry,
+}
+
+fn install_once() -> Attempt {
     update(|s| {
         if s.state != State::Downloading {
             s.state = State::Checking;
@@ -186,10 +187,10 @@ fn install_once() -> bool {
     match current().state {
         State::Ready => {
             transcribe_pending(&crate::handoff::default_captures_dir());
-            true
+            Attempt::Done
         }
-        State::Unavailable => true,
-        _ => false,
+        State::Unavailable => Attempt::Done,
+        _ => Attempt::Retry,
     }
 }
 

@@ -37,6 +37,7 @@ enum OpenDialog {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Section {
     Dictate,
+    Dictionary,
     Stats,
     Models,
     Annotate,
@@ -50,16 +51,23 @@ impl Section {
     pub const PRIMARY: &[Section] = &[
         Section::Dictate,
         Section::Annotate,
+        Section::Dictionary,
         Section::Stats,
         Section::Mcp,
         Section::Models,
     ];
     #[cfg(not(target_os = "macos"))]
-    pub const PRIMARY: &[Section] = &[Section::Dictate, Section::Stats, Section::Models];
+    pub const PRIMARY: &[Section] = &[
+        Section::Dictate,
+        Section::Dictionary,
+        Section::Stats,
+        Section::Models,
+    ];
 
     pub fn label_key(self) -> &'static str {
         match self {
             Section::Dictate => "sidebar.dictate",
+            Section::Dictionary => "sidebar.dictionary",
             Section::Stats => "sidebar.stats",
             Section::Models => "sidebar.models",
             Section::Annotate => "sidebar.annotate",
@@ -72,6 +80,7 @@ impl Section {
     pub fn icon(self) -> &'static str {
         match self {
             Section::Dictate => "nav-mic",
+            Section::Dictionary => "nav-book-a",
             Section::Stats => "nav-chart-no-axes-column",
             Section::Models => "nav-cpu",
             Section::Annotate => "nav-pen-line",
@@ -279,6 +288,7 @@ impl MainWindow {
                 self.preview_onboarding(preview, window, cx);
                 return;
             }
+            "dictionary" => Section::Dictionary,
             "stats" => Section::Stats,
             "models" => Section::Models,
             "annotate" => Section::Annotate,

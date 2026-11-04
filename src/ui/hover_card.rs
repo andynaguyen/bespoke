@@ -19,6 +19,7 @@ const FADE_IN: Duration = Duration::from_millis(120);
 pub struct Card {
     pub title: SharedString,
     pub rows: Vec<(SharedString, SharedString)>,
+    pub body: Option<SharedString>,
 }
 
 struct HoverCardView {
@@ -87,7 +88,16 @@ impl Render for HoverCardView {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(card.title.clone()),
                             )
-                            .child(div().flex().flex_col().children(card.rows.iter().map(row)))
+                            .children(
+                                card.body
+                                    .clone()
+                                    .map(|body| div().text_color(p.text.a(0.75)).child(body)),
+                            )
+                            .when(!card.rows.is_empty(), |el| {
+                                el.child(
+                                    div().flex().flex_col().children(card.rows.iter().map(row)),
+                                )
+                            })
                             .with_animation(
                                 SharedString::from(format!("hover-card-{}", self.shown)),
                                 Animation::new(FADE_IN).with_easing(ease_out_quint()),

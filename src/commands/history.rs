@@ -1,7 +1,6 @@
 use crate::actions::process_transcription_output;
 use crate::app_handle::{AppHandle, State};
 use crate::managers::{history::HistoryManager, transcription::TranscriptionManager};
-use crate::settings::WritingStyle;
 use std::sync::Arc;
 
 pub async fn retry_history_entry_transcription(
@@ -40,7 +39,7 @@ pub async fn retry_history_entry_transcription(
         &app,
         &transcription,
         entry.post_process_requested,
-        WritingStyle::Formal,
+        crate::settings::get_settings(&app).default_style,
     )
     .await;
     history_manager

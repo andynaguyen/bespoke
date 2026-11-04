@@ -49,6 +49,7 @@ struct DropdownState {
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 type OpenHandler = Rc<dyn Fn(&mut Window, &mut App)>;
+type TriggerBuilder = Box<dyn FnOnce(bool, &App) -> AnyElement>;
 
 #[derive(IntoElement)]
 pub struct Dropdown {
@@ -61,6 +62,7 @@ pub struct Dropdown {
     on_open: Option<OpenHandler>,
     menu_width: Option<Rems>,
     menu_align_end: bool,
+    trigger: Option<TriggerBuilder>,
     style: StyleRefinement,
 }
 
@@ -76,6 +78,7 @@ impl Dropdown {
             on_open: None,
             menu_width: None,
             menu_align_end: false,
+            trigger: None,
             style: StyleRefinement::default(),
         }
     }
@@ -111,6 +114,19 @@ impl Dropdown {
     pub fn menu_end_aligned(mut self, width: Rems) -> Self {
         self.menu_width = Some(width);
         self.menu_align_end = true;
+        self
+    }
+
+    /// Sets the menu's width instead of matching the trigger's.
+    pub fn menu_width(mut self, width: Rems) -> Self {
+        self.menu_width = Some(width);
+        self
+    }
+
+    /// Draws the trigger with `build`, which gets whether the menu is open, in place of the
+    /// default field and chevron. The trigger keeps its click, keyboard and focus behavior.
+    pub fn trigger(mut self, build: impl FnOnce(bool, &App) -> AnyElement + 'static) -> Self {
+        self.trigger = Some(Box::new(build));
         self
     }
 }
@@ -209,7 +225,8 @@ fn menu_items(
 }
 
 impl RenderOnce for Dropdown {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let mut custom_trigger = None;
         let p = palette(cx);
         let state = window.use_keyed_state(self.id.clone(), cx, |_, cx| DropdownState {
             open: false,
@@ -272,29 +289,36 @@ impl RenderOnce for Dropdown {
 
         let disabled = self.disabled;
         let in_popup = crate::ui::popup::hosts(window, cx);
+        let custom = self.trigger.take().is_some_and(|build| {
+            custom_trigger = Some(build(open, cx));
+            true
+        });
         let trigger = div()
             .id((self.id.clone(), SharedString::from("trigger")))
             .w_full()
-            .min_w(px(180.))
-            .h(CONTROL_HEIGHT)
-            .px(px(12.))
-            .text_px(13.)
-            .bg(p.card)
-            .border_1()
-            .border_color(p.line)
-            .rounded(px(10.))
-            .flex()
-            .row_dir()
-            .items_center()
-            .gap_2()
-            .child(div().flex_1().min_w_0().truncate().child(selected_label))
-            .child(
-                icon("chevron-down-thin")
-                    .size(px(13.))
-                    .flex_none()
-                    .text_color(p.text)
-                    .when(open, |svg| svg.rotate(gpui::percentage(0.5))),
-            )
+            .children(custom_trigger)
+            .when(!custom, |el| {
+                el.min_w(px(180.))
+                    .h(CONTROL_HEIGHT)
+                    .px(px(12.))
+                    .text_px(13.)
+                    .bg(p.card)
+                    .border_1()
+                    .border_color(p.line)
+                    .rounded(px(10.))
+                    .flex()
+                    .row_dir()
+                    .items_center()
+                    .gap_2()
+                    .child(div().flex_1().min_w_0().truncate().child(selected_label))
+                    .child(
+                        icon("chevron-down-thin")
+                            .size(px(13.))
+                            .flex_none()
+                            .text_color(p.text)
+                            .when(open, |svg| svg.rotate(gpui::percentage(0.5))),
+                    )
+            })
             .when(disabled, |el| el.opacity(0.5).cursor_not_allowed())
             .when(open && in_popup, |el| {
                 let close = set_open.clone();
@@ -306,7 +330,9 @@ impl RenderOnce for Dropdown {
                 let (key_state, key_options, key_open) =
                     (state.clone(), options.clone(), set_open.clone());
                 el.cursor_pointer()
-                    .hover(|s| s.bg(p.card).border_color(p.mid_gray.a(0.4)))
+                    .when(!custom, |el| {
+                        el.hover(|s| s.bg(p.card).border_color(p.mid_gray.a(0.4)))
+                    })
                     .on_click(move |event: &ClickEvent, window, cx| {
                         let (is_open, highlight) = {
                             let state = click_state.read(cx);

@@ -639,6 +639,13 @@ pub fn update_app_styles(app: AppHandle, rules: Vec<settings::AppStyleRule>) -> 
     Ok(())
 }
 
+pub fn update_default_style(app: AppHandle, style: settings::WritingStyle) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.default_style = style;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
 pub fn change_word_correction_threshold_setting(
     app: AppHandle,
     threshold: f64,

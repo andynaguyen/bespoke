@@ -4,6 +4,7 @@ pub mod captures;
 mod debug;
 mod dictate;
 mod dictation_settings;
+mod dictionary;
 mod history;
 mod keyword_field;
 mod language_picker;
@@ -15,6 +16,7 @@ pub mod rows;
 mod settings;
 mod shortcut_input;
 mod stats;
+mod style_board;
 
 #[cfg(not(target_os = "macos"))]
 use gpui::{div, IntoElement};
@@ -99,6 +101,7 @@ impl Page for EmptyPage {}
 pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle {
     match section {
         Section::Dictate => PageHandle::new(cx.new(|cx| dictate::DictatePage::new(window, cx))),
+        Section::Dictionary => PageHandle::new(cx.new(dictionary::DictionaryPage::new)),
         Section::Stats => PageHandle::new(cx.new(stats::StatsPage::new)),
         Section::Models => PageHandle::new(cx.new(|cx| models::ModelsPage::new(window, cx))),
         #[cfg(target_os = "macos")]
@@ -114,7 +117,7 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
 
 #[cfg(debug_assertions)]
 pub fn open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
-    dictate::dev_open_entry_dialog(word, window, cx);
+    dictionary::dev_open_entry_dialog(word, window, cx);
 }
 
 pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) {

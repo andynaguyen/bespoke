@@ -20,6 +20,7 @@
     "settings": "Settings",
     "stats": "Stats",
     "dictate": "Dictate",
+    "dictionary": "Dictionary",
     "debug": "Debug",
     "annotate": "Annotate",
     "mcp": "MCP",
@@ -524,14 +525,15 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Dictionary",
         "style": "Style",
         "history": "History",
         "settings": "Settings"
       },
-      "empty": "No words or replacements yet. Add names and jargon that Bespoke gets wrong, or a phrase that pastes text you type often.",
+      "intro": "Teach Bespoke the words you use. Dictation and Annotate both check this list.",
       "replacements": "Replacements",
+      "replacementsHelp": "Say the phrase on the left, and Bespoke writes the text on the right.",
       "words": "Words",
+      "wordsHelp": "Names, jargon and acronyms Bespoke should spell exactly like this.",
       "addReplacement": "Add replacement",
       "editWord": "Edit word",
       "editReplacement": "Edit replacement",
@@ -547,32 +549,38 @@
       "duplicate": "\"{{word}}\" already exists"
     },
     "style": {
-      "default": "(default)",
-      "intro": "Bespoke formats each dictation for the app in front when you start recording. Apps without a rule use Formal.",
+      "intro": "Drag an app onto a style, or click it.",
       "styles": {
         "formal": {
           "name": "Formal",
-          "description": "Caps + punctuation",
           "example": "Hey, are you free for lunch tomorrow? Let's do 12 if that works for you."
         },
         "casual": {
           "name": "Casual",
-          "description": "Caps + less punctuation",
           "example": "Hey are you free for lunch tomorrow? Let's do 12 if that works for you"
         },
         "veryCasual": {
           "name": "Very casual",
-          "description": "No caps + less punctuation",
           "example": "hey are you free for lunch tomorrow? lets do 12 if that works for you"
         }
       },
-      "apps": {
-        "title": "Apps",
-        "add": "Add an open app",
-        "empty": "No app rules yet. Every app uses Formal.",
-        "remove": "Remove {{app}}"
+      "board": {
+        "default": "Default",
+        "defaultTitle": "Default style",
+        "defaultHelp": "Apps without a rule use this style. Drag Default to another style to change it.",
+        "dropHere": "Drop an app here",
+        "remove": "Remove rule"
       },
-      "macOSOnly": "Per-app style is only available on macOS. Dictations use Formal."
+      "shelf": {
+        "title": "Add apps",
+        "open": "Open now",
+        "all": "All apps",
+        "search": "Search apps",
+        "loading": "Loading apps…",
+        "noMatch": "No apps match.",
+        "noneLeft": "Every app here has a rule."
+      },
+      "macOSOnly": "Per-app style is only available on macOS. Dictations use {{style}}."
     },
     "history": {
       "title": "History",
