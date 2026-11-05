@@ -10,7 +10,8 @@ fn build_ngram(words: &[&str]) -> String {
         .concat()
 }
 
-fn build_match_key(word: &str) -> String {
+/// Letters and digits, lowercased: how the dictionary compares spellings.
+pub fn build_match_key(word: &str) -> String {
     word.chars()
         .filter(|c| c.is_alphanumeric())
         .flat_map(|c| c.to_lowercase())
@@ -100,15 +101,47 @@ fn find_best_match<'a>(
 }
 
 pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -> String {
+    apply_custom_words_with_fixes(text, custom_words, threshold).0
+}
+
+/// A change the dictionary made to a transcript: the words the model heard, and what Bespoke
+/// wrote in their place. Both leave out punctuation at their ends.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Fix {
+    pub heard: String,
+    pub written: String,
+    /// A replacement's trigger fired, rather than a word's spelling.
+    pub replacement: bool,
+}
+
+fn trim_punctuation(text: &str) -> &str {
+    text.trim_matches(|c: char| !c.is_alphanumeric())
+}
+
+/// `apply_custom_words`, and the fixes it made, in order.
+pub fn apply_custom_words_with_fixes(
+    text: &str,
+    custom_words: &[String],
+    threshold: f64,
+) -> (String, Vec<Fix>) {
     if custom_words.is_empty() {
-        return text.to_string();
+        return (text.to_string(), Vec::new());
     }
     let words: Vec<&str> = text.split_whitespace().collect();
-    custom_word_spans(&words, custom_words, threshold)
-        .into_iter()
-        .map(|span| span.text)
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut fixes = Vec::new();
+    let mut out = Vec::new();
+    for span in custom_word_spans(&words, custom_words, threshold) {
+        let heard = words[span.start..span.start + span.len].join(" ");
+        if heard != span.text {
+            fixes.push(Fix {
+                heard: trim_punctuation(&heard).to_string(),
+                written: trim_punctuation(&span.text).to_string(),
+                replacement: false,
+            });
+        }
+        out.push(span.text);
+    }
+    (out.join(" "), fixes)
 }
 
 /// A word or segment with its start and end in milliseconds.
@@ -424,6 +457,14 @@ pub fn expand_snippets<'a>(
     text: &str,
     snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
 ) -> String {
+    expand_snippets_with_fixes(text, snippets).0
+}
+
+/// `expand_snippets`, and the triggers it expanded, in order.
+pub fn expand_snippets_with_fixes<'a>(
+    text: &str,
+    snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> (String, Vec<Fix>) {
     let mut triggers: Vec<(Vec<String>, &str)> = snippets
         .into_iter()
         .map(|(trigger, expansion)| {
@@ -433,7 +474,7 @@ pub fn expand_snippets<'a>(
         .filter(|(keys, _)| !keys.is_empty() && keys.iter().all(|key| !key.is_empty()))
         .collect();
     if triggers.is_empty() {
-        return text.to_string();
+        return (text.to_string(), Vec::new());
     }
     triggers.sort_by_key(|(keys, _)| std::cmp::Reverse(keys.len()));
 
@@ -442,6 +483,7 @@ pub fn expand_snippets<'a>(
     let offset = |token: &str| token.as_ptr() as usize - text.as_ptr() as usize;
 
     let mut expanded = String::with_capacity(text.len());
+    let mut fixes = Vec::new();
     let mut copied = 0;
     let mut i = 0;
     while i < tokens.len() {
@@ -461,6 +503,13 @@ pub fn expand_snippets<'a>(
             .find(|(_, c)| c.is_alphanumeric())
             .map_or(last.len(), |(index, c)| index + c.len_utf8());
 
+        let heard_end = offset(last) + trail_start;
+        let heard_start = offset(first) + lead_end;
+        fixes.push(Fix {
+            heard: text[heard_start..heard_end.max(heard_start)].to_string(),
+            written: expansion.to_string(),
+            replacement: true,
+        });
         expanded.push_str(&text[copied..offset(first)]);
         expanded.push_str(&first[..lead_end]);
         expanded.push_str(expansion);
@@ -469,12 +518,57 @@ pub fn expand_snippets<'a>(
         i += trigger.len();
     }
     expanded.push_str(&text[copied..]);
-    expanded
+    (expanded, fixes)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn custom_words_report_what_they_heard_and_wrote() {
+        let words = ["IntraFi".to_string(), "Karat".to_string()];
+        let (text, fixes) =
+            apply_custom_words_with_fixes("ping the karet team about intra fi.", &words, 0.18);
+        assert_eq!(text, "ping the Karat team about IntraFi.");
+        assert_eq!(
+            fixes,
+            [
+                Fix {
+                    heard: "karet".into(),
+                    written: "Karat".into(),
+                    replacement: false,
+                },
+                Fix {
+                    heard: "intra fi".into(),
+                    written: "IntraFi".into(),
+                    replacement: false,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn custom_words_report_nothing_for_a_word_already_spelled_right() {
+        let words = ["Karat".to_string()];
+        let (_, fixes) = apply_custom_words_with_fixes("Karat said hi", &words, 0.18);
+        assert!(fixes.is_empty());
+    }
+
+    #[test]
+    fn expand_snippets_reports_the_trigger_it_heard() {
+        let (text, fixes) =
+            expand_snippets_with_fixes("Send it to My Email.", [("my email", "a@example.com")]);
+        assert_eq!(text, "Send it to a@example.com.");
+        assert_eq!(
+            fixes,
+            [Fix {
+                heard: "My Email".into(),
+                written: "a@example.com".into(),
+                replacement: true,
+            }]
+        );
+    }
 
     #[test]
     fn expand_snippets_replaces_a_trigger_and_keeps_punctuation() {

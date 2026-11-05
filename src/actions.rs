@@ -3,7 +3,8 @@ use crate::app_handle::AppHandle;
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{
-    expand_snippets, is_microphone_access_denied, is_no_input_device_error, VadPolicy,
+    expand_snippets_with_fixes, is_microphone_access_denied, is_no_input_device_error, Fix,
+    VadPolicy,
 };
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
@@ -25,6 +26,7 @@ use ferrous_opencc::{config::BuiltinConfig, OpenCC};
 use log::{debug, error, warn};
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -59,6 +61,7 @@ pub trait ShortcutAction: Send + Sync {
 struct TranscribeAction {
     post_process: bool,
     start_app: Mutex<Option<String>>,
+    goes_to_try_it: AtomicBool,
 }
 
 impl TranscribeAction {
@@ -66,6 +69,7 @@ impl TranscribeAction {
         Self {
             post_process,
             start_app: Mutex::new(None),
+            goes_to_try_it: AtomicBool::new(false),
         }
     }
 }
@@ -381,6 +385,7 @@ pub(crate) struct ProcessedTranscription {
     pub final_text: String,
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
+    pub replacements: Vec<Fix>,
 }
 
 fn resolve_effective_language(app: &AppHandle, settings: &AppSettings) -> String {
@@ -442,7 +447,7 @@ pub(crate) async fn process_transcription_output(
         post_processed_text = Some(final_text.clone());
     }
 
-    let expanded = expand_snippets(
+    let (expanded, replacements) = expand_snippets_with_fixes(
         &final_text,
         settings
             .snippets
@@ -458,6 +463,7 @@ pub(crate) async fn process_transcription_output(
         final_text,
         post_processed_text,
         post_process_prompt,
+        replacements,
     }
 }
 
@@ -467,6 +473,8 @@ impl ShortcutAction for TranscribeAction {
         debug!("TranscribeAction::start called for binding: {}", binding_id);
 
         *self.start_app.lock().unwrap() = utils::frontmost_app_bundle_id();
+        self.goes_to_try_it
+            .store(crate::try_it::dictionary_active(), Ordering::Relaxed);
 
         let tm = app.state::<Arc<TranscriptionManager>>();
         let rm = app.state::<Arc<AudioRecordingManager>>();
@@ -631,6 +639,7 @@ impl ShortcutAction for TranscribeAction {
         let settings = get_settings(app);
         let style = settings.overlay_style;
         let start_app = self.start_app.lock().unwrap().take();
+        let to_try_it = self.goes_to_try_it.swap(false, Ordering::Relaxed);
         let writing_style = style_for_app(
             &settings.app_styles,
             settings.default_style,
@@ -688,9 +697,11 @@ impl ShortcutAction for TranscribeAction {
                     let file_name = format!("bespoke-{}.wav", chrono::Utc::now().timestamp());
                     let wav_path = hm.recordings_dir().join(&file_name);
                     let wav_path_for_verify = wav_path.clone();
-                    let samples_for_wav = samples.clone();
-                    let wav_handle = crate::runtime::spawn_blocking(move || {
-                        crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
+                    let wav_handle = (!to_try_it).then(|| {
+                        let samples_for_wav = samples.clone();
+                        crate::runtime::spawn_blocking(move || {
+                            crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
+                        })
                     });
 
                     let transcription_time = Instant::now();
@@ -707,27 +718,30 @@ impl ShortcutAction for TranscribeAction {
                         Err(err) => Err(err),
                     };
 
-                    let wav_saved = match wav_handle.await {
-                        Ok(Ok(())) => {
-                            match crate::audio_toolkit::verify_wav_file(
-                                &wav_path_for_verify,
-                                sample_count,
-                            ) {
-                                Ok(()) => true,
-                                Err(e) => {
-                                    error!("WAV verification failed: {}", e);
-                                    false
+                    let wav_saved = match wav_handle {
+                        None => false,
+                        Some(handle) => match handle.await {
+                            Ok(Ok(())) => {
+                                match crate::audio_toolkit::verify_wav_file(
+                                    &wav_path_for_verify,
+                                    sample_count,
+                                ) {
+                                    Ok(()) => true,
+                                    Err(e) => {
+                                        error!("WAV verification failed: {}", e);
+                                        false
+                                    }
                                 }
                             }
-                        }
-                        Ok(Err(e)) => {
-                            error!("Failed to save WAV file: {}", e);
-                            false
-                        }
-                        Err(e) => {
-                            error!("WAV save task panicked: {}", e);
-                            false
-                        }
+                            Ok(Err(e)) => {
+                                error!("Failed to save WAV file: {}", e);
+                                false
+                            }
+                            Err(e) => {
+                                error!("WAV save task panicked: {}", e);
+                                false
+                            }
+                        },
                     };
 
                     if rm.was_cancelled_since(cancel_generation) {
@@ -740,6 +754,7 @@ impl ShortcutAction for TranscribeAction {
                     match transcription_result {
                         Ok(transcript) => {
                             let submit = transcript.submit;
+                            let mut fixes = transcript.fixes;
                             let transcription = transcript.text;
                             if submit {
                                 debug!(
@@ -778,6 +793,20 @@ impl ShortcutAction for TranscribeAction {
 
                             if rm.was_cancelled_since(cancel_generation) {
                                 debug!("Transcription operation cancelled before paste");
+                                utils::hide_recording_overlay(&ah);
+                                set_tray_state(&ah, TrayIconState::Idle);
+                                return;
+                            }
+
+                            if to_try_it {
+                                fixes.extend(processed.replacements);
+                                let take = crate::try_it::Take {
+                                    text: processed.final_text,
+                                    fixes,
+                                };
+                                if let Err(err) = ah.emit(crate::try_it::TAKE_EVENT, take) {
+                                    error!("Failed to send the take to Try it: {}", err);
+                                }
                                 utils::hide_recording_overlay(&ah);
                                 set_tray_state(&ah, TrayIconState::Idle);
                                 return;

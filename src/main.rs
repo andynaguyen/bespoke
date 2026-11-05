@@ -38,6 +38,7 @@ mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
 mod triage;
+mod try_it;
 mod ui;
 mod updater;
 mod utils;

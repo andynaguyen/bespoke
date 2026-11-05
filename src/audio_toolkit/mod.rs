@@ -12,9 +12,10 @@ pub use audio::{
 };
 pub use lang_id::detect_output_language;
 pub use text::{
-    apply_custom_words, apply_custom_words_to_timed, expand_snippets,
-    normalize_transcription_output, remove_filler_words, scrub_before_keyword,
-    strip_trailing_keyword, OutputLanguageEvidence, TimedText,
+    apply_custom_words, apply_custom_words_to_timed, apply_custom_words_with_fixes,
+    build_match_key, expand_snippets, expand_snippets_with_fixes, normalize_transcription_output,
+    remove_filler_words, scrub_before_keyword, strip_trailing_keyword, Fix, OutputLanguageEvidence,
+    TimedText,
 };
 pub use utils::get_cpal_host;
 pub use vad::{EarshotVad, SileroVad, VoiceActivityDetector};

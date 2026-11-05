@@ -529,7 +529,6 @@
         "history": "History",
         "settings": "Settings"
       },
-      "intro": "Teach Bespoke the words you use. Dictation and Annotate both check this list.",
       "replacements": "Replacements",
       "replacementsHelp": "Say the phrase on the left, and Bespoke writes the text on the right.",
       "words": "Words",
@@ -546,7 +545,20 @@
       "save": "Save",
       "cancel": "Cancel",
       "remove": "Remove {{word}}",
-      "duplicate": "\"{{word}}\" already exists"
+      "duplicate": "\"{{word}}\" already exists",
+      "addedTag": "Added",
+      "tryIt": "Try it",
+      "tryItHint": "Dictate with {{shortcut}} while this page is open. Bespoke shows the text here instead of pasting it.",
+      "tryItEmpty": "Bespoke didn't hear any words.",
+      "fixedCount_one": "1 fix from the dictionary",
+      "fixedCount_other": "{{count}} fixes from the dictionary",
+      "pickWord": "Click a word Bespoke got wrong to teach it. Shift-click the next word to add it.",
+      "teachLabel": "Bespoke heard",
+      "spellingPlaceholder": "The right spelling",
+      "wontMatch": "Bespoke won't match \"{{heard}}\" to a word this different. Add it as a replacement.",
+      "teachWord": "Add word",
+      "teachReplacement": "Add as replacement",
+      "added": "Added. Dictate the sentence again to check it."
     },
     "style": {
       "intro": "Drag an app onto a style, or click it.",

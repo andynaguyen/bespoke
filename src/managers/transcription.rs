@@ -1,7 +1,7 @@
 use crate::app_handle::AppHandle;
 use crate::audio_toolkit::{
-    apply_custom_words, detect_output_language, normalize_transcription_output,
-    remove_filler_words, scrub_before_keyword, strip_trailing_keyword, OutputLanguageEvidence,
+    apply_custom_words_with_fixes, detect_output_language, normalize_transcription_output,
+    remove_filler_words, scrub_before_keyword, strip_trailing_keyword, Fix, OutputLanguageEvidence,
     TimedText,
 };
 use crate::managers::audio::AudioRecordingManager;
@@ -253,6 +253,8 @@ pub struct RecordingTranscript {
     pub text: String,
     pub submit: bool,
     pub scrubbed: bool,
+    /// The words the dictionary changed in `text`.
+    pub fixes: Vec<Fix>,
 }
 
 struct RawTranscript {
@@ -1146,7 +1148,7 @@ impl TranscriptionManager {
         let settings = get_settings(&self.app_handle);
         let (text, submit) = split_voice_submit(finalized.text, voice_submit_keyword);
         let (text, scrubbed) = apply_scrub(text, &settings);
-        let filtered = post_process_transcription_text(
+        let (filtered, fixes) = post_process_transcription_text_with_fixes(
             text,
             &settings,
             false,
@@ -1159,6 +1161,7 @@ impl TranscriptionManager {
             text: filtered,
             submit,
             scrubbed,
+            fixes,
         }))
     }
 
@@ -1240,7 +1243,7 @@ impl TranscriptionManager {
 
         let (text, submit) = split_voice_submit(raw.text, voice_submit_keyword);
         let (text, scrubbed) = apply_scrub(text, &settings);
-        let filtered_result = post_process_transcription_text(
+        let (filtered_result, fixes) = post_process_transcription_text_with_fixes(
             text,
             &settings,
             raw.model_is_whisper,
@@ -1279,6 +1282,7 @@ impl TranscriptionManager {
             text: final_result,
             submit,
             scrubbed,
+            fixes,
         })
     }
 
@@ -1814,6 +1818,7 @@ fn transcribe_cpp_run_plan(
     }
 }
 
+#[cfg(test)]
 fn post_process_transcription_text(
     raw: String,
     settings: &AppSettings,
@@ -1821,13 +1826,33 @@ fn post_process_transcription_text(
     output_language: &OutputLanguageEvidence,
     supported_languages: &[String],
 ) -> String {
-    fail_open_text_transform(raw, |raw| {
+    post_process_transcription_text_with_fixes(
+        raw,
+        settings,
+        custom_words_already_prompted,
+        output_language,
+        supported_languages,
+    )
+    .0
+}
+
+fn post_process_transcription_text_with_fixes(
+    raw: String,
+    settings: &AppSettings,
+    custom_words_already_prompted: bool,
+    output_language: &OutputLanguageEvidence,
+    supported_languages: &[String],
+) -> (String, Vec<Fix>) {
+    let mut fixes = Vec::new();
+    let text = fail_open_text_transform(raw, |raw| {
         let corrected = if !settings.custom_words.is_empty() && !custom_words_already_prompted {
-            apply_custom_words(
+            let (corrected, found) = apply_custom_words_with_fixes(
                 &raw,
                 &settings.custom_words,
                 settings.word_correction_threshold,
-            )
+            );
+            fixes = found;
+            corrected
         } else {
             raw
         };
@@ -1856,7 +1881,8 @@ fn post_process_transcription_text(
         );
 
         normalize_transcription_output(&without_fillers)
-    })
+    });
+    (text, fixes)
 }
 
 fn fail_open_text_transform<F>(raw: String, transform: F) -> String

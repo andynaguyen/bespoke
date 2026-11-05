@@ -101,7 +101,9 @@ impl Page for EmptyPage {}
 pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle {
     match section {
         Section::Dictate => PageHandle::new(cx.new(|cx| dictate::DictatePage::new(window, cx))),
-        Section::Dictionary => PageHandle::new(cx.new(dictionary::DictionaryPage::new)),
+        Section::Dictionary => {
+            PageHandle::new(cx.new(|cx| dictionary::DictionaryPage::new(window, cx)))
+        }
         Section::Stats => PageHandle::new(cx.new(stats::StatsPage::new)),
         Section::Models => PageHandle::new(cx.new(|cx| models::ModelsPage::new(window, cx))),
         #[cfg(target_os = "macos")]

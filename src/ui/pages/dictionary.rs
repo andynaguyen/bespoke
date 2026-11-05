@@ -1,24 +1,33 @@
+use std::collections::HashSet;
+use std::ops::RangeInclusive;
+
 use gpui::{
-    div, prelude::*, px, rems, AnyView, App, Context, Entity, FontWeight, SharedString,
-    Subscription, Window,
+    div, prelude::*, px, rems, AnyElement, AnyView, App, Context, Div, Entity, FontWeight, Pixels,
+    SharedString, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
 
-use crate::i18n::{t, t_with};
+use crate::app_handle::AppEvent;
+use crate::audio_toolkit::{apply_custom_words_with_fixes, build_match_key};
+use crate::i18n::{t, t_count, t_with};
 use crate::settings::{AppSettings, Snippet};
 use crate::shortcut;
+use crate::try_it::Take;
+use crate::ui::clay::keycap;
 use crate::ui::components::{
-    focus_handle_for, icon, Button, ButtonVariant, Dialog, FocusVisible, KeyboardFocus,
+    focus_handle_for, icon, Button, ButtonSize, ButtonVariant, Dialog, FocusVisible, KeyboardFocus,
     RowDirection, SettingsGroup, TextArea, TextField, Typography,
 };
+use crate::ui::event_bus::event_bus;
 use crate::ui::shell::{close_dialog, open_dialog};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, tw, Alpha};
+use crate::ui::theme::{palette, radius, tw, Alpha, MONO_FONT};
 
 use super::rows::set;
 
 const MAX_PHRASE_LENGTH: usize = 50;
 const MAX_TEXT_LENGTH: usize = 4000;
+const TRANSCRIBE_BINDING: &str = "transcribe";
 
 fn normalize_word(word: &str) -> String {
     word.chars()
@@ -63,7 +72,7 @@ fn set_snippets(snippets: Vec<Snippet>, cx: &mut App) {
     );
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum EntryRef {
     Word(usize),
     Snippet(usize),
@@ -158,42 +167,353 @@ fn remove_entry(at: EntryRef, cx: &mut App) {
     }
 }
 
+const INSPECTOR_WIDTH: f32 = 280.;
+const CHIP_HEIGHT: f32 = 28.;
+const PHRASE_COLUMN: f32 = 150.;
+const ARROW_COLUMN: f32 = 22.;
+
+/// GPUI doesn't clip children to rounded corners.
+fn group_inner_radius() -> Pixels {
+    radius::CARD - px(1.)
+}
+
+#[derive(Debug, PartialEq)]
+enum Piece {
+    Plain(String),
+    Fix { heard: String, written: String },
+}
+
+fn pieces(take: &Take) -> Vec<Piece> {
+    let text = &take.text;
+    let mut out = Vec::new();
+    let mut cursor = 0;
+    for fix in &take.fixes {
+        let Some(start) = find_ignoring_case(&text[cursor..], &fix.written).map(|i| cursor + i)
+        else {
+            continue;
+        };
+        let end = start + fix.written.len();
+        if start > cursor {
+            out.push(Piece::Plain(text[cursor..start].to_string()));
+        }
+        out.push(Piece::Fix {
+            heard: fix.heard.clone(),
+            written: text[start..end].to_string(),
+        });
+        cursor = end;
+    }
+    if cursor < text.len() {
+        out.push(Piece::Plain(text[cursor..].to_string()));
+    }
+    out
+}
+
+fn find_ignoring_case(haystack: &str, needle: &str) -> Option<usize> {
+    if needle.is_empty() {
+        return None;
+    }
+    haystack.find(needle).or_else(|| {
+        haystack.char_indices().map(|(i, _)| i).find(|&i| {
+            haystack
+                .get(i..i + needle.len())
+                .is_some_and(|candidate| candidate.eq_ignore_ascii_case(needle))
+        })
+    })
+}
+
+fn used_entries(take: &Take, settings: &AppSettings) -> HashSet<EntryRef> {
+    let tokens: Vec<String> = take.text.split_whitespace().map(build_match_key).collect();
+    let words = settings
+        .custom_words
+        .iter()
+        .enumerate()
+        .filter_map(|(i, word)| {
+            let key = build_match_key(word);
+            let span = word.split_whitespace().count().max(1);
+            let fixed = take
+                .fixes
+                .iter()
+                .any(|fix| !fix.replacement && build_match_key(&fix.written) == key);
+            let spelled = !key.is_empty() && tokens.windows(span).any(|run| run.concat() == key);
+            (fixed || spelled).then_some(EntryRef::Word(i))
+        });
+    let snippets = settings
+        .snippets
+        .iter()
+        .enumerate()
+        .filter_map(|(i, snippet)| {
+            let key = trigger_key(&snippet.trigger);
+            take.fixes
+                .iter()
+                .any(|fix| fix.replacement && trigger_key(&fix.heard) == key)
+                .then_some(EntryRef::Snippet(i))
+        });
+    words.chain(snippets).collect()
+}
+
+struct TakeItem {
+    joins_previous: bool,
+    element: AnyElement,
+}
+
+fn unspaced_runs(items: Vec<TakeItem>) -> Vec<Div> {
+    let mut runs: Vec<Vec<AnyElement>> = Vec::new();
+    for item in items {
+        match runs.last_mut() {
+            Some(run) if item.joins_previous => run.push(item.element),
+            _ => runs.push(vec![item.element]),
+        }
+    }
+    runs.into_iter()
+        .map(|run| div().flex().row_dir().items_baseline().children(run))
+        .collect()
+}
+
+fn word_catches(heard: &str, word: &str, threshold: f64) -> bool {
+    build_match_key(heard) == build_match_key(word)
+        || !apply_custom_words_with_fixes(heard, &[word.to_string()], threshold)
+            .1
+            .is_empty()
+}
+
+struct TakeWord {
+    piece: usize,
+    text: String,
+}
+
+enum TeachError {
+    Incomplete,
+    Duplicate(String),
+}
+
 pub struct DictionaryPage {
     store: Entity<SettingsStore>,
+    take: Option<Take>,
+    selection: Option<RangeInclusive<usize>>,
+    spelling: Entity<InputState>,
+    just_added: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
 
+impl Drop for DictionaryPage {
+    fn drop(&mut self) {
+        crate::try_it::set_dictionary_active(false);
+    }
+}
+
 impl DictionaryPage {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = SettingsStore::global(cx);
-        let subscriptions = vec![cx.observe(&store, |_, _, cx| cx.notify())];
-        Self {
+        let spelling = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder(t("settings.dictionary.spellingPlaceholder"))
+                .validate(|text, _| text.chars().count() <= MAX_PHRASE_LENGTH)
+        });
+        crate::try_it::set_dictionary_active(window.is_window_active());
+        let subscriptions = vec![
+            cx.observe(&store, |_, _, cx| cx.notify()),
+            cx.observe_window_activation(window, |_, window, cx| {
+                crate::try_it::set_dictionary_active(window.is_window_active());
+                cx.notify();
+            }),
+            cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
+                if event.name == crate::try_it::TAKE_EVENT {
+                    if let Some(take) = event.parse::<Take>() {
+                        this.take = Some(take);
+                        this.selection = None;
+                        this.just_added = None;
+                        cx.notify();
+                    }
+                }
+            }),
+            cx.subscribe_in(
+                &spelling,
+                window,
+                |this, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::Change => cx.notify(),
+                    InputEvent::PressEnter { .. } => {
+                        let replacement = !this.spelling_catches(cx);
+                        this.teach(replacement, window, cx);
+                    }
+                    _ => {}
+                },
+            ),
+        ];
+        #[allow(unused_mut)]
+        let mut this = Self {
             store,
+            take: None,
+            selection: None,
+            spelling,
+            just_added: None,
             _subscriptions: subscriptions,
+        };
+        #[cfg(debug_assertions)]
+        this.seed_dev_take(window, cx);
+        this
+    }
+
+    #[cfg(debug_assertions)]
+    fn seed_dev_take(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Ok(heard) = std::env::var("BESPOKE_DEV_TAKE") else {
+            return;
+        };
+        let settings = SettingsStore::get(cx);
+        let (text, mut fixes) = apply_custom_words_with_fixes(
+            &heard,
+            &settings.custom_words,
+            settings.word_correction_threshold,
+        );
+        let (text, replacements) = crate::audio_toolkit::expand_snippets_with_fixes(
+            &text,
+            settings
+                .snippets
+                .iter()
+                .map(|snippet| (snippet.trigger.as_str(), snippet.text.as_str())),
+        );
+        fixes.extend(replacements);
+        self.take = Some(Take { text, fixes });
+        if let Some(index) = std::env::var("BESPOKE_DEV_TAKE_PICK")
+            .ok()
+            .and_then(|pick| pick.parse().ok())
+        {
+            self.pick(index, false, window, cx);
         }
+    }
+
+    fn plain_words(&self) -> Vec<TakeWord> {
+        let Some(take) = &self.take else {
+            return Vec::new();
+        };
+        pieces(take)
+            .into_iter()
+            .enumerate()
+            .filter_map(|(piece, part)| match part {
+                Piece::Plain(text) => Some((piece, text)),
+                Piece::Fix { .. } => None,
+            })
+            .flat_map(|(piece, text)| {
+                text.split_whitespace()
+                    .map(|word| TakeWord {
+                        piece,
+                        text: word.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    fn heard(&self) -> Option<String> {
+        let selection = self.selection.clone()?;
+        let words = self.plain_words();
+        let picked = words.get(selection)?;
+        let joined = picked
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let heard = joined.trim_matches(|c: char| !c.is_alphanumeric());
+        (!heard.is_empty()).then(|| heard.to_string())
+    }
+
+    fn pick(&mut self, index: usize, extend: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let words = self.plain_words();
+        let piece = |i: usize| words.get(i).map(|word| word.piece);
+        self.selection = match self.selection.clone() {
+            Some(range) if extend && piece(*range.start()) == piece(index) => {
+                Some((*range.start()).min(index)..=(*range.end()).max(index))
+            }
+            Some(range) if !extend && range == (index..=index) => None,
+            _ => Some(index..=index),
+        };
+        self.just_added = None;
+        self.spelling.update(cx, |input, cx| {
+            input.set_value("", window, cx);
+            input.focus(window, cx);
+        });
+        cx.notify();
+    }
+
+    fn spelling_catches(&self, cx: &App) -> bool {
+        let spelling = normalize_word(&self.spelling.read(cx).value());
+        let threshold = SettingsStore::get(cx).word_correction_threshold;
+        self.heard()
+            .is_some_and(|heard| word_catches(&heard, &spelling, threshold))
+    }
+
+    fn teach_draft(&self, replacement: bool, cx: &App) -> Result<Draft, TeachError> {
+        let heard = self.heard().ok_or(TeachError::Incomplete)?;
+        let spelling = normalize_word(&self.spelling.read(cx).value());
+        if spelling.is_empty() || spelling.chars().count() > MAX_PHRASE_LENGTH || spelling == heard
+        {
+            return Err(TeachError::Incomplete);
+        }
+        let settings = SettingsStore::get(cx);
+        if replacement {
+            if is_duplicate(&heard, true, None, settings) {
+                return Err(TeachError::Duplicate(heard));
+            }
+            Ok(Draft::Snippet(Snippet {
+                trigger: heard,
+                text: spelling,
+            }))
+        } else {
+            if is_duplicate(&spelling, false, None, settings) {
+                return Err(TeachError::Duplicate(spelling));
+            }
+            Ok(Draft::Word(spelling))
+        }
+    }
+
+    fn teach(&mut self, replacement: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Ok(draft) = self.teach_draft(replacement, cx) else {
+            return;
+        };
+        let added = match &draft {
+            Draft::Word(word) => word.clone(),
+            Draft::Snippet(snippet) => snippet.trigger.clone(),
+        };
+        let stored = SettingsStore::get(cx);
+        let mut words = stored.custom_words.clone();
+        let mut snippets = stored.snippets.clone();
+        place(draft, None, &mut words, &mut snippets);
+        if replacement {
+            set_snippets(snippets, cx);
+        } else {
+            set_words(words, cx);
+        }
+        self.just_added = Some(added);
+        self.selection = None;
+        self.spelling
+            .update(cx, |input, cx| input.set_value("", window, cx));
+        cx.notify();
     }
 
     fn render_dictionary(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let store = self.store.read(cx);
         let updating = store.is_updating("custom_words") || store.is_updating("snippets");
+        let fired = self
+            .take
+            .as_ref()
+            .map(|take| used_entries(take, &store.settings))
+            .unwrap_or_default();
+        let added = self.just_added.as_deref().map(normalize_word);
+        let is_added =
+            |entry: &Entry| added.as_deref() == Some(normalize_word(&entry.phrase).as_str());
         let all = entries(&store.settings);
         let (replacements, words): (Vec<Entry>, Vec<Entry>) =
             all.into_iter().partition(|entry| entry.text.is_some());
         let entry_focus = FocusVisible::styled(cx, |s| s.underline());
-        let section_title = |key: &str| {
-            div()
-                .text_px(11.)
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(p.mid_gray)
-                .child(t(key))
-        };
+        let lit = p.data;
 
+        let first_row = replacements.first().map(|entry| entry.at);
         let rows = replacements.into_iter().map(|entry| {
             let at = entry.at;
             let id = entry_id(at);
             let group = SharedString::from(format!("entry-{id}"));
             let handle = focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx);
+            let used = fired.contains(&at) || is_added(&entry);
             let preview = entry
                 .text
                 .unwrap_or_default()
@@ -207,7 +527,11 @@ impl DictionaryPage {
                 .items_center()
                 .gap_3()
                 .pe(px(8.))
-                .hover(|s| s.bg(p.card))
+                .when(first_row == Some(at), |el| {
+                    el.rounded_t(group_inner_radius())
+                })
+                .when(used, |el| el.bg(lit.a(0.14)))
+                .when(!used, |el| el.hover(|s| s.bg(p.card)))
                 .child(
                     entry_focus
                         .clone()
@@ -218,7 +542,7 @@ impl DictionaryPage {
                         .row_dir()
                         .items_center()
                         .ps(px(14.))
-                        .h(px(38.))
+                        .h(px(42.))
                         .text_px(13.)
                         .cursor_pointer()
                         .on_click(move |_, window, cx| {
@@ -229,6 +553,7 @@ impl DictionaryPage {
                                 .w(px(PHRASE_COLUMN))
                                 .flex_shrink_0()
                                 .pe(px(12.))
+                                .font_weight(FontWeight::MEDIUM)
                                 .truncate()
                                 .child(entry.phrase.clone()),
                         )
@@ -243,8 +568,14 @@ impl DictionaryPage {
                             div()
                                 .flex_1()
                                 .min_w_0()
+                                .px(px(8.))
+                                .py(px(3.))
+                                .rounded_md()
+                                .bg(p.text.a(0.05))
+                                .font_family(MONO_FONT)
+                                .text_px(12.)
+                                .text_color(p.text.a(0.8))
                                 .truncate()
-                                .text_color(p.text.a(0.7))
                                 .child(preview),
                         ),
                 )
@@ -264,6 +595,8 @@ impl DictionaryPage {
             let id = entry_id(at);
             let group = SharedString::from(format!("chip-{id}"));
             let handle = focus_handle_for(SharedString::from(format!("edit-{id}")).into(), cx);
+            let new = is_added(&entry);
+            let used = fired.contains(&at);
             div()
                 .group(group.clone())
                 .relative()
@@ -275,18 +608,33 @@ impl DictionaryPage {
                         .px(px(12.))
                         .flex()
                         .items_center()
+                        .gap(px(6.))
                         .rounded_full()
-                        .bg(p.card)
                         .border_1()
-                        .border_color(p.line)
                         .text_px(13.)
                         .whitespace_nowrap()
                         .cursor_pointer()
-                        .hover(|s| s.bg(p.text.a(0.08)))
+                        .map(|el| match (new, used) {
+                            (true, _) => el.border_color(lit).bg(lit.a(0.12)),
+                            (false, true) => el.border_color(lit.a(0.7)).bg(lit.a(0.2)),
+                            (false, false) => el
+                                .bg(p.card)
+                                .border_color(p.line)
+                                .hover(|s| s.bg(p.text.a(0.08))),
+                        })
                         .on_click(move |_, window, cx| {
                             open_entry_dialog(Target::Existing(at), window, cx)
                         })
-                        .child(entry.phrase.clone()),
+                        .child(entry.phrase.clone())
+                        .when(new, |el| {
+                            el.child(
+                                div()
+                                    .text_px(11.)
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(lit)
+                                    .child(t("settings.dictionary.addedTag")),
+                            )
+                        }),
                 )
                 .child(remove_badge(
                     SharedString::from(format!("remove-{id}")),
@@ -302,9 +650,16 @@ impl DictionaryPage {
         let section_header = |title: &str, caption: &str| {
             div()
                 .flex()
-                .flex_col()
-                .gap(px(2.))
-                .child(section_title(title))
+                .row_dir()
+                .items_baseline()
+                .gap_2()
+                .child(
+                    div()
+                        .text_px(11.)
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(p.mid_gray)
+                        .child(t(title)),
+                )
                 .child(
                     div()
                         .text_px(12.)
@@ -319,12 +674,6 @@ impl DictionaryPage {
             .gap(px(24.))
             .child(
                 div()
-                    .sm_text()
-                    .text_color(p.text.a(0.65))
-                    .child(t("settings.dictionary.intro")),
-            )
-            .child(
-                div()
                     .flex()
                     .flex_col()
                     .gap(px(8.))
@@ -335,7 +684,7 @@ impl DictionaryPage {
                     .child(
                         SettingsGroup::new()
                             .children(rows)
-                            .child(add_replacement_row(cx)),
+                            .child(add_replacement_row(first_row.is_none(), cx)),
                     ),
             )
             .child(
@@ -358,9 +707,286 @@ impl DictionaryPage {
                     ),
             )
     }
+
+    fn render_try_it(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let p = palette(cx);
+        let lit = p.data;
+        let shortcut = SettingsStore::get(cx)
+            .bindings
+            .get(TRANSCRIBE_BINDING)
+            .map(|binding| {
+                scrawl::host::shortcut_from_binding(&binding.current_binding)
+                    .map_or_else(|| binding.current_binding.clone(), |c| c.label)
+            })
+            .unwrap_or_default();
+
+        let hint = t("settings.dictionary.tryItHint");
+        let mut hint_line = div()
+            .flex()
+            .row_dir()
+            .flex_wrap()
+            .items_center()
+            .gap(px(4.))
+            .text_px(12.)
+            .line_height(px(20.))
+            .text_color(p.text.a(0.6));
+        match hint.split_once("{{shortcut}}") {
+            Some((before, after)) if !shortcut.is_empty() => {
+                for word in before.split_whitespace() {
+                    hint_line = hint_line.child(SharedString::from(word.to_string()));
+                }
+                hint_line = hint_line.child(keycap(shortcut, 18., p.clay, p.text, p.is_dark));
+                for word in after.split_whitespace() {
+                    hint_line = hint_line.child(SharedString::from(word.to_string()));
+                }
+            }
+            _ => hint_line = hint_line.child(hint.replace("{{shortcut}}", "")),
+        }
+
+        let mut body = div()
+            .flex()
+            .flex_col()
+            .gap(px(14.))
+            .child(
+                div()
+                    .text_px(11.)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(p.mid_gray)
+                    .child(t("settings.dictionary.tryIt")),
+            )
+            .child(
+                div()
+                    .p(px(12.))
+                    .rounded(px(12.))
+                    .border_1()
+                    .border_color(p.line)
+                    .bg(p.card)
+                    .child(hint_line),
+            );
+
+        let Some(take) = &self.take else {
+            return body;
+        };
+        if take.text.trim().is_empty() {
+            return body.child(
+                div()
+                    .text_px(13.)
+                    .text_color(p.text.a(0.6))
+                    .child(t("settings.dictionary.tryItEmpty")),
+            );
+        }
+
+        let selection = self.selection.clone();
+        let mut items: Vec<TakeItem> = Vec::new();
+        let mut glue = false;
+        let mut index = 0;
+        let mut fixed = 0;
+        for piece in pieces(take) {
+            match piece {
+                Piece::Fix { heard, written } => {
+                    fixed += 1;
+                    let written = written.split_whitespace().collect::<Vec<_>>().join(" ");
+                    items.push(TakeItem {
+                        joins_previous: glue,
+                        element: div()
+                            .flex()
+                            .row_dir()
+                            .items_baseline()
+                            .gap(px(4.))
+                            .px(px(4.))
+                            .rounded(px(5.))
+                            .bg(lit.a(0.2))
+                            .when(!heard.is_empty(), |el| {
+                                el.child(
+                                    div()
+                                        .text_px(10.)
+                                        .line_through()
+                                        .text_color(p.text.a(0.5))
+                                        .child(heard),
+                                )
+                            })
+                            .child(written)
+                            .into_any_element(),
+                    });
+                    glue = true;
+                }
+                Piece::Plain(text) => {
+                    let mut first = !text.starts_with(char::is_whitespace);
+                    for word in text.split_whitespace() {
+                        let i = index;
+                        index += 1;
+                        let picked = selection.as_ref().is_some_and(|range| range.contains(&i));
+                        items.push(TakeItem {
+                            joins_previous: glue && first,
+                            element: div()
+                                .id(("take-word", i))
+                                .when(!(glue && first), |el| el.px(px(1.5)))
+                                .rounded(px(4.))
+                                .cursor_pointer()
+                                .when(picked, |el| el.bg(p.warning.a(0.25)))
+                                .when(!picked, |el| el.hover(|s| s.bg(p.text.a(0.08))))
+                                .on_click(cx.listener(
+                                    move |this, event: &gpui::ClickEvent, window, cx| {
+                                        this.pick(i, event.modifiers().shift, window, cx)
+                                    },
+                                ))
+                                .child(word.to_string())
+                                .into_any_element(),
+                        });
+                        first = false;
+                    }
+                    glue = !text.ends_with(char::is_whitespace);
+                }
+            }
+        }
+        let words = unspaced_runs(items);
+
+        body = body.child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(6.))
+                .child(
+                    div()
+                        .flex()
+                        .row_dir()
+                        .flex_wrap()
+                        .items_baseline()
+                        .gap_x(px(1.5))
+                        .gap_y(px(4.))
+                        .text_px(14.)
+                        .line_height(px(22.))
+                        .children(words),
+                )
+                .child(div().text_px(11.).text_color(p.text.a(0.5)).child(t_count(
+                    "settings.dictionary.fixedCount",
+                    fixed,
+                    &[],
+                ))),
+        );
+
+        if let Some(heard) = self.heard() {
+            let catches = self.spelling_catches(cx);
+            let spelling_empty = normalize_word(&self.spelling.read(cx).value()).is_empty();
+            let word_draft = self.teach_draft(false, cx);
+            let replacement_draft = self.teach_draft(true, cx);
+            let duplicate = match if catches {
+                &word_draft
+            } else {
+                &replacement_draft
+            } {
+                Err(TeachError::Duplicate(entry)) => Some(entry.clone()),
+                _ => None,
+            };
+            body = body.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(8.))
+                    .p(px(10.))
+                    .rounded(px(10.))
+                    .border_1()
+                    .border_color(p.warning.a(0.6))
+                    .bg(p.warning.a(0.08))
+                    .text_px(12.)
+                    .child(
+                        div()
+                            .flex()
+                            .row_dir()
+                            .items_center()
+                            .gap(px(6.))
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .text_color(p.text.a(0.6))
+                                    .child(t("settings.dictionary.teachLabel")),
+                            )
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .font_family(MONO_FONT)
+                                    .child(heard.clone()),
+                            ),
+                    )
+                    .child(TextField::new(&self.spelling).w_full())
+                    .when(!spelling_empty && !catches, |el| {
+                        el.child(div().text_color(p.text.a(0.6)).child(t_with(
+                            "settings.dictionary.wontMatch",
+                            &[("heard", &heard)],
+                        )))
+                    })
+                    .when_some(duplicate, |el, word| {
+                        el.child(
+                            div()
+                                .text_color(tw::red_500())
+                                .child(t_with("settings.dictionary.duplicate", &[("word", &word)])),
+                        )
+                    })
+                    .child(
+                        div()
+                            .flex()
+                            .row_dir()
+                            .flex_wrap()
+                            .gap(px(6.))
+                            .child(
+                                Button::new("teach-word")
+                                    .size(ButtonSize::Sm)
+                                    .when(!catches, |b| b.variant(ButtonVariant::Secondary))
+                                    .disabled(word_draft.is_err())
+                                    .child(t("settings.dictionary.teachWord"))
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.teach(false, window, cx)
+                                    })),
+                            )
+                            .child(
+                                Button::new("teach-replacement")
+                                    .size(ButtonSize::Sm)
+                                    .when(catches, |b| b.variant(ButtonVariant::Secondary))
+                                    .disabled(replacement_draft.is_err())
+                                    .child(t("settings.dictionary.teachReplacement"))
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.teach(true, window, cx)
+                                    })),
+                            ),
+                    ),
+            );
+        } else if self.just_added.is_some() {
+            body = body.child(
+                div()
+                    .text_px(12.)
+                    .text_color(lit)
+                    .child(t("settings.dictionary.added")),
+            );
+        } else {
+            body = body.child(
+                div()
+                    .text_px(12.)
+                    .text_color(p.text.a(0.55))
+                    .child(t("settings.dictionary.pickWord")),
+            );
+        }
+        body
+    }
 }
 
-impl super::Page for DictionaryPage {}
+impl super::Page for DictionaryPage {
+    fn inspector(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        Some(crate::ui::shell::inspector(
+            "dictionary-try-it",
+            INSPECTOR_WIDTH,
+            Vec::new(),
+            div()
+                .id("dictionary-try-it-scroll")
+                .size_full()
+                .overflow_y_scroll()
+                .px_4()
+                .pb(px(16.))
+                .child(self.render_try_it(cx)),
+        ))
+    }
+}
 
 impl Render for DictionaryPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -438,10 +1064,6 @@ fn remove_badge(
         .child(icon("x").size(px(10.)))
 }
 
-const PHRASE_COLUMN: f32 = 200.;
-const ARROW_COLUMN: f32 = 28.;
-const CHIP_HEIGHT: f32 = 28.;
-
 fn entry_id(at: EntryRef) -> String {
     match at {
         EntryRef::Word(index) => format!("word-{index}"),
@@ -474,10 +1096,12 @@ fn add_word_chip(cx: &App) -> impl IntoElement {
         .child(t("settings.dictionary.addWord"))
 }
 
-fn add_replacement_row(cx: &App) -> impl IntoElement {
+fn add_replacement_row(is_first_row: bool, cx: &App) -> impl IntoElement {
     let p = palette(cx);
     div()
         .id("add-replacement")
+        .rounded_b(group_inner_radius())
+        .when(is_first_row, |el| el.rounded_t(group_inner_radius()))
         .flex()
         .row_dir()
         .items_center()
@@ -723,6 +1347,7 @@ impl Render for EntryDialog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio_toolkit::Fix;
 
     #[test]
     fn normalizes_words() {
@@ -809,5 +1434,71 @@ mod tests {
         );
         assert_eq!(snippets[0], snippet("my email", "b@example.com"));
         assert_eq!(words, ["IntraFi", "Carat"]);
+    }
+
+    fn fix(heard: &str, written: &str, replacement: bool) -> Fix {
+        Fix {
+            heard: heard.into(),
+            written: written.into(),
+            replacement,
+        }
+    }
+
+    #[test]
+    fn pieces_split_a_take_around_its_fixes() {
+        let take = Take {
+            text: "Ping the karat team, mail andy@example.com.".into(),
+            fixes: vec![
+                fix("karet", "Karat", false),
+                fix("missing", "Nowhere", false),
+                fix("my email", "andy@example.com", true),
+            ],
+        };
+        assert_eq!(
+            pieces(&take),
+            [
+                Piece::Plain("Ping the ".into()),
+                Piece::Fix {
+                    heard: "karet".into(),
+                    written: "karat".into(),
+                },
+                Piece::Plain(" team, mail ".into()),
+                Piece::Fix {
+                    heard: "my email".into(),
+                    written: "andy@example.com".into(),
+                },
+                Piece::Plain(".".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn fired_counts_fixes_and_words_the_model_spelled_itself() {
+        let settings = settings(
+            &["Karat", "IntraFi Network", "GPUI", "Hasura"],
+            vec![
+                snippet("my email", "a@example.com"),
+                snippet("sign off", "Bye"),
+            ],
+        );
+        let take = Take {
+            text: "Karat uses the IntraFi network and a@example.com".into(),
+            fixes: vec![
+                fix("karet", "Karat", false),
+                fix("My Email", "a@example.com", true),
+            ],
+        };
+        let fired = used_entries(&take, &settings);
+        assert_eq!(
+            fired,
+            HashSet::from([EntryRef::Word(0), EntryRef::Word(1), EntryRef::Snippet(0),])
+        );
+    }
+
+    #[test]
+    fn a_word_catches_only_what_the_dictionary_would_change() {
+        assert!(word_catches("intra fi", "IntraFi", 0.18));
+        assert!(word_catches("linear", "Linear", 0.18));
+        assert!(!word_catches("lino", "Linear", 0.18));
     }
 }
