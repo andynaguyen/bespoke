@@ -2,33 +2,24 @@ name: Release benchmark
 
 on:
   push:
-    branches: ["andy/speed-up-release-ci"]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
-    inputs:
-      variant:
-        description: Release profile to measure
-        type: choice
-        default: off-prebuilt-opt1-shared
-        options: [off-prebuilt-opt1-shared, off-prebuilt-opt1-media, off-prebuilt-opt1, off-prebuilt-ui1, off-prebuilt, off-codecs, off-codecs-pch, off-platform, off, off-jobs2, thin, fat]
 
 permissions:
   contents: write
 
 jobs:
   measure:
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["off-prebuilt-opt1-media", "off-prebuilt-opt1-shared"]') }}
+    # Signed benchmarks need repository secrets. Fork PRs can run local checks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/release.yml
-    with:
-      variant: ${{ matrix.variant }}
-      cold: true
     secrets: inherit
 
   budget:
     needs: measure
-    if: always()
+    if: always() && needs.measure.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read

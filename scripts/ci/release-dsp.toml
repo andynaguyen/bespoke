@@ -1,4 +1,4 @@
-# Keep the Rust speech and signal-processing crates optimized in this experiment.
+# Keep the Rust speech and signal-processing crates optimized in CI.
 
 [profile.release.package.transcribe-cpp-sys]
 opt-level = 3
