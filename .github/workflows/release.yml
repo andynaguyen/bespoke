@@ -8,7 +8,7 @@ on:
     inputs:
       variant:
         type: string
-        default: fat
+        default: thin
 
 permissions:
   contents: write
@@ -23,8 +23,8 @@ jobs:
     timeout-minutes: 120
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-      CARGO_PROFILE_RELEASE_LTO: ${{ inputs.variant == 'thin' && 'thin' || 'fat' }}
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'thin' && '16' || '1' }}
+      CARGO_PROFILE_RELEASE_LTO: ${{ inputs.variant == 'fat' && 'fat' || 'thin' }}
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'fat' && '1' || '16' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -51,7 +51,8 @@ jobs:
           shared-key: release-${{ runner.os }}-${{ runner.arch }}-${{ steps.native.outputs.key }}
 
       - name: Fetch dependencies
-        run: cargo fetch --locked
+        run: |
+          cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
 
       - name: Compile release
         run: cargo build --release --locked --timings
@@ -85,6 +86,8 @@ jobs:
 
       - name: Build, sign and publish
         env:
+          # Rust cache pruning removes executables from downloaded frameworks.
+          BESPOKE_SPARKLE_CACHE: ${{ runner.temp }}/sparkle
           GH_TOKEN: ${{ github.token }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           PUBLISH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && '--publish' || '' }}
@@ -93,7 +96,7 @@ jobs:
       - if: github.event_name != 'push' || startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
-          name: bespoke-release-${{ inputs.variant || 'fat' }}
+          name: bespoke-release-${{ inputs.variant || 'thin' }}
           path: |
             dist/
             target/cargo-timings/

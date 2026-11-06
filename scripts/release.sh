@@ -50,7 +50,7 @@ if $PUBLISH; then
   fi
 fi
 
-SPARKLE_DIR="target/sparkle/$SPARKLE_VERSION"
+SPARKLE_DIR="${BESPOKE_SPARKLE_CACHE:-target/sparkle}/$SPARKLE_VERSION"
 if [[ ! -d "$SPARKLE_DIR/Sparkle.framework" ]]; then
   echo "Downloading Sparkle $SPARKLE_VERSION..."
   mkdir -p "$SPARKLE_DIR"
