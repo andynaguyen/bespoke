@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   dependencies:
@@ -43,13 +44,12 @@ jobs:
           python3 scripts/ci/cold-dependencies.py pack --group "$GROUP" --directory "$RUNNER_TEMP/cold-deps"
       - uses: actions/upload-artifact@v4
         with:
-          name: cold-deps-${{ matrix.group }}
+          name: cold-deps-${{ github.run_attempt }}-${{ matrix.group }}
           path: ${{ runner.temp }}/cold-deps/
           compression-level: 0
           retention-days: 1
 
   measure:
-    needs: dependencies
     # Signed benchmarks need repository secrets. Fork PRs can run local checks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/release.yml
@@ -72,4 +72,5 @@ jobs:
         shell: bash
         run: |
           python3 scripts/ci/test_measure_release.py
+          python3 scripts/ci/test_cold_dependencies.py
           python3 scripts/ci/measure-release.py "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"

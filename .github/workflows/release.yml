@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -58,18 +59,19 @@ jobs:
         if: inputs.dependency-artifacts
         run: python3 scripts/ci/cold-dependencies.py prepare
 
-      - uses: actions/download-artifact@v4
+      - name: Download each dependency group as it finishes
         if: inputs.dependency-artifacts
-        with:
-          pattern: cold-deps-*
-          path: ${{ runner.temp }}/cold-deps
-          merge-multiple: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/cold-dependencies.py download --directory "$RUNNER_TEMP/cold-deps"
 
       - name: Restore dependencies compiled during this run
         if: inputs.dependency-artifacts
         run: python3 scripts/ci/cold-dependencies.py restore --directory "$RUNNER_TEMP/cold-deps"
 
       - name: Compile release
+        env:
+          CARGO_LOG: ${{ inputs.dependency-artifacts && 'cargo::core::compiler::fingerprint=info' || '' }}
         run: |
           /usr/bin/time -l cargo rustc --release --locked --timings \
             --config scripts/ci/release-dsp.toml -- \

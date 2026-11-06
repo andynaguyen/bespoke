@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import time
 
 
 def output(*command):
@@ -13,7 +14,10 @@ def output(*command):
 
 
 def identity():
+    subprocess.run(["git", "diff", "--quiet", "HEAD"], check=True)
     return {
+        "run": os.environ.get("GITHUB_RUN_ID"),
+        "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
         'commit': output('git', 'rev-parse', 'HEAD'),
         'rust': output('rustc', '-vV'),
         'xcode': output('xcodebuild', '-version'),
@@ -21,21 +25,38 @@ def identity():
     }
 
 
+def source_time():
+    return int(output('git', 'show', '-s', '--format=%ct', 'HEAD'))
+
+
+def set_times(directory, timestamp):
+    if not directory.exists():
+        return
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d != '.git']
+        for name in dirs + files:
+            os.utime(Path(root) / name, (timestamp, timestamp), follow_symlinks=False)
+        os.utime(root, (timestamp, timestamp), follow_symlinks=False)
+
+
 def prepare():
-    # Cargo compares source mtimes with fingerprints. Each fresh checkout must
-    # use the same source times before compiling or consuming these artifacts.
-    timestamp = int(output('git', 'show', '-s', '--format=%ct', 'HEAD'))
+    # Fingerprints and source directories must have consistent times across
+    # fresh checkouts. Contents are fixed by the commit and Cargo.lock.
+    timestamp = source_time()
     tracked = subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0')
+    parents = set()
     for raw in tracked:
         if raw:
-            os.utime(os.fsdecode(raw), (timestamp, timestamp), follow_symlinks=False)
+            path = Path(os.fsdecode(raw))
+            os.utime(path, (timestamp, timestamp), follow_symlinks=False)
+            parents.update(path.parents)
+    for parent in parents:
+        os.utime(parent, (timestamp, timestamp), follow_symlinks=False)
     cargo = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
     for directory in (cargo / 'registry/src', cargo / 'git/checkouts'):
-        if directory.exists():
-            for root, dirs, files in os.walk(directory):
-                dirs[:] = [d for d in dirs if d != '.git']
-                for name in files:
-                    os.utime(Path(root) / name, (timestamp, timestamp), follow_symlinks=False)
+        set_times(directory, timestamp)
+    if os.environ.get('TRANSCRIBE_DIR'):
+        set_times(Path(os.environ['TRANSCRIBE_DIR']), timestamp)
 
 
 def build(group):
@@ -65,7 +86,8 @@ def build(group):
 def pack(group, directory):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f'{group}.json').write_text(json.dumps(identity(), sort_keys=True))
-    subprocess.run(['tar', '--use-compress-program', 'zstd -1 -T0', '-cf',
+    subprocess.run(['tar', '--exclude=ModuleCache', '--exclude=*.pcm', '--exclude=*.dia',
+                    '--use-compress-program', 'zstd -1 -T0', '-cf',
                     str(directory / f'{group}.tar.zst'), 'target/release'], check=True)
 
 
@@ -74,20 +96,52 @@ def restore(directory):
     for group in ('ui', 'platform', 'backend'):
         actual = json.loads((directory / f'{group}.json').read_text())
         if actual != expected:
-            raise SystemExit(f'{group}: source, compiler, SDK or profile differs')
+            raise SystemExit(f'{group}: run attempt, source, compiler, SDK or profile differs')
         subprocess.run(['tar', '--use-compress-program', 'unzstd', '-xf',
                         str(directory / f'{group}.tar.zst')], check=True)
+    # Merging duplicate dependencies from separate workers otherwise makes a
+    # dependency look newer than a crate that already compiled against it.
+    set_times(Path('target/release'), source_time() + 1)
+
+
+def download(directory):
+    repository = os.environ['GITHUB_REPOSITORY']
+    run = os.environ['GITHUB_RUN_ID']
+    attempt = os.environ['GITHUB_RUN_ATTEMPT']
+    pending = {f'cold-deps-{attempt}-{group}' for group in ('ui', 'platform', 'backend')}
+    directory.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + 480
+    while pending:
+        pages = json.loads(output('gh', 'api', '--paginate', '--slurp',
+                                  f'repos/{repository}/actions/runs/{run}/artifacts?per_page=100'))
+        ready = {a['name'] for page in pages for a in page['artifacts'] if not a['expired']}
+        for name in sorted(pending & ready):
+            subprocess.run(['gh', 'run', 'download', run, '--repo', repository,
+                            '--name', name, '--dir', str(directory)], check=True)
+            pending.remove(name)
+            print(f'Downloaded {name}', flush=True)
+        if not pending:
+            return
+        jobs = json.loads(output('gh', 'api',
+                                 f'repos/{repository}/actions/runs/{run}/attempts/{attempt}/jobs?per_page=100'))
+        failed = [j['name'] for j in jobs['jobs'] if j['name'].startswith('Dependencies ')
+                  and j['status'] == 'completed' and j['conclusion'] != 'success']
+        if failed:
+            raise SystemExit(f'Dependency jobs failed: {failed}')
+        if time.monotonic() >= deadline:
+            raise SystemExit(f'Timed out waiting for artifacts: {sorted(pending)}')
+        time.sleep(5)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'build', 'pack', 'restore'])
+    parser.add_argument('action', choices=['prepare', 'build', 'pack', 'restore', 'download'])
     parser.add_argument('--group', choices=['ui', 'platform', 'backend'])
     parser.add_argument('--directory', type=Path)
     args = parser.parse_args()
     if args.action in ('build', 'pack') and not args.group:
         parser.error('--group is required')
-    if args.action in ('pack', 'restore') and args.directory is None:
+    if args.action in ('pack', 'restore', 'download') and args.directory is None:
         parser.error('--directory is required')
     if args.action == 'prepare':
         prepare()
@@ -95,8 +149,10 @@ def main():
         build(args.group)
     elif args.action == 'pack':
         pack(args.group, args.directory)
-    else:
+    elif args.action == 'restore':
         restore(args.directory)
+    else:
+        download(args.directory)
 
 
 if __name__ == '__main__':
