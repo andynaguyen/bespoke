@@ -1,0 +1,13 @@
+# Experiment: lower optimization only for the application and its UI libraries.
+
+[profile.release.package.bespoke]
+opt-level = 1
+
+[profile.release.package.gpui]
+opt-level = 1
+
+[profile.release.package.gpui-component]
+opt-level = 1
+
+[profile.release.package.scrawl]
+opt-level = 1

@@ -8,8 +8,8 @@ on:
       variant:
         description: Release profile to measure
         type: choice
-        default: off-prebuilt
-        options: [off-prebuilt, off-codecs, off-codecs-pch, off-platform, off, off-jobs2, thin, fat]
+        default: off-prebuilt-opt1
+        options: [off-prebuilt-opt1, off-prebuilt-ui1, off-prebuilt, off-codecs, off-codecs-pch, off-platform, off, off-jobs2, thin, fat]
 
 permissions:
   contents: write
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["off-prebuilt"]') }}
+        variant: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["off-prebuilt-opt1", "off-prebuilt-ui1"]') }}
     uses: ./.github/workflows/release.yml
     with:
       variant: ${{ matrix.variant }}

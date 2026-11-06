@@ -28,7 +28,7 @@ jobs:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       CARGO_PROFILE_RELEASE_LTO: ${{ startsWith(inputs.variant, 'off') && 'off' || inputs.variant == 'fat' && 'fat' || 'thin' }}
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'off16' && '16' || startsWith(inputs.variant, 'off') && '256' || inputs.variant == 'fat' && '1' || '16' }}
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: "3"
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.variant == 'off-prebuilt-opt1' && '1' || '3' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -80,15 +80,22 @@ jobs:
           cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
 
       - name: Download the pinned native transcription dependency
-        if: inputs.variant == 'off-prebuilt'
+        if: startsWith(inputs.variant, 'off-prebuilt')
         run: |
           scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
           echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
 
       - name: Compile release
+        env:
+          VARIANT: ${{ inputs.variant }}
         run: |
+          config=()
+          case "$VARIANT" in
+            off-prebuilt-opt1) config=(--config scripts/ci/release-dsp.toml) ;;
+            off-prebuilt-ui1) config=(--config scripts/ci/release-ui.toml) ;;
+          esac
           if [[ -n "${TRANSCRIBE_DIR:-}" ]]; then
-            /usr/bin/time -l cargo rustc --release --locked --timings -- \
+            /usr/bin/time -l cargo rustc --release --locked --timings "${config[@]}" -- \
               -C 'link-arg=-Wl,-rpath,@executable_path/../Frameworks/Transcribe'
           else
             /usr/bin/time -l cargo build --release --locked --timings
@@ -131,7 +138,7 @@ jobs:
         run: scripts/release.sh --no-build $PUBLISH
 
       - name: Smoke test the relocated bundle
-        if: inputs.variant == 'off-prebuilt'
+        if: startsWith(inputs.variant, 'off-prebuilt')
         run: |
           ditto -x -k dist/*/Bespoke-*.zip "$RUNNER_TEMP/relocated"
           bundle="$RUNNER_TEMP/relocated/Bespoke.app"
