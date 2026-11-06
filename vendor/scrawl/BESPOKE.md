@@ -45,5 +45,3 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 To see every change, diff `src/` and `helper/` against upstream at that commit.
 
 Run its tests from Bespoke's root with `cargo test -p scrawl`, so they use Bespoke's `Cargo.lock`.
-
-- `Cargo.toml`: AppKit enables only the APIs Scrawl uses. Its default feature set also compiled unused CloudKit and Core Data bindings.

@@ -50,7 +50,7 @@ The output directory must not exist yet. The script builds offline in a new, emp
 
 Every run starts without Cargo sources or build output and restores no build cache. Rust compiles at optimization level 1 with LTO off and 256 code generation units. `scripts/ci/release-dsp.toml` retains level 3 for speech and signal-processing crates. Local release builds keep the existing Cargo.toml profile and compile the native transcription library from source.
 
-CI downloads the upstream transcribe.cpp 0.2.3 ARM64 Metal binary instead of compiling that native dependency. `scripts/ci/prepare-transcribe.sh` verifies the archive's SHA-256, version and backend contract. A dependency upgrade must update that pin. The app bundle includes the signed native libraries and their licenses. The GPUI dependency patch is documented in `vendor/gpui/BESPOKE.md`.
+CI downloads the upstream transcribe.cpp 0.2.3 ARM64 Metal binary instead of compiling that native dependency. `scripts/ci/prepare-transcribe.sh` verifies the archive's SHA-256, version and backend contract. A dependency upgrade must update that pin. The app bundle includes the signed native libraries and their licenses.
 
 ```bash
 gh workflow run release-benchmark.yml
@@ -59,7 +59,9 @@ python3 scripts/ci/measure-release.py RUN_ID
 python3 scripts/ci/measure-release.py RUN_ID --attempt 1
 ```
 
-The reporter includes runner setup, dependency downloads, compilation, signing, relocation checks, artifact upload and cleanup. Queue time is excluded. The benchmark fails if a release job fails or takes 480 seconds or more. It uploads Cargo's HTML timing report with the signed ZIP. Runner variability still affects the result; repeat a candidate before treating it as a sustained improvement.
+The current benchmark experiment compiles UI, platform and backend dependency groups on three standard runners, then transfers their artifacts to the app build. Only artifacts from the same workflow run and attempt are accepted. Their source commit, Rust compiler, Xcode version and profile must match. No previous-run build artifacts are reused.
+
+The reporter measures the entire pipeline from its first runner starting through the app job finishing. Setup, downloads, compilation, artifact transfers, waits between jobs, signing, relocation checks and cleanup count toward the limit. Initial queue time is excluded. The benchmark fails if a release job fails or takes 480 seconds or more. It uploads Cargo's HTML timing report with the signed ZIP. Runner variability still affects the result; repeat a candidate before treating it as a sustained improvement.
 
 ## Send a pull request
 
