@@ -42,6 +42,15 @@ sign() {
 }
 
 # Nested code is signed first, or the app's signature fails --strict.
+if [[ -n "${TRANSCRIBE_DIR:-}" ]]; then
+  native="$STAGED_APP/Contents/Frameworks/Transcribe"
+  mkdir -p "$native"
+  for name in transcribe ggml ggml-base ggml-cpu ggml-metal; do
+    cp "$TRANSCRIBE_DIR/lib/lib$name.dylib" "$native/"
+    sign "$native/lib$name.dylib"
+  done
+  ditto "$TRANSCRIBE_DIR/licenses" "$STAGED_APP/Contents/Resources/transcribe-licenses"
+fi
 if [[ -n "$SPARKLE" ]]; then
   FRAMEWORK="$STAGED_APP/Contents/Frameworks/Sparkle.framework"
   mkdir -p "$STAGED_APP/Contents/Frameworks"

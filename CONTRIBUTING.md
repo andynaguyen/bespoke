@@ -35,14 +35,13 @@ scripts/install-local.sh         # release build, signed, in /Applications
 
 Development builds keep file and line numbers in Bespoke backtraces and full debug information for the vendored `handy-keys` crate. Other dependencies build without debug information, which shortens clean builds. Run `CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a debugger. Dependency backtraces have no file or line numbers. To step through dependency source or inspect its local variables, remove the `[profile.dev.package."*"]` section from `Cargo.toml`.
 
-`scripts/benchmark-build.py` times a clean development build, then a rebuild after touching `src/startup.rs`:
+## Release CI
 
-```bash
-cargo fetch --locked
-python3 scripts/benchmark-build.py --output target/build-times/my-run
-```
+The release workflow runs on version tags and manual requests. It uses one standard `macos-15` build runner with Xcode 26.3 and the macOS 26.2 SDK. CI retains Rust optimization level 3, disables LTO and uses 256 code generation units. Local release builds keep the existing Cargo.toml profile and compile the native transcription library from source.
 
-The output directory must not exist yet. The script builds offline in a new, empty target directory, checks that Cargo compiled the `bespoke` binary, and runs it with `--help`. It writes timings and compiler output to the output directory, then deletes the target directory. Pass `--keep-target` to keep it.
+CI downloads the upstream transcribe.cpp 0.2.3 ARM64 Metal binary. `scripts/ci/prepare-transcribe.sh` verifies its SHA-256, version and backend contract. A dependency upgrade must update that pin. The app bundle includes the signed native libraries and their licenses.
+
+The workflow extracts the signed ZIP to another directory, verifies its signatures and checks Metal device enumeration. Release tags then publish the verified ZIP and appcast with `scripts/release.sh --publish-only`. Manual runs upload the files in `dist/` as an artifact.
 
 ## Send a pull request
 
