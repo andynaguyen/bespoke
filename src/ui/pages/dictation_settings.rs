@@ -1,12 +1,18 @@
-use gpui::{div, prelude::*, rems, AnyElement, App, Context, Entity, SharedString, Window};
+use std::sync::Arc;
+
+use gpui::{
+    div, prelude::*, rems, AnyElement, App, Context, Entity, Focusable, KeyDownEvent, SharedString,
+    Window,
+};
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::i18n::{t, t_with};
+use crate::managers::history::HistoryManager;
 use crate::settings::{AppSettings, PasteMethod, TypingTool};
 use crate::shortcut;
 use crate::ui::components::{
     reset_button, Dropdown, DropdownOption, RowDirection, SettingContainer, SettingsGroup, Spinner,
-    TextField,
+    TextField, Typography,
 };
 use crate::ui::languages::{
     language_label, recognition_language, selectable_languages, supports_language_code,
@@ -29,6 +35,7 @@ pub struct DictationSettings {
     scrub_keyword: Entity<KeywordField>,
     submit_keyword: Entity<KeywordField>,
     external_script: Entity<InputState>,
+    history_limit: Entity<InputState>,
     channels: (String, u16),
     typing_tools: Vec<String>,
 }
@@ -99,6 +106,30 @@ impl DictationSettings {
         })
         .detach();
 
+        let limit = store.read(cx).settings.history_limit.to_string();
+        let history_limit = cx.new(|cx| {
+            InputState::new(window, cx)
+                .pattern(regex::Regex::new(r"^\d*$").expect("valid pattern"))
+                .default_value(limit)
+        });
+        cx.observe_in(&store, window, |this, store, window, cx| {
+            let stored = store.read(cx).settings.history_limit.to_string();
+            let input = this.history_limit.clone();
+            let editing = input.read(cx).focus_handle(cx).is_focused(window);
+            if !editing && input.read(cx).value().as_ref() != stored {
+                input.update(cx, |input, cx| input.set_value(stored, window, cx));
+            }
+        })
+        .detach();
+        cx.subscribe(&history_limit, |_, input, event: &InputEvent, cx| {
+            if matches!(event, InputEvent::Change) {
+                if let Ok(limit) = input.read(cx).value().trim().parse::<usize>() {
+                    save_history_limit(limit, cx);
+                }
+            }
+        })
+        .detach();
+
         let mut this = Self {
             transcribe_shortcut: cx.new(|cx| ShortcutInput::new("transcribe", cx)),
             cancel_shortcut: cx.new(|cx| ShortcutInput::new("cancel", cx)),
@@ -146,6 +177,7 @@ impl DictationSettings {
                 )
             }),
             external_script,
+            history_limit,
             channels: (String::new(), 1),
             typing_tools: if cfg!(target_os = "linux") {
                 vec!["auto".into()]
@@ -447,29 +479,152 @@ impl DictationSettings {
     }
 }
 
-impl Render for DictationSettings {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl DictationSettings {
+    fn history_limit_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let p = palette(cx);
+        let updating = self.store.read(cx).is_updating("history_limit");
+        SettingContainer::new(t("settings.debug.historyLimit.title"))
+            .description(t("settings.debug.historyLimit.description"))
+            .child(
+                div()
+                    .flex()
+                    .row_dir()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .capture_key_down(cx.listener(
+                                |this, event: &KeyDownEvent, window, cx| {
+                                    let step: i64 = match event.keystroke.key.as_str() {
+                                        "up" => 1,
+                                        "down" => -1,
+                                        _ => return,
+                                    };
+                                    cx.stop_propagation();
+                                    let current = this
+                                        .history_limit
+                                        .read(cx)
+                                        .value()
+                                        .trim()
+                                        .parse::<i64>()
+                                        .unwrap_or(0);
+                                    let next = (current + step).clamp(0, 1000);
+                                    this.history_limit.update(cx, |input, cx| {
+                                        input.set_value(next.to_string(), window, cx)
+                                    });
+                                    save_history_limit(next as usize, cx);
+                                },
+                            ))
+                            .child(
+                                TextField::new(&self.history_limit)
+                                    .disabled(updating)
+                                    .w(rems(5.)),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_px(13.)
+                            .text_color(p.text)
+                            .child(t("settings.debug.historyLimit.entries")),
+                    ),
+            )
+            .into_any_element()
+    }
+}
+
+fn save_history_limit(limit: usize, cx: &mut App) {
+    SettingsStore::global(cx).update(cx, |store, cx| {
+        let app = store.app().clone();
+        store.update_async(
+            "history_limit",
+            move |s| s.history_limit = limit,
+            async move {
+                let hm = app.state::<Arc<HistoryManager>>();
+                crate::commands::history::update_history_limit(app.clone(), hm, limit).await
+            },
+            cx,
+        )
+    });
+}
+
+/// A page of Dictate's settings in the Settings dialog.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DictatePage {
+    Shortcut,
+    Sound,
+    Language,
+    PostProcessing,
+    History,
+}
+
+impl DictationSettings {
+    /// The settings groups on `page`, drawn by the Settings dialog. Only that page's rows are
+    /// built.
+    pub fn groups(&mut self, page: DictatePage, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let s = self.store.read(cx).settings.clone();
-        let mut shortcut_group = SettingsGroup::new()
+        let groups = match page {
+            DictatePage::Shortcut => vec![self.shortcut_group(&s, cx), self.pasting_group(&s, cx)],
+            DictatePage::Sound => vec![
+                SettingsGroup::new()
+                    .title(t("settings.sound.microphone.title"))
+                    .child(rows::microphone(&s, cx))
+                    .children(self.channel_row(&s, cx))
+                    .child(rows::mute_while_recording(&s, cx)),
+                SettingsGroup::new()
+                    .title(t("settings.sound.title"))
+                    .child(rows::audio_feedback(&s, cx))
+                    .child(rows::output_device(&s, !s.audio_feedback, cx))
+                    .child(rows::volume(&s, !s.audio_feedback)),
+            ],
+            // Language and History are pages of one group each, so the page title in the header
+            // names them and the groups go untitled.
+            DictatePage::Language => vec![SettingsGroup::new()
+                .children(self.language_rows(cx))
+                .child(rows::vad_enabled(&s, cx))],
+            DictatePage::PostProcessing => vec![
+                SettingsGroup::new()
+                    .title(t("settings.advanced.groups.cleanup"))
+                    .child(rows::filler_word_removal(&s, cx))
+                    .child(rows::append_trailing_space(&s, cx)),
+                self.voice_commands_group(&s, cx),
+                SettingsGroup::new()
+                    .title(t("settings.advanced.groups.submitting"))
+                    .child(rows::auto_submit(&s, cx)),
+            ],
+            DictatePage::History => vec![SettingsGroup::new()
+                .child(self.history_limit_row(cx))
+                .child(rows::recording_retention(&s, cx))],
+        };
+        groups
+            .into_iter()
+            .map(IntoElement::into_any_element)
+            .collect()
+    }
+
+    fn shortcut_group(&self, s: &AppSettings, cx: &App) -> SettingsGroup {
+        let group = SettingsGroup::new()
             .title(t("settings.advanced.groups.shortcut"))
             .child(self.transcribe_shortcut.clone())
-            .child(rows::shortcut_activation(&s, cx));
-        if !cfg!(target_os = "linux") {
-            shortcut_group = shortcut_group.child(self.cancel_shortcut.clone());
+            .child(rows::shortcut_activation(s, cx));
+        if cfg!(target_os = "linux") {
+            group
+        } else {
+            group.child(self.cancel_shortcut.clone())
         }
-        let microphone = SettingsGroup::new()
-            .title(t("settings.sound.microphone.title"))
-            .child(rows::microphone(&s, cx))
-            .children(self.channel_row(&s, cx))
-            .child(rows::mute_while_recording(&s, cx));
-        let language = SettingsGroup::new()
-            .title(t("settings.general.language.title"))
-            .children(self.language_rows(cx))
-            .child(rows::vad_enabled(&s, cx));
-        let mut cleanup = SettingsGroup::new()
-            .title(t("settings.advanced.groups.cleanup"))
-            .child(rows::filler_word_removal(&s, cx))
-            .child(rows::append_trailing_space(&s, cx))
+    }
+
+    fn pasting_group(&self, s: &AppSettings, cx: &App) -> SettingsGroup {
+        SettingsGroup::new()
+            .title(t("settings.advanced.groups.pasting"))
+            .child(self.paste_method_row(s, cx))
+            .children(self.typing_tool_row(s, cx))
+            .child(rows::clipboard_handling(s, cx))
+    }
+
+    /// Spoken keywords that act on the dictation: scrub throws it away, submit sends it.
+    fn voice_commands_group(&self, s: &AppSettings, cx: &App) -> SettingsGroup {
+        let mut group = SettingsGroup::new()
+            .title(t("settings.advanced.groups.voiceCommands"))
             .child(rows::toggle(
                 "scrub_enabled",
                 "settings.advanced.voiceScrub.title",
@@ -486,52 +641,28 @@ impl Render for DictationSettings {
                 },
             ));
         if s.scrub_enabled {
-            cleanup = cleanup.child(self.scrub_keyword.clone());
+            group = group.child(self.scrub_keyword.clone());
         }
-        let pasting = SettingsGroup::new()
-            .title(t("settings.advanced.groups.pasting"))
-            .child(self.paste_method_row(&s, cx))
-            .children(self.typing_tool_row(&s, cx))
-            .child(rows::clipboard_handling(&s, cx));
-        let mut submitting = SettingsGroup::new()
-            .title(t("settings.advanced.groups.submitting"))
-            .child(rows::auto_submit(&s, cx))
-            .child(rows::toggle(
-                "voice_submit_enabled",
-                "settings.advanced.voiceSubmit.title",
-                "settings.advanced.voiceSubmit.description",
-                s.voice_submit_enabled,
-                cx,
-                |v, cx| {
-                    set(
-                        cx,
-                        "voice_submit_enabled",
-                        move |s| s.voice_submit_enabled = v,
-                        move |app| shortcut::change_voice_submit_enabled_setting(app, v),
-                    )
-                },
-            ));
+        group = group.child(rows::toggle(
+            "voice_submit_enabled",
+            "settings.advanced.voiceSubmit.title",
+            "settings.advanced.voiceSubmit.description",
+            s.voice_submit_enabled,
+            cx,
+            |v, cx| {
+                set(
+                    cx,
+                    "voice_submit_enabled",
+                    move |s| s.voice_submit_enabled = v,
+                    move |app| shortcut::change_voice_submit_enabled_setting(app, v),
+                )
+            },
+        ));
         if s.voice_submit_enabled {
-            submitting = submitting
+            group = group
                 .child(self.submit_keyword.clone())
-                .child(rows::submit_key(&s, cx));
+                .child(rows::submit_key(s, cx));
         }
-        let sound = SettingsGroup::new()
-            .title(t("settings.sound.title"))
-            .child(rows::audio_feedback(&s, cx))
-            .child(rows::output_device(&s, !s.audio_feedback, cx))
-            .child(rows::volume(&s, !s.audio_feedback));
-        div()
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap_5()
-            .child(shortcut_group)
-            .child(microphone)
-            .child(language)
-            .child(cleanup)
-            .child(pasting)
-            .child(submitting)
-            .child(sound)
+        group
     }
 }

@@ -17,8 +17,8 @@ static TELEMETRY: OnceLock<Arc<SharedCaptureTelemetry>> = OnceLock::new();
 static MENU: OnceLock<(flume::Sender<MenuAction>, flume::Receiver<MenuAction>)> = OnceLock::new();
 static PENDING_SHORTCUTS: Mutex<Option<(ShortcutConfig, ShortcutConfig)>> = Mutex::new(None);
 
-/// `open_settings` opens the Annotate page. It gets the permissions that held back a recording,
-/// or none when the user asked for the page.
+/// `open_settings` opens the host's Annotate settings. It gets the permissions that held back a
+/// recording, or none when the user asked for the settings.
 pub fn configure(paths: Paths, open_settings: impl Fn(&[Permission]) + Send + Sync + 'static) {
     let _ = PATHS.set(paths);
     let _ = OPEN_SETTINGS.set(Box::new(open_settings));
@@ -258,6 +258,21 @@ pub use crate::mic::{Input as Microphone, Inputs as Microphones};
 pub use crate::permissions::{Grants, Permission, Status as PermissionStatus};
 pub use crate::retention::Preset as Retention;
 pub use crate::speech_model::{State as SpeechState, Status as SpeechStatus};
+
+static MICROPHONE: OnceLock<Box<dyn Fn() -> Option<String> + Send + Sync>> = OnceLock::new();
+
+/// Lets the host pick the microphone each recording opens, by device name, with `None` for the
+/// system default. Once set, it replaces the microphone saved in `config.json`, so the host's
+/// own microphone setting drives Annotate too.
+pub fn on_microphone(pick: impl Fn() -> Option<String> + Send + Sync + 'static) {
+    let _ = MICROPHONE.set(Box::new(pick));
+}
+
+/// The host's pick for the next recording: `None` when no host hook is set, `Some(None)` for
+/// the system default.
+pub(crate) fn host_microphone() -> Option<Option<String>> {
+    MICROPHONE.get().map(|pick| pick())
+}
 
 pub fn microphones() -> Microphones {
     crate::mic::inputs()

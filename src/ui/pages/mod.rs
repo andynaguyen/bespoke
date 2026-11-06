@@ -13,7 +13,7 @@ mod mcp;
 mod models;
 mod post_processing;
 pub mod rows;
-mod settings;
+pub mod settings;
 mod shortcut_input;
 mod stats;
 mod style_board;
@@ -113,7 +113,6 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
         #[cfg(not(target_os = "macos"))]
         Section::Annotate | Section::Mcp => PageHandle::new(cx.new(|_| EmptyPage)),
         Section::Debug => PageHandle::new(cx.new(debug::DebugPage::new)),
-        Section::Settings => PageHandle::new(cx.new(|cx| settings::SettingsPage::new(window, cx))),
     }
 }
 
@@ -123,13 +122,9 @@ pub fn open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
 }
 
 pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) {
-    if let Ok(settings) = page.clone().downcast::<settings::SettingsPage>() {
-        settings.update(cx, |page, cx| page.select_tab(tab, cx));
-    } else if let Ok(dictate) = page.clone().downcast::<dictate::DictatePage>() {
+    if let Ok(dictate) = page.clone().downcast::<dictate::DictatePage>() {
         dictate.update(cx, |page, cx| page.select_tab(tab, window, cx));
     } else if let Ok(stats) = page.clone().downcast::<stats::StatsPage>() {
         stats.update(cx, |page, cx| page.select_tab(tab, cx));
-    } else if let Ok(annotate) = page.clone().downcast::<annotate::AnnotatePage>() {
-        annotate.update(cx, |page, cx| page.select_tab(tab, cx));
     }
 }

@@ -9,7 +9,7 @@ use gpui::App;
 use crate::app_handle::AppHandle;
 use crate::managers::history::{CaptureUsage, HistoryManager};
 use crate::settings::{get_settings, AppSettings};
-use crate::ui::shell::Section;
+use crate::ui::pages::settings::SettingsSection;
 
 pub const RECORD_BINDING: &str = "annotate";
 pub const PASTE_BINDING: &str = "annotate_paste";
@@ -34,7 +34,7 @@ pub fn start(app: &AppHandle, cx: &mut App) {
         let missing = missing.to_vec();
         ui.with_ui(move |cx| {
             if missing.is_empty() {
-                crate::ui::show_section(Section::Annotate, cx);
+                crate::ui::show_settings(SettingsSection::AnnotateShortcut, cx);
             } else {
                 crate::ui::pages::annotate::show_missing_permissions(&missing, cx);
             }
@@ -44,6 +44,10 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     transcribe::init(app);
     sync_shortcuts(&get_settings(app));
     capsule::init(app);
+    let settings = app.clone();
+    scrawl::host::on_microphone(move || {
+        crate::managers::audio::preferred_microphone(&get_settings(&settings))
+    });
     let ui = app.clone();
     scrawl::host::on_inspect(move |dir| {
         ui.with_ui(move |cx| crate::ui::pages::captures::inspect(dir, cx));

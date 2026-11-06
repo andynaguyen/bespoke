@@ -42,10 +42,39 @@ pub fn logo(width: f32, cx: &App) -> impl IntoElement {
 }
 
 fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    nav_row(
+        SharedString::from(format!("nav-{:?}", section)),
+        section.icon(),
+        t(section.label_key()),
+        active,
+        cx,
+    )
+    .on_click(cx.listener(move |this, _, window, cx| this.select_section(section, window, cx)))
+}
+
+/// Settings opens as a dialog over the window, not as a page, so it shows as active while open.
+fn settings_item(has_dialog: bool, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    let open = crate::ui::pages::settings::is_open(has_dialog, cx);
+    nav_row(
+        "nav-settings".into(),
+        "nav-settings",
+        t("sidebar.settings"),
+        open,
+        cx,
+    )
+    .on_click(|_, window, cx| crate::ui::pages::settings::open(None, window, cx))
+}
+
+fn nav_row(
+    id: SharedString,
+    icon_name: &'static str,
+    label: SharedString,
+    active: bool,
+    cx: &mut Context<MainWindow>,
+) -> gpui::Stateful<gpui::Div> {
     let p = palette(cx);
-    let label = t(section.label_key());
     div()
-        .id(SharedString::from(format!("nav-{:?}", section)))
+        .id(id)
         .flex()
         .row_dir()
         .gap(px(10.))
@@ -65,9 +94,8 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
                 .hover(|s| s.bg(p.text.a(0.06)).text_color(p.text))
         })
         .keyboard_focus(cx)
-        .on_click(cx.listener(move |this, _, window, cx| this.select_section(section, window, cx)))
         .child(
-            icon(section.icon())
+            icon(icon_name)
                 .size(px(18.))
                 .flex_none()
                 .text_color(if active { p.text } else { p.text.a(0.85) }),
@@ -136,7 +164,7 @@ pub fn render(
     if debug_mode {
         secondary.push(nav_item(Section::Debug, active == Section::Debug, cx).into_any_element());
     }
-    secondary.push(nav_item(Section::Settings, active == Section::Settings, cx).into_any_element());
+    secondary.push(settings_item(main.has_dialog(), cx).into_any_element());
     let primary: Vec<_> = Section::PRIMARY
         .iter()
         .map(|section| nav_item(*section, active == *section, cx).into_any_element())

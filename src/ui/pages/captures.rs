@@ -37,11 +37,11 @@ fn empty_hint(cx: &App) -> impl IntoElement {
     let Some((before, after)) = hint.split_once("{{record}}") else {
         return line.child(hint);
     };
-    let record = SettingsStore::get(cx)
-        .bindings
-        .get(crate::annotate::RECORD_BINDING)
-        .and_then(|b| scrawl::host::shortcut_from_binding(&b.current_binding))
-        .map_or_else(|| "⌥⇧S".to_owned(), |c| c.label);
+    let record = super::annotate::shortcut_label(
+        SettingsStore::get(cx),
+        crate::annotate::RECORD_BINDING,
+        scrawl::ShortcutKind::Record,
+    );
     let (before, after) = (before.trim_end(), after.trim_start());
     line.when(!before.is_empty(), |el| {
         el.child(SharedString::from(before.to_owned()))
@@ -57,14 +57,8 @@ struct PendingInspect(Option<PathBuf>);
 
 impl Global for PendingInspect {}
 
-#[derive(Default)]
-pub struct PendingInspectFlag(pub bool);
-
-impl Global for PendingInspectFlag {}
-
 pub fn inspect(dir: PathBuf, cx: &mut App) {
     cx.default_global::<PendingInspect>().0 = Some(dir);
-    cx.default_global::<PendingInspectFlag>().0 = true;
     crate::ui::show_section(crate::ui::shell::Section::Annotate, cx);
     cx.refresh_windows();
 }

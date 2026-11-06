@@ -53,6 +53,9 @@ impl AudioRecorder {
         samples: Arc<Mutex<Vec<f32>>>,
         error: Arc<Mutex<Option<String>>>,
     ) -> Result<cpal::Stream> {
+        if let Some(wanted) = crate::host::host_microphone() {
+            return Self::open_named(wanted.as_deref(), samples, error);
+        }
         let choice = crate::mic::choice();
         if let Some(choice) = &choice {
             if let Some(device) = crate::mic::device(&choice.id) {
@@ -87,6 +90,45 @@ impl AudioRecorder {
                 crate::mic::note_pick(&crate::mic::Pick::new(Some(choice), &inputs));
             }
         }
+        Self::open_default(samples, error)
+    }
+
+    /// Opens the input the host named, or the system default for `None` or a device that isn't
+    /// connected or won't open.
+    fn open_named(
+        name: Option<&str>,
+        samples: Arc<Mutex<Vec<f32>>>,
+        error: Arc<Mutex<Option<String>>>,
+    ) -> Result<cpal::Stream> {
+        use cpal::traits::HostTrait;
+        let Some(name) = name else {
+            return Self::open_default(samples, error);
+        };
+        let device = cpal::default_host()
+            .input_devices()
+            .ok()
+            .and_then(|mut devices| devices.find(|d| device_name(d).as_deref() == Some(name)));
+        match device {
+            Some(device) => match Self::open_device(&device, samples.clone(), error.clone()) {
+                Ok(stream) => {
+                    crate::capture::scrawl_log(format!("Microphone: {name}"));
+                    return Ok(stream);
+                }
+                Err(e) => crate::capture::scrawl_log(format!(
+                    "Microphone: could not open {name} ({e:#}); using the default"
+                )),
+            },
+            None => crate::capture::scrawl_log(format!(
+                "Microphone: {name} isn't connected; using the default"
+            )),
+        }
+        Self::open_default(samples, error)
+    }
+
+    fn open_default(
+        samples: Arc<Mutex<Vec<f32>>>,
+        error: Arc<Mutex<Option<String>>>,
+    ) -> Result<cpal::Stream> {
         let device = cpal::default_host()
             .default_input_device()
             .context("No microphone is available")?;

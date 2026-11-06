@@ -7,7 +7,7 @@ use gpui::{
 
 use super::RowDirection;
 use super::{icon, KeyboardFocus, Typography};
-use crate::ui::glass::{glass, GlassStyle};
+use crate::ui::glass::{glass_with, GlassSpec, GlassStyle};
 use crate::ui::theme::{palette, radius, shadow_xl, Alpha};
 
 type CloseHandler = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -29,56 +29,72 @@ fn cycle_focus(trap: &FocusHandle, forward: bool, window: &mut Window, cx: &mut 
     }
 }
 
+/// What a dialog's panel is made of.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DialogMaterial {
+    /// Regular glass, like the dropdowns and toasts. Sized to its content.
+    Popup,
+    /// The main window's own material, window glass tinted to the content surface. Fills the
+    /// window's height, for a dialog that stands in for a page.
+    Window,
+}
+
+/// The parts every dialog shares: the backdrop that closes it on a click, the focus trap, Escape,
+/// and the panel with its material. The children lay out in a column inside the panel.
 #[derive(IntoElement)]
-pub struct Dialog {
-    title: SharedString,
-    body: Vec<AnyElement>,
-    footer: Vec<AnyElement>,
+pub struct DialogFrame {
+    children: Vec<AnyElement>,
     max_width: Pixels,
+    material: DialogMaterial,
     focus: FocusHandle,
     on_close: CloseHandler,
 }
 
-impl Dialog {
-    pub fn new(
-        title: impl Into<SharedString>,
-        focus: FocusHandle,
-        on_close: impl Fn(&mut Window, &mut App) + 'static,
-    ) -> Self {
+impl DialogFrame {
+    pub fn new(focus: FocusHandle, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        Self::with_close(focus, Rc::new(on_close))
+    }
+
+    fn with_close(focus: FocusHandle, on_close: CloseHandler) -> Self {
         Self {
-            title: title.into(),
-            body: Vec::new(),
-            footer: Vec::new(),
+            children: Vec::new(),
             max_width: px(480.),
+            material: DialogMaterial::Popup,
             focus,
-            on_close: Rc::new(on_close),
+            on_close,
         }
     }
 
-    pub fn footer(mut self, child: impl IntoElement) -> Self {
-        self.footer.push(child.into_any_element());
+    pub fn max_width(mut self, max_width: Pixels) -> Self {
+        self.max_width = max_width;
+        self
+    }
+
+    pub fn material(mut self, material: DialogMaterial) -> Self {
+        self.material = material;
         self
     }
 }
 
-impl ParentElement for Dialog {
+impl ParentElement for DialogFrame {
     fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
-        self.body.extend(elements);
+        self.children.extend(elements);
     }
 }
 
-impl RenderOnce for Dialog {
+impl RenderOnce for DialogFrame {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = palette(cx);
         let viewport = window.viewport_size();
         let wide = viewport.width >= px(640.);
         let margin = if wide { rems(1.5) } else { rems(1.) };
         let max_height = viewport.height - margin.to_pixels(window.rem_size()) * 2.;
+        // On macOS a dialog is its own window over the main one, so glass can show through.
         let on_glass = cfg!(target_os = "macos") && !crate::ui::popup::hosts(window, cx);
+        let fills = self.material == DialogMaterial::Window;
 
         let close_backdrop = self.on_close.clone();
         let close_key = self.on_close.clone();
-        let close_button = self.on_close.clone();
         let trap = window
             .use_keyed_state("dialog-trap", cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -123,11 +139,29 @@ impl RenderOnce for Dialog {
                     .w_full()
                     .max_w(self.max_width)
                     .max_h(max_height)
+                    .when(fills, |el| el.h(max_height))
                     .relative()
                     .overflow_hidden()
                     .rounded(radius::PANEL)
                     .when(on_glass, |el| {
-                        el.child(glass("dialog", GlassStyle::Regular, radius::PANEL))
+                        el.child(match self.material {
+                            DialogMaterial::Popup => glass_with(
+                                "dialog",
+                                GlassSpec {
+                                    style: GlassStyle::Regular,
+                                    radius: radius::PANEL,
+                                    tint: None,
+                                },
+                            ),
+                            DialogMaterial::Window => glass_with(
+                                "dialog",
+                                GlassSpec {
+                                    style: GlassStyle::Window,
+                                    radius: radius::PANEL,
+                                    tint: Some(p.surface),
+                                },
+                            ),
+                        })
                     })
                     .when(!on_glass, |el| {
                         el.border_1()
@@ -136,64 +170,107 @@ impl RenderOnce for Dialog {
                             .shadow(shadow_xl())
                     })
                     .text_color(p.text)
-                    .child(
-                        div()
-                            .flex()
-                            .flex_shrink_0()
-                            .items_start()
-                            .justify_between()
-                            .row_dir()
-                            .gap_3()
-                            .px_5()
-                            .pt_4()
-                            .pb_2()
-                            .child(
-                                div().min_w_0().child(
-                                    div()
-                                        .base_text()
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .child(self.title),
-                                ),
-                            )
-                            .child(
-                                div()
-                                    .id("dialog-close")
-                                    .flex_shrink_0()
-                                    .p_1()
-                                    .rounded_lg()
-                                    .cursor_pointer()
-                                    .keyboard_focus_ring(0.5, cx)
-                                    .text_color(p.mid_gray)
-                                    .hover(|s| s.bg(p.mid_gray.a(0.1)).text_color(p.text))
-                                    .on_click(move |_, window, cx| close_button(window, cx))
-                                    .child(icon("x").size(rems(1.))),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("dialog-body")
-                            .min_h_0()
-                            .flex_1()
-                            .overflow_y_scroll()
-                            .px_5()
-                            .pb_4()
-                            .pt_2()
-                            .children(self.body),
-                    )
-                    .when(!self.footer.is_empty(), |el| {
-                        el.child(
-                            div()
-                                .flex()
-                                .row_dir()
-                                .flex_shrink_0()
-                                .justify_flex_end()
-                                .gap_2()
-                                .px_5()
-                                .pb_4()
-                                .pt_2()
-                                .children(self.footer),
-                        )
-                    }),
+                    .children(self.children),
             )
+    }
+}
+
+/// A dialog with a title row and close button, a scrolling body, and an optional footer.
+#[derive(IntoElement)]
+pub struct Dialog {
+    title: SharedString,
+    body: Vec<AnyElement>,
+    footer: Vec<AnyElement>,
+    focus: FocusHandle,
+    on_close: CloseHandler,
+}
+
+impl Dialog {
+    pub fn new(
+        title: impl Into<SharedString>,
+        focus: FocusHandle,
+        on_close: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        Self {
+            title: title.into(),
+            body: Vec::new(),
+            footer: Vec::new(),
+            focus,
+            on_close: Rc::new(on_close),
+        }
+    }
+
+    pub fn footer(mut self, child: impl IntoElement) -> Self {
+        self.footer.push(child.into_any_element());
+        self
+    }
+}
+
+impl ParentElement for Dialog {
+    fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
+        self.body.extend(elements);
+    }
+}
+
+impl RenderOnce for Dialog {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let p = palette(cx);
+        let close_button = self.on_close.clone();
+        let header = div()
+            .flex()
+            .flex_shrink_0()
+            .items_start()
+            .justify_between()
+            .row_dir()
+            .gap_3()
+            .px_5()
+            .pt_4()
+            .pb_2()
+            .child(
+                div().min_w_0().child(
+                    div()
+                        .base_text()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(self.title),
+                ),
+            )
+            .child(
+                div()
+                    .id("dialog-close")
+                    .flex_shrink_0()
+                    .p_1()
+                    .rounded_lg()
+                    .cursor_pointer()
+                    .keyboard_focus_ring(0.5, cx)
+                    .text_color(p.mid_gray)
+                    .hover(|s| s.bg(p.mid_gray.a(0.1)).text_color(p.text))
+                    .on_click(move |_, window, cx| close_button(window, cx))
+                    .child(icon("x").size(rems(1.))),
+            );
+        let body = div()
+            .id("dialog-body")
+            .min_h_0()
+            .flex_1()
+            .overflow_y_scroll()
+            .px_5()
+            .pb_4()
+            .pt_2()
+            .children(self.body);
+        let footer = (!self.footer.is_empty()).then(|| {
+            div()
+                .flex()
+                .row_dir()
+                .flex_shrink_0()
+                .justify_flex_end()
+                .gap_2()
+                .px_5()
+                .pb_4()
+                .pt_2()
+                .children(self.footer)
+        });
+        DialogFrame::with_close(self.focus, self.on_close)
+            .child(header)
+            .child(body)
+            .children(footer)
     }
 }

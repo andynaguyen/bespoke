@@ -262,24 +262,34 @@ pub fn is_main_window_visible(cx: &mut App) -> bool {
         .unwrap_or(false)
 }
 
+/// Shows `section` in the main window. A dialog over the window, like Settings, closes first,
+/// or it would cover the section it was asked for.
 pub fn show_section(section: shell::Section, cx: &mut App) {
     show_main_window(cx);
     let (Some(main), Some(handle)) = (main_view(cx), main_window(cx)) else {
         return;
     };
     let _ = handle.update(cx, |_, window, cx| {
-        main.update(cx, |main, cx| main.select_section(section, window, cx));
+        main.update(cx, |main, cx| {
+            if main.has_dialog() {
+                main.close_dialog(window, cx);
+            }
+            main.select_section(section, window, cx);
+        });
     });
 }
 
-/// Shows `section` with its `tab` selected, like Settings > System.
-pub fn show_section_tab(section: shell::Section, tab: &str, cx: &mut App) {
-    show_section(section, cx);
-    let (Some(main), Some(handle)) = (main_view(cx), main_window(cx)) else {
-        return;
-    };
-    let _ = handle.update(cx, |_, window, cx| {
-        main.update(cx, |main, cx| main.select_tab(tab, window, cx));
+/// Shows the main window with the Settings dialog open at `section`.
+pub fn show_settings(section: pages::settings::SettingsSection, cx: &mut App) {
+    show_main_window(cx);
+    // The window comes forward on the next main-thread turn, and the dialog attaches to it.
+    cx.defer(move |cx| {
+        let Some(handle) = main_window(cx) else {
+            return;
+        };
+        let _ = handle.update(cx, |_, window, cx| {
+            pages::settings::open(Some(section), window, cx)
+        });
     });
 }
 

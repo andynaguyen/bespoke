@@ -485,6 +485,20 @@ impl DialogWindow {
         })
     }
 
+    /// The dialog's own window, which takes its keys.
+    pub fn handle(&self) -> AnyWindowHandle {
+        self.handle
+    }
+
+    /// Makes the dialog the key window again, after something brought the main window forward
+    /// over it as key.
+    pub fn focus(&self, cx: &App) {
+        #[cfg(target_os = "macos")]
+        self.native.show_attached(&self.parent, 1., true, cx);
+        #[cfg(not(target_os = "macos"))]
+        let _ = cx;
+    }
+
     pub fn sync(&self, host: Bounds<Pixels>, cx: &App) {
         #[cfg(target_os = "macos")]
         if !self.native.is_visible() {

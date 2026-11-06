@@ -250,7 +250,7 @@
       "title": "Sound",
       "microphone": {
         "title": "Microphone",
-        "description": "Select your preferred microphone device",
+        "description": "Dictate and Annotate both record from this microphone",
         "placeholder": "Select microphone...",
         "loading": "Loading..."
       },
@@ -289,8 +289,13 @@
         "startup": "Startup",
         "memory": "Memory",
         "updates": "Updates",
-        "advanced": "Advanced",
-        "help": "Help"
+        "help": "Help",
+        "application": "Application",
+        "overlay": "Overlay",
+        "voiceCommands": "Voice Commands",
+        "keyboard": "Keyboard",
+        "acceleration": "Acceleration",
+        "recording": "Recording"
       },
       "experimentalToggle": {
         "label": "Experimental Features",
@@ -327,8 +332,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Style",
+          "description": "Choose the recording overlay",
           "options": {
             "none": "None",
             "minimal": "Minimal",
@@ -336,7 +341,7 @@
           }
         },
         "position": {
-          "title": "Overlay Position",
+          "title": "Position",
           "description": "Where the overlay appears on screen during recording and transcription.",
           "options": {
             "bottom": "Bottom",
@@ -526,8 +531,7 @@
     "dictionary": {
       "tabs": {
         "style": "Style",
-        "history": "History",
-        "settings": "Settings"
+        "history": "History"
       },
       "replacements": "Replacements",
       "replacementsHelp": "Say the phrase on the left, and Bespoke writes the text on the right.",
@@ -686,7 +690,7 @@
         "description": "Microphone to use when laptop lid is closed"
       },
       "postProcessingToggle": {
-        "label": "Post Processing",
+        "label": "AI Post-Processing",
         "description": "Enable AI-powered text refinement after transcription"
       },
       "muteWhileRecording": {
@@ -790,6 +794,12 @@
       "opened": "Triage started. Send the prompt, and the agent asks what went wrong.",
       "copied": "Copied the triage prompt. Paste it into a coding agent on this Mac.",
       "failed": "Couldn't start triage"
+    },
+    "nav": {
+      "general": "General",
+      "sound": "Sound",
+      "postProcessing": "Post-processing",
+      "app": "App"
     }
   },
   "whatsNew": {
@@ -827,11 +837,11 @@
     "transcriptionFailedTitle": "Transcription Failed"
   },
   "appLanguage": {
-    "title": "Application Language",
+    "title": "Language",
     "description": "Change the language of the Bespoke interface"
   },
   "theme": {
-    "title": "Application Theme",
+    "title": "Theme",
     "description": "Choose whether Bespoke follows your system theme or stays light or dark",
     "options": {
       "system": "System",
@@ -855,34 +865,7 @@
   },
   "annotate": {
     "groups": {
-      "shortcuts": "Shortcuts",
-      "recording": "Recording",
-      "storage": "Storage",
       "permissions": "Permissions"
-    },
-    "howItWorks": {
-      "record": "Tap {{record}} to record the screen under the pointer while you talk.",
-      "choose": "Hold {{record}} to choose what to record: each {{recordKey}} steps between Screen and Window, a drag picks an area, and releasing starts recording.",
-      "draw": "While recording, hold ⇧ and move to draw, ⇧-click to drop a pin, and press ⌘Z to undo a stroke.",
-      "finish": "Tap {{record}} again to finish. The capture is copied to the clipboard, and {{paste}} pastes it into the app in front."
-    },
-    "microphone": {
-      "title": "Microphone",
-      "description": "Records your narration. System default follows the input macOS uses.",
-      "default": "System default",
-      "defaultNamed": "System default ({{name}})",
-      "notConnected": "{{name}} (not connected)",
-      "fallback": "{{name}} isn't connected, so captures record from the system default."
-    },
-    "transcription": {
-      "title": "Transcription",
-      "description": "Annotate uses the model picked on the Models page and fixes names with your dictionary. With no model picked, Apple Speech runs.",
-      "checking": "Checking the speech model…",
-      "downloading": "Downloading the speech model ({{percent}}%)",
-      "ready": "Ready",
-      "unavailable": "No speech model for this language",
-      "failed": "The speech model failed to download",
-      "appleSpeech": "Apple Speech"
     },
     "retention": {
       "title": "Keep Recordings",
@@ -941,8 +924,6 @@
       "marks_other": "{{count}} marks"
     },
     "library": {
-      "captures": "Captures",
-      "settings": "Settings",
       "folder": "Captures Folder",
       "record": "Record",
       "empty": "No captures yet",

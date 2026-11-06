@@ -5,10 +5,9 @@ use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use gpui::{
-    canvas, div, prelude::*, px, relative, rems, Animation, AnimationExt, AnyElement, App, Context,
-    Entity, Focusable, FontWeight, ScrollHandle, SharedString, Subscription, Task, Window,
+    canvas, div, prelude::*, px, relative, Animation, AnimationExt, AnyElement, App, Context,
+    Entity, FontWeight, ScrollHandle, SharedString, Subscription, Task, Window,
 };
-use gpui_component::input::{InputEvent, InputState};
 use gpui_component::scroll::ScrollableElement;
 
 use crate::app_handle::{AppEvent, AppHandle};
@@ -18,16 +17,13 @@ use crate::managers::transcription::TranscriptionManager;
 use crate::ui::audio_player::{self, audio_player, PlayerState};
 use crate::ui::components::{
     focus_handle_for, icon, Button, ButtonVariant, FocusVisible, KeyboardFocus, RowDirection,
-    SettingContainer, SettingsGroup, TextField, Tooltip, Typography,
+    Tooltip, Typography,
 };
 use crate::ui::dates;
 use crate::ui::event_bus::event_bus;
 use crate::ui::shell::Toolbar;
-use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{palette, radius, Alpha, CONTROL_HEIGHT};
 use crate::ui::toast;
-
-use super::rows;
 
 const PAGE_SIZE: usize = 30;
 const INSPECTOR_WIDTH: f32 = 300.;
@@ -37,11 +33,9 @@ pub struct HistoryPage {
     loading: bool,
     loading_more: bool,
     has_more: bool,
-    show_settings: bool,
     selected: Option<i64>,
     list_scroll: ScrollHandle,
     inspector_scroll: ScrollHandle,
-    history_limit: Entity<InputState>,
     players: HashMap<i64, Entity<PlayerState>>,
     copied: HashSet<i64>,
     retrying: HashSet<i64>,
@@ -57,37 +51,12 @@ fn manager() -> Arc<HistoryManager> {
 }
 
 impl HistoryPage {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let limit = SettingsStore::get(cx).history_limit.to_string();
-        let history_limit = cx.new(|cx| {
-            InputState::new(window, cx)
-                .pattern(regex::Regex::new(r"^\d*$").expect("valid pattern"))
-                .default_value(limit)
-        });
+    pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
         let subscriptions = vec![
-            cx.observe_in(
-                &SettingsStore::global(cx),
-                window,
-                |this, store, window, cx| {
-                    let stored = store.read(cx).settings.history_limit.to_string();
-                    let input = this.history_limit.clone();
-                    let editing = input.read(cx).focus_handle(cx).is_focused(window);
-                    if !editing && input.read(cx).value().as_ref() != stored {
-                        input.update(cx, |input, cx| input.set_value(stored, window, cx));
-                    }
-                },
-            ),
             cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
                 if event.name == HistoryUpdatePayload::EVENT {
                     if let Some(update) = event.parse::<HistoryUpdatePayload>() {
                         this.apply_update(update, cx);
-                    }
-                }
-            }),
-            cx.subscribe(&history_limit, |_, input, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    if let Ok(limit) = input.read(cx).value().trim().parse::<usize>() {
-                        save_history_limit(limit, cx);
                     }
                 }
             }),
@@ -97,11 +66,9 @@ impl HistoryPage {
             loading: true,
             loading_more: false,
             has_more: true,
-            show_settings: false,
             selected: None,
             list_scroll: ScrollHandle::new(),
             inspector_scroll: ScrollHandle::new(),
-            history_limit,
             players: HashMap::new(),
             copied: HashSet::new(),
             retrying: HashSet::new(),
@@ -272,12 +239,14 @@ impl HistoryPage {
         &mut self,
         toolbar: Toolbar,
         _window: &mut Window,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Toolbar {
-        if self.has_inspector() {
+        // The actions sit in the inspector once entries load. While the first page loads, there's
+        // no inspector yet, and putting them in the toolbar would flash them there for a frame.
+        if self.loading || self.has_inspector() {
             return toolbar;
         }
-        self.actions(false, cx)
+        actions(false)
             .into_iter()
             .fold(toolbar, |toolbar, action| toolbar.action(action))
     }
@@ -286,47 +255,11 @@ impl HistoryPage {
         !self.loading && !self.entries.is_empty()
     }
 
-    fn actions(&mut self, compact: bool, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        let show_settings = self.show_settings;
-        let folder = t("settings.history.openFolder");
-        vec![
-            Button::new("history-settings")
-                .variant(if show_settings {
-                    ButtonVariant::Secondary
-                } else {
-                    ButtonVariant::Ghost
-                })
-                .gap(px(5.))
-                .child(icon("sliders-horizontal").size(px(13.)))
-                .child(t("sidebar.settings"))
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.show_settings = !this.show_settings;
-                    cx.notify();
-                }))
-                .into_any_element(),
-            Button::new("open-recordings")
-                .variant(ButtonVariant::Secondary)
-                .gap(px(5.))
-                .title(folder.clone())
-                .when(compact, |el| el.w(CONTROL_HEIGHT).px(px(0.)))
-                .child(icon("folder-open").size(px(13.)))
-                .when(!compact, |el| el.child(folder))
-                .on_click(|_, _, _| {
-                    if let Err(e) =
-                        crate::commands::open_recordings_folder(AppHandle::global().clone())
-                    {
-                        log::error!("Failed to open recordings folder: {e}");
-                    }
-                })
-                .into_any_element(),
-        ]
-    }
-
     pub fn inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         if !self.has_inspector() {
             return None;
         }
-        let actions = self.actions(true, cx);
+        let actions = actions(true);
         let details = self
             .selected_entry()
             .cloned()
@@ -350,76 +283,6 @@ impl HistoryPage {
                 )
                 .vertical_scrollbar(&self.inspector_scroll),
         ))
-    }
-
-    fn render_settings(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let p = palette(cx);
-        let settings = SettingsStore::get(cx).clone();
-        let limit_updating = SettingsStore::global(cx)
-            .read(cx)
-            .is_updating("history_limit");
-        div()
-            .flex_none()
-            .px_5()
-            .py_4()
-            .border_b_1()
-            .border_color(p.line)
-            .child(
-                SettingsGroup::new()
-                    .child(
-                        SettingContainer::new(t("settings.debug.historyLimit.title"))
-                            .description(t("settings.debug.historyLimit.description"))
-                            .child(
-                                div()
-                                    .flex()
-                                    .row_dir()
-                                    .items_center()
-                                    .gap_2()
-                                    .child(
-                                        div()
-                                            .capture_key_down(cx.listener(
-                                                |this, event: &gpui::KeyDownEvent, window, cx| {
-                                                    let step: i64 =
-                                                        match event.keystroke.key.as_str() {
-                                                            "up" => 1,
-                                                            "down" => -1,
-                                                            _ => return,
-                                                        };
-                                                    cx.stop_propagation();
-                                                    let current = this
-                                                        .history_limit
-                                                        .read(cx)
-                                                        .value()
-                                                        .trim()
-                                                        .parse::<i64>()
-                                                        .unwrap_or(0);
-                                                    let next = (current + step).clamp(0, 1000);
-                                                    this.history_limit.update(cx, |input, cx| {
-                                                        input.set_value(
-                                                            next.to_string(),
-                                                            window,
-                                                            cx,
-                                                        )
-                                                    });
-                                                    save_history_limit(next as usize, cx);
-                                                },
-                                            ))
-                                            .child(
-                                                TextField::new(&self.history_limit)
-                                                    .disabled(limit_updating)
-                                                    .w(rems(5.)),
-                                            ),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_px(13.)
-                                            .text_color(p.text)
-                                            .child(t("settings.debug.historyLimit.entries")),
-                                    ),
-                            ),
-                    )
-                    .child(rows::recording_retention(&settings, cx)),
-            )
     }
 
     fn selected_entry(&self) -> Option<&HistoryEntry> {
@@ -781,29 +644,28 @@ fn heading(label: SharedString, cx: &App) -> impl IntoElement {
         .child(label)
 }
 
-fn save_history_limit(limit: usize, cx: &mut App) {
-    SettingsStore::global(cx).update(cx, |store, cx| {
-        let app = store.app().clone();
-        store.update_async(
-            "history_limit",
-            move |s| s.history_limit = limit,
-            async move {
-                let hm = app.state::<Arc<HistoryManager>>();
-                crate::commands::history::update_history_limit(app.clone(), hm, limit).await
-            },
-            cx,
-        )
-    });
+/// The toolbar's actions, or the inspector's top row when `compact`.
+fn actions(compact: bool) -> Vec<AnyElement> {
+    let folder = t("settings.history.openFolder");
+    vec![Button::new("open-recordings")
+        .variant(ButtonVariant::Secondary)
+        .gap(px(5.))
+        .title(folder.clone())
+        .when(compact, |el| el.w(CONTROL_HEIGHT).px(px(0.)))
+        .child(icon("folder-open").size(px(13.)))
+        .when(!compact, |el| el.child(folder))
+        .on_click(|_, _, _| {
+            if let Err(e) = crate::commands::open_recordings_folder(AppHandle::global().clone()) {
+                log::error!("Failed to open recordings folder: {e}");
+            }
+        })
+        .into_any_element()]
 }
 
 impl Render for HistoryPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        let root = div()
-            .size_full()
-            .flex()
-            .flex_col()
-            .when(self.show_settings, |el| el.child(self.render_settings(cx)));
+        let root = div().size_full().flex().flex_col();
 
         if self.loading || self.entries.is_empty() {
             return root.child(

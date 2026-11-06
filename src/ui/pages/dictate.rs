@@ -4,7 +4,6 @@ use crate::i18n::t;
 use crate::ui::components::SegmentedControl;
 use crate::ui::shell::Toolbar;
 
-use super::dictation_settings::DictationSettings;
 use super::history::HistoryPage;
 use super::style_board::StyleBoard;
 use super::PageLayout;
@@ -13,14 +12,12 @@ use super::PageLayout;
 enum Tab {
     Style,
     History,
-    Settings,
 }
 
 pub struct DictatePage {
     tab: Tab,
     style: Option<Entity<StyleBoard>>,
     history: Option<Entity<HistoryPage>>,
-    settings: Option<Entity<DictationSettings>>,
 }
 
 impl DictatePage {
@@ -29,14 +26,12 @@ impl DictatePage {
             tab: Tab::Style,
             style: Some(cx.new(|cx| StyleBoard::new(window, cx))),
             history: None,
-            settings: None,
         }
     }
 
     pub fn select_tab(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.tab = match id {
             "history" => Tab::History,
-            "settings" => Tab::Settings,
             _ => Tab::Style,
         };
         if self.tab != Tab::Style {
@@ -49,11 +44,6 @@ impl DictatePage {
         } else if self.history.is_none() {
             self.history = Some(cx.new(|cx| HistoryPage::new(window, cx)));
         }
-        if self.tab != Tab::Settings {
-            self.settings = None;
-        } else if self.settings.is_none() {
-            self.settings = Some(cx.new(|cx| DictationSettings::new(window, cx)));
-        }
         cx.notify();
     }
 }
@@ -64,14 +54,12 @@ impl super::Page for DictatePage {
         let tab_id = match self.tab {
             Tab::Style => "style",
             Tab::History => "history",
-            Tab::Settings => "settings",
         };
         let toolbar = Toolbar::new().tabs(SegmentedControl::new(
             "dictate-tabs",
             vec![
                 ("style".into(), t("settings.dictionary.tabs.style")),
                 ("history".into(), t("settings.dictionary.tabs.history")),
-                ("settings".into(), t("settings.dictionary.tabs.settings")),
             ],
             tab_id,
             move |id, window, cx| {
@@ -80,7 +68,7 @@ impl super::Page for DictatePage {
             },
         ));
         match self.tab {
-            Tab::Style | Tab::Settings => toolbar,
+            Tab::Style => toolbar,
             Tab::History => match &self.history {
                 Some(history) => history.update(cx, |history, cx| {
                     history.toolbar_actions(toolbar, window, cx)
@@ -105,7 +93,7 @@ impl super::Page for DictatePage {
 
     fn layout(&self, _cx: &App) -> PageLayout {
         match self.tab {
-            Tab::Style | Tab::Settings => PageLayout::Padded,
+            Tab::Style => PageLayout::Padded,
             Tab::History => PageLayout::Fill,
         }
     }
@@ -116,7 +104,6 @@ impl Render for DictatePage {
         let view = match self.tab {
             Tab::Style => self.style.clone().map(|view| view.into_any_element()),
             Tab::History => self.history.clone().map(|view| view.into_any_element()),
-            Tab::Settings => self.settings.clone().map(|view| view.into_any_element()),
         };
         view.unwrap_or_else(|| div().into_any_element())
     }

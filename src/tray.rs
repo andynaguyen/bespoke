@@ -9,6 +9,7 @@ use crate::managers::model::ModelManager;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings;
 use crate::tray_i18n::get_tray_translations;
+use crate::ui::pages::settings::SettingsSection;
 use log::{debug, error, info, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -652,11 +653,10 @@ pub fn create_tray(app: &AppHandle) {
 
 fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
     match id {
-        "settings" | "secure_input_warning" => {
-            crate::ui::show_main_window(cx);
-        }
+        "settings" => crate::ui::show_settings(SettingsSection::General, cx),
+        "secure_input_warning" => crate::ui::show_main_window(cx),
         "copy_last_transcript" => copy_last_transcript(app),
-        "triage" => crate::ui::show_section_tab(crate::ui::shell::Section::Settings, "system", cx),
+        "triage" => crate::ui::show_settings(SettingsSection::System, cx),
         // Sparkle's window opens over Bespoke's, which brings the app forward
         // when it was only in the menu bar.
         "check_for_updates" | "install_update" => {

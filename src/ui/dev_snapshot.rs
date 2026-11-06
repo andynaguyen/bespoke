@@ -25,6 +25,19 @@ fn target_window(cx: &App) -> Option<AnyWindowHandle> {
     }
 }
 
+/// The window that takes pressed keys: an open dialog's window while it covers the main window,
+/// since the capture still comes from `target_window`, which includes the dialog.
+fn key_window(cx: &App) -> Option<AnyWindowHandle> {
+    if !CAPTURE_OVERLAY.get() {
+        if let Some(dialog) =
+            crate::ui::main_view(cx).and_then(|main| main.read(cx).dialog_window())
+        {
+            return Some(dialog);
+        }
+    }
+    target_window(cx)
+}
+
 pub fn requested() -> bool {
     std::env::var_os("BESPOKE_DEV_SNAPSHOT").is_some()
 }
@@ -183,7 +196,7 @@ fn open_dialog(kind: &str, cx: &mut App) {
 }
 
 fn press_key(key: &str, cx: &mut App) {
-    let Some(handle) = target_window(cx) else {
+    let Some(handle) = key_window(cx) else {
         return;
     };
     let Ok(keystroke) = gpui::Keystroke::parse(key) else {
@@ -197,7 +210,7 @@ fn press_key(key: &str, cx: &mut App) {
 }
 
 fn press_tab(count: usize, cx: &mut App) {
-    let Some(handle) = target_window(cx) else {
+    let Some(handle) = key_window(cx) else {
         return;
     };
     let _ = handle.update(cx, |_, window, cx| {
@@ -212,23 +225,29 @@ fn press_tab(count: usize, cx: &mut App) {
 fn force_draw(cx: &mut AsyncApp) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-    let view = cx
+    // An open dialog is its own window, which draws on its own schedule, so it gets drawn too.
+    let views: Vec<usize> = cx
         .update(|cx| {
-            let handle = target_window(cx)?;
-            handle
-                .update(cx, |_, window, _| {
-                    let raw = HasWindowHandle::window_handle(window).ok()?;
-                    match raw.as_raw() {
-                        RawWindowHandle::AppKit(raw) => Some(raw.ns_view.as_ptr() as usize),
-                        _ => None,
-                    }
+            let mut handles: Vec<AnyWindowHandle> = target_window(cx).into_iter().collect();
+            handles.extend(key_window(cx).filter(|handle| !handles.contains(handle)));
+            handles
+                .into_iter()
+                .filter_map(|handle| {
+                    handle
+                        .update(cx, |_, window, _| {
+                            let raw = HasWindowHandle::window_handle(window).ok()?;
+                            match raw.as_raw() {
+                                RawWindowHandle::AppKit(raw) => Some(raw.ns_view.as_ptr() as usize),
+                                _ => None,
+                            }
+                        })
+                        .ok()
+                        .flatten()
                 })
-                .ok()
-                .flatten()
+                .collect()
         })
-        .ok()
-        .flatten();
-    if let Some(view) = view {
+        .unwrap_or_default();
+    for view in views {
         let view = view as *mut objc2::runtime::AnyObject;
         // SAFETY: GPUI's content view implements displayLayer:, and nothing
         // borrows the app while it draws.

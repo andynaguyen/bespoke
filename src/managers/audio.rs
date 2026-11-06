@@ -232,6 +232,35 @@ enum DesiredMicrophone {
     Clamshell(String),
 }
 
+fn desired_microphone(settings: &AppSettings) -> DesiredMicrophone {
+    if let Some(clamshell_microphone) = &settings.clamshell_microphone {
+        let clamshell_started = Instant::now();
+        let is_clamshell = clamshell::is_clamshell().unwrap_or(false);
+        debug!(
+            "device resolve: clamshell_check={:?} (clamshell={})",
+            clamshell_started.elapsed(),
+            is_clamshell
+        );
+        if is_clamshell {
+            return DesiredMicrophone::Clamshell(clamshell_microphone.clone());
+        }
+    }
+    match &settings.selected_microphone {
+        Some(name) => DesiredMicrophone::Selected(name.clone()),
+        None => DesiredMicrophone::Default,
+    }
+}
+
+/// The input Bespoke records from under `settings`, by device name, with `None` for the system
+/// default. The clamshell microphone wins while the lid is closed. Annotate asks for it at the
+/// start of each recording, so Dictate and Annotate always use the same microphone.
+pub fn preferred_microphone(settings: &AppSettings) -> Option<String> {
+    match desired_microphone(settings) {
+        DesiredMicrophone::Default => None,
+        DesiredMicrophone::Selected(name) | DesiredMicrophone::Clamshell(name) => Some(name),
+    }
+}
+
 struct MicrophoneResolution {
     device: Option<cpal::Device>,
     unavailable_selected_microphone: Option<String>,
@@ -378,31 +407,12 @@ impl AudioRecordingManager {
         Ok(manager)
     }
 
-    fn desired_microphone(&self, settings: &AppSettings) -> DesiredMicrophone {
-        if let Some(clamshell_microphone) = &settings.clamshell_microphone {
-            let clamshell_started = Instant::now();
-            let is_clamshell = clamshell::is_clamshell().unwrap_or(false);
-            debug!(
-                "device resolve: clamshell_check={:?} (clamshell={})",
-                clamshell_started.elapsed(),
-                is_clamshell
-            );
-            if is_clamshell {
-                return DesiredMicrophone::Clamshell(clamshell_microphone.clone());
-            }
-        }
-        match &settings.selected_microphone {
-            Some(name) => DesiredMicrophone::Selected(name.clone()),
-            None => DesiredMicrophone::Default,
-        }
-    }
-
     pub fn invalidate_device_cache(&self) {
         *self.cached_device.lock().unwrap() = None;
     }
 
     fn resolve_microphone_device(&self, settings: &AppSettings) -> MicrophoneResolution {
-        let desired = self.desired_microphone(settings);
+        let desired = desired_microphone(settings);
         let (device_name, selected_microphone) = match desired {
             DesiredMicrophone::Default => {
                 debug!("device resolve: no mic configured -> system default");

@@ -11,7 +11,7 @@ mod text_field;
 mod toggle;
 
 pub use button::{Button, ButtonSize, ButtonVariant};
-pub use dialog::{Dialog, DIALOG_CONTEXT};
+pub use dialog::{Dialog, DialogFrame, DialogMaterial, DIALOG_CONTEXT};
 pub use dropdown::{Dropdown, DropdownOption};
 pub use focus::init as focus_init;
 pub use focus::{

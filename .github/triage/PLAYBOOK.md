@@ -127,7 +127,7 @@ user's version already fixes the problem: `gh release list --repo andynaguyen/be
 the release notes, and recent commits that touch the relevant code.
 
 If the user is behind and the fix likely shipped, say so and tell them how to update.
-A Sparkle release updates from Check Now under Settings > System > Updates, or from
+A Sparkle release updates from Check Now under Settings > General > Updates, or from
 Check for Updates in the menu bar menu. A local build updates by pulling `main` and running
 `scripts/install-local.sh` again.
 

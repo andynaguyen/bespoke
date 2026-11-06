@@ -43,7 +43,6 @@ pub enum Section {
     Annotate,
     Mcp,
     Debug,
-    Settings,
 }
 
 impl Section {
@@ -73,7 +72,6 @@ impl Section {
             Section::Annotate => "sidebar.annotate",
             Section::Mcp => "sidebar.mcp",
             Section::Debug => "sidebar.debug",
-            Section::Settings => "sidebar.settings",
         }
     }
 
@@ -86,7 +84,6 @@ impl Section {
             Section::Annotate => "nav-pen-line",
             Section::Mcp => "nav-bot",
             Section::Debug => "nav-flask-conical",
-            Section::Settings => "nav-settings",
         }
     }
 }
@@ -248,11 +245,6 @@ impl MainWindow {
         cx.notify();
     }
 
-    pub fn select_tab(&mut self, tab: &str, window: &mut Window, cx: &mut Context<Self>) {
-        pages::select_tab(&self.page.view, tab, window, cx);
-        cx.notify();
-    }
-
     pub fn preview_onboarding(
         &mut self,
         preview: OnboardingPreview,
@@ -278,6 +270,9 @@ impl MainWindow {
         let (page, scroll) = page.split_once('@').unwrap_or((page, ""));
         let (name, detail) = page.split_once(':').unwrap_or((page, ""));
         self.preview = None;
+        if name != "settings" && self.dialog.is_some() {
+            self.close_dialog(window, cx);
+        }
         let section = match name {
             "onboarding" => {
                 let preview = if detail == "model" {
@@ -294,7 +289,17 @@ impl MainWindow {
             "annotate" => Section::Annotate,
             "mcp" => Section::Mcp,
             "debug" => Section::Debug,
-            "settings" => Section::Settings,
+            "settings" => {
+                let section = pages::settings::SettingsSection::from_id(detail);
+                let offset = scroll.parse::<f32>().ok();
+                window.defer(cx, move |window, cx| {
+                    pages::settings::open(section, window, cx);
+                    if let Some(offset) = offset {
+                        pages::settings::SettingsDialog::dev_scroll(offset, cx);
+                    }
+                });
+                return;
+            }
             _ => Section::Dictate,
         };
         self.select_section(section, window, cx);
@@ -331,6 +336,32 @@ impl MainWindow {
             Some(OpenDialog::Inline(build(window, cx)))
         };
         cx.notify();
+    }
+
+    /// Whether a dialog covers the window.
+    pub fn has_dialog(&self) -> bool {
+        self.dialog.is_some()
+    }
+
+    /// Whether the app shows, rather than onboarding or its preview, so a dialog can go over it.
+    pub fn shows_app(&self) -> bool {
+        self.step == OnboardingStep::Done && self.preview.is_none()
+    }
+
+    /// Hands keys back to the open dialog's window.
+    pub fn focus_dialog(&self, cx: &App) {
+        if let Some(OpenDialog::Window(dialog)) = &self.dialog {
+            dialog.focus(cx);
+        }
+    }
+
+    /// The open dialog's window, for dev snapshots to send keys to.
+    #[cfg(debug_assertions)]
+    pub fn dialog_window(&self) -> Option<gpui::AnyWindowHandle> {
+        match &self.dialog {
+            Some(OpenDialog::Window(dialog)) => Some(dialog.handle()),
+            _ => None,
+        }
     }
 
     pub fn close_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -636,13 +667,9 @@ impl Render for MainWindow {
                     this.toggle_debug_mode(cx)
                 }),
             )
-            .on_action(
-                cx.listener(|this, _: &crate::ui::OpenSettings, window, cx| {
-                    if this.step == OnboardingStep::Done {
-                        this.select_section(Section::Settings, window, cx);
-                    }
-                }),
-            )
+            .on_action(cx.listener(|_, _: &crate::ui::OpenSettings, window, cx| {
+                window.defer(cx, |window, cx| pages::settings::open(None, window, cx));
+            }))
             .capture_key_down(|_, window, cx| {
                 crate::ui::components::set_keyboard_modality(true, window, cx)
             })
