@@ -59,7 +59,7 @@ python3 scripts/ci/measure-release.py RUN_ID
 python3 scripts/ci/measure-release.py RUN_ID --attempt 1
 ```
 
-The current benchmark experiment compiles UI, platform and backend dependency groups on three standard runners, then transfers their artifacts to the app build. Only artifacts from the same workflow run and attempt are accepted. Their source commit, Rust compiler, Xcode version and profile must match. No previous-run build artifacts are reused.
+The current benchmark experiment uses two standard runners. One compiles UI prerequisites while the app runner compiles platform and backend dependencies. The app runner then downloads the UI artifacts and finishes the build. Only artifacts from the same workflow run and attempt are accepted. Their source commit, Rust compiler, Xcode version and profile must match. No previous-run build artifacts are reused.
 
 The reporter measures the entire pipeline from its first runner starting through the app job finishing. Setup, downloads, compilation, artifact transfers, waits between jobs, signing, relocation checks and cleanup count toward the limit. Initial queue time is excluded. The benchmark fails if a release job fails or takes 480 seconds or more. It uploads Cargo's HTML timing report with the signed ZIP. Runner variability still affects the result; repeat a candidate before treating it as a sustained improvement.
 

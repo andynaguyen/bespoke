@@ -49,6 +49,18 @@ class DependencyTransferTests(unittest.TestCase):
                     cold.restore(root)
                 run.assert_not_called()
 
+    def test_single_ui_transfer_does_not_wait_for_other_groups(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict(os.environ, GITHUB_REPOSITORY='owner/repo', GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='2'), \
+                patch.object(cold, 'output', return_value=json.dumps([
+                    {'artifacts': [{'name': 'cold-deps-2-ui', 'expired': False}]}])) as output, \
+                patch.object(cold.subprocess, 'run') as run, patch.object(cold.time, 'sleep') as sleep:
+            cold.download(Path(directory), ['ui'])
+            output.assert_called_once()
+            run.assert_called_once()
+            self.assertIn('cold-deps-2-ui', run.call_args.args[0])
+            sleep.assert_not_called()
+
     def test_failed_dependency_job_stops_download_wait(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.dict(os.environ, GITHUB_REPOSITORY='owner/repo', GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='2'), \

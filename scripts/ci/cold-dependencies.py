@@ -96,7 +96,8 @@ def build(group):
     host = next(line.split(': ', 1)[1] for line in output('rustc', '-vV').splitlines() if line.startswith('host: '))
     metadata = json.loads(output('cargo', 'metadata', '--locked', '--format-version', '1', '--filter-platform', host))
     packages = {p['id']: p for p in metadata['packages']}
-    selected = dependency_groups(metadata)[group]
+    groups = dependency_groups(metadata)
+    selected = groups['platform'] | groups['backend'] if group == 'remaining' else groups[group]
     if not selected:
         raise SystemExit(f'No dependency packages selected for {group}')
     command = ['cargo', 'build', '--release', '--locked', '--timings', '--config', 'scripts/ci/release-dsp.toml']
@@ -121,9 +122,9 @@ def pack(group, directory):
                     'target/release/build', 'target/release/.fingerprint'], check=True)
 
 
-def restore(directory):
+def restore(directory, groups=('ui', 'platform', 'backend')):
     expected = identity()
-    for group in ('ui', 'platform', 'backend'):
+    for group in groups:
         actual = json.loads((directory / f'{group}.json').read_text())
         if actual != expected:
             raise SystemExit(f'{group}: run attempt, source, compiler, SDK or profile differs')
@@ -134,11 +135,11 @@ def restore(directory):
     set_times(Path('target/release'), source_time() + 1)
 
 
-def download(directory):
+def download(directory, groups=('ui', 'platform', 'backend')):
     repository = os.environ['GITHUB_REPOSITORY']
     run = os.environ['GITHUB_RUN_ID']
     attempt = os.environ['GITHUB_RUN_ATTEMPT']
-    pending = {f'cold-deps-{attempt}-{group}' for group in ('ui', 'platform', 'backend')}
+    pending = {f'cold-deps-{attempt}-{group}' for group in groups}
     directory.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + 480
     while pending:
@@ -166,9 +167,11 @@ def download(directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'build', 'pack', 'restore', 'download'])
-    parser.add_argument('--group', choices=['ui', 'platform', 'backend'])
+    parser.add_argument('--group', choices=['ui', 'platform', 'backend', 'remaining'])
     parser.add_argument('--directory', type=Path)
     args = parser.parse_args()
+    if args.group == 'remaining' and args.action != 'build':
+        parser.error('remaining is only a build group')
     if args.action in ('build', 'pack') and not args.group:
         parser.error('--group is required')
     if args.action in ('pack', 'restore', 'download') and args.directory is None:
@@ -180,9 +183,9 @@ def main():
     elif args.action == 'pack':
         pack(args.group, args.directory)
     elif args.action == 'restore':
-        restore(args.directory)
+        restore(args.directory, [args.group] if args.group else ('ui', 'platform', 'backend'))
     else:
-        download(args.directory)
+        download(args.directory, [args.group] if args.group else ('ui', 'platform', 'backend'))
 
 
 if __name__ == '__main__':

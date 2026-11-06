@@ -13,13 +13,9 @@ permissions:
 
 jobs:
   dependencies:
-    name: Dependencies ${{ matrix.group }}
+    name: Dependencies ui
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        group: [ui, platform, backend]
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -36,16 +32,14 @@ jobs:
           cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
           scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
           echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
-      - name: Compile dependency group
-        env:
-          GROUP: ${{ matrix.group }}
+      - name: Compile UI prerequisites
         run: |
           python3 scripts/ci/cold-dependencies.py prepare
-          python3 scripts/ci/cold-dependencies.py build --group "$GROUP"
-          python3 scripts/ci/cold-dependencies.py pack --group "$GROUP" --directory "$RUNNER_TEMP/cold-deps"
+          python3 scripts/ci/cold-dependencies.py build --group ui
+          python3 scripts/ci/cold-dependencies.py pack --group ui --directory "$RUNNER_TEMP/cold-deps"
       - uses: actions/upload-artifact@v4
         with:
-          name: cold-deps-${{ github.run_attempt }}-${{ matrix.group }}
+          name: cold-deps-${{ github.run_attempt }}-ui
           path: ${{ runner.temp }}/cold-deps/
           compression-level: 0
           retention-days: 1

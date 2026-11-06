@@ -66,15 +66,19 @@ jobs:
         if: inputs.dependency-artifacts
         run: python3 scripts/ci/cold-dependencies.py prepare
 
-      - name: Download each dependency group as it finishes
+      - name: Compile platform and backend dependencies
+        if: inputs.dependency-artifacts
+        run: python3 scripts/ci/cold-dependencies.py build --group remaining
+
+      - name: Download UI prerequisites from this run
         if: inputs.dependency-artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci/cold-dependencies.py download --directory "$RUNNER_TEMP/cold-deps"
+        run: python3 scripts/ci/cold-dependencies.py download --group ui --directory "$RUNNER_TEMP/cold-deps"
 
       - name: Restore dependencies compiled during this run
         if: inputs.dependency-artifacts
-        run: python3 scripts/ci/cold-dependencies.py restore --directory "$RUNNER_TEMP/cold-deps"
+        run: python3 scripts/ci/cold-dependencies.py restore --group ui --directory "$RUNNER_TEMP/cold-deps"
 
       - name: Compile release
         env:
