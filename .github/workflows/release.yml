@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
+      optimization-level:
+        type: string
+        default: "1"
       runner-image:
         type: string
         default: macos-26
@@ -21,7 +24,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.ref }}-${{ inputs.optimization-level || '1' }}
 
 jobs:
   release:
@@ -30,6 +33,7 @@ jobs:
     timeout-minutes: 120
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.optimization-level || '1' }}
       DEVELOPER_DIR: ${{ inputs.developer-directory || '/Applications/Xcode.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@v5
@@ -135,7 +139,7 @@ jobs:
       - if: github.event_name != 'push' || startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
-          name: bespoke-release
+          name: bespoke-release-o${{ inputs.optimization-level || '1' }}
           path: |
             dist/
             target/cargo-timings/

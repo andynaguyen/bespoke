@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 import subprocess
 import time
+import tomllib
 
 
 def output(*command):
@@ -16,13 +17,16 @@ def output(*command):
 
 def identity():
     subprocess.run(["git", "diff", "--quiet", "HEAD"], check=True)
+    profile = Path('scripts/ci/release-dsp.toml').read_bytes()
+    default_optimization = tomllib.loads(profile.decode())['profile']['release']['opt-level']
     return {
         "run": os.environ.get("GITHUB_RUN_ID"),
         "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
         'commit': output('git', 'rev-parse', 'HEAD'),
         'rust': output('rustc', '-vV'),
         'xcode': output('xcodebuild', '-version'),
-        'profile': hashlib.sha256(Path('scripts/ci/release-dsp.toml').read_bytes()).hexdigest(),
+        'profile': hashlib.sha256(profile).hexdigest(),
+        'optimization': os.environ.get('CARGO_PROFILE_RELEASE_OPT_LEVEL', str(default_optimization)),
     }
 
 
