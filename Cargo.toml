@@ -115,7 +115,28 @@ hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 objc2 = "0.6"
 objc2-foundation = "0.3"
-objc2-app-kit = "0.3"
+# Compile the AppKit APIs used here, without the default CloudKit and Core Data bindings.
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "libc",
+    "std",
+    "NSAccessibility",
+    "NSAppearance",
+    "NSApplication",
+    "NSBitmapImageRep",
+    "NSColor",
+    "NSEvent",
+    "NSGraphics",
+    "NSImage",
+    "NSImageRep",
+    "NSImageView",
+    "NSPasteboard",
+    "NSRunningApplication",
+    "NSScreen",
+    "NSView",
+    "NSVisualEffectView",
+    "NSWindow",
+    "NSWorkspace",
+] }
 objc2-service-management = "0.3.2"
 raw-window-handle = "0.6"
 block2 = "0.6"

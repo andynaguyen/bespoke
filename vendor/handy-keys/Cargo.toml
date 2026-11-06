@@ -35,7 +35,11 @@ thiserror = "2"
 objc2 = "0.6"
 objc2-core-foundation = "0.3"
 objc2-core-graphics = { version = "0.3", features = ["CGEvent", "CGEventTypes", "CGEventSource", "CGRemoteOperation"] }
-objc2-app-kit = { version = "0.3", features = ["NSEvent", "NSApplication"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSEvent",
+    "NSApplication",
+] }
 objc2-foundation = "0.3"
 block2 = "0.6"
 
