@@ -6,6 +6,12 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
+      runner-image:
+        type: string
+        default: macos-26
+      developer-directory:
+        type: string
+        default: /Applications/Xcode.app/Contents/Developer
       dependency-artifacts:
         type: boolean
         default: false
@@ -20,10 +26,11 @@ concurrency:
 jobs:
   release:
     # scrawl-helper needs the macOS 26 SDK.
-    runs-on: macos-26
+    runs-on: ${{ inputs.runner-image || 'macos-26' }}
     timeout-minutes: 120
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      DEVELOPER_DIR: ${{ inputs.developer-directory || '/Applications/Xcode.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@v5
         with:

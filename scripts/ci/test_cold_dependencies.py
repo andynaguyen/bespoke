@@ -53,7 +53,12 @@ class DependencyTransferTests(unittest.TestCase):
             cold.set_times(root, epoch)
             env = dict(os.environ, CARGO_TARGET_DIR=str(root / 'target'))
             command = ['cargo', 'build', '--offline', '--release', '-v']
-            subprocess.run(command, cwd=root, env=env, check=True, capture_output=True)
+            subprocess.run(['cargo', 'build', '--offline', '--release', '-p', 'fixturedep'],
+                           cwd=root, env=env, check=True, capture_output=True)
+            # The primary-package copy is redundant when another crate consumes it.
+            (root / 'target/release/libfixturedep.rlib').unlink()
+            first = subprocess.run(command, cwd=root, env=env, text=True, check=True, capture_output=True)
+            self.assertIn('Fresh fixturedep', first.stderr)
             # Simulate restoring an identical dependency built by a later worker.
             for artifact in (root / 'target/release/deps').glob('libfixturedep-*'):
                 os.utime(artifact, (time.time() + 5, time.time() + 5))

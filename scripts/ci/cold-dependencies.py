@@ -86,9 +86,12 @@ def build(group):
 def pack(group, directory):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f'{group}.json').write_text(json.dumps(identity(), sort_keys=True))
+    # Root-level library copies are outputs for the selected packages, not
+    # inputs to consumers. Cargo uses the hashed libraries under deps instead.
     subprocess.run(['tar', '--exclude=ModuleCache', '--exclude=*.pcm', '--exclude=*.dia',
                     '--use-compress-program', 'zstd -1 -T0', '-cf',
-                    str(directory / f'{group}.tar.zst'), 'target/release'], check=True)
+                    str(directory / f'{group}.tar.zst'), 'target/release/deps',
+                    'target/release/build', 'target/release/.fingerprint'], check=True)
 
 
 def restore(directory):
