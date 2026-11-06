@@ -12,51 +12,18 @@ permissions:
   actions: read
 
 jobs:
-  dependencies:
-    name: Dependencies ui
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-15
-    env:
-      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Verify a cold build
-        run: |
-          test ! -d target
-          test ! -d "$HOME/.cargo/registry/src"
-          test ! -d "$HOME/.cargo/git/checkouts"
-      - name: Fetch dependencies
-        run: |
-          cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
-          scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
-          echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
-      - name: Compile UI prerequisites
-        run: |
-          python3 scripts/ci/cold-dependencies.py prepare
-          python3 scripts/ci/cold-dependencies.py build --group ui
-          python3 scripts/ci/cold-dependencies.py pack --group ui --directory "$RUNNER_TEMP/cold-deps"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cold-deps-${{ github.run_attempt }}-ui
-          path: ${{ runner.temp }}/cold-deps/
-          compression-level: 0
-          retention-days: 1
-
   measure:
     # Signed benchmarks need repository secrets. Fork PRs can run local checks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/release.yml
     with:
-      dependency-artifacts: true
       runner-image: macos-15
       developer-directory: /Applications/Xcode_26.3.app/Contents/Developer
     secrets: inherit
 
   budget:
-    needs: [dependencies, measure]
-    if: always() && needs.dependencies.result != 'skipped'
+    needs: measure
+    if: always() && needs.measure.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
