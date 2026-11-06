@@ -10,7 +10,6 @@ on:
         type: string
         default: fat
 
-
 permissions:
   contents: write
 
@@ -57,6 +56,11 @@ jobs:
       - name: Compile release
         run: cargo build --release --locked --timings
 
+      - name: Smoke test the release executable
+        run: |
+          target/release/bespoke --list-models --json > "$RUNNER_TEMP/models.json"
+          python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))' "$RUNNER_TEMP/models.json"
+
       # macOS keeps the Accessibility and Microphone grants across updates only
       # when the new copy is signed with the same identity as the old one.
       - name: Import the signing identity
@@ -83,7 +87,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && '--publish' || '' }}
+          PUBLISH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && '--publish' || '' }}
         run: scripts/release.sh --no-build $PUBLISH
 
       - if: github.event_name != 'push' || startsWith(github.ref, 'refs/heads/')
