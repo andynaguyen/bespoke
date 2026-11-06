@@ -2,21 +2,26 @@ name: Release benchmark
 
 on:
   push:
-    branches: ["main"]
+    branches: ["andy/speed-up-release-ci"]
   workflow_dispatch:
     inputs:
       variant:
         description: Release profile to measure
         type: choice
-        default: thin
-        options: [thin, fat]
+        default: off
+        options: [off, off2, thin, fat]
 
 permissions:
   contents: write
 
 jobs:
   measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [off, off2]
     uses: ./.github/workflows/release.yml
     with:
-      variant: ${{ inputs.variant || 'thin' }}
+      variant: ${{ matrix.variant }}
+      cold: true
     secrets: inherit

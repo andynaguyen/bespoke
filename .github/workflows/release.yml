@@ -9,12 +9,15 @@ on:
       variant:
         type: string
         default: thin
+      cold:
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}-${{ inputs.variant }}
+  group: release-${{ github.ref_name }}-${{ inputs.variant }}-${{ inputs.cold }}
 
 jobs:
   release:
@@ -23,8 +26,9 @@ jobs:
     timeout-minutes: 120
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-      CARGO_PROFILE_RELEASE_LTO: ${{ inputs.variant == 'fat' && 'fat' || 'thin' }}
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'fat' && '1' || '16' }}
+      CARGO_PROFILE_RELEASE_LTO: ${{ startsWith(inputs.variant, 'off') && 'off' || inputs.variant == 'fat' && 'fat' || 'thin' }}
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ startsWith(inputs.variant, 'off') && '256' || inputs.variant == 'fat' && '1' || '16' }}
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.variant == 'off2' && '2' || '3' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -47,8 +51,16 @@ jobs:
           echo "key=$(xcodebuild -version | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
       - uses: Swatinem/rust-cache@v2
+        if: ${{ !inputs.cold }}
         with:
           shared-key: release-${{ runner.os }}-${{ runner.arch }}-${{ steps.native.outputs.key }}
+
+      - name: Verify a cold build
+        if: inputs.cold
+        run: |
+          test ! -d target
+          test ! -d "$HOME/.cargo/registry/src"
+          test ! -d "$HOME/.cargo/git/checkouts"
 
       - name: Fetch dependencies
         run: |
