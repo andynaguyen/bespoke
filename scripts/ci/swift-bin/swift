@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Share parsed SDK modules across Swift packages within one fresh CI job.
+set -euo pipefail
+if [[ "${1:-}" == build ]]; then
+  exec "${BESPOKE_SWIFT_DRIVER:?}" "$@" \
+    -Xswiftc -module-cache-path -Xswiftc "${BESPOKE_SWIFT_MODULE_CACHE:?}"
+fi
+exec "${BESPOKE_SWIFT_DRIVER:?}" "$@"

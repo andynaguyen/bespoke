@@ -42,6 +42,7 @@ default = [
 inspector = ["gpui_macros/inspector"]
 leak-detection = ["backtrace"]
 macos-blade = [
+    "dep:media",
     "dep:naga",
     "blade-graphics",
     "blade-macros",
@@ -51,7 +52,7 @@ macos-blade = [
     "objc2-metal",
 ]
 runtime_shaders = []
-screen-capture = ["scap"]
+screen-capture = ["scap", "dep:media"]
 test-support = [
     "leak-detection",
     "collections/test-support",
@@ -633,6 +634,7 @@ features = [
 [target.'cfg(target_os = "macos")'.dependencies.media]
 version = "0.2.2"
 package = "gpui_media"
+optional = true
 
 [target.'cfg(target_os = "macos")'.dependencies.metal]
 version = "0.29"

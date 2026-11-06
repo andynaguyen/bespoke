@@ -28,7 +28,7 @@ jobs:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       CARGO_PROFILE_RELEASE_LTO: ${{ startsWith(inputs.variant, 'off') && 'off' || inputs.variant == 'fat' && 'fat' || 'thin' }}
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'off16' && '16' || startsWith(inputs.variant, 'off') && '256' || inputs.variant == 'fat' && '1' || '16' }}
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.variant == 'off-prebuilt-opt1' && '1' || '3' }}
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ startsWith(inputs.variant, 'off-prebuilt-opt1') && '1' || '3' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -75,6 +75,16 @@ jobs:
           test ! -d "$HOME/.cargo/registry/src"
           test ! -d "$HOME/.cargo/git/checkouts"
 
+      - name: Share Swift SDK modules within this job
+        if: inputs.variant == 'off-prebuilt-opt1-shared'
+        run: |
+          module_cache="$RUNNER_TEMP/bespoke-swift-modules"
+          test ! -e "$module_cache"
+          mkdir -p "$module_cache"
+          echo "BESPOKE_SWIFT_DRIVER=$(xcrun --find swift)" >> "$GITHUB_ENV"
+          echo "BESPOKE_SWIFT_MODULE_CACHE=$module_cache" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/scripts/ci/swift-bin" >> "$GITHUB_PATH"
+
       - name: Fetch dependencies
         run: |
           cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
@@ -91,7 +101,7 @@ jobs:
         run: |
           config=()
           case "$VARIANT" in
-            off-prebuilt-opt1) config=(--config scripts/ci/release-dsp.toml) ;;
+            off-prebuilt-opt1*) config=(--config scripts/ci/release-dsp.toml) ;;
             off-prebuilt-ui1) config=(--config scripts/ci/release-ui.toml) ;;
           esac
           if [[ -n "${TRANSCRIBE_DIR:-}" ]]; then
@@ -103,8 +113,13 @@ jobs:
 
       - name: Smoke test the release executable
         run: |
-          DYLD_LIBRARY_PATH="${TRANSCRIBE_DIR:+$TRANSCRIBE_DIR/lib}" target/release/bespoke --list-models --json > "$RUNNER_TEMP/models.json"
-          python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))' "$RUNNER_TEMP/models.json"
+          if [[ -n "${TRANSCRIBE_DIR:-}" ]]; then
+            DYLD_LIBRARY_PATH="$TRANSCRIBE_DIR/lib" target/release/bespoke --help > "$RUNNER_TEMP/help.txt"
+            grep -q -- '--transcribe-file' "$RUNNER_TEMP/help.txt"
+          else
+            target/release/bespoke --list-models --json > "$RUNNER_TEMP/models.json"
+            python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))' "$RUNNER_TEMP/models.json"
+          fi
 
       # macOS keeps the Accessibility and Microphone grants across updates only
       # when the new copy is signed with the same identity as the old one.
