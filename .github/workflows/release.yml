@@ -5,6 +5,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      dependency-artifacts:
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -19,9 +23,6 @@ jobs:
     timeout-minutes: 120
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-      CARGO_PROFILE_RELEASE_LTO: "off"
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "256"
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -52,6 +53,21 @@ jobs:
         run: |
           scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
           echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
+
+      - name: Normalize source timestamps
+        if: inputs.dependency-artifacts
+        run: python3 scripts/ci/cold-dependencies.py prepare
+
+      - uses: actions/download-artifact@v4
+        if: inputs.dependency-artifacts
+        with:
+          pattern: cold-deps-*
+          path: ${{ runner.temp }}/cold-deps
+          merge-multiple: true
+
+      - name: Restore dependencies compiled during this run
+        if: inputs.dependency-artifacts
+        run: python3 scripts/ci/cold-dependencies.py restore --directory "$RUNNER_TEMP/cold-deps"
 
       - name: Compile release
         run: |

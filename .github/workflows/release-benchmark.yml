@@ -11,15 +11,55 @@ permissions:
   contents: write
 
 jobs:
+  dependencies:
+    name: Dependencies ${{ matrix.group }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [ui, platform, backend]
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify a cold build
+        run: |
+          test ! -d target
+          test ! -d "$HOME/.cargo/registry/src"
+          test ! -d "$HOME/.cargo/git/checkouts"
+      - name: Fetch dependencies
+        run: |
+          cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
+          scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
+          echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
+      - name: Compile dependency group
+        env:
+          GROUP: ${{ matrix.group }}
+        run: |
+          python3 scripts/ci/cold-dependencies.py prepare
+          python3 scripts/ci/cold-dependencies.py build --group "$GROUP"
+          python3 scripts/ci/cold-dependencies.py pack --group "$GROUP" --directory "$RUNNER_TEMP/cold-deps"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cold-deps-${{ matrix.group }}
+          path: ${{ runner.temp }}/cold-deps/
+          compression-level: 0
+          retention-days: 1
+
   measure:
+    needs: dependencies
     # Signed benchmarks need repository secrets. Fork PRs can run local checks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/release.yml
+    with:
+      dependency-artifacts: true
     secrets: inherit
 
   budget:
-    needs: measure
-    if: always() && needs.measure.result != 'skipped'
+    needs: [dependencies, measure]
+    if: always() && needs.dependencies.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,4 +70,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: python3 scripts/ci/measure-release.py "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          python3 scripts/ci/test_measure_release.py
+          python3 scripts/ci/measure-release.py "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -26,15 +26,24 @@ def main():
     run = json.loads(subprocess.check_output(command, text=True))
     print(run["url"])
     passed = True
-    jobs = [job for job in run["jobs"] if job["name"].endswith("release")]
-    if not jobs:
+    releases = [job for job in run["jobs"] if job["name"].endswith("release")]
+    jobs = [job for job in run["jobs"]
+            if job["name"].endswith("release") or job["name"].startswith("Dependencies ")]
+    if not releases:
         raise SystemExit("No release jobs found")
+    starts, ends = [], []
     for job in jobs:
         print(f'\n### {job["name"]}\n')
         if job["status"] != "completed":
             print("Still running")
             passed = False
             continue
+        if not job["steps"]:
+            print(f'{job["conclusion"]}, no runner steps executed, FAIL')
+            passed = False
+            continue
+        starts.append(job["startedAt"])
+        ends.append(job["completedAt"])
         duration = seconds(job["startedAt"], job["completedAt"])
         within_budget = job["conclusion"] == "success" and duration < args.max_seconds
         passed &= within_budget
@@ -44,6 +53,11 @@ def main():
         for step in job["steps"]:
             if step["conclusion"] != "skipped":
                 print(f'| {step["name"]} | {seconds(step["startedAt"], step["completedAt"])} |')
+    if any(job["name"].startswith("Dependencies ") for job in jobs) and starts:
+        duration = seconds(min(starts), max(ends))
+        passed &= duration < args.max_seconds
+        print(f'\nPipeline elapsed: {duration // 60}m{duration % 60:02}s, '
+              f'{"PASS" if passed else "FAIL"} <{args.max_seconds}s')
     raise SystemExit(0 if passed else 1)
 
 

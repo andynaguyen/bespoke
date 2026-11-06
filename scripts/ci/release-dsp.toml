@@ -1,3 +1,9 @@
+# This profile applies only when CI passes this config file.
+[profile.release]
+opt-level = 1
+lto = "off"
+codegen-units = 256
+
 # Keep the Rust speech and signal-processing crates optimized in CI.
 
 [profile.release.package.transcribe-cpp-sys]
