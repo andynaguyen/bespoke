@@ -34,7 +34,6 @@
     "title": "Triage an Issue",
     "showTitle": "Show the problem",
     "showHint": "Optional. Press {{shortcut}} and talk through what you see.",
-    "record": "Record",
     "captured": "Capture from {{time}} · {{duration}}",
     "recordAgain": "Record Again",
     "removeCapture": "Leave Out This Capture",

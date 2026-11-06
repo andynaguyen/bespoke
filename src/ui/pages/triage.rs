@@ -242,22 +242,7 @@ impl TriageDialog {
                         .child(icon("x").size(px(14.))),
                 )
                 .into_any_element(),
-            None => div()
-                .mt_1()
-                .flex()
-                .row_dir()
-                .items_center()
-                .justify_between()
-                .gap_3()
-                .child(show_hint(cx))
-                .child(
-                    Button::new("triage-record")
-                        .variant(ButtonVariant::Secondary)
-                        .size(crate::ui::components::ButtonSize::Sm)
-                        .on_click(cx.listener(|this, _, window, cx| this.record(window, cx)))
-                        .child(t("triage.record")),
-                )
-                .into_any_element(),
+            None => div().mt_1().child(show_hint(cx)).into_any_element(),
         };
         Some(Step {
             done: self.capture.is_some(),
