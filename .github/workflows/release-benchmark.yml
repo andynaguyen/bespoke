@@ -8,8 +8,8 @@ on:
       variant:
         description: Release profile to measure
         type: choice
-        default: off-platform
-        options: [off-platform, off, off-jobs2, thin, fat]
+        default: off-codecs
+        options: [off-codecs, off-codecs-pch, off-platform, off, off-jobs2, thin, fat]
 
 permissions:
   contents: write
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["off-platform"]') }}
+        variant: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["off-codecs", "off-codecs-pch"]') }}
     uses: ./.github/workflows/release.yml
     with:
       variant: ${{ matrix.variant }}

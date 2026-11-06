@@ -52,6 +52,9 @@ jobs:
           if [[ "$VARIANT" == off-jobs2 ]]; then
             echo "CARGO_BUILD_JOBS=2" >> "$GITHUB_ENV"
           fi
+          if [[ "$VARIANT" == off-codecs-pch ]]; then
+            echo "TRANSCRIBE_CMAKE_ARGS=-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=$GITHUB_WORKSPACE/scripts/ci/transcribe-pch.cmake" >> "$GITHUB_ENV"
+          fi
         env:
           VARIANT: ${{ inputs.variant }}
 
