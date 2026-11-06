@@ -5,36 +5,24 @@ on:
     tags: ["v*"]
   workflow_dispatch:
   workflow_call:
-    inputs:
-      optimization-level:
-        type: string
-        default: "1"
-      runner-image:
-        type: string
-        default: macos-26
-      developer-directory:
-        type: string
-        default: /Applications/Xcode.app/Contents/Developer
-      dependency-artifacts:
-        type: boolean
-        default: false
 
 permissions:
   contents: write
-  actions: read
 
 concurrency:
-  group: release-${{ github.ref }}-${{ inputs.optimization-level || '1' }}
+  group: release-${{ github.ref }}
 
 jobs:
   release:
-    # scrawl-helper needs the macOS 26 SDK.
-    runs-on: ${{ inputs.runner-image || 'macos-26' }}
+    # The standard macOS 15 image includes Xcode 26.3 and its macOS 26 SDK.
+    runs-on: macos-15
     timeout-minutes: 120
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.optimization-level || '1' }}
-      DEVELOPER_DIR: ${{ inputs.developer-directory || '/Applications/Xcode.app/Contents/Developer' }}
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: "3"
+      CARGO_PROFILE_RELEASE_LTO: "off"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "256"
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v5
         with:
@@ -66,30 +54,9 @@ jobs:
           scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
           echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
 
-      - name: Normalize source timestamps
-        if: inputs.dependency-artifacts
-        run: python3 scripts/ci/cold-dependencies.py prepare
-
-      - name: Compile platform and backend dependencies
-        if: inputs.dependency-artifacts
-        run: python3 scripts/ci/cold-dependencies.py build --group remaining
-
-      - name: Download UI prerequisites from this run
-        if: inputs.dependency-artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci/cold-dependencies.py download --group ui --directory "$RUNNER_TEMP/cold-deps"
-
-      - name: Restore dependencies compiled during this run
-        if: inputs.dependency-artifacts
-        run: python3 scripts/ci/cold-dependencies.py restore --group ui --directory "$RUNNER_TEMP/cold-deps"
-
       - name: Compile release
-        env:
-          CARGO_LOG: ${{ inputs.dependency-artifacts && 'cargo::core::compiler::fingerprint=info' || '' }}
         run: |
-          /usr/bin/time -l cargo rustc --release --locked --timings \
-            --config scripts/ci/release-dsp.toml -- \
+          /usr/bin/time -l cargo rustc --release --locked --timings -- \
             -C 'link-arg=-Wl,-rpath,@executable_path/../Frameworks/Transcribe'
 
       - name: Smoke test the release executable
@@ -119,13 +86,11 @@ jobs:
           rm "$RUNNER_TEMP/signing.p12"
           security find-identity -p codesigning "$keychain" | grep -q '"Bespoke Local Signing"'
 
-      - name: Build, sign and publish
+      - name: Build and sign the release
         env:
           BESPOKE_SPARKLE_CACHE: ${{ runner.temp }}/sparkle
-          GH_TOKEN: ${{ github.token }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          PUBLISH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && '--publish' || '' }}
-        run: scripts/release.sh --no-build $PUBLISH
+        run: scripts/release.sh --no-build
 
       - name: Smoke test the relocated bundle
         run: |
@@ -136,10 +101,16 @@ jobs:
           cat "$RUNNER_TEMP/devices.txt"
           grep -qi metal "$RUNNER_TEMP/devices.txt"
 
+      - name: Publish the verified release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release.sh --publish-only
+
       - if: github.event_name != 'push' || startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
-          name: bespoke-release-o${{ inputs.optimization-level || '1' }}
+          name: bespoke-release
           path: |
             dist/
             target/cargo-timings/

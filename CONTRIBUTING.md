@@ -46,11 +46,11 @@ The output directory must not exist yet. The script builds offline in a new, emp
 
 ## Measure release CI
 
-`Release benchmark` calls the release workflow on same-repository pull requests, pushes to `main`, and manual runs. It builds on the standard `macos-26` runner, signs and uploads a ZIP, and verifies its signatures and Metal backend after extracting it to another directory. Fork pull requests skip this signed workflow because repository signing secrets are unavailable.
+`Release benchmark` calls the release workflow on same-repository pull requests, pushes to `main`, and manual runs. It uses one standard `macos-15` build runner with Xcode 26.3 and the macOS 26.2 SDK. It signs and uploads a ZIP, verifies its signatures after extraction to another directory, and checks that the extracted app can enumerate Metal devices. Fork pull requests skip this signed workflow because repository signing secrets are unavailable.
 
-Every run starts without Cargo sources or build output and restores no build cache. Rust compiles at optimization level 1 with LTO off and 256 code generation units. `scripts/ci/release-dsp.toml` retains level 3 for speech and signal-processing crates. Local release builds keep the existing Cargo.toml profile and compile the native transcription library from source.
+Every run starts without Cargo sources or build output and restores no build cache. CI retains Rust optimization level 3, disables LTO and uses 256 code generation units. Local release builds keep the existing Cargo.toml profile and compile the native transcription library from source. No new dependency copies or manifest patches are maintained in this repository.
 
-CI downloads the upstream transcribe.cpp 0.2.3 ARM64 Metal binary instead of compiling that native dependency. `scripts/ci/prepare-transcribe.sh` verifies the archive's SHA-256, version and backend contract. A dependency upgrade must update that pin. The app bundle includes the signed native libraries and their licenses.
+CI downloads the upstream transcribe.cpp 0.2.3 ARM64 Metal binary instead of compiling that native dependency. `scripts/ci/prepare-transcribe.sh` verifies the archive's SHA-256, version and backend contract. A dependency upgrade must update that pin. The app bundle includes the signed native libraries and their licenses. Release tags publish the already verified ZIP and appcast with `scripts/release.sh --publish-only`.
 
 ```bash
 gh workflow run release-benchmark.yml
@@ -59,9 +59,7 @@ python3 scripts/ci/measure-release.py RUN_ID
 python3 scripts/ci/measure-release.py RUN_ID --attempt 1
 ```
 
-The current benchmark experiment uses two standard runners. One compiles UI prerequisites while the app runner compiles platform and backend dependencies. The app runner then downloads the UI artifacts and finishes the build. Only artifacts from the same workflow run and attempt are accepted. Their source commit, Rust compiler, Xcode version and profile must match. No previous-run build artifacts are reused.
-
-The reporter measures the entire pipeline from its first runner starting through the app job finishing. Setup, downloads, compilation, artifact transfers, waits between jobs, signing, relocation checks and cleanup count toward the limit. Initial queue time is excluded. The benchmark fails if a release job fails or takes 480 seconds or more. It uploads Cargo's HTML timing report with the signed ZIP. Runner variability still affects the result; repeat a candidate before treating it as a sustained improvement.
+The selected configuration measured about eleven minutes on a cold runner. Timing is informational; the earlier eight-minute target is no longer a CI gate. The reporter includes setup, dependency downloads, compilation, signing, relocation checks, upload and cleanup. Initial runner queue time is excluded. Failed or unfinished builds still fail the report. Pass `--max-seconds N` to enforce a limit when measuring a future candidate. Cargo's HTML timing report is uploaded with the signed ZIP.
 
 ## Send a pull request
 

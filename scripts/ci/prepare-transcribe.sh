@@ -30,8 +30,8 @@ import pathlib
 import sys
 prefix = pathlib.Path(sys.argv[1])
 contract = json.loads((prefix / 'contract.json').read_text())
-assert contract['version'] == '0.2.3', contract
-assert set(contract['backends']) == {'metal', 'cpu'}, contract
+if contract['version'] != '0.2.3' or set(contract['backends']) != {'metal', 'cpu'}:
+    raise SystemExit(f'Unexpected native artifact contract: {contract}')
 # The upstream archive ships its libraries flat. Adapt it to the install-prefix
 # manifest consumed by transcribe-cpp-sys. The dylib records its own dependencies.
 (prefix / 'lib/transcribe-link.json').write_text(json.dumps({

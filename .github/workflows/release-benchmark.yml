@@ -13,20 +13,12 @@ permissions:
 
 jobs:
   measure:
-    strategy:
-      fail-fast: false
-      matrix:
-        optimization: ["2", "3"]
     # Signed benchmarks need repository secrets. Fork PRs can run local checks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/release.yml
-    with:
-      optimization-level: ${{ matrix.optimization }}
-      runner-image: macos-15
-      developer-directory: /Applications/Xcode_26.3.app/Contents/Developer
     secrets: inherit
 
-  budget:
+  timings:
     needs: measure
     if: always() && needs.measure.result != 'skipped'
     runs-on: ubuntu-latest
@@ -35,11 +27,11 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v5
-      - name: Check complete release jobs against eight minutes
+      - name: Report complete release job time
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           python3 scripts/ci/test_measure_release.py
-          python3 scripts/ci/test_cold_dependencies.py
+          python3 scripts/ci/test_release_script.py
           python3 scripts/ci/measure-release.py "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"

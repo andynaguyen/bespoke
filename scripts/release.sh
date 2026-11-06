@@ -16,11 +16,13 @@ RELEASES_REPO="${BESPOKE_RELEASES_REPO:-andynaguyen/bespoke}"
 
 PUBLISH=false
 BUILD=true
+PACKAGE=true
 EXISTING_RELEASE=false
 for arg in "$@"; do
   case "$arg" in
     --publish) PUBLISH=true ;;
     --no-build) BUILD=false ;;
+    --publish-only) PUBLISH=true; BUILD=false; PACKAGE=false ;;
     *) echo "Unknown argument: $arg" >&2; exit 1 ;;
   esac
 done
@@ -29,6 +31,7 @@ VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 TAG="v$VERSION"
 ZIP_NAME="Bespoke-$VERSION.zip"
 DIST="dist/$VERSION"
+NOTES_FILE="release-notes/$VERSION.md"
 DOWNLOAD_BASE="${BESPOKE_DOWNLOAD_BASE:-https://github.com/$RELEASES_REPO/releases/download/$TAG}"
 
 if $PUBLISH; then
@@ -50,60 +53,61 @@ if $PUBLISH; then
   fi
 fi
 
-SPARKLE_DIR="${BESPOKE_SPARKLE_CACHE:-target/sparkle}/$SPARKLE_VERSION"
-if [[ ! -d "$SPARKLE_DIR/Sparkle.framework" ]]; then
-  echo "Downloading Sparkle $SPARKLE_VERSION..."
-  mkdir -p "$SPARKLE_DIR"
-  ARCHIVE="$SPARKLE_DIR.tar.xz"
-  curl -fsSL -o "$ARCHIVE" \
-    "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
-  echo "$SPARKLE_SHA256  $ARCHIVE" | shasum -a 256 -c - >/dev/null
-  tar -xf "$ARCHIVE" -C "$SPARKLE_DIR"
-  rm "$ARCHIVE"
-fi
-
-# Updates signed with any other key fail on every installed copy.
-if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
-  KEY_SOURCE="SPARKLE_PRIVATE_KEY"
-  SIGNING_KEY=$(xcrun swift scripts/sparkle-public-key.swift)
-else
-  KEY_SOURCE="The keychain's Sparkle key"
-  SIGNING_KEY=$("$SPARKLE_DIR/bin/generate_keys" -p)
-fi
-PLIST_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Info.plist)
-if [[ "$SIGNING_KEY" != "$PLIST_KEY" ]]; then
-  echo "$KEY_SOURCE doesn't match SUPublicEDKey in Info.plist." >&2
-  exit 1
-fi
-
-sign_update() {
-  if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
-    printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_DIR/bin/sign_update" --ed-key-file - "$@"
-  else
-    "$SPARKLE_DIR/bin/sign_update" "$@"
+# CI verifies the relocated bundle before publishing the existing artifacts.
+if $PACKAGE; then
+  SPARKLE_DIR="${BESPOKE_SPARKLE_CACHE:-target/sparkle}/$SPARKLE_VERSION"
+  if [[ ! -d "$SPARKLE_DIR/Sparkle.framework" ]]; then
+    echo "Downloading Sparkle $SPARKLE_VERSION..."
+    mkdir -p "$SPARKLE_DIR"
+    ARCHIVE="$SPARKLE_DIR.tar.xz"
+    curl -fsSL -o "$ARCHIVE" \
+      "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+    echo "$SPARKLE_SHA256  $ARCHIVE" | shasum -a 256 -c - >/dev/null
+    tar -xf "$ARCHIVE" -C "$SPARKLE_DIR"
+    rm "$ARCHIVE"
   fi
-}
 
-if $BUILD; then
-  CMAKE_POLICY_VERSION_MINIMUM=3.5 cargo build --release
-fi
-scripts/bundle-app.sh --sparkle "$SPARKLE_DIR/Sparkle.framework"
+  # Updates signed with any other key fail on every installed copy.
+  if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+    KEY_SOURCE="SPARKLE_PRIVATE_KEY"
+    SIGNING_KEY=$(xcrun swift scripts/sparkle-public-key.swift)
+  else
+    KEY_SOURCE="The keychain's Sparkle key"
+    SIGNING_KEY=$("$SPARKLE_DIR/bin/generate_keys" -p)
+  fi
+  PLIST_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Info.plist)
+  if [[ "$SIGNING_KEY" != "$PLIST_KEY" ]]; then
+    echo "$KEY_SOURCE doesn't match SUPublicEDKey in Info.plist." >&2
+    exit 1
+  fi
 
-rm -rf "$DIST"
-mkdir -p "$DIST"
-ditto -c -k --sequesterRsrc --keepParent target/release/bundle/Bespoke.app "$DIST/$ZIP_NAME"
-SIGNATURE=$(sign_update "$DIST/$ZIP_NAME")
-MIN_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" Info.plist)
+  sign_update() {
+    if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+      printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_DIR/bin/sign_update" --ed-key-file - "$@"
+    else
+      "$SPARKLE_DIR/bin/sign_update" "$@"
+    fi
+  }
 
-NOTES_FILE="release-notes/$VERSION.md"
-DESCRIPTION=""
-if [[ -f "$NOTES_FILE" ]]; then
-  # Sparkle can't load the notes' images, which What's New embeds.
-  NOTES=$(grep -v '^!\[' "$NOTES_FILE" | sed 's/]]>/]]]]><![CDATA[>/g')
-  DESCRIPTION="<description sparkle:format=\"markdown\"><![CDATA[$NOTES]]></description>"
-fi
+  if $BUILD; then
+    CMAKE_POLICY_VERSION_MINIMUM=3.5 cargo build --release
+  fi
+  scripts/bundle-app.sh --sparkle "$SPARKLE_DIR/Sparkle.framework"
 
-cat > "$DIST/appcast.xml" <<EOF
+  rm -rf "$DIST"
+  mkdir -p "$DIST"
+  ditto -c -k --sequesterRsrc --keepParent target/release/bundle/Bespoke.app "$DIST/$ZIP_NAME"
+  SIGNATURE=$(sign_update "$DIST/$ZIP_NAME")
+  MIN_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" Info.plist)
+
+  DESCRIPTION=""
+  if [[ -f "$NOTES_FILE" ]]; then
+    # Sparkle can't load the notes' images, which What's New embeds.
+    NOTES=$(grep -v '^!\[' "$NOTES_FILE" | sed 's/]]>/]]]]><![CDATA[>/g')
+    DESCRIPTION="<description sparkle:format=\"markdown\"><![CDATA[$NOTES]]></description>"
+  fi
+
+  cat > "$DIST/appcast.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
@@ -121,7 +125,11 @@ cat > "$DIST/appcast.xml" <<EOF
 </rss>
 EOF
 
-echo "Wrote $DIST/$ZIP_NAME and $DIST/appcast.xml"
+  echo "Wrote $DIST/$ZIP_NAME and $DIST/appcast.xml"
+elif [[ ! -s "$DIST/$ZIP_NAME" || ! -s "$DIST/appcast.xml" ]]; then
+  echo "Build and verify $DIST/$ZIP_NAME and appcast.xml before --publish-only." >&2
+  exit 1
+fi
 
 if ! $PUBLISH; then
   echo "Run again with --publish to release $TAG on $RELEASES_REPO."

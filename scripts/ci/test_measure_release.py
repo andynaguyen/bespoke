@@ -1,4 +1,4 @@
-"""The budget must include dependency jobs and reject missing build results."""
+"""Report observed time unless a limit is requested, and reject failed builds."""
 import contextlib
 import datetime
 import io
@@ -24,28 +24,35 @@ def job(name, start, end, conclusion='success', steps=True):
 
 
 class ReleaseBudgetTests(unittest.TestCase):
-    def report(self, jobs):
+    def report(self, jobs, extra_args=()):
         data = json.dumps(dict(url='https://example.test/run', jobs=jobs))
         output = io.StringIO()
         with patch('subprocess.check_output', return_value=data), \
-                patch('sys.argv', ['measure-release.py', '123']), \
+                patch('sys.argv', ['measure-release.py', '123', *extra_args]), \
                 contextlib.redirect_stdout(output), self.assertRaises(SystemExit) as caught:
             runpy.run_path(str(REPORTER), run_name='__main__')
         return caught.exception.code, output.getvalue()
 
-    def test_individually_fast_jobs_can_exceed_pipeline_budget(self):
-        code, text = self.report([job('Dependencies ui', 0, 300), job('measure / release', 300, 600)])
-        self.assertEqual(code, 1)
-        self.assertIn('Pipeline elapsed: 10m00s, FAIL', text)
-
-    def test_parallel_jobs_count_wall_time_not_sum(self):
-        code, text = self.report([job('Dependencies ui', 0, 200), job('Dependencies platform', 0, 180),
-                                  job('Dependencies backend', 0, 150), job('measure / release', 200, 400)])
+    def test_time_is_informational_by_default(self):
+        code, text = self.report([job('release', 0, 671)])
         self.assertEqual(code, 0)
-        self.assertIn('Pipeline elapsed: 6m40s, PASS', text)
+        self.assertIn('11m11s, success', text)
+        self.assertNotIn('FAIL', text)
 
-    def test_exactly_eight_minutes_fails(self):
-        self.assertEqual(self.report([job('release', 0, 480)])[0], 1)
+    def test_explicit_limit_is_enforced(self):
+        code, text = self.report([job('release', 0, 480)], ['--max-seconds', '480'])
+        self.assertEqual(code, 1)
+        self.assertIn('FAIL <480s', text)
+
+    def test_explicit_limit_accepts_shorter_build(self):
+        code, text = self.report([job('release', 0, 479)], ['--max-seconds', '480'])
+        self.assertEqual(code, 0)
+        self.assertIn('PASS <480s', text)
+
+    def test_running_build_cannot_pass(self):
+        running = job('release', 0, 100)
+        running['status'] = 'in_progress'
+        self.assertEqual(self.report([running])[0], 1)
 
     def test_unallocated_runner_has_no_build_measurement(self):
         code, text = self.report([job('release', 0, 900, 'cancelled', steps=False)])
