@@ -4,25 +4,35 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      variant:
+        type: string
+        default: fat
+
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ github.ref_name }}-${{ inputs.variant }}
 
 jobs:
   release:
     # scrawl-helper needs the macOS 26 SDK.
     runs-on: macos-26
     timeout-minutes: 120
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      CARGO_PROFILE_RELEASE_LTO: ${{ inputs.variant == 'thin' && 'thin' || 'fat' }}
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'thin' && '16' || '1' }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Check the tag matches Cargo.toml
-        if: github.event_name == 'push'
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
@@ -31,6 +41,21 @@ jobs:
           fi
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Identify the native toolchain
+        id: native
+        run: |
+          echo "key=$(xcodebuild -version | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ runner.os }}-${{ runner.arch }}-${{ steps.native.outputs.key }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: Compile release
+        run: cargo build --release --locked --timings
 
       # macOS keeps the Accessibility and Microphone grants across updates only
       # when the new copy is signed with the same identity as the old one.
@@ -58,11 +83,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          PUBLISH: ${{ github.event_name == 'push' && '--publish' || '' }}
-        run: scripts/release.sh $PUBLISH
+          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && '--publish' || '' }}
+        run: scripts/release.sh --no-build $PUBLISH
 
-      - if: github.event_name == 'workflow_dispatch'
+      - if: github.event_name != 'push' || startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
-          name: bespoke-release
-          path: dist/
+          name: bespoke-release-${{ inputs.variant || 'fat' }}
+          path: |
+            dist/
+            target/cargo-timings/

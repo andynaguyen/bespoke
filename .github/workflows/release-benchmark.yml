@@ -1,0 +1,20 @@
+name: Release benchmark
+
+on:
+  push:
+    branches: ["andy/speed-up-release-ci"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [fat, thin]
+    uses: ./.github/workflows/release.yml
+    with:
+      variant: ${{ matrix.variant }}
+    secrets: inherit
