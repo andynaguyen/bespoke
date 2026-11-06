@@ -28,7 +28,7 @@ jobs:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       CARGO_PROFILE_RELEASE_LTO: ${{ startsWith(inputs.variant, 'off') && 'off' || inputs.variant == 'fat' && 'fat' || 'thin' }}
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'off16' && '16' || startsWith(inputs.variant, 'off') && '256' || inputs.variant == 'fat' && '1' || '16' }}
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.variant == 'off2' && '2' || '3' }}
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.variant == 'off-rust1' && '1' || inputs.variant == 'off2' && '2' || '3' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -77,7 +77,15 @@ jobs:
           cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
 
       - name: Compile release
-        run: cargo build --release --locked --timings
+        env:
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          config=()
+          case "$VARIANT" in
+            off-ui1) config=(--config scripts/ci/ui-opt.toml) ;;
+            off-rust1) config=(--config scripts/ci/rust-opt.toml) ;;
+          esac
+          /usr/bin/time -l cargo build --release --locked --timings "${config[@]}"
 
       - name: Smoke test the release executable
         run: |

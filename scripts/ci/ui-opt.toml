@@ -1,0 +1,10 @@
+# Experiment: reduce compiler optimization work for the application and UI.
+
+[profile.release.package.bespoke]
+opt-level = 1
+
+[profile.release.package.gpui]
+opt-level = 1
+
+[profile.release.package.gpui-component]
+opt-level = 1
