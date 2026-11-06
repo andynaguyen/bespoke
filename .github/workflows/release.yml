@@ -4,7 +4,6 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   contents: write
@@ -39,12 +38,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Verify a cold build
-        run: |
-          test ! -d target
-          test ! -d "$HOME/.cargo/registry/src"
-          test ! -d "$HOME/.cargo/git/checkouts"
-
       - name: Fetch dependencies
         run: |
           cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
@@ -56,7 +49,7 @@ jobs:
 
       - name: Compile release
         run: |
-          /usr/bin/time -l cargo rustc --release --locked --timings -- \
+          cargo rustc --release --locked -- \
             -C 'link-arg=-Wl,-rpath,@executable_path/../Frameworks/Transcribe'
 
       - name: Smoke test the release executable
@@ -111,6 +104,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bespoke-release
-          path: |
-            dist/
-            target/cargo-timings/
+          path: dist/
