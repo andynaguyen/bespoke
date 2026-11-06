@@ -27,7 +27,7 @@ jobs:
     env:
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       CARGO_PROFILE_RELEASE_LTO: ${{ startsWith(inputs.variant, 'off') && 'off' || inputs.variant == 'fat' && 'fat' || 'thin' }}
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ startsWith(inputs.variant, 'off') && '256' || inputs.variant == 'fat' && '1' || '16' }}
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.variant == 'off16' && '16' || startsWith(inputs.variant, 'off') && '256' || inputs.variant == 'fat' && '1' || '16' }}
       CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ inputs.variant == 'off2' && '2' || '3' }}
     steps:
       - uses: actions/checkout@v5
@@ -44,6 +44,16 @@ jobs:
           fi
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure build concurrency
+        run: |
+          sysctl -n hw.logicalcpu
+          sysctl -n hw.memsize
+          if [[ "$VARIANT" == off6 ]]; then
+            echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
+          fi
+        env:
+          VARIANT: ${{ inputs.variant }}
 
       - name: Identify the native toolchain
         id: native

@@ -8,8 +8,8 @@ on:
       variant:
         description: Release profile to measure
         type: choice
-        default: off
-        options: [off, off2, thin, fat]
+        default: off16
+        options: [off16, off6, off, off2, thin, fat]
 
 permissions:
   contents: write
@@ -19,9 +19,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [off, off2]
+        variant: [off16, off6]
     uses: ./.github/workflows/release.yml
     with:
       variant: ${{ matrix.variant }}
       cold: true
     secrets: inherit
+
+  budget:
+    needs: measure
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check complete release jobs against eight minutes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: python3 scripts/ci/measure-release.py "$GITHUB_RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
