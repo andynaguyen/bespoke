@@ -17,11 +17,13 @@ def seconds(start, end):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_id")
+    parser.add_argument("--attempt", type=int, help="Inspect an earlier run attempt")
     parser.add_argument("--max-seconds", type=int, default=480)
     args = parser.parse_args()
-    run = json.loads(subprocess.check_output(
-        ["gh", "run", "view", args.run_id, "--json", "jobs,url"], text=True
-    ))
+    command = ["gh", "run", "view", args.run_id, "--json", "jobs,url"]
+    if args.attempt is not None:
+        command.extend(["--attempt", str(args.attempt)])
+    run = json.loads(subprocess.check_output(command, text=True))
     print(run["url"])
     passed = True
     jobs = [job for job in run["jobs"] if job["name"].endswith("release")]

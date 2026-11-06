@@ -44,6 +44,24 @@ python3 scripts/benchmark-build.py --output target/build-times/my-run
 
 The output directory must not exist yet. The script builds offline in a new, empty target directory, checks that Cargo compiled the `bespoke` binary, and runs it with `--help`. It writes timings and compiler output to the output directory, then deletes the target directory. Pass `--keep-target` to keep it.
 
+## Measure release CI
+
+The `Release benchmark` workflow runs the same build, executable smoke check, signing and ZIP packaging as a release, without publishing. Pushes to `main` warm its dependency cache so release tags can restore it. [GitHub isolates tag caches from other tags](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache), so caching only in the tag workflow would not speed up the next release.
+
+CI uses ThinLTO and 16 code generation units. Local release builds retain the profile in `Cargo.toml`. The cache key includes the Rust compiler, Cargo manifests, lockfile, profile settings and Xcode version. A compiler or dependency change, or cache eviction, can require a cold build that exceeds eight minutes. Sparkle downloads to the runner's temporary directory because Rust cache cleanup prunes framework executables.
+
+Compare the profiles with:
+
+```bash
+gh workflow run release-benchmark.yml -f variant=thin
+gh workflow run release-benchmark.yml -f variant=fat
+gh run list --workflow release-benchmark.yml
+python3 scripts/ci/measure-release.py RUN_ID
+python3 scripts/ci/measure-release.py RUN_ID --attempt 1
+```
+
+Run each variant twice to distinguish cold builds from builds with cached dependencies. The reporter includes setup, cache restore, compilation, signing, artifact upload and cleanup. It exits unsuccessfully if a job fails, is still running, or takes 480 seconds or more. Runner queue time is excluded. Each successful benchmark uploads the signed ZIP and Cargo's HTML timing report. The application itself recompiles on each run.
+
 ## Send a pull request
 
 1. Branch from `main`.
