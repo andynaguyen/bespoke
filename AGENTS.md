@@ -13,6 +13,7 @@ cargo test
 cargo clippy
 cargo fmt
 scripts/install-local.sh     # release build, signed Bespoke.app in /Applications
+scripts/install-release.sh   # replace it with the latest GitHub release (or pass a tag)
 npm run build-release        # the zip you share, with Sparkle, in dist/<version>/ (scripts/release.sh)
 ```
 

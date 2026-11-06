@@ -29,9 +29,12 @@ cargo test
 cargo clippy
 cargo fmt
 scripts/install-local.sh         # release build, signed, in /Applications
+scripts/install-release.sh       # back to the latest published release
 ```
 
 `scripts/install-local.sh` builds a release, bundles `Bespoke.app`, signs it, and replaces `/Applications/Bespoke.app`. It signs with the "Bespoke Local Signing" identity. Run `scripts/create-signing-identity.sh` once per Mac to add that self-signed identity to the login keychain, or set `BESPOKE_SIGNING_IDENTITY` to sign with another codesign identity. A stable identity keeps the Accessibility and Microphone grants across reinstalls. `--no-build` reinstalls the last build.
+
+`scripts/install-release.sh` puts a published release back in `/Applications/Bespoke.app`, with Sparkle, so it updates itself again. It downloads the zip from GitHub releases with `gh`, checks it against the release's SHA-256 digest, quits Bespoke and swaps the app. Pass a tag such as `v1.0.4` for an older release. Releases sign with the same identity, so the grants carry over.
 
 Development builds keep file and line numbers in Bespoke backtraces and full debug information for the vendored `handy-keys` crate. Other dependencies build without debug information, which shortens clean builds. Run `CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a debugger. Dependency backtraces have no file or line numbers. To step through dependency source or inspect its local variables, remove the `[profile.dev.package."*"]` section from `Cargo.toml`.
 
