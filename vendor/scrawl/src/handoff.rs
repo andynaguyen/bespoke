@@ -56,6 +56,18 @@ pub fn resolve_bundle_dir(path_or_id: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// The creation time a bundle's folder name carries: `bespoke-<ms>-…`, or `scrawl-<ms>-…` for
+/// bundles from before the rename.
+pub(crate) fn created_ms_in_name(dir: &Path) -> Option<u64> {
+    let name = dir.file_stem()?.to_str()?;
+    name.strip_prefix("bespoke-")
+        .or_else(|| name.strip_prefix("scrawl-"))?
+        .split('-')
+        .next()?
+        .parse()
+        .ok()
+}
+
 fn newest_bundle(captures: &Path) -> Result<PathBuf> {
     let mut candidates = Vec::new();
     for entry in
@@ -231,7 +243,19 @@ impl Capture {
     }
 
     pub(crate) fn finished(&self) -> crate::host::Finished {
-        crate::host::Finished::of(&self.bundle)
+        crate::host::Finished::of(&self.dir, &self.bundle)
+    }
+
+    /// The newest capture by the time in its folder's name. Reads only that capture's manifest.
+    pub fn newest(captures: &Path) -> Option<Self> {
+        fs::read_dir(captures)
+            .ok()?
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "scrawl"))
+            .filter_map(|path| Some((created_ms_in_name(&path)?, path)))
+            .max_by_key(|(created_ms, _)| *created_ms)
+            .and_then(|(_, path)| Self::load(&path).ok())
     }
 
     pub fn note(&self) -> Option<&str> {
@@ -611,6 +635,23 @@ mod tests {
         let outside = Fixture::new();
         let elsewhere = outside.bundle("scrawl-3-c", 300);
         assert!(id(&elsewhere.display().to_string()).is_err());
+    }
+
+    #[test]
+    fn finds_the_newest_capture_by_its_folder_name() {
+        let fixture = Fixture::new();
+        fixture.bundle("scrawl-100-a", 100);
+        fixture.bundle("bespoke-300-c", 300);
+        fixture.bundle("bespoke-200-b", 200);
+        fixture.bundle("notes", 900);
+
+        let newest = Capture::newest(&fixture.0).unwrap();
+        assert_eq!(newest.id(), "bespoke-300-c");
+        assert_eq!(
+            newest.finished().dir,
+            fixture.0.join("bespoke-300-c.scrawl").canonicalize().unwrap()
+        );
+        assert!(Capture::newest(&fixture.0.join("missing")).is_none());
     }
 
     #[test]

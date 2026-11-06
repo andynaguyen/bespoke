@@ -46,10 +46,6 @@ impl Handoff {
         }
     }
 
-    pub fn from_id(id: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|handoff| handoff.id() == id)
-    }
-
     fn scheme(self) -> Option<&'static str> {
         match self {
             Handoff::Claude => Some("claude"),
@@ -111,45 +107,54 @@ pub struct Session {
 }
 
 /// The text a handoff puts in the agent's composer. The playbook has the agent ask what went wrong
-/// unless the user adds it to this message.
-pub fn launch_prompt(prompt_file: &Path) -> String {
-    format!(
+/// unless the user adds it to this message. With `capture`, the Annotate capture the user recorded
+/// of the problem, the agent reads that first.
+pub fn launch_prompt(prompt_file: &Path, capture: Option<&Path>) -> String {
+    let mut prompt = format!(
         "Read the file \"{}\" and follow it: it is your Bespoke triage playbook.",
         prompt_file.display()
-    )
+    );
+    if let Some(capture) = capture {
+        let _ = write!(
+            prompt,
+            " I recorded the problem in the Annotate capture \"{}\".",
+            capture.display()
+        );
+    }
+    prompt
 }
 
-/// Writes a session folder from the running app, then hands it off. Shows a toast with the
-/// outcome.
-pub fn start(handoff: Handoff, cx: &mut gpui::App) {
+/// Writes a session folder from the running app, then hands it off with `capture`, the Annotate
+/// capture of the problem, if there is one. Shows a toast with the outcome.
+pub fn start(handoff: Handoff, capture: Option<PathBuf>, cx: &mut gpui::App) {
     let app = AppHandle::global().clone();
     cx.spawn(async move |cx| {
         let written = crate::runtime::spawn_blocking(move || write_session(&app, Origin::App))
             .await
             .map_err(|e| e.to_string())
             .and_then(|written| written);
-        let _ = cx.update(
-            |cx| match written.and_then(|session| hand_off(handoff, &session)) {
+        let _ = cx.update(|cx| {
+            match written.and_then(|session| hand_off(handoff, &session, capture.as_deref())) {
                 Ok(()) => {
                     let key = if handoff == Handoff::Copy {
-                        "settings.triage.copied"
+                        "triage.copied"
                     } else {
-                        "settings.triage.opened"
+                        "triage.opened"
                     };
                     crate::ui::toast::info(crate::i18n::t(key), cx);
                 }
                 Err(e) => {
                     log::error!("Triage failed: {e}");
-                    crate::ui::toast::error_with(crate::i18n::t("settings.triage.failed"), e, cx);
+                    crate::ui::toast::error_with(crate::i18n::t("triage.failed"), e, cx);
                 }
-            },
-        );
+            }
+        });
     })
     .detach();
 }
 
-fn hand_off(handoff: Handoff, session: &Session) -> Result<(), String> {
-    let prompt = launch_prompt(&session.prompt);
+fn hand_off(handoff: Handoff, session: &Session, capture: Option<&Path>) -> Result<(), String> {
+    let prompt = launch_prompt(&session.prompt, capture);
     match handoff.url(&prompt, &session.dir) {
         Some(url) => open::that_detached(&url).map_err(|e| format!("Failed to open {url}: {e}")),
         None => AppHandle::global().clipboard().write_text(prompt),
@@ -166,7 +171,7 @@ pub fn run_cli(app: &AppHandle) -> i32 {
             return 1;
         }
     };
-    let prompt = launch_prompt(&session.prompt);
+    let prompt = launch_prompt(&session.prompt, None);
     let mut out = format!(
         "Wrote the triage playbook and this Mac's facts to:\n  {}\n  {}\n\n\
          Paste this into a coding agent on this Mac:\n  {prompt}\n",
@@ -653,17 +658,12 @@ mod tests {
     }
 
     #[test]
-    fn handoff_ids_round_trip() {
-        for handoff in Handoff::ALL {
-            assert_eq!(Handoff::from_id(handoff.id()), Some(handoff));
-        }
-    }
-
-    #[test]
     fn the_launch_prompt_fits_claude_codes_link_limit() {
         let prompt = launch_prompt(Path::new(
             "/Users/someone/Library/Application Support/com.andynguyen.bespoke/triage/2026-11-01T09-00-00/PROMPT.md",
-        ));
+        ), Some(Path::new(
+            "/Users/someone/Library/Application Support/com.andynguyen.bespoke/annotate/captures/bespoke-1793946653505-df91-2.scrawl",
+        )));
         assert!(prompt.len() < 5_000);
     }
 

@@ -79,6 +79,8 @@ pub fn init(
     crate::i18n::set_language(&language);
     event_bus::init(ui_messages, cx);
     toast::init(cx);
+    #[cfg(target_os = "macos")]
+    pages::triage::init(cx);
     cx.set_global(MainWindowSlot::default());
 
     #[cfg(target_os = "macos")]
@@ -290,6 +292,17 @@ pub fn show_settings(section: pages::settings::SettingsSection, cx: &mut App) {
         let _ = handle.update(cx, |_, window, cx| {
             pages::settings::open(Some(section), window, cx)
         });
+    });
+}
+
+/// Brings the main window forward and opens Triage an Issue over it.
+pub fn show_triage(cx: &mut App) {
+    show_main_window(cx);
+    cx.defer(|cx| {
+        let Some(handle) = main_window(cx) else {
+            return;
+        };
+        let _ = handle.update(cx, |_, window, cx| pages::triage::open(window, cx));
     });
 }
 

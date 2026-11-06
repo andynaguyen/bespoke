@@ -17,6 +17,7 @@ pub mod settings;
 mod shortcut_input;
 mod stats;
 mod style_board;
+pub mod triage;
 
 #[cfg(not(target_os = "macos"))]
 use gpui::{div, IntoElement};

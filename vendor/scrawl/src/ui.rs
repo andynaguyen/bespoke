@@ -1328,6 +1328,7 @@ impl ScrawlCoordinator {
 
     pub fn cancel_recording(&mut self, cx: &mut Context<Self>) {
         scrawl_log("cancel_recording invoked");
+        crate::host::cancelled();
         self.discard_recording();
         self.dismiss_island(cx);
     }
@@ -1382,8 +1383,9 @@ impl ScrawlCoordinator {
                         None,
                         activity,
                     );
-                    if let Ok((_, bundle, _)) = &finalized {
-                        crate::host::captured(bundle);
+                    match &finalized {
+                        Ok((dir, bundle, _)) => crate::host::captured(dir, bundle),
+                        Err(_) => crate::host::cancelled(),
                     }
                     (finalized, duration_ms)
                 })

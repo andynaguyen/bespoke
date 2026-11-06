@@ -29,9 +29,10 @@ pub use sidebar::logo;
 pub use toolbar::Toolbar;
 
 #[derive(Clone)]
-enum OpenDialog {
-    Window(DialogWindow),
-    Inline(AnyView),
+struct OpenDialog {
+    view: AnyView,
+    /// The dialog's own window on macOS. Elsewhere the view draws inside the main window.
+    window: Option<DialogWindow>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -326,16 +327,40 @@ impl MainWindow {
         cx: &mut Context<Self>,
         build: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static,
     ) {
-        if let Some(OpenDialog::Window(dialog)) = self.dialog.take() {
-            dialog.close(cx);
+        if let Some(dialog_window) = self.dialog.take().and_then(|dialog| dialog.window) {
+            dialog_window.close(cx);
         }
         self.previous_focus = window.focused(cx);
         self.dialog = if cfg!(target_os = "macos") {
-            DialogWindow::open(window, build, cx).map(OpenDialog::Window)
+            let built = std::rc::Rc::new(std::cell::Cell::new(None));
+            let slot = built.clone();
+            DialogWindow::open(
+                window,
+                move |window, cx| {
+                    let view = build(window, cx);
+                    slot.set(Some(view.clone()));
+                    view
+                },
+                cx,
+            )
+            .and_then(|dialog_window| {
+                Some(OpenDialog {
+                    view: built.take()?,
+                    window: Some(dialog_window),
+                })
+            })
         } else {
-            Some(OpenDialog::Inline(build(window, cx)))
+            Some(OpenDialog {
+                view: build(window, cx),
+                window: None,
+            })
         };
         cx.notify();
+    }
+
+    /// The open dialog, when it is a `T`.
+    pub fn dialog<T: 'static>(&self) -> Option<Entity<T>> {
+        self.dialog.as_ref()?.view.clone().downcast::<T>().ok()
     }
 
     /// Whether a dialog covers the window.
@@ -350,23 +375,20 @@ impl MainWindow {
 
     /// Hands keys back to the open dialog's window.
     pub fn focus_dialog(&self, cx: &App) {
-        if let Some(OpenDialog::Window(dialog)) = &self.dialog {
-            dialog.focus(cx);
+        if let Some(dialog_window) = self.dialog.as_ref().and_then(|d| d.window.as_ref()) {
+            dialog_window.focus(cx);
         }
     }
 
     /// The open dialog's window, for dev snapshots to send keys to.
     #[cfg(debug_assertions)]
     pub fn dialog_window(&self) -> Option<gpui::AnyWindowHandle> {
-        match &self.dialog {
-            Some(OpenDialog::Window(dialog)) => Some(dialog.handle()),
-            _ => None,
-        }
+        Some(self.dialog.as_ref()?.window.as_ref()?.handle())
     }
 
     pub fn close_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(OpenDialog::Window(dialog)) = self.dialog.take() {
-            dialog.close(cx);
+        if let Some(dialog_window) = self.dialog.take().and_then(|dialog| dialog.window) {
+            dialog_window.close(cx);
             window.activate_window();
         }
         match self.previous_focus.take() {
@@ -701,9 +723,9 @@ impl Render for MainWindow {
             })
             .child(content)
             .children(self.dialog.clone().map(|dialog| {
-                match dialog {
-                    OpenDialog::Inline(view) => view.into_any_element(),
-                    OpenDialog::Window(dialog) => div()
+                match dialog.window {
+                    None => dialog.view.into_any_element(),
+                    Some(dialog) => div()
                         .absolute()
                         .inset_0()
                         .occlude()

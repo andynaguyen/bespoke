@@ -14,6 +14,10 @@ there, not here.
 
 ## 1. Ask what went wrong
 
+When the message that sent you here names an Annotate capture, the user recorded the
+problem before starting triage. Read that capture first, as described below, and open
+with what you saw in it instead of asking them to describe or record it again.
+
 Unless the message that sent you here already describes it, your first message asks
 what went wrong, in the user's own words. Ask what they did, what they expected, what
 happened instead, and when it last worked. Ask them to paste screenshots into this

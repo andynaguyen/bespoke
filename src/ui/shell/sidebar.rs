@@ -5,7 +5,7 @@ use gpui::{
 use super::{MainWindow, Section, TITLEBAR_HEIGHT};
 use crate::i18n::{t, t_with};
 use crate::ui::components::{
-    icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Typography,
+    icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Tooltip, Typography,
 };
 use crate::ui::glass::{glass, GlassStyle};
 use crate::ui::stores::SettingsStore;
@@ -52,17 +52,58 @@ fn nav_item(section: Section, active: bool, cx: &mut Context<MainWindow>) -> imp
     .on_click(cx.listener(move |this, _, window, cx| this.select_section(section, window, cx)))
 }
 
-/// Settings opens as a dialog over the window, not as a page, so it shows as active while open.
-fn settings_item(has_dialog: bool, cx: &mut Context<MainWindow>) -> impl IntoElement {
-    let open = crate::ui::pages::settings::is_open(has_dialog, cx);
-    nav_row(
-        "nav-settings".into(),
-        "nav-settings",
-        t("sidebar.settings"),
-        open,
-        cx,
-    )
-    .on_click(|_, window, cx| crate::ui::pages::settings::open(None, window, cx))
+fn footer_buttons(main: &MainWindow, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    use crate::ui::pages::{settings::SettingsDialog, triage::TriageDialog};
+    let settings_open = main.dialog::<SettingsDialog>().is_some();
+    let triage_open = main.dialog::<TriageDialog>().is_some();
+    div()
+        .flex()
+        .row_dir()
+        .items_center()
+        .gap(px(2.))
+        .child(
+            footer_button(
+                "nav-settings",
+                "nav-settings",
+                t("sidebar.settings"),
+                settings_open,
+                cx,
+            )
+            .on_click(|_, window, cx| crate::ui::pages::settings::open(None, window, cx)),
+        )
+        .child(
+            footer_button("nav-triage", "nav-bug", t("triage.title"), triage_open, cx)
+                .on_click(|_, window, cx| crate::ui::pages::triage::open(window, cx)),
+        )
+}
+
+fn footer_button(
+    id: &'static str,
+    icon_name: &'static str,
+    label: SharedString,
+    active: bool,
+    cx: &mut Context<MainWindow>,
+) -> gpui::Stateful<gpui::Div> {
+    let p = palette(cx);
+    div()
+        .id(id)
+        .size(px(36.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(radius::ROW)
+        .cursor_pointer()
+        .when(active, |el| {
+            el.bg(p.text.a(if p.is_dark { 0.12 } else { 0.08 }))
+                .text_color(p.text)
+        })
+        .when(!active, |el| {
+            el.text_color(p.text.a(0.85))
+                .hover(|s| s.bg(p.text.a(0.06)).text_color(p.text))
+        })
+        .keyboard_focus(cx)
+        .tooltip(move |window, cx| Tooltip::text(label.clone(), window, cx))
+        .child(icon(icon_name).size(px(18.)).flex_none())
 }
 
 fn nav_row(
@@ -164,7 +205,7 @@ pub fn render(
     if debug_mode {
         secondary.push(nav_item(Section::Debug, active == Section::Debug, cx).into_any_element());
     }
-    secondary.push(settings_item(main.has_dialog(), cx).into_any_element());
+    secondary.push(footer_buttons(main, cx).into_any_element());
     let primary: Vec<_> = Section::PRIMARY
         .iter()
         .map(|section| nav_item(*section, active == *section, cx).into_any_element())

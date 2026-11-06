@@ -44,7 +44,7 @@ pub enum DialogMaterial {
 #[derive(IntoElement)]
 pub struct DialogFrame {
     children: Vec<AnyElement>,
-    max_width: Pixels,
+    width: Pixels,
     material: DialogMaterial,
     focus: FocusHandle,
     on_close: CloseHandler,
@@ -58,15 +58,16 @@ impl DialogFrame {
     fn with_close(focus: FocusHandle, on_close: CloseHandler) -> Self {
         Self {
             children: Vec::new(),
-            max_width: px(480.),
+            width: px(480.),
             material: DialogMaterial::Popup,
             focus,
             on_close,
         }
     }
 
-    pub fn max_width(mut self, max_width: Pixels) -> Self {
-        self.max_width = max_width;
+    /// The panel's width, narrowed to the window when the window is smaller.
+    pub fn width(mut self, width: Pixels) -> Self {
+        self.width = width;
         self
     }
 
@@ -136,8 +137,8 @@ impl RenderOnce for DialogFrame {
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .flex()
                     .flex_col()
-                    .w_full()
-                    .max_w(self.max_width)
+                    .w(self.width)
+                    .max_w_full()
                     .max_h(max_height)
                     .when(fills, |el| el.h(max_height))
                     .relative()
@@ -181,6 +182,7 @@ pub struct Dialog {
     title: SharedString,
     body: Vec<AnyElement>,
     footer: Vec<AnyElement>,
+    width: Option<Pixels>,
     focus: FocusHandle,
     on_close: CloseHandler,
 }
@@ -195,9 +197,17 @@ impl Dialog {
             title: title.into(),
             body: Vec::new(),
             footer: Vec::new(),
+            width: None,
             focus,
             on_close: Rc::new(on_close),
         }
+    }
+
+    /// The panel's width in place of the frame's default, narrowed to the window when the window
+    /// is smaller.
+    pub fn width(mut self, width: Pixels) -> Self {
+        self.width = Some(width);
+        self
     }
 
     pub fn footer(mut self, child: impl IntoElement) -> Self {
@@ -268,9 +278,10 @@ impl RenderOnce for Dialog {
                 .pt_2()
                 .children(self.footer)
         });
-        DialogFrame::with_close(self.focus, self.on_close)
-            .child(header)
-            .child(body)
-            .children(footer)
+        let mut frame = DialogFrame::with_close(self.focus, self.on_close);
+        if let Some(width) = self.width {
+            frame = frame.width(width);
+        }
+        frame.child(header).child(body).children(footer)
     }
 }

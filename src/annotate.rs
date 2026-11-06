@@ -2,7 +2,7 @@ pub mod capsule;
 pub mod mcp;
 mod transcribe;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use gpui::App;
 
@@ -13,6 +13,32 @@ use crate::ui::pages::settings::SettingsSection;
 
 pub const RECORD_BINDING: &str = "annotate";
 pub const PASTE_BINDING: &str = "annotate_paste";
+
+/// Emitted when a capture's bundle is written, so open views can pick it up.
+pub const CAPTURE_FINISHED: &str = "annotate-capture-finished";
+
+/// Emitted when a recording or the picker ends without a capture.
+pub const CAPTURE_CANCELLED: &str = "annotate-capture-cancelled";
+
+static NEWEST_CAPTURE: Mutex<Option<scrawl::host::Finished>> = Mutex::new(None);
+
+/// The newest finished capture: the newest on disk at launch, then each one recorded since.
+/// `CAPTURE_FINISHED` fires after this updates.
+pub fn newest_capture() -> Option<scrawl::host::Finished> {
+    NEWEST_CAPTURE.lock().ok()?.clone()
+}
+
+fn note_capture(capture: &scrawl::host::Finished) {
+    let Ok(mut newest) = NEWEST_CAPTURE.lock() else {
+        return;
+    };
+    if newest
+        .as_ref()
+        .is_none_or(|newest| capture.created_at_ms >= newest.created_at_ms)
+    {
+        *newest = Some(capture.clone());
+    }
+}
 
 pub fn is_annotate_binding(id: &str) -> bool {
     id == RECORD_BINDING || id == PASTE_BINDING
@@ -40,7 +66,7 @@ pub fn start(app: &AppHandle, cx: &mut App) {
             }
         });
     });
-    count_captures(app);
+    follow_captures(app);
     transcribe::init(app);
     sync_shortcuts(&get_settings(app));
     capsule::init(app);
@@ -56,15 +82,29 @@ pub fn start(app: &AppHandle, cx: &mut App) {
     mcp::sync(app);
 }
 
-fn count_captures(app: &AppHandle) {
+fn follow_captures(app: &AppHandle) {
     let history = Arc::clone(&app.state::<Arc<HistoryManager>>());
     let seed = Arc::clone(&history);
+    let events = app.clone();
     scrawl::host::on_capture(move |capture| {
+        note_capture(&capture);
         if let Err(e) = history.record_capture(&capture_usage(capture)) {
             log::error!("Failed to record Annotate usage: {e}");
         }
+        if let Err(e) = events.emit(CAPTURE_FINISHED, ()) {
+            log::warn!("Failed to announce a finished capture: {e}");
+        }
+    });
+    let events = app.clone();
+    scrawl::host::on_cancel(move || {
+        if let Err(e) = events.emit(CAPTURE_CANCELLED, ()) {
+            log::warn!("Failed to announce a cancelled capture: {e}");
+        }
     });
     crate::runtime::spawn_blocking(move || {
+        if let Some(capture) = scrawl::host::newest_capture() {
+            note_capture(&capture);
+        }
         let load = || {
             scrawl::host::finished_captures()
                 .into_iter()

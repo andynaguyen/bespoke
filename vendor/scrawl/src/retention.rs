@@ -161,15 +161,9 @@ fn changed_ago(path: &Path, now: SystemTime) -> Option<Duration> {
 }
 
 fn created_ms(dir: &Path, manifest: &Manifest) -> Option<u64> {
-    manifest.created_at_ms.or_else(|| {
-        let name = dir.file_stem()?.to_str()?;
-        name.strip_prefix("bespoke-")
-            .or_else(|| name.strip_prefix("scrawl-"))?
-            .split('-')
-            .next()?
-            .parse()
-            .ok()
-    })
+    manifest
+        .created_at_ms
+        .or_else(|| crate::handoff::created_ms_in_name(dir))
 }
 
 pub fn plan(captures: &Path, policy: &Policy, now: SystemTime) -> Vec<Action> {

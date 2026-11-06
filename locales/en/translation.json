@@ -30,6 +30,34 @@
       "button": "Update"
     }
   },
+  "triage": {
+    "title": "Triage an Issue",
+    "showTitle": "Show the problem",
+    "showHint": "Optional. Press {{shortcut}} and talk through what you see.",
+    "record": "Record",
+    "captured": "Capture from {{time}} · {{duration}}",
+    "recordAgain": "Record Again",
+    "removeCapture": "Leave Out This Capture",
+    "agentTitle": "Pick an agent",
+    "sendTitle": "Send the prompt",
+    "sendDescription": "Bespoke writes its logs and settings to a folder and opens the agent with a prompt ready. You press send, and it asks what went wrong. It asks before it changes anything or posts.",
+    "start": "Start Triage",
+    "cancel": "Cancel",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code in the Claude app",
+    "claudeMissing": "Install the Claude app to use this",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code in a terminal window",
+    "claudeCodeMissing": "Send one prompt to claude in a terminal to turn on its links",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT in the Codex app",
+    "codexMissing": "No app on this Mac opens Codex links",
+    "copy": "Copy Prompt",
+    "copyDescription": "Paste it into any coding agent on this Mac",
+    "opened": "Triage started. Send the prompt, and the agent asks what went wrong.",
+    "copied": "Copied the triage prompt. Paste it into a coding agent on this Mac.",
+    "failed": "Couldn't start triage"
+  },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
     "existingModelsTitle": "Compatible Models",
@@ -289,7 +317,6 @@
         "startup": "Startup",
         "memory": "Memory",
         "updates": "Updates",
-        "help": "Help",
         "application": "Application",
         "overlay": "Overlay",
         "voiceCommands": "Voice Commands",
@@ -775,25 +802,6 @@
         "label": "Check for Updates Automatically",
         "description": "Bespoke checks once a day"
       }
-    },
-    "triage": {
-      "title": "Triage an Issue",
-      "description": "Starts a coding agent on this Mac that reads Bespoke's logs and settings, finds the cause, and helps you file a GitHub issue. It asks before it changes anything or posts.",
-      "start": "Start Triage…",
-      "claude": "Claude",
-      "claudeDescription": "Claude Code in the Claude app",
-      "claudeMissing": "Install the Claude app to use this",
-      "claudeCode": "Claude Code",
-      "claudeCodeDescription": "Claude Code in a terminal window",
-      "claudeCodeMissing": "Send one prompt to claude in a terminal to turn on its links",
-      "codex": "Codex",
-      "codexDescription": "A new Codex thread",
-      "codexMissing": "No app on this Mac opens Codex links",
-      "copy": "Copy Prompt",
-      "copyDescription": "Paste it into any coding agent on this Mac",
-      "opened": "Triage started. Send the prompt, and the agent asks what went wrong.",
-      "copied": "Copied the triage prompt. Paste it into a coding agent on this Mac.",
-      "failed": "Couldn't start triage"
     },
     "nav": {
       "general": "General",

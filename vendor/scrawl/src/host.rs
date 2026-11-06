@@ -180,6 +180,7 @@ pub fn captures_dir() -> PathBuf {
 
 #[derive(Clone, Debug)]
 pub struct Finished {
+    pub dir: PathBuf,
     pub created_at_ms: u64,
     pub duration_ms: u64,
     pub marks: usize,
@@ -187,13 +188,32 @@ pub struct Finished {
 }
 
 impl Finished {
-    pub(crate) fn of(bundle: &ScrawlBundle) -> Self {
+    pub(crate) fn of(dir: &Path, bundle: &ScrawlBundle) -> Self {
         Self {
+            dir: dir.to_path_buf(),
             created_at_ms: bundle.created_at_ms,
             duration_ms: bundle.duration_ms,
             marks: bundle.marks.len(),
             app: bundle.target.app.clone(),
         }
+    }
+
+    pub fn duration(&self) -> String {
+        crate::model::format_clock(self.duration_ms)
+    }
+}
+
+static ON_CANCEL: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+
+/// Calls `cancelled` each time a recording or the picker ends without a capture: cancelled,
+/// held back by a missing permission, or failed while writing its bundle.
+pub fn on_cancel(cancelled: impl Fn() + Send + Sync + 'static) {
+    let _ = ON_CANCEL.set(Box::new(cancelled));
+}
+
+pub(crate) fn cancelled() {
+    if let Some(cancelled) = ON_CANCEL.get() {
+        cancelled();
     }
 }
 
@@ -201,10 +221,15 @@ pub fn on_capture(record: impl Fn(Finished) + Send + Sync + 'static) {
     let _ = ON_CAPTURE.set(Box::new(record));
 }
 
-pub(crate) fn captured(bundle: &ScrawlBundle) {
+pub(crate) fn captured(dir: &Path, bundle: &ScrawlBundle) {
     if let Some(record) = ON_CAPTURE.get() {
-        record(Finished::of(bundle));
+        record(Finished::of(dir, bundle));
     }
+}
+
+/// The newest capture on disk, found without reading every capture's manifest.
+pub fn newest_capture() -> Option<Finished> {
+    Capture::newest(&captures_dir()).map(|capture| capture.finished())
 }
 
 pub fn finished_captures() -> Vec<Finished> {

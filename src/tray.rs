@@ -656,7 +656,7 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
         "settings" => crate::ui::show_settings(SettingsSection::General, cx),
         "secure_input_warning" => crate::ui::show_main_window(cx),
         "copy_last_transcript" => copy_last_transcript(app),
-        "triage" => crate::ui::show_settings(SettingsSection::System, cx),
+        "triage" => crate::ui::show_triage(cx),
         // Sparkle's window opens over Bespoke's, which brings the app forward
         // when it was only in the menu bar.
         "check_for_updates" | "install_update" => {

@@ -1,6 +1,6 @@
 use gpui::{
     div, point, prelude::*, px, rems, AnyElement, App, Context, Entity, FocusHandle, FontWeight,
-    Global, ScrollHandle, SharedString, WeakEntity, Window,
+    ScrollHandle, SharedString, Window,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -9,7 +9,6 @@ use crate::i18n::t;
 use crate::managers::transcription::AvailableAccelerators;
 use crate::settings::{AppSettings, TranscribeAcceleratorSetting};
 use crate::shortcut;
-use crate::triage::Handoff;
 use crate::ui::components::{
     icon, DialogFrame, DialogMaterial, Dropdown, DropdownOption, KeyboardFocus, RowDirection,
     SettingContainer, SettingsGroup, Typography,
@@ -161,30 +160,6 @@ impl SettingsSection {
     }
 }
 
-/// The open Settings dialog, so opening Settings again switches its page instead of stacking a
-/// second dialog.
-#[derive(Default)]
-struct OpenSettings(Option<WeakEntity<SettingsDialog>>);
-
-impl Global for OpenSettings {}
-
-fn live_dialog(cx: &App) -> Option<Entity<SettingsDialog>> {
-    cx.try_global::<OpenSettings>()?.0.as_ref()?.upgrade()
-}
-
-fn open_dialog(cx: &App) -> Option<Entity<SettingsDialog>> {
-    let open = live_dialog(cx)?;
-    crate::ui::main_view(cx)
-        .is_some_and(|main| main.read(cx).has_dialog())
-        .then_some(open)
-}
-
-/// Whether the main window's open dialog is Settings, so the sidebar can mark its Settings row.
-/// `has_dialog` comes from the main window, which is mid-render when the sidebar asks.
-pub fn is_open(has_dialog: bool, cx: &App) -> bool {
-    has_dialog && live_dialog(cx).is_some()
-}
-
 /// Opens Settings over the main window at `section`, or at General for `None`. With Settings
 /// already open, it switches to `section` and takes the keys back from the main window, which
 /// the tray and Scrawl bring forward first. It does nothing during onboarding. It reads and
@@ -196,7 +171,7 @@ pub fn open(section: Option<SettingsSection>, window: &mut Window, cx: &mut App)
     if !main.read(cx).shows_app() {
         return;
     }
-    if let Some(open) = open_dialog(cx) {
+    if let Some(open) = main.read(cx).dialog::<SettingsDialog>() {
         if let Some(section) = section {
             open.update(cx, |dialog, cx| dialog.select(section, cx));
         }
@@ -204,10 +179,8 @@ pub fn open(section: Option<SettingsSection>, window: &mut Window, cx: &mut App)
         return;
     }
     crate::ui::shell::open_dialog(window, cx, move |window, cx| {
-        let dialog = cx
-            .new(|cx| SettingsDialog::new(section.unwrap_or(SettingsSection::General), window, cx));
-        cx.set_global(OpenSettings(Some(dialog.downgrade())));
-        dialog.into()
+        cx.new(|cx| SettingsDialog::new(section.unwrap_or(SettingsSection::General), window, cx))
+            .into()
     });
 }
 
@@ -225,8 +198,6 @@ pub struct SettingsDialog {
     accelerators: Option<AvailableAccelerators>,
     app_dir: Result<String, String>,
     log_dir: Result<String, String>,
-    /// Which agents have a link handler on this Mac, checked again when the menu opens.
-    triage_agents: Vec<(Handoff, bool)>,
 }
 
 impl SettingsDialog {
@@ -260,7 +231,6 @@ impl SettingsDialog {
             accelerators: None,
             app_dir: crate::commands::get_app_dir_path(app.clone()),
             log_dir: crate::commands::get_log_dir_path(app),
-            triage_agents: triage_agents(),
             store,
             section,
             focus,
@@ -285,7 +255,8 @@ impl SettingsDialog {
     /// snapshots.
     #[cfg(debug_assertions)]
     pub fn dev_scroll(offset: f32, cx: &mut App) {
-        if let Some(dialog) = live_dialog(cx) {
+        let open = crate::ui::main_view(cx).and_then(|main| main.read(cx).dialog::<Self>());
+        if let Some(dialog) = open {
             dialog.update(cx, |dialog, cx| {
                 dialog.scroll.set_offset(point(px(0.), px(-offset)));
                 cx.notify();
@@ -458,44 +429,6 @@ impl SettingsDialog {
         rows
     }
 
-    fn triage_row(&self, cx: &mut Context<Self>) -> SettingContainer {
-        let options = self
-            .triage_agents
-            .iter()
-            .map(|&(handoff, available)| {
-                let key = match handoff {
-                    Handoff::Claude => "claude",
-                    Handoff::ClaudeCode => "claudeCode",
-                    Handoff::Codex => "codex",
-                    Handoff::Copy => "copy",
-                };
-                let detail = if available { "Description" } else { "Missing" };
-                DropdownOption::new(handoff.id(), t(&format!("settings.triage.{key}")))
-                    .description(t(&format!("settings.triage.{key}{detail}")))
-                    .disabled(!available)
-            })
-            .collect();
-        let entity = cx.entity().downgrade();
-        SettingContainer::new(t("settings.triage.title"))
-            .description(t("settings.triage.description"))
-            .child(
-                Dropdown::new("triage", options)
-                    .placeholder(t("settings.triage.start"))
-                    .menu_end_aligned(rems(18.))
-                    .on_open(move |_, cx| {
-                        let _ = entity.update(cx, |this, cx| {
-                            this.triage_agents = triage_agents();
-                            cx.notify();
-                        });
-                    })
-                    .on_select(|id, _, cx| {
-                        if let Some(handoff) = Handoff::from_id(id) {
-                            crate::triage::start(handoff, cx);
-                        }
-                    }),
-            )
-    }
-
     fn render_section(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let s = self.store.read(cx).settings.clone();
         if let Some(page) = self.section.dictate_page() {
@@ -543,15 +476,9 @@ impl SettingsDialog {
             }
             SettingsSection::System => {
                 let mut groups = vec![SettingsGroup::new()
-                    .title(t("settings.advanced.groups.help"))
-                    .child(self.triage_row(cx))
+                    .title(t("settings.advanced.groups.memory"))
+                    .child(rows::model_unload_timeout(&s, cx))
                     .into_any_element()];
-                groups.push(
-                    SettingsGroup::new()
-                        .title(t("settings.advanced.groups.memory"))
-                        .child(rows::model_unload_timeout(&s, cx))
-                        .into_any_element(),
-                );
                 groups.push(
                     SettingsGroup::new()
                         .title(t("settings.about.title"))
@@ -824,7 +751,7 @@ impl Render for SettingsDialog {
                     .vertical_scrollbar(&self.scroll),
             );
         DialogFrame::new(self.focus.clone(), crate::ui::shell::close_dialog)
-            .max_width(px(DIALOG_WIDTH))
+            .width(px(DIALOG_WIDTH))
             .material(DialogMaterial::Window)
             .child(
                 div()
@@ -836,11 +763,4 @@ impl Render for SettingsDialog {
                     .child(main),
             )
     }
-}
-
-fn triage_agents() -> Vec<(Handoff, bool)> {
-    Handoff::ALL
-        .into_iter()
-        .map(|handoff| (handoff, handoff.available()))
-        .collect()
 }
