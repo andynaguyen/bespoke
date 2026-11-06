@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import time
@@ -59,33 +60,59 @@ def prepare():
         set_times(Path(os.environ['TRANSCRIBE_DIR']), timestamp)
 
 
+def dependency_groups(metadata):
+    packages = {p['id']: p for p in metadata['packages']}
+    nodes = {n['id']: n for n in metadata['resolve']['nodes']}
+
+    def dependencies(package):
+        return {d['pkg'] for d in nodes[package]['deps'] if any(k['kind'] is None for k in d['dep_kinds'])}
+
+    def closure(roots):
+        seen, pending = set(), list(roots)
+        while pending:
+            package = pending.pop()
+            if package not in seen:
+                seen.add(package)
+                pending.extend(dependencies(package) - seen)
+        return seen
+
+    direct = dependencies(metadata['resolve']['root'])
+    by_name = {packages[p]['name']: p for p in direct}
+    ui_libraries = {by_name[name] for name in ('gpui', 'gpui-component')}
+    platform_names = {'arboard', 'auto-launch', 'block2', 'enigo', 'global-hotkey', 'handy-keys',
+                      'objc2', 'objc2-app-kit', 'objc2-foundation', 'objc2-service-management',
+                      'tray-icon', 'rusqlite', 'rusqlite_migration'}
+    platform = {p for p in direct if packages[p]['name'] in platform_names}
+    platform |= dependencies(by_name['scrawl']) - ui_libraries
+    backend = direct - ui_libraries - platform - {by_name['scrawl']}
+    # Compile the UI libraries in the final job, once all groups are available.
+    # The UI worker only needs prerequisites not already covered by other workers.
+    ui = set().union(*(dependencies(p) for p in ui_libraries))
+    ui -= ui_libraries | closure(platform | backend)
+    return {'ui': ui, 'platform': platform, 'backend': backend}
+
+
 def build(group):
     host = next(line.split(': ', 1)[1] for line in output('rustc', '-vV').splitlines() if line.startswith('host: '))
     metadata = json.loads(output('cargo', 'metadata', '--locked', '--format-version', '1', '--filter-platform', host))
     packages = {p['id']: p for p in metadata['packages']}
-    nodes = {n['id']: n for n in metadata['resolve']['nodes']}
-    def dependencies(package):
-        return {d['pkg'] for d in nodes[package]['deps'] if any(k['kind'] is None for k in d['dep_kinds'])}
-    direct = dependencies(metadata['resolve']['root'])
-    by_name = {packages[p]['name']: p for p in direct}
-    ui = {by_name[name] for name in ('gpui', 'gpui-component')}
-    platform_names = {'arboard', 'auto-launch', 'block2', 'enigo', 'global-hotkey', 'handy-keys',
-                      'objc2', 'objc2-app-kit', 'objc2-foundation', 'objc2-service-management',
-                      'tray-icon', 'rusqlite', 'rusqlite_migration'}
-    platform = {by_name[name] for name in platform_names}
-    platform |= dependencies(by_name['scrawl']) - ui
-    backend = direct - ui - platform - {by_name['scrawl']}
-    selected = {'ui': ui, 'platform': platform, 'backend': backend}[group]
+    selected = dependency_groups(metadata)[group]
+    if not selected:
+        raise SystemExit(f'No dependency packages selected for {group}')
     command = ['cargo', 'build', '--release', '--locked', '--timings', '--config', 'scripts/ci/release-dsp.toml']
     for package in sorted(selected):
         p = packages[package]
         command.extend(['-p', f"{p['name']}@{p['version']}"])
+    print('Building: ' + ', '.join(packages[p]['name'] for p in sorted(selected)), flush=True)
     subprocess.run(command, check=True)
 
 
 def pack(group, directory):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f'{group}.json').write_text(json.dumps(identity(), sort_keys=True))
+    timing = Path('target/cargo-timings/cargo-timing.html')
+    if timing.exists():
+        shutil.copyfile(timing, directory / f'{group}-timing.html')
     # Root-level library copies are outputs for the selected packages, not
     # inputs to consumers. Cargo uses the hashed libraries under deps instead.
     subprocess.run(['tar', '--exclude=ModuleCache', '--exclude=*.pcm', '--exclude=*.dia',

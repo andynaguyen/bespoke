@@ -16,6 +16,29 @@ spec.loader.exec_module(cold)
 
 
 class DependencyTransferTests(unittest.TestCase):
+    def test_ui_worker_omits_libraries_and_shared_prerequisites(self):
+        edges = {
+            'app': ['gpui', 'gpui-component', 'scrawl', 'cpal', 'arboard'],
+            'gpui': ['shared', 'ui-only', 'arboard'],
+            'gpui-component': ['gpui', 'widgets-only'],
+            'scrawl': ['gpui', 'native', 'shared'],
+            'cpal': ['shared'], 'arboard': ['shared'],
+            'shared': [], 'ui-only': [], 'widgets-only': [], 'native': [],
+        }
+        metadata = {
+            'packages': [dict(id=name, name=name) for name in edges],
+            'resolve': {
+                'root': 'app',
+                'nodes': [dict(id=name, deps=[dict(pkg=dep, dep_kinds=[dict(kind=None)]) for dep in deps])
+                          for name, deps in edges.items()],
+            },
+        }
+        groups = cold.dependency_groups(metadata)
+        self.assertEqual(groups['ui'], {'ui-only', 'widgets-only'})
+        self.assertEqual(groups['backend'], {'cpal'})
+        self.assertEqual(groups['platform'], {'arboard', 'native', 'shared'})
+        self.assertFalse({'app', 'gpui', 'gpui-component', 'scrawl'} & set.union(*groups.values()))
+
     def test_previous_attempt_is_rejected_before_extraction(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
