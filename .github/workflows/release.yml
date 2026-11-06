@@ -79,12 +79,24 @@ jobs:
         run: |
           cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')"
 
+      - name: Download the pinned native transcription dependency
+        if: inputs.variant == 'off-prebuilt'
+        run: |
+          scripts/ci/prepare-transcribe.sh "$RUNNER_TEMP/transcribe-native"
+          echo "TRANSCRIBE_DIR=$RUNNER_TEMP/transcribe-native" >> "$GITHUB_ENV"
+
       - name: Compile release
-        run: /usr/bin/time -l cargo build --release --locked --timings
+        run: |
+          if [[ -n "${TRANSCRIBE_DIR:-}" ]]; then
+            /usr/bin/time -l cargo rustc --release --locked --timings -- \
+              -C 'link-arg=-Wl,-rpath,@executable_path/../Frameworks/Transcribe'
+          else
+            /usr/bin/time -l cargo build --release --locked --timings
+          fi
 
       - name: Smoke test the release executable
         run: |
-          target/release/bespoke --list-models --json > "$RUNNER_TEMP/models.json"
+          DYLD_LIBRARY_PATH="${TRANSCRIBE_DIR:+$TRANSCRIBE_DIR/lib}" target/release/bespoke --list-models --json > "$RUNNER_TEMP/models.json"
           python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))' "$RUNNER_TEMP/models.json"
 
       # macOS keeps the Accessibility and Microphone grants across updates only
@@ -117,6 +129,16 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           PUBLISH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && '--publish' || '' }}
         run: scripts/release.sh --no-build $PUBLISH
+
+      - name: Smoke test the relocated bundle
+        if: inputs.variant == 'off-prebuilt'
+        run: |
+          ditto -x -k dist/*/Bespoke-*.zip "$RUNNER_TEMP/relocated"
+          bundle="$RUNNER_TEMP/relocated/Bespoke.app"
+          codesign --verify --deep --strict "$bundle"
+          env -u DYLD_LIBRARY_PATH "$bundle/Contents/MacOS/bespoke" --list-devices > "$RUNNER_TEMP/devices.txt"
+          cat "$RUNNER_TEMP/devices.txt"
+          grep -qi metal "$RUNNER_TEMP/devices.txt"
 
       - if: github.event_name != 'push' || startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
