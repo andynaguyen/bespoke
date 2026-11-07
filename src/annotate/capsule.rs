@@ -2,10 +2,10 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use crate::annotate::host::{
-    CapsuleActions, CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
-    SelectionMode,
+use crate::annotate::capsule_link::{
+    CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
 };
+use crate::annotate::coordinator::SelectionMode;
 use gpui::{
     Animation, AnimationExt, AnyElement, App, Bounds, Context, FontWeight, Pixels, SharedString,
     Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind,
@@ -67,7 +67,7 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
         },
     };
     let anchor = native::pointer().map_or([0., 0.], |(p, _)| p);
-    crate::annotate::host::preview_capsule(
+    crate::annotate::capsule_link::preview_capsule(
         PillSnapshot {
             pres,
             clock: "0:21".into(),
@@ -79,14 +79,12 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
     let _ = cx;
 }
 
-pub fn init(app: &AppHandle) {
-    let ui = app.clone();
-    crate::annotate::host::on_capsule(move |link| {
-        ui.with_ui(move |cx| open(link, cx));
-    });
+/// Opens a window that draws the capsule `link` drives, on the UI thread.
+pub fn open(app: &AppHandle, link: CapsuleLink) {
+    app.with_ui(move |cx| open_window(link, cx));
 }
 
-fn open(link: CapsuleLink, cx: &mut App) {
+fn open_window(link: CapsuleLink, cx: &mut App) {
     let CapsuleLink {
         commands,
         actions,
@@ -154,7 +152,7 @@ fn open(link: CapsuleLink, cx: &mut App) {
 }
 
 pub struct AnnotateCapsule {
-    actions: CapsuleActions,
+    actions: flume::Sender<PillAction>,
     state: Arc<CapsuleState>,
     window: Option<CapsuleWindow>,
     snapshot: Option<PillSnapshot>,
@@ -165,8 +163,25 @@ pub struct AnnotateCapsule {
     poll: Option<Task<()>>,
 }
 
+/// Where the capsule's window goes on the screen under `point`: at the top (upstream's
+/// `pill_origin`) or above the Dock.
+fn capsule_origin(point: [f64; 2], size: [f64; 2], at_top: bool, gap: f64) -> Option<[f64; 2]> {
+    let screens = crate::annotate::screens::current();
+    let index = crate::annotate::screens::index_at(&screens, point).or(if screens.is_empty() {
+        None
+    } else {
+        Some(0)
+    })?;
+    let screen = &screens[index];
+    Some(if at_top {
+        crate::annotate::screens::pill_origin(screen, size[0], gap)
+    } else {
+        crate::annotate::screens::pill_origin_bottom(screen, size, gap)
+    })
+}
+
 impl AnnotateCapsule {
-    fn new(actions: CapsuleActions, state: Arc<CapsuleState>) -> Self {
+    fn new(actions: flume::Sender<PillAction>, state: Arc<CapsuleState>) -> Self {
         Self {
             actions,
             state,
@@ -216,9 +231,7 @@ impl AnnotateCapsule {
         };
         let at_top = self.at_top();
         let size = [f64::from(WINDOW_W), f64::from(WINDOW_H)];
-        let Some(mut origin) =
-            crate::annotate::host::capsule_origin(anchor, size, at_top, EDGE_GAP)
-        else {
+        let Some(mut origin) = capsule_origin(anchor, size, at_top, EDGE_GAP) else {
             return;
         };
         if at_top {

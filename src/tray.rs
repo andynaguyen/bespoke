@@ -664,16 +664,16 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
             crate::updater::check_now();
         }
         #[cfg(target_os = "macos")]
-        "annotate_record" => {
-            crate::annotate::host::menu(crate::annotate::coordinator::MenuAction::ToggleCapture)
-        }
+        "annotate_record" => crate::annotate::coordinator::menu(
+            crate::annotate::coordinator::MenuAction::ToggleCapture,
+        ),
         #[cfg(target_os = "macos")]
-        "annotate_choose" => {
-            crate::annotate::host::menu(crate::annotate::coordinator::MenuAction::ChooseTarget)
-        }
+        "annotate_choose" => crate::annotate::coordinator::menu(
+            crate::annotate::coordinator::MenuAction::ChooseTarget,
+        ),
         #[cfg(target_os = "macos")]
         "annotate_open_latest" => {
-            crate::annotate::host::menu(crate::annotate::coordinator::MenuAction::OpenLatest)
+            crate::annotate::coordinator::menu(crate::annotate::coordinator::MenuAction::OpenLatest)
         }
         "unload_model" => {
             let transcription_manager = app.state::<Arc<TranscriptionManager>>();

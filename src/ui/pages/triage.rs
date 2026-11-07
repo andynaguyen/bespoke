@@ -164,7 +164,7 @@ impl TriageDialog {
     }
 
     #[cfg(target_os = "macos")]
-    fn attach(&mut self, capture: Option<crate::annotate::host::Finished>) {
+    fn attach(&mut self, capture: Option<crate::annotate::handoff::Finished>) {
         if let Some(capture) = capture.filter(|capture| capture.dir.is_dir()) {
             self.capture = Some(Attached {
                 label: capture_label(capture.created_at_ms, &capture.duration()),
@@ -179,7 +179,7 @@ impl TriageDialog {
         draft.agent = Some(self.agent);
         draft.reopen_after_recording = true;
         close_dialog(window, cx);
-        crate::annotate::host::menu(crate::annotate::coordinator::MenuAction::ToggleCapture);
+        crate::annotate::coordinator::menu(crate::annotate::coordinator::MenuAction::ToggleCapture);
     }
 
     fn start(&mut self, window: &mut Window, cx: &mut Context<Self>) {

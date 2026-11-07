@@ -16,6 +16,60 @@ pub fn default_captures_dir() -> Option<PathBuf> {
     annotate_dir().map(|dir| dir.join("captures"))
 }
 
+/// The newest `limit` captures in the captures folder, newest first.
+pub fn recent_captures(limit: usize) -> Vec<Capture> {
+    default_captures_dir().map_or_else(Vec::new, |dir| Capture::recent(&dir, limit))
+}
+
+/// Opens the captures folder in Finder, creating it first.
+pub fn show_captures() {
+    let Some(dir) = default_captures_dir() else {
+        return;
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    let _ = open_path(&dir);
+}
+
+/// The folder, length, marks and app of a finished capture, for Bespoke's Stats page and Triage
+/// dialog.
+#[derive(Clone, Debug)]
+pub struct Finished {
+    pub dir: PathBuf,
+    pub created_at_ms: u64,
+    pub duration_ms: u64,
+    pub marks: usize,
+    pub app: Option<String>,
+}
+
+impl Finished {
+    pub(crate) fn of(dir: &Path, bundle: &CaptureBundle) -> Self {
+        Self {
+            dir: dir.to_path_buf(),
+            created_at_ms: bundle.created_at_ms,
+            duration_ms: bundle.duration_ms,
+            marks: bundle.marks.len(),
+            app: bundle.target.app.clone(),
+        }
+    }
+
+    pub fn duration(&self) -> String {
+        crate::annotate::model::format_clock(self.duration_ms)
+    }
+}
+
+/// The newest capture on disk, found without reading every capture's manifest.
+pub fn newest_capture() -> Option<Finished> {
+    Capture::newest(&default_captures_dir()?).map(|capture| capture.finished())
+}
+
+/// Every capture on disk, newest first.
+pub fn finished_captures() -> Vec<Finished> {
+    recent_captures(usize::MAX)
+        .iter()
+        .map(Capture::finished)
+        .collect()
+}
+
 pub fn open_path(target: &Path) -> Result<()> {
     let status = Command::new("/usr/bin/open").arg(target).status()?;
     ensure!(status.success(), "open {} failed", target.display());
@@ -247,8 +301,8 @@ impl Capture {
             .collect()
     }
 
-    pub(crate) fn finished(&self) -> crate::annotate::host::Finished {
-        crate::annotate::host::Finished::of(&self.dir, &self.bundle)
+    pub(crate) fn finished(&self) -> Finished {
+        Finished::of(&self.dir, &self.bundle)
     }
 
     /// The newest capture by the time in its folder's name. Reads only that capture's manifest.

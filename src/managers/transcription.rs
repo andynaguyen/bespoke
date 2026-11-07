@@ -329,7 +329,7 @@ impl EngineOutput {
     }
 
     #[cfg(target_os = "macos")]
-    fn from_apple(transcript: crate::annotate::host::TranscriptData) -> Result<Self> {
+    fn from_apple(transcript: crate::annotate::model::TranscriptData) -> Result<Self> {
         if let Some(missing) = transcript.missing {
             anyhow::bail!("Apple Speech: {}", missing.reason);
         }

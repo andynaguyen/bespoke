@@ -89,6 +89,17 @@ impl Policy {
     }
 }
 
+/// Saves `preset` as the retention policy in `config.json` and starts a pass with it.
+pub fn set_preset(preset: Preset) {
+    let saved = crate::annotate::handoff::default_config_path()
+        .ok_or_else(|| anyhow::anyhow!("No config.json"))
+        .and_then(|path| preset.policy().save_to(&path));
+    if let Err(error) = saved {
+        annotate_log(format!("Saving retention failed: {error:#}"));
+    }
+    nudge();
+}
+
 static BUSY: Mutex<BTreeSet<PathBuf>> = Mutex::new(BTreeSet::new());
 static RECORDING: AtomicUsize = AtomicUsize::new(0);
 
@@ -261,6 +272,13 @@ fn size_of(path: &Path) -> u64 {
 
 pub fn captures_size(captures: &Path) -> u64 {
     size_of(captures)
+}
+
+/// The captures folder's size on disk, formatted by `format_bytes`.
+pub fn captures_folder_size() -> String {
+    let size =
+        crate::annotate::handoff::default_captures_dir().map_or(0, |dir| captures_size(&dir));
+    format_bytes(size)
 }
 
 pub fn format_bytes(bytes: u64) -> String {

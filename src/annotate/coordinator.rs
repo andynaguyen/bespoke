@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use gpui::{
@@ -14,7 +14,7 @@ use macos::{install_status_bar, reduce_motion};
 
 use crate::annotate::audio::AudioRecorder;
 use crate::annotate::capture::{
-    LiveOverlayEvent, ScreenCaptureSession, SharedCaptureTelemetry, annotate_log,
+    LiveOverlayEvent, ScreenCaptureSession, SharedCaptureTelemetry, ShortcutConfig, annotate_log,
     current_mouse_screen, discover_target, list_selectable_windows, record_external_frontmost_app,
     region_target, selectable_window_at, shortcut_from_key_and_mods, start_global_input_tap,
 };
@@ -75,6 +75,22 @@ pub enum MenuAction {
     ToggleCapture,
     ChooseTarget,
     OpenLatest,
+}
+
+static MENU: OnceLock<(flume::Sender<MenuAction>, flume::Receiver<MenuAction>)> = OnceLock::new();
+
+fn menu_channel() -> &'static (flume::Sender<MenuAction>, flume::Receiver<MenuAction>) {
+    MENU.get_or_init(flume::unbounded)
+}
+
+pub(crate) fn menu_receiver() -> flume::Receiver<MenuAction> {
+    menu_channel().1.clone()
+}
+
+/// Queues `action` for the coordinator, which runs it on its next tick. Bespoke's tray, Annotate
+/// page and Triage dialog send these.
+pub fn menu(action: MenuAction) {
+    let _ = menu_channel().0.try_send(action);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -302,7 +318,7 @@ impl Coordinator {
     }
 
     pub fn open_settings(&mut self) {
-        crate::annotate::host::open_settings(&[]);
+        crate::annotate::open_settings(&[]);
     }
 
     fn note_grants(&mut self, grants: crate::annotate::permissions::Grants) {
@@ -340,7 +356,7 @@ impl Coordinator {
             .gate
             .tick(crate::annotate::capture::modifier_flags() != 0)
         {
-            crate::annotate::host::open_settings(&missing);
+            crate::annotate::open_settings(&missing);
         }
     }
 
@@ -1287,7 +1303,7 @@ impl Coordinator {
 
     pub fn cancel_recording(&mut self, cx: &mut Context<Self>) {
         annotate_log("cancel_recording invoked");
-        crate::annotate::host::cancelled();
+        crate::annotate::capture_cancelled();
         self.discard_recording();
         self.dismiss_island(cx);
     }
@@ -1343,8 +1359,10 @@ impl Coordinator {
                         activity,
                     );
                     match &finalized {
-                        Ok((dir, bundle, _)) => crate::annotate::host::captured(dir, bundle),
-                        Err(_) => crate::annotate::host::cancelled(),
+                        Ok((dir, bundle, _)) => crate::annotate::capture_finished(
+                            crate::annotate::handoff::Finished::of(dir, bundle),
+                        ),
+                        Err(_) => crate::annotate::capture_cancelled(),
                     }
                     (finalized, duration_ms)
                 })
@@ -1836,13 +1854,16 @@ fn inspect_review_dir(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     }
 }
 
-pub fn start(cx: &mut App) {
+/// Starts Annotate in Bespoke's app, with the record and paste combos the key tap matches first.
+pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
     annotate_log(format!("start pid={}", std::process::id()));
     cx.on_window_closed(|cx| cx.defer(macos::hand_back_keys))
         .detach();
     let (ui_sender, ui_receiver) = flume::unbounded();
     let telemetry = SharedCaptureTelemetry::new(ui_sender);
-    crate::annotate::host::set_telemetry(Arc::clone(&telemetry));
+    let (record, paste) = shortcuts;
+    telemetry.set_shortcuts(record, paste);
+    crate::annotate::capture::set_telemetry(Arc::clone(&telemetry));
     start_global_input_tap(Arc::clone(&telemetry));
     crate::annotate::retention::start();
     crate::annotate::speech_model::ensure();

@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use crate::annotate::coordinator::SelectionMode;
 
@@ -53,14 +53,6 @@ pub struct CapsuleLink {
     pub excluded_window_ids: Arc<Mutex<Vec<u32>>>,
 }
 
-type Host = Box<dyn Fn(CapsuleLink) + Send + Sync>;
-
-static HOST: OnceLock<Host> = OnceLock::new();
-
-pub fn set_host(host: impl Fn(CapsuleLink) + Send + Sync + 'static) {
-    let _ = HOST.set(Box::new(host));
-}
-
 pub struct NativePill {
     commands: flume::Sender<CapsuleCommand>,
     actions: flume::Receiver<PillAction>,
@@ -70,7 +62,7 @@ pub struct NativePill {
 
 impl NativePill {
     pub fn open(excluded_window_ids: Arc<Mutex<Vec<u32>>>) -> Result<Self, String> {
-        let host = HOST.get().ok_or("no capsule host is registered")?;
+        let app = crate::app_handle::AppHandle::try_global().ok_or("Bespoke isn't running")?;
         let (commands_tx, commands_rx) = flume::unbounded();
         let (actions_tx, actions_rx) = flume::unbounded();
         let state = Arc::new(CapsuleState {
@@ -78,12 +70,15 @@ impl NativePill {
             hovered: AtomicBool::new(false),
             window_number: AtomicU32::new(0),
         });
-        host(CapsuleLink {
-            commands: commands_rx,
-            actions: actions_tx,
-            state: Arc::clone(&state),
-            excluded_window_ids,
-        });
+        crate::annotate::capsule::open(
+            app,
+            CapsuleLink {
+                commands: commands_rx,
+                actions: actions_tx,
+                state: Arc::clone(&state),
+                excluded_window_ids,
+            },
+        );
         Ok(Self {
             commands: commands_tx,
             actions: actions_rx,
@@ -121,5 +116,20 @@ impl NativePill {
 
     pub fn pointer_on_pill(&self) -> bool {
         self.state.hovered.load(Ordering::SeqCst)
+    }
+}
+
+/// Shows a capsule with `snapshot` at `anchor`, for dev snapshots. Opens it on first use.
+pub fn preview_capsule(snapshot: PillSnapshot, anchor: [f64; 2]) {
+    static PREVIEW: Mutex<Option<NativePill>> = Mutex::new(None);
+    let mut preview = PREVIEW
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if preview.is_none() {
+        *preview = NativePill::open(Arc::new(Mutex::new(Vec::new()))).ok();
+    }
+    if let Some(pill) = preview.as_ref() {
+        pill.place_on(anchor);
+        pill.sync(snapshot);
     }
 }

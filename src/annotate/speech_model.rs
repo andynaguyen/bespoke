@@ -83,7 +83,7 @@ fn update(change: impl FnOnce(&mut Status)) {
         (before, status.clone())
     };
     if before != after {
-        crate::annotate::host::speech_status_changed(&after);
+        crate::apple_speech::status_changed(&after);
     }
 }
 

@@ -336,7 +336,7 @@ const NO_ANSWER: &str = "no answer within 3 seconds";
 
 #[cfg(target_os = "macos")]
 fn permissions() -> Vec<String> {
-    use crate::annotate::host::{Permission, PermissionStatus};
+    use crate::annotate::permissions::{Permission, Status as PermissionStatus};
     use crate::ui::platform;
 
     let yes_no = |on: Option<bool>| match on {
@@ -362,10 +362,10 @@ fn permissions() -> Vec<String> {
         ),
         format!(
             "Screen Recording (this process): {}",
-            yes_no(bounded(crate::annotate::host::screen_capture_granted))
+            yes_no(bounded(crate::annotate::capture::screen_capture_granted))
         ),
     ];
-    match bounded(crate::annotate::host::read_grants) {
+    match bounded(crate::annotate::permissions::read_grants) {
         Some(Some(grants)) => {
             let status = |permission| match grants.status(permission) {
                 PermissionStatus::Granted => "granted",

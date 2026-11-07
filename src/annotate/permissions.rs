@@ -68,6 +68,58 @@ pub fn read_grants() -> Option<Grants> {
     Some(grants)
 }
 
+/// Asks macOS for Screen Recording. The prompt is attributed to this process, so Bespoke gets the
+/// grant. macOS prompts once per app and adds it to the Screen Recording list, switched off.
+/// Later calls return without a prompt.
+pub fn request_screen_capture() {
+    let granted = crate::annotate::capture::request_screen_capture();
+    crate::annotate::capture::annotate_log(format!(
+        "screen recording: asked macOS, CGRequestScreenCaptureAccess -> {granted}"
+    ));
+}
+
+/// Opens the panel to drag Bespoke into for `permission`, or its pane in System Settings.
+pub fn open_permission_settings(permission: Permission) {
+    crate::annotate::capture::annotate_log(format!(
+        "permission settings: opening for {permission:?}"
+    ));
+    if permission.draggable() {
+        let name = match permission {
+            Permission::ScreenRecording => "screen-recording",
+            _ => "accessibility",
+        };
+        let spawned = crate::annotate::helper::path().and_then(|helper| {
+            std::process::Command::new(helper)
+                .args(["permission-panel", "--permission", name])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .map_err(anyhow::Error::from)
+        });
+        match spawned {
+            Ok(mut child) => {
+                std::thread::spawn(move || {
+                    let _stdin = child.stdin.take();
+                    let _ = child.wait();
+                });
+                return;
+            }
+            Err(error) => {
+                crate::annotate::capture::annotate_log(format!("permission panel: {error:#}"));
+            }
+        }
+    }
+    let anchor = match permission {
+        Permission::ScreenRecording => "Privacy_ScreenCapture",
+        Permission::Accessibility => "Privacy_Accessibility",
+        Permission::Microphone => "Privacy_Microphone",
+    };
+    let url =
+        format!("x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?{anchor}");
+    let _ = crate::annotate::handoff::open_path(std::path::Path::new(&url));
+}
+
 /// Logs the grants when they differ from the last ones logged. The Annotate page reads them every
 /// 1.5 s, so logging each read would bury the rest of `annotate.log`.
 fn log_change(grants: &Grants) {

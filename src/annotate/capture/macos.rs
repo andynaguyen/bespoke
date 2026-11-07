@@ -266,27 +266,9 @@ pub fn layout_v_keycode() -> u16 {
     key_code_for_char('v').unwrap_or(KEY_V)
 }
 
-pub fn set_shortcuts(
-    telemetry: &SharedCaptureTelemetry,
-    record: ShortcutConfig,
-    paste: ShortcutConfig,
-) {
-    *telemetry
-        .shortcut
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = record;
-    *telemetry
-        .paste_shortcut
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = paste;
-}
-
-pub fn pause_shortcuts(telemetry: &SharedCaptureTelemetry, paused: bool) {
-    telemetry.shortcuts_paused.store(paused, Ordering::Release);
-}
-
-/// Whether this running copy of Scrawl may record the screen, by `CGPreflightScreenCaptureAccess`,
-/// which keeps its first answer for the life of the process. See `screen_capture_usable`.
+/// Whether this process may record the screen, by `CGPreflightScreenCaptureAccess`. It keeps its
+/// first answer until the app relaunches, unlike `permissions::read_grants`, which asks a fresh
+/// helper. See `screen_capture_usable`.
 pub fn screen_capture_granted() -> bool {
     unsafe { CGPreflightScreenCaptureAccess() }
 }

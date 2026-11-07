@@ -1,7 +1,7 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use crate::annotate::host::Capture;
+use crate::annotate::handoff::Capture;
 use anyhow::{Context, Result, ensure};
 use base64::Engine as _;
 use chrono::{Local, TimeZone};

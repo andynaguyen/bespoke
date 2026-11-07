@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -218,6 +218,95 @@ pub fn annotate_log(msg: impl AsRef<str>) {
     {
         let _ = f.write_all(line.as_bytes());
     }
+}
+
+static TELEMETRY: OnceLock<Arc<SharedCaptureTelemetry>> = OnceLock::new();
+
+/// Keeps the telemetry `coordinator::start` made, for `press`, `pause_shortcuts` and
+/// `set_shortcuts`.
+pub(crate) fn set_telemetry(telemetry: Arc<SharedCaptureTelemetry>) {
+    let _ = TELEMETRY.set(telemetry);
+}
+
+/// Reports a press of one of Bespoke's Annotate shortcuts. Does nothing before Annotate starts.
+pub fn press(kind: ShortcutKind) {
+    let Some(telemetry) = TELEMETRY.get() else {
+        return;
+    };
+    match kind {
+        ShortcutKind::Record => telemetry.emit_capture_shortcut(),
+        ShortcutKind::Paste => telemetry.emit_paste_shortcut(),
+    }
+}
+
+/// Ignores shortcut presses while `paused`, as while Bespoke records a new binding.
+pub fn pause_shortcuts(paused: bool) {
+    if let Some(telemetry) = TELEMETRY.get() {
+        telemetry.shortcuts_paused.store(paused, Ordering::Release);
+    }
+}
+
+/// Sets the record and paste combos the key tap matches. Does nothing before Annotate starts,
+/// which takes the first ones from `coordinator::start`.
+pub fn set_shortcuts(record: ShortcutConfig, paste: ShortcutConfig) {
+    if let Some(telemetry) = TELEMETRY.get() {
+        telemetry.set_shortcuts(record, paste);
+    }
+}
+
+/// Parses a Bespoke binding such as `option+shift+s` into a combo, or `None` when it isn't one.
+pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
+    let mut modifiers = 0;
+    let mut key = None;
+    for token in binding.split('+').map(|t| t.trim().to_ascii_lowercase()) {
+        match token.as_str() {
+            "cmd" | "command" | "meta" | "super" => modifiers |= CARBON_CMD_KEY,
+            "ctrl" | "control" => modifiers |= CARBON_CONTROL_KEY,
+            "opt" | "option" | "alt" => modifiers |= CARBON_OPTION_KEY,
+            "shift" => modifiers |= CARBON_SHIFT_KEY,
+            "" => return None,
+            _ if key.is_some() => return None,
+            _ => key = Some(token),
+        }
+    }
+    let key = key?;
+    let (key_code, label) = named_key(&key).or_else(|| {
+        let mut chars = key.chars();
+        let ch = chars.next()?;
+        if chars.next().is_some() {
+            return None;
+        }
+        let code = key_code_for_char(ch)?;
+        Some((u32::from(code), ch.to_uppercase().collect()))
+    })?;
+    Some(ShortcutConfig {
+        key_code,
+        carbon_modifiers: modifiers,
+        label: shortcut_label(modifiers, &label),
+    })
+}
+
+fn named_key(name: &str) -> Option<(u32, String)> {
+    const FUNCTION_KEYS: [u32; 16] = [
+        122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, 105, 107, 113, 106,
+    ];
+    if let Some(n) = name.strip_prefix('f').and_then(|n| n.parse::<usize>().ok())
+        && (1..=FUNCTION_KEYS.len()).contains(&n)
+    {
+        return Some((FUNCTION_KEYS[n - 1], format!("F{n}")));
+    }
+    let (code, label) = match name {
+        "space" => (49, "Space"),
+        "return" | "enter" => (36, "↩"),
+        "tab" => (48, "⇥"),
+        "backspace" | "delete" => (51, "⌫"),
+        "left" | "leftarrow" => (123, "←"),
+        "right" | "rightarrow" => (124, "→"),
+        "down" | "downarrow" => (125, "↓"),
+        "up" | "uparrow" => (126, "↑"),
+        _ => return None,
+    };
+    Some((code, label.to_owned()))
 }
 
 pub fn shortcut_parts(label: &str) -> (&str, &str) {
@@ -568,6 +657,18 @@ impl SharedCaptureTelemetry {
             drag_start: Mutex::new(None),
             shift_press: Mutex::new(None),
         })
+    }
+
+    /// Sets the record and paste combos the key tap matches.
+    pub fn set_shortcuts(&self, record: ShortcutConfig, paste: ShortcutConfig) {
+        *self
+            .shortcut
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = record;
+        *self
+            .paste_shortcut
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = paste;
     }
 
     pub fn emit_capture_shortcut(&self) {

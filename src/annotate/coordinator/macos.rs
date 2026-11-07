@@ -183,7 +183,7 @@ pub(super) fn reduce_motion() -> bool {
 }
 
 pub(super) fn install_status_bar() -> Option<flume::Receiver<MenuAction>> {
-    Some(crate::annotate::host::menu_receiver())
+    Some(super::menu_receiver())
 }
 
 static PICKER_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);

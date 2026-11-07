@@ -41,10 +41,12 @@ mod imp {
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use crate::annotate::host::{SpeechState, TranscriptData};
+    use crate::annotate::model::TranscriptData;
+    use crate::annotate::speech_model::{State as SpeechState, Status as SpeechStatus};
     use anyhow::Result;
 
     use super::Status;
+    use crate::managers::model::ModelManager;
 
     /// SpeechAnalyzer, and the helper built against it, need macOS 26.
     pub fn supported_os() -> bool {
@@ -58,7 +60,7 @@ mod imp {
         if !supported_os() {
             return Status::Unsupported;
         }
-        match crate::annotate::host::speech_status().state {
+        match crate::annotate::speech_model::current().state {
             SpeechState::Unknown | SpeechState::Checking => Status::Unchecked,
             SpeechState::Downloading => Status::Downloading,
             SpeechState::Ready => Status::Installed,
@@ -68,42 +70,45 @@ mod imp {
     }
 
     pub fn attempts() -> u32 {
-        crate::annotate::host::speech_status().attempts
+        crate::annotate::speech_model::current().attempts
     }
 
     /// Download progress from 0 to 1, while macOS downloads the model.
     pub fn progress() -> f64 {
-        crate::annotate::host::speech_status().progress
+        crate::annotate::speech_model::current().progress
     }
 
     pub fn error() -> Option<String> {
-        crate::annotate::host::speech_status().error
+        crate::annotate::speech_model::current().error
     }
 
     /// Starts an install, or the next try now when an earlier one failed. Returns the
     /// `attempts` number of the try that answers this call.
     pub fn install() -> u32 {
-        crate::annotate::host::ensure_speech_model()
+        crate::annotate::speech_model::ensure()
     }
 
-    /// Runs `changed` when the model's state changes. Download progress alone doesn't count.
-    pub fn on_change(changed: impl Fn() + Send + Sync + 'static) {
-        let last = std::sync::Mutex::new(None::<SpeechState>);
-        crate::annotate::host::on_speech_status(move |status| {
-            let mut last = last
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if last.as_ref() != Some(&status.state) {
-                *last = Some(status.state.clone());
-                drop(last);
-                changed();
+    /// Refreshes the Models page's system models when the speech model's state changes.
+    /// Download progress alone doesn't count.
+    pub fn status_changed(status: &SpeechStatus) {
+        static LAST: std::sync::Mutex<Option<SpeechState>> = std::sync::Mutex::new(None);
+        let mut last = LAST
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if last.as_ref() != Some(&status.state) {
+            *last = Some(status.state.clone());
+            drop(last);
+            if let Some(models) = crate::app_handle::AppHandle::try_global()
+                .and_then(|app| app.try_state::<std::sync::Arc<ModelManager>>())
+            {
+                models.refresh_system_models();
             }
-        });
+        }
     }
 
     /// Transcribes a WAV file with word times. `missing` is set when the model can't run yet.
     pub fn transcribe_file(wav: &Path, custom_words: &[String]) -> Result<TranscriptData> {
-        crate::annotate::host::apple_speech(wav, custom_words)
+        crate::annotate::helper::transcribe(wav, custom_words)
     }
 
     /// Transcribes 16 kHz mono samples.

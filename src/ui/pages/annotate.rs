@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use crate::annotate::host::{Grants, Permission, PermissionStatus, Retention};
+use crate::annotate::permissions::{Grants, Permission, Status as PermissionStatus};
+use crate::annotate::retention::Preset as Retention;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, SharedString, Task, div, prelude::*, rems,
 };
@@ -99,7 +100,7 @@ pub(super) fn shortcut_label(
     let Some(binding) = settings.bindings.get(id) else {
         return kind.default_config().label;
     };
-    crate::annotate::host::shortcut_from_binding(&binding.current_binding).map_or_else(
+    crate::annotate::capture::shortcut_from_binding(&binding.current_binding).map_or_else(
         || format_key_combination(&binding.current_binding),
         |config| config.label,
     )
@@ -123,9 +124,10 @@ impl AnnotateSettings {
             .detach();
         let poll = cx.spawn(async move |this, cx| {
             loop {
-                let grants = crate::runtime::spawn_blocking(crate::annotate::host::read_grants)
-                    .await
-                    .unwrap_or(None);
+                let grants =
+                    crate::runtime::spawn_blocking(crate::annotate::permissions::read_grants)
+                        .await
+                        .unwrap_or(None);
                 let updated = this.update(cx, |this, cx| {
                     if grants.is_some() {
                         this.grants = grants;
@@ -143,7 +145,7 @@ impl AnnotateSettings {
             paste_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::PASTE_BINDING, cx)),
             grants: None,
             requested: BTreeSet::new(),
-            retention: crate::annotate::host::retention(),
+            retention: crate::annotate::retention::Policy::load().preset(),
             captures_size: None,
             _poll: poll,
         };
@@ -153,9 +155,10 @@ impl AnnotateSettings {
 
     fn measure(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            let size = crate::runtime::spawn_blocking(crate::annotate::host::captures_size)
-                .await
-                .ok();
+            let size =
+                crate::runtime::spawn_blocking(crate::annotate::retention::captures_folder_size)
+                    .await
+                    .ok();
             let _ = this.update(cx, |this, cx| {
                 this.captures_size = size;
                 cx.notify();
@@ -183,11 +186,13 @@ impl AnnotateSettings {
             // opens, because macOS prompts only once per app and a later launch gets no prompt.
             Permission::ScreenRecording if first => {
                 std::thread::spawn(|| {
-                    crate::annotate::host::request_screen_capture();
-                    crate::annotate::host::open_permission_settings(Permission::ScreenRecording);
+                    crate::annotate::permissions::request_screen_capture();
+                    crate::annotate::permissions::open_permission_settings(
+                        Permission::ScreenRecording,
+                    );
                 });
             }
-            _ => crate::annotate::host::open_permission_settings(permission),
+            _ => crate::annotate::permissions::open_permission_settings(permission),
         }
     }
 
@@ -231,7 +236,7 @@ impl AnnotateSettings {
                             return;
                         };
                         let _ = entity.update(cx, |this, cx| {
-                            crate::annotate::host::set_retention(preset);
+                            crate::annotate::retention::set_preset(preset);
                             this.retention = Some(preset);
                             this.measure(cx);
                             cx.notify();
@@ -262,7 +267,7 @@ impl AnnotateSettings {
                             t("annotate.captures.openLatest"),
                         )
                         .on_click(|_, _, _| {
-                            crate::annotate::host::menu(
+                            crate::annotate::coordinator::menu(
                                 crate::annotate::coordinator::MenuAction::OpenLatest,
                             );
                         }),
@@ -273,7 +278,7 @@ impl AnnotateSettings {
                             "folder-open",
                             t("annotate.captures.showInFinder"),
                         )
-                        .on_click(|_, _, _| crate::annotate::host::show_captures()),
+                        .on_click(|_, _, _| crate::annotate::handoff::show_captures()),
                     ),
             )
             .into_any_element()
@@ -349,7 +354,7 @@ impl super::Page for AnnotatePage {
                     .w(CONTROL_HEIGHT)
                     .px(gpui::px(0.))
                     .child(icon("folder-open").size(gpui::px(13.)))
-                    .on_click(|_, _, _| crate::annotate::host::show_captures()),
+                    .on_click(|_, _, _| crate::annotate::handoff::show_captures()),
             )
             .action(
                 Button::new("captures-record")
@@ -357,7 +362,7 @@ impl super::Page for AnnotatePage {
                     .gap(rems(0.375))
                     .pe(gpui::px(13.5))
                     .on_click(|_, _, _| {
-                        crate::annotate::host::menu(
+                        crate::annotate::coordinator::menu(
                             crate::annotate::coordinator::MenuAction::ChooseTarget,
                         )
                     })

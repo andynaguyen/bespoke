@@ -113,7 +113,7 @@ fn navigate(page: &str, cx: &mut App) {
             "latest" => crate::annotate::coordinator::MenuAction::OpenLatest,
             _ => crate::annotate::coordinator::MenuAction::ChooseTarget,
         };
-        crate::annotate::host::menu(action);
+        crate::annotate::coordinator::menu(action);
         return;
     }
     CAPTURE_SCREEN.set(false);
@@ -141,7 +141,7 @@ fn navigate(page: &str, cx: &mut App) {
         return;
     }
     if page == "annotate:latest" {
-        if let Some(capture) = crate::annotate::host::recent_captures(1).first() {
+        if let Some(capture) = crate::annotate::handoff::recent_captures(1).first() {
             crate::ui::pages::captures::inspect(capture.dir().to_path_buf(), cx);
         }
         return;

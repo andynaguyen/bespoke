@@ -5,7 +5,7 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use crate::annotate::audio::RecordedAudio;
-use crate::annotate::host::{TranscriptData, TranscriptSegment, WordTiming};
+use crate::annotate::model::{TranscriptData, TranscriptSegment, WordTiming};
 
 use crate::app_handle::AppHandle;
 use crate::audio_toolkit::{TimedText, apply_custom_words, apply_custom_words_to_timed};
@@ -20,17 +20,6 @@ const QUIET_SPAN: usize = SAMPLE_RATE / 20;
 /// Shortest last piece. A capture's trailing silence is often its quietest place, and a cut
 /// there would leave a sliver of silence, where Whisper tends to invent text.
 const MIN_TAIL: usize = 2 * SAMPLE_RATE;
-
-pub fn init(app: &AppHandle) {
-    let transcribing = app.clone();
-    crate::annotate::host::on_transcribe(move |wav| with_selected_model(&transcribing, wav));
-    let refreshing = app.clone();
-    crate::apple_speech::on_change(move || {
-        refreshing
-            .state::<Arc<ModelManager>>()
-            .refresh_system_models();
-    });
-}
 
 pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> TranscriptData {
     let (Some(wav), Some(_)) = (wav, audio.filter(|audio| audio.sample_count > 0)) else {
@@ -59,9 +48,11 @@ pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> Transcri
     transcript
 }
 
+/// Transcribes a capture's `audio.wav` with the model picked on the Models page, or with Apple
+/// Speech without a running Bespoke, as in tests.
 pub fn run(wav: &Path) -> Result<TranscriptData> {
-    match crate::annotate::host::transcriber() {
-        Some(transcribe) => transcribe(wav),
+    match AppHandle::try_global() {
+        Some(app) => with_selected_model(app, wav),
         None => crate::annotate::helper::transcribe(wav, &[]),
     }
 }
