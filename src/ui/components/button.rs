@@ -1,12 +1,12 @@
 use gpui::{
-    div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, SharedString,
-    Window,
+    AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, SharedString, Window, div,
+    prelude::*, px,
 };
 
 use super::KeyboardFocus;
 use super::RowDirection;
 use super::Typography;
-use crate::ui::theme::{palette, tw, Alpha, CONTROL_HEIGHT};
+use crate::ui::theme::{Alpha, CONTROL_HEIGHT, palette, tw};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum ButtonVariant {

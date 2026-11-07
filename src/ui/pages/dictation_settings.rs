@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    div, prelude::*, rems, AnyElement, App, Context, Entity, Focusable, KeyDownEvent, SharedString,
-    Window,
+    AnyElement, App, Context, Entity, Focusable, KeyDownEvent, SharedString, Window, div,
+    prelude::*, rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
@@ -11,15 +11,15 @@ use crate::managers::history::HistoryManager;
 use crate::settings::{AppSettings, PasteMethod, TypingTool};
 use crate::shortcut;
 use crate::ui::components::{
-    reset_button, Dropdown, DropdownOption, RowDirection, SettingContainer, SettingsGroup, Spinner,
-    TextField, Typography,
+    Dropdown, DropdownOption, RowDirection, SettingContainer, SettingsGroup, Spinner, TextField,
+    Typography, reset_button,
 };
 use crate::ui::languages::{
-    language_label, recognition_language, selectable_languages, supports_language_code,
-    unique_capability_languages, CHINESE_LANGUAGE_CODE,
+    CHINESE_LANGUAGE_CODE, language_label, recognition_language, selectable_languages,
+    supports_language_code, unique_capability_languages,
 };
 use crate::ui::stores::{ModelStore, SettingsStore};
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 use super::keyword_field::{KeywordField, KeywordSetting};
 use super::language_picker::{LanguagePicker, PickerStyle};
@@ -122,10 +122,10 @@ impl DictationSettings {
         })
         .detach();
         cx.subscribe(&history_limit, |_, input, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                if let Ok(limit) = input.read(cx).value().trim().parse::<usize>() {
-                    save_history_limit(limit, cx);
-                }
+            if matches!(event, InputEvent::Change)
+                && let Ok(limit) = input.read(cx).value().trim().parse::<usize>()
+            {
+                save_history_limit(limit, cx);
             }
         })
         .detach();
@@ -583,9 +583,11 @@ impl DictationSettings {
             ],
             // Language and History are pages of one group each, so the page title in the header
             // names them and the groups go untitled.
-            DictatePage::Language => vec![SettingsGroup::new()
-                .children(self.language_rows(cx))
-                .child(rows::vad_enabled(&s, cx))],
+            DictatePage::Language => vec![
+                SettingsGroup::new()
+                    .children(self.language_rows(cx))
+                    .child(rows::vad_enabled(&s, cx)),
+            ],
             DictatePage::PostProcessing => vec![
                 SettingsGroup::new()
                     .title(t("settings.advanced.groups.cleanup"))
@@ -596,9 +598,11 @@ impl DictationSettings {
                     .title(t("settings.advanced.groups.submitting"))
                     .child(rows::auto_submit(&s, cx)),
             ],
-            DictatePage::History => vec![SettingsGroup::new()
-                .child(self.history_limit_row(cx))
-                .child(rows::recording_retention(&s, cx))],
+            DictatePage::History => vec![
+                SettingsGroup::new()
+                    .child(self.history_limit_row(cx))
+                    .child(rows::recording_retention(&s, cx)),
+            ],
         };
         groups
             .into_iter()

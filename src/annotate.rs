@@ -8,7 +8,7 @@ use gpui::App;
 
 use crate::app_handle::AppHandle;
 use crate::managers::history::{CaptureUsage, HistoryManager};
-use crate::settings::{get_settings, AppSettings};
+use crate::settings::{AppSettings, get_settings};
 use crate::ui::pages::settings::SettingsSection;
 
 pub const RECORD_BINDING: &str = "annotate";

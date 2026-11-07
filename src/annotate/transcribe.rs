@@ -6,10 +6,10 @@ use anyhow::Result;
 use scrawl::host::{TranscriptData, TranscriptSegment, WordTiming};
 
 use crate::app_handle::AppHandle;
-use crate::audio_toolkit::{apply_custom_words, apply_custom_words_to_timed, TimedText};
+use crate::audio_toolkit::{TimedText, apply_custom_words, apply_custom_words_to_timed};
 use crate::managers::model::{EngineType, ModelManager};
 use crate::managers::transcription::{TimedTranscript, TranscriptionManager};
-use crate::settings::{get_settings, AppSettings};
+use crate::settings::{AppSettings, get_settings};
 
 const SAMPLE_RATE: usize = 16_000;
 const MAX_CHUNK_SECS: usize = 28;
@@ -325,9 +325,11 @@ mod tests {
             assert_eq!(pair[0].end, pair[1].start);
         }
         assert_eq!(ranges.last().map(|r| r.end), Some(audio.len()));
-        assert!(ranges
-            .iter()
-            .all(|r| r.len() <= MAX_CHUNK_SECS * SAMPLE_RATE));
+        assert!(
+            ranges
+                .iter()
+                .all(|r| r.len() <= MAX_CHUNK_SECS * SAMPLE_RATE)
+        );
     }
 
     #[test]

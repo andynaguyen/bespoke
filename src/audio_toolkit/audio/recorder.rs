@@ -1,23 +1,24 @@
 use std::{
     io::Error,
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
-        mpsc, Arc, Mutex,
+        mpsc,
     },
     time::{Duration, Instant},
 };
 
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Sample, SizedSample,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::audio_toolkit::{
+    VoiceActivityDetector,
     audio::{AudioVisualiser, FrameResampler},
     constants,
     vad::{self, VadFrame},
-    VoiceActivityDetector,
 };
 
 enum Cmd {
@@ -745,12 +746,12 @@ impl CaptureProcessor {
             .frame_observer
             .as_ref()
             .is_some_and(|observer| observer.is_active());
-        if policy != VadPolicy::Disabled || observing {
-            if let Some(cfg) = &self.vad {
-                let mut detector = cfg.detector.lock().unwrap();
-                detector.set_hangover_frames(cfg.hangover_for(policy));
-                detector.reset();
-            }
+        if (policy != VadPolicy::Disabled || observing)
+            && let Some(cfg) = &self.vad
+        {
+            let mut detector = cfg.detector.lock().unwrap();
+            detector.set_hangover_frames(cfg.hangover_for(policy));
+            detector.reset();
         }
     }
 
@@ -781,10 +782,10 @@ impl CaptureProcessor {
             return;
         }
 
-        if let Some(buckets) = self.visualizer.feed(raw) {
-            if let Some(callback) = &self.level_cb {
-                callback(buckets);
-            }
+        if let Some(buckets) = self.visualizer.feed(raw)
+            && let Some(callback) = &self.level_cb
+        {
+            callback(buckets);
         }
 
         let vad_policy = self.vad_policy;
@@ -838,21 +839,21 @@ impl CaptureProcessor {
             )
         });
 
-        if vad_policy != VadPolicy::Disabled {
-            if let Some(cfg) = &self.vad {
-                let report = cfg.detector.lock().unwrap().tail_report();
-                if let Some(report) = report {
-                    log::debug!(
-                        "VAD at stop: withheld tail {} frames (~{}ms, {} voiced), in_speech={}, onset_counter={}, hangover_counter={}",
-                        report.withheld_frames,
-                        report.withheld_frames * cfg.frame_samples * 1000
-                            / constants::WHISPER_SAMPLE_RATE as usize,
-                        report.withheld_voiced_frames,
-                        report.in_speech,
-                        report.onset_counter,
-                        report.hangover_counter
-                    );
-                }
+        if vad_policy != VadPolicy::Disabled
+            && let Some(cfg) = &self.vad
+        {
+            let report = cfg.detector.lock().unwrap().tail_report();
+            if let Some(report) = report {
+                log::debug!(
+                    "VAD at stop: withheld tail {} frames (~{}ms, {} voiced), in_speech={}, onset_counter={}, hangover_counter={}",
+                    report.withheld_frames,
+                    report.withheld_frames * cfg.frame_samples * 1000
+                        / constants::WHISPER_SAMPLE_RATE as usize,
+                    report.withheld_voiced_frames,
+                    report.in_speech,
+                    report.onset_counter,
+                    report.hangover_counter
+                );
             }
         }
 

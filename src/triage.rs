@@ -666,11 +666,14 @@ mod tests {
 
     #[test]
     fn the_launch_prompt_fits_claude_codes_link_limit() {
-        let prompt = launch_prompt(Path::new(
-            "/Users/someone/Library/Application Support/com.andynguyen.bespoke/triage/2026-11-01T09-00-00/PROMPT.md",
-        ), Some(Path::new(
-            "/Users/someone/Library/Application Support/com.andynguyen.bespoke/annotate/captures/bespoke-1793946653505-df91-2.scrawl",
-        )));
+        let prompt = launch_prompt(
+            Path::new(
+                "/Users/someone/Library/Application Support/com.andynguyen.bespoke/triage/2026-11-01T09-00-00/PROMPT.md",
+            ),
+            Some(Path::new(
+                "/Users/someone/Library/Application Support/com.andynguyen.bespoke/annotate/captures/bespoke-1793946653505-df91-2.scrawl",
+            )),
+        );
         assert!(prompt.len() < 5_000);
     }
 

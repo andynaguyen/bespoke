@@ -215,14 +215,14 @@ impl ModelManager {
                 ));
             }
         }
-        if let (Some(expected), Some(len)) = (expected_size, response.content_length()) {
-            if resume_from + len != expected {
-                return Err(anyhow::anyhow!(
-                    "server advertises {} bytes, expected {}",
-                    resume_from + len,
-                    expected
-                ));
-            }
+        if let (Some(expected), Some(len)) = (expected_size, response.content_length())
+            && resume_from + len != expected
+        {
+            return Err(anyhow::anyhow!(
+                "server advertises {} bytes, expected {}",
+                resume_from + len,
+                expected
+            ));
         }
 
         let known_total =
@@ -268,15 +268,15 @@ impl ModelManager {
                     return Ok(HttpDownloadOutcome::Cancelled);
                 }
             };
-            if let Some(cap) = known_total {
-                if downloaded + chunk.len() as u64 > cap {
-                    drop(file);
-                    let _ = fs::remove_file(partial_path);
-                    return Err(anyhow::anyhow!(
-                        "server sent more than the expected {} bytes",
-                        cap
-                    ));
-                }
+            if let Some(cap) = known_total
+                && downloaded + chunk.len() as u64 > cap
+            {
+                drop(file);
+                let _ = fs::remove_file(partial_path);
+                return Err(anyhow::anyhow!(
+                    "server sent more than the expected {} bytes",
+                    cap
+                ));
             }
             file.write_all(&chunk)?;
             downloaded += chunk.len() as u64;

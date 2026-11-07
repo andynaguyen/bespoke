@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 
-use gpui::{div, prelude::*, px, rems, Context, FontWeight, SharedString, Window};
+use gpui::{Context, FontWeight, SharedString, Window, div, prelude::*, px, rems};
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_count};
 use crate::secure_input::SecureInputStatus;
-use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
+use crate::ui::components::{KeyboardFocus, RowDirection, Typography, icon};
 use crate::ui::event_bus::event_bus;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum PermissionState {
@@ -114,10 +114,10 @@ pub struct SecureInputWarning {
 impl SecureInputWarning {
     pub fn new(cx: &mut Context<Self>) -> Self {
         cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
-            if event.name == "secure-input-changed" {
-                if let Some(status) = event.parse::<SecureInputStatus>() {
-                    this.set_status(status, cx);
-                }
+            if event.name == "secure-input-changed"
+                && let Some(status) = event.parse::<SecureInputStatus>()
+            {
+                this.set_status(status, cx);
             }
         })
         .detach();

@@ -1,14 +1,14 @@
 use std::rc::Rc;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, rems, App, Bounds, Context, Corner,
-    Entity, FontWeight, Pixels, SharedString, Subscription, Window,
+    App, Bounds, Context, Corner, Entity, FontWeight, Pixels, SharedString, Subscription, Window,
+    anchored, canvas, deferred, div, point, prelude::*, px, rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::i18n::t;
-use crate::ui::components::{icon, KeyboardFocus, RowDirection, TextField, Typography};
-use crate::ui::theme::{palette, shadow_lg, Alpha};
+use crate::ui::components::{KeyboardFocus, RowDirection, TextField, Typography, icon};
+use crate::ui::theme::{Alpha, palette, shadow_lg};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PickerStyle {

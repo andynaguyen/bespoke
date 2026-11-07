@@ -3,7 +3,7 @@ name = "bespoke"
 version = "1.0.5"
 description = "Bespoke"
 authors = ["Andy Nguyen"]
-edition = "2021"
+edition = "2024"
 license = "MIT"
 default-run = "bespoke"
 

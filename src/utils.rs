@@ -1,8 +1,8 @@
+use crate::TranscriptionCoordinator;
 use crate::app_handle::AppHandle;
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::transcription::TranscriptionManager;
 use crate::shortcut;
-use crate::TranscriptionCoordinator;
 use log::info;
 use std::sync::Arc;
 
@@ -43,10 +43,10 @@ pub fn is_windows_x64_emulated_on_arm64() -> bool {
 
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 fn native_windows_machine() -> Option<u16> {
-    use windows::core::{s, w, BOOL};
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
     use windows::Win32::System::Threading::GetCurrentProcess;
+    use windows::core::{BOOL, s, w};
 
     type IsWow64Process2 = unsafe extern "system" fn(HANDLE, *mut u16, *mut u16) -> BOOL;
 
@@ -214,10 +214,12 @@ mod tests {
     #[test]
     fn env_flag_enabled_true_for_truthy_values() {
         for value in ["1", "true", "TRUE", "yes", "on", " 1 "] {
-            std::env::set_var("BESPOKE_TEST_FLAG_TRUTHY", value);
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("BESPOKE_TEST_FLAG_TRUTHY", value) };
             assert!(env_flag_enabled("BESPOKE_TEST_FLAG_TRUTHY"), "{value:?}");
         }
-        std::env::remove_var("BESPOKE_TEST_FLAG_TRUTHY");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("BESPOKE_TEST_FLAG_TRUTHY") };
     }
 
     #[test]
@@ -225,9 +227,11 @@ mod tests {
         assert!(!env_flag_enabled("BESPOKE_TEST_FLAG_UNSET"));
 
         for value in ["0", "false", "FALSE", "no", "off", ""] {
-            std::env::set_var("BESPOKE_TEST_FLAG_FALSY", value);
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("BESPOKE_TEST_FLAG_FALSY", value) };
             assert!(!env_flag_enabled("BESPOKE_TEST_FLAG_FALSY"), "{value:?}");
         }
-        std::env::remove_var("BESPOKE_TEST_FLAG_FALSY");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("BESPOKE_TEST_FLAG_FALSY") };
     }
 }

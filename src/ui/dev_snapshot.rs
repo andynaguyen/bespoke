@@ -28,12 +28,11 @@ fn target_window(cx: &App) -> Option<AnyWindowHandle> {
 /// The window that takes pressed keys: an open dialog's window while it covers the main window,
 /// since the capture still comes from `target_window`, which includes the dialog.
 fn key_window(cx: &App) -> Option<AnyWindowHandle> {
-    if !CAPTURE_OVERLAY.get() {
-        if let Some(dialog) =
+    if !CAPTURE_OVERLAY.get()
+        && let Some(dialog) =
             crate::ui::main_view(cx).and_then(|main| main.read(cx).dialog_window())
-        {
-            return Some(dialog);
-        }
+    {
+        return Some(dialog);
     }
     target_window(cx)
 }
@@ -165,7 +164,7 @@ fn navigate(page: &str, cx: &mut App) {
 }
 
 fn sample_toast(kind: &str, cx: &mut App) {
-    use crate::ui::toast::{show, ToastKind};
+    use crate::ui::toast::{ToastKind, show};
     let kind = match kind {
         "info" => ToastKind::Info,
         "warning" => ToastKind::Warning,
@@ -277,7 +276,7 @@ fn capture(path: &std::path::Path, cx: &mut App) -> bool {
 
 #[cfg(target_os = "macos")]
 fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
-    use std::ffi::{c_void, CString};
+    use std::ffi::{CString, c_void};
 
     use objc2_app_kit::NSView;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};

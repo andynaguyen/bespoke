@@ -5,7 +5,7 @@ use crate::transcription_coordinator::TranscriptionCoordinator;
 use log::debug;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 
 const SAMPLES_PER_MS: usize = 16;

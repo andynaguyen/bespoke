@@ -8,7 +8,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-use crate::settings::{self, get_settings, ShortcutBinding};
+use crate::settings::{self, ShortcutBinding, get_settings};
 
 use super::handler::handle_shortcut_event;
 
@@ -316,10 +316,10 @@ impl Drop for HandyKeysState {
             let _ = sender.send(ManagerCommand::Shutdown);
         }
 
-        if let Ok(mut handle) = self.thread_handle.lock() {
-            if let Some(h) = handle.take() {
-                let _ = h.join();
-            }
+        if let Ok(mut handle) = self.thread_handle.lock()
+            && let Some(h) = handle.take()
+        {
+            let _ = h.join();
         }
     }
 }
@@ -423,12 +423,11 @@ pub fn register_cancel_shortcut(app: &AppHandle) {
     {
         let app_clone = app.clone();
         crate::runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-                if let Some(state) = app_clone.try_state::<HandyKeysState>() {
-                    if let Err(e) = state.register(&cancel_binding) {
-                        error!("Failed to register cancel shortcut: {}", e);
-                    }
-                }
+            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
+                && let Some(state) = app_clone.try_state::<HandyKeysState>()
+                && let Err(e) = state.register(&cancel_binding)
+            {
+                error!("Failed to register cancel shortcut: {}", e);
             }
         });
     }
@@ -445,10 +444,10 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
     {
         let app_clone = app.clone();
         crate::runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-                if let Some(state) = app_clone.try_state::<HandyKeysState>() {
-                    let _ = state.unregister(&cancel_binding);
-                }
+            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
+                && let Some(state) = app_clone.try_state::<HandyKeysState>()
+            {
+                let _ = state.unregister(&cancel_binding);
             }
         });
     }

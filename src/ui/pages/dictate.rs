@@ -1,12 +1,12 @@
-use gpui::{div, prelude::*, App, Context, Entity, Window};
+use gpui::{App, Context, Entity, Window, div, prelude::*};
 
 use crate::i18n::t;
 use crate::ui::components::SegmentedControl;
 use crate::ui::shell::Toolbar;
 
+use super::PageLayout;
 use super::history::HistoryPage;
 use super::style_board::StyleBoard;
-use super::PageLayout;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {

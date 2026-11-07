@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, px, rems, App, Bounds, DispatchPhase, ElementId, FontWeight,
-    KeyDownEvent, MouseButton, MouseMoveEvent, MouseUpEvent, Pixels, SharedString, Window,
+    App, Bounds, DispatchPhase, ElementId, FontWeight, KeyDownEvent, MouseButton, MouseMoveEvent,
+    MouseUpEvent, Pixels, SharedString, Window, canvas, div, prelude::*, px, rems,
 };
 
 use super::RowDirection;
-use super::{misc::reset_button, KeyboardFocus, SettingContainer, Typography};
-use crate::ui::theme::{palette, shadow, Alpha};
+use super::{KeyboardFocus, SettingContainer, Typography, misc::reset_button};
+use crate::ui::theme::{Alpha, palette, shadow};
 
 const TRACK_WIDTH: f32 = 129.;
 const THUMB: f32 = 16.;
@@ -183,10 +183,10 @@ impl RenderOnce for Slider {
                             return;
                         };
                         cx.stop_propagation();
-                        if let Some(on_change) = &key_change {
-                            if next != value {
-                                on_change(next, window, cx);
-                            }
+                        if let Some(on_change) = &key_change
+                            && next != value
+                        {
+                            on_change(next, window, cx);
                         }
                     })
                     .on_mouse_down(MouseButton::Left, move |event, window, cx| {

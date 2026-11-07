@@ -3,21 +3,21 @@ use std::sync::Arc;
 
 use chrono::{Datelike, Duration, Local, NaiveDate};
 use gpui::{
-    div, prelude::*, px, rems, Bounds, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
-    Pixels, SharedString, Window,
+    Bounds, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent, Pixels, SharedString, Window,
+    div, prelude::*, px, rems,
 };
 
 use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_count, t_with};
 use crate::managers::history::{DailyCaptures, DailyUsage, HistoryManager};
 use crate::ui::components::{
-    keyboard_modality, width_tracker, FocusVisible, RowDirection, SegmentedControl, Typography,
+    FocusVisible, RowDirection, SegmentedControl, Typography, keyboard_modality, width_tracker,
 };
 use crate::ui::dates;
 use crate::ui::format::number;
 use crate::ui::hover_card::{self, Card};
 use crate::ui::shell::Toolbar;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 const HEATMAP_WEEKS: usize = 20;
 const GAP: f32 = 3.75;
@@ -570,7 +570,11 @@ impl StatsPage {
     }
 }
 
-fn stat_card(value: String, label: SharedString, cx: &Context<StatsPage>) -> impl IntoElement {
+fn stat_card(
+    value: String,
+    label: SharedString,
+    cx: &Context<StatsPage>,
+) -> impl IntoElement + use<> {
     let p = palette(cx);
     div()
         .flex_1()
@@ -659,7 +663,7 @@ impl Render for StatsPage {
                         .justify_center()
                         .text_color(p.text.a(0.6))
                         .child(t("settings.stats.loading")),
-                )
+                );
             }
             Some(Err(_)) => {
                 return root.child(
@@ -671,7 +675,7 @@ impl Render for StatsPage {
                         .justify_center()
                         .text_color(p.text.a(0.6))
                         .child(t("settings.stats.loadError")),
-                )
+                );
             }
             Some(Ok(usage)) => usage.clone(),
         };

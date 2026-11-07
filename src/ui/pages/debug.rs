@@ -1,22 +1,22 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, px, rems, AnimationExt, App, Context, FontWeight, Hsla, ScrollHandle, Task,
-    Window,
+    AnimationExt, App, Context, FontWeight, Hsla, ScrollHandle, Task, Window, div, prelude::*, px,
+    rems,
 };
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_with};
-use crate::logging::{LogEventPayload, LOG_EVENT};
+use crate::logging::{LOG_EVENT, LogEventPayload};
 use crate::secure_input::KeyboardDiagnosticReport;
 use crate::ui::components::{
-    pulse_animation, pulse_opacity, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection,
-    SettingContainer, SettingLayout, SettingsGroup, Typography,
+    Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, SettingContainer,
+    SettingLayout, SettingsGroup, Typography, pulse_animation, pulse_opacity,
 };
 use crate::ui::event_bus::event_bus;
 use crate::ui::onboarding::OnboardingPreview;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, tw, Alpha};
+use crate::ui::theme::{Alpha, palette, tw};
 
 use super::rows;
 
@@ -75,27 +75,29 @@ impl DebugPage {
         })
         .detach();
 
-        let flush = cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(FLUSH_INTERVAL).await;
-            let alive = this
-                .update(cx, |this, cx| {
-                    if this.paused || this.pending.is_empty() {
-                        return;
-                    }
-                    let pinned = this.pinned;
-                    this.logs.append(&mut this.pending);
-                    if this.logs.len() > MAX_LINES {
-                        let excess = this.logs.len() - MAX_LINES;
-                        this.logs.drain(..excess);
-                    }
-                    if pinned {
-                        this.log_scroll.scroll_to_bottom();
-                    }
-                    cx.notify();
-                })
-                .is_ok();
-            if !alive {
-                break;
+        let flush = cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(FLUSH_INTERVAL).await;
+                let alive = this
+                    .update(cx, |this, cx| {
+                        if this.paused || this.pending.is_empty() {
+                            return;
+                        }
+                        let pinned = this.pinned;
+                        this.logs.append(&mut this.pending);
+                        if this.logs.len() > MAX_LINES {
+                            let excess = this.logs.len() - MAX_LINES;
+                            this.logs.drain(..excess);
+                        }
+                        if pinned {
+                            this.log_scroll.scroll_to_bottom();
+                        }
+                        cx.notify();
+                    })
+                    .is_ok();
+                if !alive {
+                    break;
+                }
             }
         });
 

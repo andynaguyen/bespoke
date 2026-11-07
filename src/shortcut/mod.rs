@@ -9,9 +9,9 @@ use serde::Serialize;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::settings::APPLE_INTELLIGENCE_DEFAULT_MODEL_ID;
 use crate::settings::{
-    self, get_settings, AutoSubmitKey, ClipboardHandling, KeyboardImplementation, LLMPrompt,
-    OverlayPosition, OverlayStyle, PasteMethod, ShortcutActivation, ShortcutBinding, SoundTheme,
-    Theme, TypingTool, VadBackend, APPLE_INTELLIGENCE_PROVIDER_ID,
+    self, APPLE_INTELLIGENCE_PROVIDER_ID, AutoSubmitKey, ClipboardHandling, KeyboardImplementation,
+    LLMPrompt, OverlayPosition, OverlayStyle, PasteMethod, ShortcutActivation, ShortcutBinding,
+    SoundTheme, Theme, TypingTool, VadBackend, get_settings,
 };
 use crate::tray;
 
@@ -25,7 +25,9 @@ pub fn init_shortcuts(app: &AppHandle) {
         KeyboardImplementation::HandyKeys => {
             if let Err(e) = handy_keys::init_shortcuts(app) {
                 error!("Failed to initialize handy-keys shortcuts: {}", e);
-                warn!("Falling back to Tauri global shortcut implementation and saving fallback to settings");
+                warn!(
+                    "Falling back to Tauri global shortcut implementation and saving fallback to settings"
+                );
 
                 let mut settings = settings::get_settings(app);
                 settings.keyboard_implementation = KeyboardImplementation::Tauri;
@@ -110,17 +112,17 @@ pub fn change_binding(
         }
     }
 
-    if id == "cancel" {
-        if let Some(mut b) = settings.bindings.get(&id).cloned() {
-            b.current_binding = binding;
-            settings.bindings.insert(id.clone(), b);
-            settings::write_settings(&app, settings);
-            crate::secure_input::reconcile_fallback(&app);
-            return Ok(BindingResponse {
-                success: true,
-                error: None,
-            });
-        }
+    if id == "cancel"
+        && let Some(mut b) = settings.bindings.get(&id).cloned()
+    {
+        b.current_binding = binding;
+        settings.bindings.insert(id.clone(), b);
+        settings::write_settings(&app, settings);
+        crate::secure_input::reconcile_fallback(&app);
+        return Ok(BindingResponse {
+            success: true,
+            error: None,
+        });
     }
 
     if let Err(e) = unregister_shortcut(&app, binding_to_modify.clone()) {

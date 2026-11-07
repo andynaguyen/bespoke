@@ -1,4 +1,4 @@
-use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, MouseButton, SharedString, Window};
+use gpui::{AnyElement, App, FontWeight, MouseButton, SharedString, Window, div, prelude::*, px};
 
 use crate::ui::components::{RowDirection, Typography};
 use crate::ui::theme::palette;

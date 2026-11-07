@@ -77,9 +77,11 @@ fn main() {
     if std::env::var("BESPOKE_METAL_RESIDENCY").as_deref() == Ok("1") {
         // ggml treats GGML_METAL_NO_RESIDENCY as presence-based, so remove an
         // inherited value as well when explicitly opting back in.
-        std::env::remove_var("GGML_METAL_NO_RESIDENCY");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("GGML_METAL_NO_RESIDENCY") };
     } else {
-        std::env::set_var("GGML_METAL_NO_RESIDENCY", "1");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("GGML_METAL_NO_RESIDENCY", "1") };
     }
 
     // Pin glibc's dynamic mmap threshold before the first large allocation,

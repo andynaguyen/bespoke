@@ -1,18 +1,17 @@
 use crate::audio_toolkit::{
-    list_input_devices,
+    AudioRecorder, FrameObserver, SileroVad, VadPolicy, VoiceActivityDetector, list_input_devices,
     vad::{
-        frames_for_duration_ms, EarshotVad, SmoothedVad, VAD_OFFLINE_HANGOVER_MS, VAD_ONSET_MS,
-        VAD_PREFILL_MS, VAD_STREAMING_HANGOVER_MS,
+        EarshotVad, SmoothedVad, VAD_OFFLINE_HANGOVER_MS, VAD_ONSET_MS, VAD_PREFILL_MS,
+        VAD_STREAMING_HANGOVER_MS, frames_for_duration_ms,
     },
-    AudioRecorder, FrameObserver, SileroVad, VadPolicy, VoiceActivityDetector,
 };
 use crate::helpers::clamshell;
 use crate::managers::transcription::StreamRouter;
-use crate::settings::{get_settings, AppSettings, VadBackend};
+use crate::settings::{AppSettings, VadBackend, get_settings};
 use crate::utils;
 use log::{debug, error, info, trace, warn};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -25,10 +24,10 @@ fn set_mute(mute: bool) {
         unsafe {
             use windows::Win32::{
                 Media::Audio::{
-                    eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator,
-                    MMDeviceEnumerator,
+                    Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator, MMDeviceEnumerator,
+                    eMultimedia, eRender,
                 },
-                System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED},
+                System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
             };
 
             macro_rules! unwrap_or_return {
@@ -102,10 +101,10 @@ fn get_mute() -> Option<bool> {
     unsafe {
         use windows::Win32::{
             Media::Audio::{
-                eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator,
-                MMDeviceEnumerator,
+                Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator, MMDeviceEnumerator,
+                eMultimedia, eRender,
             },
-            System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED},
+            System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
         };
 
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -482,13 +481,13 @@ impl AudioRecordingManager {
     }
 
     fn schedule_lazy_close(&self) {
-        let gen = self.close_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let r#gen = self.close_generation.fetch_add(1, Ordering::SeqCst) + 1;
         let app = self.app_handle.clone();
         std::thread::spawn(move || {
             std::thread::sleep(STREAM_IDLE_TIMEOUT);
             let rm = app.state::<Arc<AudioRecordingManager>>();
             let state = rm.state.lock().unwrap();
-            if rm.close_generation.load(Ordering::SeqCst) == gen
+            if rm.close_generation.load(Ordering::SeqCst) == r#gen
                 && matches!(*state, RecordingState::Idle)
             {
                 info!(
@@ -608,14 +607,14 @@ impl AudioRecordingManager {
 
         let open_started = Instant::now();
         let mut recorder_opt = self.recorder.lock().unwrap();
-        if let Some(rec) = recorder_opt.as_mut() {
-            if let Err(first_err) = rec.open(device.as_ref().map(|(_, d)| d.clone())) {
-                warn!("Recorder open failed ({first_err}); re-resolving device and retrying once");
-                self.invalidate_device_cache();
-                device = self.resolve_microphone_device(&settings);
-                rec.open(device.as_ref().map(|(_, d)| d.clone()))
-                    .map_err(|e| anyhow::anyhow!("Failed to open recorder: {}", e))?;
-            }
+        if let Some(rec) = recorder_opt.as_mut()
+            && let Err(first_err) = rec.open(device.as_ref().map(|(_, d)| d.clone()))
+        {
+            warn!("Recorder open failed ({first_err}); re-resolving device and retrying once");
+            self.invalidate_device_cache();
+            device = self.resolve_microphone_device(&settings);
+            rec.open(device.as_ref().map(|(_, d)| d.clone()))
+                .map_err(|e| anyhow::anyhow!("Failed to open recorder: {}", e))?;
         }
         *self.open_microphone.lock().unwrap() = device.map(|(name, _)| name);
         debug!(
@@ -762,23 +761,21 @@ impl AudioRecordingManager {
         }
 
         let previous_recorder = self.recorder.lock().unwrap().replace(replacement);
-        if was_open {
-            if let Err(change_error) = self.start_microphone_stream() {
-                if let Some(recorder) = self.recorder.lock().unwrap().as_mut() {
-                    recorder.close();
-                }
-                *self.recorder.lock().unwrap() = previous_recorder;
-
-                if let Err(rollback_error) = self.start_microphone_stream() {
-                    error!(
-                        "Failed to restore microphone stream after VAD backend change failed: {rollback_error}"
-                    );
-                }
-                return Err(anyhow::anyhow!(
-                    "Failed to reopen microphone with {:?} VAD: {change_error}",
-                    backend
-                ));
+        if was_open && let Err(change_error) = self.start_microphone_stream() {
+            if let Some(recorder) = self.recorder.lock().unwrap().as_mut() {
+                recorder.close();
             }
+            *self.recorder.lock().unwrap() = previous_recorder;
+
+            if let Err(rollback_error) = self.start_microphone_stream() {
+                error!(
+                    "Failed to restore microphone stream after VAD backend change failed: {rollback_error}"
+                );
+            }
+            return Err(anyhow::anyhow!(
+                "Failed to reopen microphone with {:?} VAD: {change_error}",
+                backend
+            ));
         }
 
         info!("VAD backend changed to {:?}", backend);
@@ -817,13 +814,11 @@ impl AudioRecordingManager {
         if let Some(recorder) = self.recorder.lock().unwrap().as_mut() {
             recorder.set_selected_channel(selected_channel);
         }
-        if was_open {
-            if let Err(error) = self.start_microphone_stream() {
-                if let Some(recorder) = self.recorder.lock().unwrap().as_mut() {
-                    recorder.set_selected_channel(previous_channel);
-                }
-                return Err(error);
+        if was_open && let Err(error) = self.start_microphone_stream() {
+            if let Some(recorder) = self.recorder.lock().unwrap().as_mut() {
+                recorder.set_selected_channel(previous_channel);
             }
+            return Err(error);
         }
         drop(state);
         Ok(())

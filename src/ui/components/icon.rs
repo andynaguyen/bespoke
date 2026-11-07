@@ -2,9 +2,9 @@
 //! the element itself.
 
 use gpui::{
-    point, px, App, Bounds, Element, ElementId, GlobalElementId, Hsla, InspectorElementId,
-    IntoElement, LayoutId, Pixels, Radians, SharedString, Style, StyleRefinement, Styled,
-    TransformationMatrix, Window,
+    App, Bounds, Element, ElementId, GlobalElementId, Hsla, InspectorElementId, IntoElement,
+    LayoutId, Pixels, Radians, SharedString, Style, StyleRefinement, Styled, TransformationMatrix,
+    Window, point, px,
 };
 
 pub struct Icon {

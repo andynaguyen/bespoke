@@ -20,9 +20,9 @@ mod stats;
 mod style_board;
 pub mod triage;
 
-#[cfg(not(target_os = "macos"))]
-use gpui::{div, IntoElement};
 use gpui::{AnyElement, AnyView, App, AppContext, Context, Entity, Render, Window};
+#[cfg(not(target_os = "macos"))]
+use gpui::{IntoElement, div};
 
 use crate::ui::shell::{Section, Toolbar};
 

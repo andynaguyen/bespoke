@@ -9,11 +9,11 @@ use std::time::{Duration, Instant};
 use crate::app_handle::AppHandle;
 use log::{error, info};
 use objc2::rc::Retained;
-use objc2::{define_class, msg_send, AnyThread, DefinedClass};
+use objc2::{AnyThread, DefinedClass, define_class, msg_send};
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSArray, NSInteger, NSObject, NSString};
 
-use super::{evaluate, send_chord, TxState, WaitDecision};
+use super::{TxState, WaitDecision, evaluate, send_chord};
 use crate::clipboard::send_return_key;
 use crate::input::EnigoState;
 use crate::settings::{AutoSubmitKey, ClipboardHandling, PasteMethod};
@@ -49,11 +49,10 @@ define_class!(
             let ivars = self.ivars();
             // SAFETY: NSPasteboardTypeString is a read-only framework static.
             let is_text = unsafe { data_type.isEqualToString(NSPasteboardTypeString) };
-            if is_text {
-                if let Ok(mut state) = ivars.state.lock() {
+            if is_text
+                && let Ok(mut state) = ivars.state.lock() {
                     state.record_receipt(Instant::now());
                 }
-            }
             let payload = if is_text {
                 NSString::from_str(&ivars.text)
             } else {
@@ -117,10 +116,10 @@ fn settle(
                 let _ = send_return_key(e, p.auto_submit_key);
             }
             None => {
-                if let Some(enigo_state) = app_handle.try_state::<EnigoState>() {
-                    if let Ok(mut e) = enigo_state.0.lock() {
-                        let _ = send_return_key(&mut e, p.auto_submit_key);
-                    }
+                if let Some(enigo_state) = app_handle.try_state::<EnigoState>()
+                    && let Ok(mut e) = enigo_state.0.lock()
+                {
+                    let _ = send_return_key(&mut e, p.auto_submit_key);
                 }
             }
         }
@@ -163,7 +162,8 @@ fn spawn_waiter(pending: Arc<Mutex<MacPending>>, app_handle: AppHandle) {
                 if p.settled {
                     return;
                 }
-                let result = match p.state.lock() {
+
+                match p.state.lock() {
                     Ok(st) => {
                         let now = Instant::now();
                         let snapshot = (
@@ -174,8 +174,7 @@ fn spawn_waiter(pending: Arc<Mutex<MacPending>>, app_handle: AppHandle) {
                         (evaluate(&st, now), snapshot)
                     }
                     Err(_) => return,
-                };
-                result
+                }
             };
             if let WaitDecision::Finish = decision {
                 break state_snapshot;

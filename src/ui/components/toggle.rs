@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, px, rems, Animation, AnimationExt, App, ElementId, SharedString, Window,
+    Animation, AnimationExt, App, ElementId, SharedString, Window, div, prelude::*, px, rems,
 };
 
 use super::KeyboardFocus;
 use super::RowDirection;
-use super::{misc::Spinner, SettingContainer};
+use super::{SettingContainer, misc::Spinner};
 use crate::ui::clay::Clay;
-use crate::ui::theme::{mix, palette, Alpha};
+use crate::ui::theme::{Alpha, mix, palette};
 
 type ChangeHandler = Box<dyn Fn(bool, &mut Window, &mut App)>;
 

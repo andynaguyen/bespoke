@@ -1,22 +1,22 @@
 use crate::app_handle::AppHandle;
 use crate::audio_toolkit::{
-    apply_custom_words_with_fixes, detect_output_language, normalize_transcription_output,
-    remove_filler_words, scrub_before_keyword, strip_trailing_keyword, Fix, OutputLanguageEvidence,
-    TimedText,
+    Fix, OutputLanguageEvidence, TimedText, apply_custom_words_with_fixes, detect_output_language,
+    normalize_transcription_output, remove_filler_words, scrub_before_keyword,
+    strip_trailing_keyword,
 };
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::model::{EngineType, ModelManager};
 use crate::settings::{
-    get_settings, AppSettings, ModelUnloadTimeout, OrtAcceleratorSetting,
-    TranscribeAcceleratorSetting,
+    AppSettings, ModelUnloadTimeout, OrtAcceleratorSetting, TranscribeAcceleratorSetting,
+    get_settings,
 };
 use crate::voice_submit::VoiceSubmit;
 use anyhow::Result;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, Condvar, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, mpsc};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use transcribe_cpp::{
@@ -24,16 +24,16 @@ use transcribe_cpp::{
     WhisperRunOptions,
 };
 use transcribe_rs::{
+    SpeechModel, TranscribeOptions,
     onnx::{
+        Quantization,
         canary::CanaryModel,
         cohere::CohereModel,
         gigaam::GigaAMModel,
         moonshine::{MoonshineModel, MoonshineVariant, StreamingModel},
         parakeet::{ParakeetModel, ParakeetParams, TimestampGranularity},
         sense_voice::{SenseVoiceModel, SenseVoiceParams},
-        Quantization,
     },
-    SpeechModel, TranscribeOptions,
 };
 
 const STREAM_PERF_LOG_INTERVAL: Duration = Duration::from_secs(5);
@@ -192,7 +192,9 @@ impl Drop for LoadingGuard {
         let mut is_loading = match self.is_loading.lock() {
             Ok(g) => g,
             Err(e) => {
-                warn!("Recovered poisoned is_loading mutex during LoadingGuard drop — a panic occurred earlier this session");
+                warn!(
+                    "Recovered poisoned is_loading mutex during LoadingGuard drop — a panic occurred earlier this session"
+                );
                 e.into_inner()
             }
         };
@@ -1086,10 +1088,10 @@ impl TranscriptionManager {
                     }
                 }
 
-                if last_buffered_ms <= VOICE_SUBMIT_MAX_BUFFERED_MS {
-                    if let Some((session, revision)) = pending_voice_submit.take() {
-                        self.check_stream_voice_submit(&stream.text().full, session, revision);
-                    }
+                if last_buffered_ms <= VOICE_SUBMIT_MAX_BUFFERED_MS
+                    && let Some((session, revision)) = pending_voice_submit.take()
+                {
+                    self.check_stream_voice_submit(&stream.text().full, session, revision);
                 }
             }
 
@@ -1359,7 +1361,6 @@ impl TranscriptionManager {
             );
         }
 
-        let mut model_takes_initial_prompt = false;
         // Whether the loaded model is actually whisper-family (arch string).
         // Non-whisper archs (e.g. Voxtral Small) can advertise
         // Feature::InitialPrompt yet reject the whisper-kind run extension
@@ -1393,7 +1394,6 @@ impl TranscriptionManager {
             if let LoadedEngine::TranscribeCpp(session) = &engine {
                 let model = session.model();
                 let caps = model.capabilities();
-                model_takes_initial_prompt = model.supports(Feature::InitialPrompt);
                 model_is_whisper = model.arch() == "whisper";
                 model_supports_translate = caps.supports_translate;
                 model_languages = caps.languages;
@@ -1401,7 +1401,7 @@ impl TranscriptionManager {
                     "transcribe-cpp model '{}' on '{}': initial_prompt={}, translate={}, languages={:?}",
                     settings.selected_model,
                     model.backend(),
-                    model_takes_initial_prompt,
+                    model.supports(Feature::InitialPrompt),
                     model_supports_translate,
                     model_languages
                 );
@@ -2187,6 +2187,33 @@ pub fn get_available_accelerators() -> AvailableAccelerators {
     }
 }
 
+impl Drop for TranscriptionManager {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.engine) > 1 {
+            return;
+        }
+
+        self.shutdown_signal.store(true, Ordering::Relaxed);
+
+        let mut guard = match self.watcher_handle.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                warn!(
+                    "Recovered poisoned watcher_handle mutex during TranscriptionManager drop — a panic occurred earlier this session"
+                );
+                e.into_inner()
+            }
+        };
+        if let Some(handle) = guard.take() {
+            if let Err(e) = handle.join() {
+                warn!("Failed to join idle watcher thread: {:?}", e);
+            } else {
+                debug!("Idle watcher thread joined successfully");
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2529,30 +2556,5 @@ mod tests {
         assert!(matches!(plan.task, Task::Transcribe));
         assert_eq!(plan.language.as_deref(), Some("es"));
         assert_eq!(plan.target_language, None);
-    }
-}
-
-impl Drop for TranscriptionManager {
-    fn drop(&mut self) {
-        if Arc::strong_count(&self.engine) > 1 {
-            return;
-        }
-
-        self.shutdown_signal.store(true, Ordering::Relaxed);
-
-        let mut guard = match self.watcher_handle.lock() {
-            Ok(g) => g,
-            Err(e) => {
-                warn!("Recovered poisoned watcher_handle mutex during TranscriptionManager drop — a panic occurred earlier this session");
-                e.into_inner()
-            }
-        };
-        if let Some(handle) = guard.take() {
-            if let Err(e) = handle.join() {
-                warn!("Failed to join idle watcher thread: {:?}", e);
-            } else {
-                debug!("Idle watcher thread joined successfully");
-            }
-        }
     }
 }

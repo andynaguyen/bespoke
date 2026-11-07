@@ -1,15 +1,15 @@
 use std::rc::Rc;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, rems, AnyElement, App, Bounds,
-    ClickEvent, Corner, ElementId, FocusHandle, FontWeight, KeyDownEvent, Pixels, Rems,
-    SharedString, StyleRefinement, Window,
+    AnyElement, App, Bounds, ClickEvent, Corner, ElementId, FocusHandle, FontWeight, KeyDownEvent,
+    Pixels, Rems, SharedString, StyleRefinement, Window, anchored, canvas, deferred, div, point,
+    prelude::*, px, rems,
 };
 
 use super::RowDirection;
-use super::{icon, FocusVisible, Typography};
+use super::{FocusVisible, Typography, icon};
 use crate::i18n::t;
-use crate::ui::theme::{palette, shadow_lg, Alpha, CONTROL_HEIGHT};
+use crate::ui::theme::{Alpha, CONTROL_HEIGHT, palette, shadow_lg};
 
 #[derive(Clone)]
 pub struct DropdownOption {
@@ -167,13 +167,15 @@ fn menu_items(
 ) -> Vec<AnyElement> {
     let p = palette(cx);
     if options.is_empty() {
-        return vec![div()
-            .px_2()
-            .py_1()
-            .sm_text()
-            .text_color(p.mid_gray)
-            .child(t("common.noOptionsFound"))
-            .into_any_element()];
+        return vec![
+            div()
+                .px_2()
+                .py_1()
+                .sm_text()
+                .text_color(p.mid_gray)
+                .child(t("common.noOptionsFound"))
+                .into_any_element(),
+        ];
     }
     options
         .iter()
@@ -273,10 +275,11 @@ impl RenderOnce for Dropdown {
             let (on_open, state) = (self.on_open.clone(), state.clone());
             Rc::new(
                 move |open: bool, highlight: Option<usize>, window: &mut Window, cx: &mut App| {
-                    if open && !state.read(cx).open {
-                        if let Some(on_open) = &on_open {
-                            on_open(window, cx);
-                        }
+                    if open
+                        && !state.read(cx).open
+                        && let Some(on_open) = &on_open
+                    {
+                        on_open(window, cx);
                     }
                     state.update(cx, |state, cx| {
                         state.open = open;

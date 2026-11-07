@@ -5,12 +5,12 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, prelude::*, px, rems, App, Bounds, DispatchPhase, ElementId, Entity, MouseButton,
-    MouseMoveEvent, MouseUpEvent, Pixels, SharedString, Window,
+    App, Bounds, DispatchPhase, ElementId, Entity, MouseButton, MouseMoveEvent, MouseUpEvent,
+    Pixels, SharedString, Window, canvas, div, prelude::*, px, rems,
 };
 
-use crate::ui::components::{icon, KeyboardFocus, Typography};
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::components::{KeyboardFocus, Typography, icon};
+use crate::ui::theme::{Alpha, palette};
 
 struct Playback {
     _stream: rodio::OutputStream,
@@ -74,12 +74,13 @@ fn ended(path: &Path) -> bool {
 pub fn play(path: &Path, from: Duration) {
     PLAYBACK.with(|p| {
         let mut slot = p.borrow_mut();
-        if let Some(current) = slot.as_ref() {
-            if current.path == path && !current.sink.empty() {
-                let _ = current.sink.try_seek(from);
-                current.sink.play();
-                return;
-            }
+        if let Some(current) = slot.as_ref()
+            && current.path == path
+            && !current.sink.empty()
+        {
+            let _ = current.sink.try_seek(from);
+            current.sink.play();
+            return;
         }
         *slot = match open(path, from) {
             Ok(playback) => Some(playback),
@@ -130,14 +131,14 @@ fn time_at(x: Pixels, track: Bounds<Pixels>, duration: Duration) -> Duration {
     duration.mul_f32(fraction)
 }
 
-pub fn audio_player(
-    id: impl Into<ElementId>,
+pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'static>(
+    id: I,
     path: Option<PathBuf>,
     state: Entity<PlayerState>,
-    resolve: impl Fn(&mut App) -> Option<PathBuf> + 'static,
+    resolve: R,
     window: &mut Window,
     cx: &mut App,
-) -> impl IntoElement {
+) -> impl IntoElement + use<I, R> {
     let p = palette(cx);
     let id: ElementId = id.into();
     let playing = path.as_deref().is_some_and(is_playing);

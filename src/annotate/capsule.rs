@@ -1,11 +1,11 @@
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, prelude::*, px, size, Animation, AnimationExt, AnyElement, App, Bounds, Context,
-    FontWeight, Pixels, SharedString, Task, Window, WindowBackgroundAppearance, WindowBounds,
-    WindowDecorations, WindowKind, WindowOptions,
+    Animation, AnimationExt, AnyElement, App, Bounds, Context, FontWeight, Pixels, SharedString,
+    Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind,
+    WindowOptions, canvas, div, prelude::*, px, size,
 };
 use scrawl::host::{
     CapsuleActions, CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
@@ -14,12 +14,12 @@ use scrawl::host::{
 
 use crate::app_handle::AppHandle;
 use crate::i18n::{t, t_count};
-use crate::settings::{get_settings, OverlayPosition};
+use crate::settings::{OverlayPosition, get_settings};
 use crate::ui::capsule::{self, ChipKind, Colors};
 use crate::ui::clay::keycap;
 use crate::ui::components::icon;
 use crate::ui::platform::capsule::{self as native, CapsuleWindow};
-use crate::ui::theme::{mix, Alpha};
+use crate::ui::theme::{Alpha, mix};
 
 const WINDOW_W: f32 = 720.;
 const PAD_X: f32 = 18.;
@@ -253,10 +253,12 @@ impl AnnotateCapsule {
         if self.poll.is_some() {
             return;
         }
-        self.poll = Some(cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(POLL).await;
-            if this.update(cx, |this, _| this.check_pointer()).is_err() {
-                break;
+        self.poll = Some(cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(POLL).await;
+                if this.update(cx, |this, _| this.check_pointer()).is_err() {
+                    break;
+                }
             }
         }));
     }
@@ -276,16 +278,16 @@ impl AnnotateCapsule {
         let inside = card.contains(&gpui::point(px(local[0] as f32), px(local[1] as f32)));
         self.state.hovered.store(inside, Ordering::SeqCst);
 
-        if let Some(start) = self.paste_press {
-            if !down {
-                self.paste_press = None;
-                let moved = (pointer[0] - start[0]).hypot(pointer[1] - start[1]);
-                if !inside && moved >= PASTE_DRAG {
-                    self.send(PillAction::Paste(Some([
-                        pointer[0] as f32,
-                        pointer[1] as f32,
-                    ])));
-                }
+        if let Some(start) = self.paste_press
+            && !down
+        {
+            self.paste_press = None;
+            let moved = (pointer[0] - start[0]).hypot(pointer[1] - start[1]);
+            if !inside && moved >= PASTE_DRAG {
+                self.send(PillAction::Paste(Some([
+                    pointer[0] as f32,
+                    pointer[1] as f32,
+                ])));
             }
         }
         let ignore = !inside && self.paste_press.is_none();
@@ -429,29 +431,35 @@ impl AnnotateCapsule {
                 chips,
                 stroke_count,
             } => {
-                let mut items = vec![div()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .pl(px(10.))
-                    .pr(px(4.))
-                    .child(capsule::live_dot(true, c))
-                    .child(self.secondary(snapshot.clock.clone(), c))
-                    .when(stroke_count > 0, |el| {
-                        el.child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(px(5.))
-                                .text_size(px(13.))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(c.live)
-                                .child(icon("pen-line").size(px(13.)))
-                                .child(t_count("annotate.capsule.marks", stroke_count as i64, &[])),
-                        )
-                    })
-                    .into_any_element()];
+                let mut items = vec![
+                    div()
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .gap(px(10.))
+                        .pl(px(10.))
+                        .pr(px(4.))
+                        .child(capsule::live_dot(true, c))
+                        .child(self.secondary(snapshot.clock.clone(), c))
+                        .when(stroke_count > 0, |el| {
+                            el.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(5.))
+                                    .text_size(px(13.))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(c.live)
+                                    .child(icon("pen-line").size(px(13.)))
+                                    .child(t_count(
+                                        "annotate.capsule.marks",
+                                        stroke_count as i64,
+                                        &[],
+                                    )),
+                            )
+                        })
+                        .into_any_element(),
+                ];
                 items.push(capsule::divider(c).into_any_element());
                 if chips {
                     items.push(
@@ -507,15 +515,17 @@ impl AnnotateCapsule {
                 }
                 items
             }
-            Pres::Processing => vec![div()
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(px(10.))
-                .px(px(10.))
-                .child(capsule::spinner(c))
-                .child(self.label(t("annotate.capsule.processing"), c))
-                .into_any_element()],
+            Pres::Processing => vec![
+                div()
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .px(px(10.))
+                    .child(capsule::spinner(c))
+                    .child(self.label(t("annotate.capsule.processing"), c))
+                    .into_any_element(),
+            ],
             Pres::Completed { .. } => vec![
                 div()
                     .flex_none()

@@ -1,19 +1,19 @@
 use gpui::{
-    div, prelude::*, px, rems, Context, Entity, FontWeight, PromptLevel, SharedString,
-    Subscription, Window,
+    Context, Entity, FontWeight, PromptLevel, SharedString, Subscription, Window, div, prelude::*,
+    px, rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::i18n::{t, t_with};
 use crate::managers::model::ModelInfo;
 use crate::ui::components::{
-    icon, KeyboardFocus, RowDirection, Spinner, TextField, Tooltip, Typography,
+    KeyboardFocus, RowDirection, Spinner, TextField, Tooltip, Typography, icon,
 };
 use crate::ui::languages::{model_capability_languages, supports_language_code};
-use crate::ui::model_card::{is_legacy, CardStatus, ModelCard};
+use crate::ui::model_card::{CardStatus, ModelCard, is_legacy};
 use crate::ui::shell::Toolbar;
 use crate::ui::stores::ModelStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 use super::language_picker::{LanguagePicker, PickerStyle};
 

@@ -4,8 +4,8 @@ use crate::managers::audio::AudioRecordingManager;
 use crate::settings::ShortcutActivation;
 use crate::voice_submit::VoiceSubmit;
 use log::{debug, error, warn};
-use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -242,14 +242,14 @@ impl CoordinatorState {
         }
 
         if let Stage::Processing = self.stage {
-            if let Some(pending) = &self.pending_press {
-                if pending.binding_id != input.binding_id {
-                    debug!(
-                        "Ignoring input for '{}': '{}' is already pending",
-                        input.binding_id, pending.binding_id
-                    );
-                    return None;
-                }
+            if let Some(pending) = &self.pending_press
+                && pending.binding_id != input.binding_id
+            {
+                debug!(
+                    "Ignoring input for '{}': '{}' is already pending",
+                    input.binding_id, pending.binding_id
+                );
+                return None;
             }
             let remembered = self.pending_press.as_ref().map(|p| p.remembered());
             match classify_busy_input(input.is_pressed, input.mode, remembered) {
@@ -497,10 +497,8 @@ impl TranscriptionCoordinator {
                             let current = app
                                 .try_state::<Arc<VoiceSubmit>>()
                                 .is_some_and(|v| v.is_current(session, revision));
-                            if current {
-                                if let Some(effect) = state.on_voice_stop() {
-                                    run_effect(&app, &mut state, effect);
-                                }
+                            if current && let Some(effect) = state.on_voice_stop() {
+                                run_effect(&app, &mut state, effect);
                             }
                         }
                     }
@@ -986,9 +984,11 @@ mod tests {
 
         let at = |ms| now + Duration::from_millis(ms);
         assert!(state.on_input(toggle_input(true), at(200)).is_none());
-        assert!(state
-            .on_input(toggle_input_for(OTHER_BINDING, true), at(300))
-            .is_none());
+        assert!(
+            state
+                .on_input(toggle_input_for(OTHER_BINDING, true), at(300))
+                .is_none()
+        );
         assert!(state.on_input(toggle_input(true), at(400)).is_none());
 
         let effect = state.on_processing_finished();
@@ -1007,9 +1007,11 @@ mod tests {
 
         let at = |ms| now + Duration::from_millis(ms);
         assert!(state.on_input(toggle_input(true), at(200)).is_none());
-        assert!(state
-            .on_input(toggle_input_for(OTHER_BINDING, true), at(300))
-            .is_none());
+        assert!(
+            state
+                .on_input(toggle_input_for(OTHER_BINDING, true), at(300))
+                .is_none()
+        );
 
         match state.on_processing_finished() {
             Some(Effect::Start { binding_id, .. }) => assert_eq!(binding_id, BINDING),

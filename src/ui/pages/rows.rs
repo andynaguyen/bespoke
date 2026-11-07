@@ -1,4 +1,4 @@
-use gpui::{div, prelude::*, rems, AnyElement, App, FontWeight, SharedString};
+use gpui::{AnyElement, App, FontWeight, SharedString, div, prelude::*, rems};
 
 use crate::app_handle::AppHandle;
 use crate::commands::audio::AudioDevice;
@@ -9,8 +9,8 @@ use crate::settings::{
 };
 use crate::shortcut;
 use crate::ui::components::{
-    icon, reset_button, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
-    SettingContainer, Slider, ToggleSwitchRow, Typography,
+    Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection, SettingContainer,
+    Slider, ToggleSwitchRow, Typography, icon, reset_button,
 };
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::palette;

@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::ops::RangeInclusive;
 
 use gpui::{
-    div, prelude::*, px, rems, AnyElement, AnyView, App, Context, Div, Entity, FontWeight, Pixels,
-    SharedString, Subscription, Window,
+    AnyElement, AnyView, App, Context, Div, Entity, FontWeight, Pixels, SharedString, Subscription,
+    Window, div, prelude::*, px, rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
@@ -15,13 +15,13 @@ use crate::shortcut;
 use crate::try_it::Take;
 use crate::ui::clay::keycap;
 use crate::ui::components::{
-    focus_handle_for, icon, Button, ButtonSize, ButtonVariant, Dialog, FocusVisible, KeyboardFocus,
-    RowDirection, SettingsGroup, TextArea, TextField, Typography,
+    Button, ButtonSize, ButtonVariant, Dialog, FocusVisible, KeyboardFocus, RowDirection,
+    SettingsGroup, TextArea, TextField, Typography, focus_handle_for, icon,
 };
 use crate::ui::event_bus::event_bus;
 use crate::ui::shell::{close_dialog, open_dialog};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, radius, tw, Alpha, MONO_FONT};
+use crate::ui::theme::{Alpha, MONO_FONT, palette, radius, tw};
 
 use super::rows::set;
 
@@ -317,13 +317,13 @@ impl DictionaryPage {
                 cx.notify();
             }),
             cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
-                if event.name == crate::try_it::TAKE_EVENT {
-                    if let Some(take) = event.parse::<Take>() {
-                        this.take = Some(take);
-                        this.selection = None;
-                        this.just_added = None;
-                        cx.notify();
-                    }
+                if event.name == crate::try_it::TAKE_EVENT
+                    && let Some(take) = event.parse::<Take>()
+                {
+                    this.take = Some(take);
+                    this.selection = None;
+                    this.just_added = None;
+                    cx.notify();
                 }
             }),
             cx.subscribe_in(

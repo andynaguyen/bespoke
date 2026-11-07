@@ -4,13 +4,13 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, prelude::*, px, size, AnyElement, AnyView, AnyWindowHandle, App, Bounds, Context,
-    Div, Entity, Global, Pixels, SharedString, Size, Window, WindowBackgroundAppearance,
-    WindowBounds, WindowDecorations, WindowKind, WindowOptions,
+    AnyElement, AnyView, AnyWindowHandle, App, Bounds, Context, Div, Entity, Global, Pixels,
+    SharedString, Size, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations,
+    WindowKind, WindowOptions, canvas, div, prelude::*, px, size,
 };
 use gpui_component::Root;
 
-use super::glass::{glass, GlassStyle};
+use super::glass::{GlassStyle, glass};
 use super::theme::palette;
 
 type Builder = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;

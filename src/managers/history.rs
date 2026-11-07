@@ -1,9 +1,9 @@
 use crate::app_handle::AppHandle;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Local, Utc};
 use log::{debug, error, info};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
-use rusqlite_migration::{HookResult, Migrations, M};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite_migration::{HookResult, M, Migrations};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -11,8 +11,8 @@ use std::path::PathBuf;
 
 fn migrations() -> Migrations<'static> {
     Migrations::new(vec![
-    M::up(
-        "CREATE TABLE IF NOT EXISTS transcription_history (
+        M::up(
+            "CREATE TABLE IF NOT EXISTS transcription_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT NOT NULL,
             timestamp INTEGER NOT NULL,
@@ -20,30 +20,32 @@ fn migrations() -> Migrations<'static> {
             title TEXT NOT NULL,
             transcription_text TEXT NOT NULL
         );",
-    ),
-    M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
-    M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
-    M::up("ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;"),
-    M::up_with_hook(
-        "CREATE TABLE usage_stats (
+        ),
+        M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
+        M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
+        M::up(
+            "ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;",
+        ),
+        M::up_with_hook(
+            "CREATE TABLE usage_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp INTEGER NOT NULL,
             word_count INTEGER NOT NULL,
             duration_ms INTEGER NOT NULL
         );",
-        backfill_usage_stats,
-    ),
-    M::up("ALTER TABLE usage_stats ADD COLUMN app_name TEXT;"),
-    M::up(
-        "CREATE TABLE annotate_usage (
+            backfill_usage_stats,
+        ),
+        M::up("ALTER TABLE usage_stats ADD COLUMN app_name TEXT;"),
+        M::up(
+            "CREATE TABLE annotate_usage (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp INTEGER NOT NULL,
             duration_ms INTEGER NOT NULL,
             mark_count INTEGER NOT NULL,
             app_name TEXT
         );",
-    ),
-    M::up("ALTER TABLE usage_stats ADD COLUMN bundle_id TEXT;"),
+        ),
+        M::up("ALTER TABLE usage_stats ADD COLUMN bundle_id TEXT;"),
     ])
 }
 
@@ -545,10 +547,9 @@ impl HistoryManager {
                      ORDER BY id DESC
                      LIMIT ?2",
                 )?;
-                let result = stmt
-                    .query_map(params![cursor_id, fetch_count], Self::map_history_entry)?
-                    .collect::<std::result::Result<Vec<_>, _>>()?;
-                result
+
+                stmt.query_map(params![cursor_id, fetch_count], Self::map_history_entry)?
+                    .collect::<std::result::Result<Vec<_>, _>>()?
             }
             None => {
                 let mut stmt = conn.prepare(
@@ -557,10 +558,9 @@ impl HistoryManager {
                      ORDER BY id DESC
                      LIMIT ?1",
                 )?;
-                let result = stmt
-                    .query_map(params![fetch_count], Self::map_history_entry)?
-                    .collect::<std::result::Result<Vec<_>, _>>()?;
-                result
+
+                stmt.query_map(params![fetch_count], Self::map_history_entry)?
+                    .collect::<std::result::Result<Vec<_>, _>>()?
             }
         };
 
@@ -834,10 +834,10 @@ impl HistoryManager {
 
         if let Some(entry) = self.get_entry_by_id(id).await? {
             let file_path = self.get_audio_file_path(&entry.file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete audio file {}: {}", entry.file_name, e);
-                }
+            if file_path.exists()
+                && let Err(e) = fs::remove_file(&file_path)
+            {
+                error!("Failed to delete audio file {}: {}", entry.file_name, e);
             }
         }
 
@@ -868,7 +868,7 @@ impl HistoryManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::{params, Connection};
+    use rusqlite::{Connection, params};
 
     fn setup_conn() -> Connection {
         let conn = Connection::open_in_memory().expect("open in-memory db");

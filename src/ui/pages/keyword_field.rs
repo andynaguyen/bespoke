@@ -1,4 +1,4 @@
-use gpui::{prelude::*, rems, Context, Entity, Subscription, Window};
+use gpui::{Context, Entity, Subscription, Window, prelude::*, rems};
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::app_handle::AppHandle;

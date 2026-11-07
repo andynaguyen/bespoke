@@ -1,21 +1,22 @@
 use std::time::Duration;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, rems, Animation, AnimationExt, App,
-    Bounds, Context, Entity, Focusable, MouseButton, Pixels, SharedString, Subscription, Window,
+    Animation, AnimationExt, App, Bounds, Context, Entity, Focusable, MouseButton, Pixels,
+    SharedString, Subscription, Window, anchored, canvas, deferred, div, point, prelude::*, px,
+    rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::app_handle::AppHandle;
 use crate::i18n::t;
-use crate::settings::{AppSettings, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{APPLE_INTELLIGENCE_PROVIDER_ID, AppSettings};
 use crate::shortcut;
 use crate::ui::components::{
-    error_alert, icon, Button, ButtonVariant, Dropdown, DropdownOption, KeyboardFocus,
-    RowDirection, SettingContainer, SettingLayout, TextArea, TextField, Tooltip, Typography,
+    Button, ButtonVariant, Dropdown, DropdownOption, KeyboardFocus, RowDirection, SettingContainer,
+    SettingLayout, TextArea, TextField, Tooltip, Typography, error_alert, icon,
 };
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, shadow, Alpha};
+use crate::ui::theme::{Alpha, palette, shadow};
 
 fn selected_provider_id(s: &AppSettings) -> String {
     s.post_process_providers
@@ -591,27 +592,26 @@ impl Render for PostProcessingApi {
             .map(|p| DropdownOption::new(p.id.clone(), p.label.clone()))
             .collect();
 
-        let mut rows: Vec<gpui::AnyElement> =
-            vec![
-                SettingContainer::new(t("settings.postProcessing.api.provider.title"))
-                    .description(t("settings.postProcessing.api.provider.description"))
-                    .child(
-                        div().flex().items_center().gap_2().child(
-                            Dropdown::new("post-process-provider", providers)
-                                .selected(Some(provider_id.clone()))
-                                .flex_1()
-                                .on_select({
-                                    let entity = cx.entity().downgrade();
-                                    move |value, _, cx| {
-                                        let value = value.to_string();
-                                        let _ = entity
-                                            .update(cx, |this, cx| this.select_provider(value, cx));
-                                    }
-                                }),
-                        ),
-                    )
-                    .into_any_element(),
-            ];
+        let mut rows: Vec<gpui::AnyElement> = vec![
+            SettingContainer::new(t("settings.postProcessing.api.provider.title"))
+                .description(t("settings.postProcessing.api.provider.description"))
+                .child(
+                    div().flex().items_center().gap_2().child(
+                        Dropdown::new("post-process-provider", providers)
+                            .selected(Some(provider_id.clone()))
+                            .flex_1()
+                            .on_select({
+                                let entity = cx.entity().downgrade();
+                                move |value, _, cx| {
+                                    let value = value.to_string();
+                                    let _ = entity
+                                        .update(cx, |this, cx| this.select_provider(value, cx));
+                                }
+                            }),
+                    ),
+                )
+                .into_any_element(),
+        ];
 
         if is_apple {
             if self.apple_unavailable {

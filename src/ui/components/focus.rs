@@ -7,12 +7,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, point, px, quad, AbsoluteLength, App, BorderStyle, Bounds, Corners, CornersRefinement,
-    Element, ElementId, FocusHandle, Global, Hsla, InteractiveElement, IntoElement, ParentElement,
-    Stateful, StyleRefinement, Styled, Window,
+    AbsoluteLength, App, BorderStyle, Bounds, Corners, CornersRefinement, Element, ElementId,
+    FocusHandle, Global, Hsla, InteractiveElement, IntoElement, ParentElement, Stateful,
+    StyleRefinement, Styled, Window, canvas, point, px, quad,
 };
 
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 const RING_WIDTH: f32 = 2.;
 

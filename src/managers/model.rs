@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 mod download;
 
-use download::{HttpDownloadOutcome, DOWNLOAD_STALL_TIMEOUT};
+use download::{DOWNLOAD_STALL_TIMEOUT, HttpDownloadOutcome};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EngineType {
@@ -1153,15 +1153,15 @@ impl ModelManager {
                 crate::app_handle::BaseDirectory::Resource,
             );
 
-            if let Ok(bundled_path) = bundled_path {
-                if bundled_path.exists() {
-                    let user_path = self.models_dir.join(filename);
+            if let Ok(bundled_path) = bundled_path
+                && bundled_path.exists()
+            {
+                let user_path = self.models_dir.join(filename);
 
-                    if !user_path.exists() {
-                        info!("Migrating bundled model {} to user directory", filename);
-                        fs::copy(&bundled_path, &user_path)?;
-                        info!("Successfully migrated {}", filename);
-                    }
+                if !user_path.exists() {
+                    info!("Migrating bundled model {} to user directory", filename);
+                    fs::copy(&bundled_path, &user_path)?;
+                    info!("Successfully migrated {}", filename);
                 }
             }
         }
@@ -1229,7 +1229,7 @@ impl ModelManager {
             }
             if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
                 let local_path = self.models_dir.join(&model.filename);
-                let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
+                let partial_path = self.models_dir.join(format!("{}.partial", model.filename));
                 model.is_downloaded = hf_cached_path(repo_id, revision, &model.filename).is_some()
                     || local_path.exists();
                 model.is_downloading = false;
@@ -1244,7 +1244,7 @@ impl ModelManager {
             }
             if model.is_directory {
                 let model_path = self.models_dir.join(&model.filename);
-                let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
+                let partial_path = self.models_dir.join(format!("{}.partial", model.filename));
 
                 model.is_downloaded = model_path.exists() && model_path.is_dir();
                 model.is_downloading = false;
@@ -1256,7 +1256,7 @@ impl ModelManager {
                 }
             } else {
                 let model_path = self.models_dir.join(&model.filename);
-                let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
+                let partial_path = self.models_dir.join(format!("{}.partial", model.filename));
 
                 model.is_downloaded = model_path.exists();
                 model.is_downloading = false;
@@ -1314,11 +1314,9 @@ impl ModelManager {
         let is_symlink = fs::symlink_metadata(&pointer)
             .map(|m| m.file_type().is_symlink())
             .unwrap_or(false);
-        if is_symlink {
-            if let Ok(blob) = fs::canonicalize(&pointer) {
-                info!("Deleting HF cache blob at: {:?}", blob);
-                let _ = fs::remove_file(&blob);
-            }
+        if is_symlink && let Ok(blob) = fs::canonicalize(&pointer) {
+            info!("Deleting HF cache blob at: {:?}", blob);
+            let _ = fs::remove_file(&blob);
         }
         info!("Deleting HF cache file at: {:?}", pointer);
         fs::remove_file(&pointer).is_ok()
@@ -1348,23 +1346,22 @@ impl ModelManager {
             return;
         }
 
-        if settings.selected_model.is_empty() {
-            if let Some(available_model) = self
+        if settings.selected_model.is_empty()
+            && let Some(available_model) = self
                 .get_available_models()
                 .into_iter()
                 .find(|model| model.is_downloaded)
-            {
-                info!(
-                    "Auto-selecting model: {} ({})",
-                    available_model.id, available_model.name
-                );
+        {
+            info!(
+                "Auto-selecting model: {} ({})",
+                available_model.id, available_model.name
+            );
 
-                let mut updated_settings = settings;
-                updated_settings.selected_model = available_model.id.clone();
-                write_settings(&self.app_handle, updated_settings);
+            let mut updated_settings = settings;
+            updated_settings.selected_model = available_model.id.clone();
+            write_settings(&self.app_handle, updated_settings);
 
-                info!("Successfully auto-selected model: {}", available_model.id);
-            }
+            info!("Successfully auto-selected model: {}", available_model.id);
         }
     }
 
@@ -1961,10 +1958,11 @@ impl ModelManager {
                     ));
                 }
                 Status::Failed if crate::apple_speech::attempts() >= attempt => {
-                    return Err(anyhow::anyhow!(crate::apple_speech::error()
-                        .unwrap_or_else(
-                            || "macOS couldn't install Apple's speech model".to_string()
-                        )));
+                    return Err(anyhow::anyhow!(
+                        crate::apple_speech::error().unwrap_or_else(|| {
+                            "macOS couldn't install Apple's speech model".to_string()
+                        })
+                    ));
                 }
                 Status::Failed | Status::Unchecked | Status::Downloading => {}
             }
@@ -2013,23 +2011,21 @@ impl ModelManager {
             let mut deleted = false;
             if is_alternate_quant {
                 deleted |= Self::delete_hf_cache_file(repo_id, revision, &model_info.filename);
-            } else if let Some(file) = hf_cached_path(repo_id, revision, &model_info.filename) {
-                if let Some(repo_dir) = file.ancestors().nth(3) {
-                    if repo_dir
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .is_some_and(|n| n.starts_with("models--"))
-                    {
-                        info!("Deleting HF cache repo at: {:?}", repo_dir);
-                        fs::remove_dir_all(repo_dir)?;
-                        deleted = true;
-                    }
-                }
+            } else if let Some(file) = hf_cached_path(repo_id, revision, &model_info.filename)
+                && let Some(repo_dir) = file.ancestors().nth(3)
+                && repo_dir
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("models--"))
+            {
+                info!("Deleting HF cache repo at: {:?}", repo_dir);
+                fs::remove_dir_all(repo_dir)?;
+                deleted = true;
             }
             for path in [
                 self.models_dir.join(&model_info.filename),
                 self.models_dir
-                    .join(format!("{}.partial", &model_info.filename)),
+                    .join(format!("{}.partial", model_info.filename)),
             ] {
                 if path.exists() {
                     info!("Deleting model file at: {:?}", path);
@@ -2054,7 +2050,7 @@ impl ModelManager {
         let model_path = self.models_dir.join(&model_info.filename);
         let partial_path = self
             .models_dir
-            .join(format!("{}.partial", &model_info.filename));
+            .join(format!("{}.partial", model_info.filename));
         debug!("ModelManager: Model path: {:?}", model_path);
         debug!("ModelManager: Partial path: {:?}", partial_path);
 
@@ -2153,7 +2149,7 @@ impl ModelManager {
             if local_path.exists() {
                 let partial_path = self
                     .models_dir
-                    .join(format!("{}.partial", &model_info.filename));
+                    .join(format!("{}.partial", model_info.filename));
                 if partial_path.exists() {
                     let _ = fs::remove_file(&partial_path);
                 }
@@ -2169,7 +2165,7 @@ impl ModelManager {
         let model_path = self.models_dir.join(&model_info.filename);
         let partial_path = self
             .models_dir
-            .join(format!("{}.partial", &model_info.filename));
+            .join(format!("{}.partial", model_info.filename));
 
         if model_info.is_directory {
             if !model_path.exists() || !model_path.is_dir() {

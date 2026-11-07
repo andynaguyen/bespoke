@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use gpui::{div, prelude::*, AnyElement, App, Context, SharedString, Task};
+use gpui::{AnyElement, App, Context, SharedString, Task, div, prelude::*};
 
 use crate::annotate::mcp;
 use crate::app_handle::AppHandle;
@@ -49,19 +49,21 @@ impl McpPage {
     pub fn new(cx: &mut Context<Self>) -> Self {
         cx.observe(&SettingsStore::global(cx), |_, _, cx| cx.notify())
             .detach();
-        let poll = cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(POLL).await;
-            let status = mcp::status();
-            let tailscale = mcp::tailscale_address();
-            let updated = this.update(cx, |this, cx| {
-                if this.status != status || this.tailscale != tailscale {
-                    this.status = status;
-                    this.tailscale = tailscale;
-                    cx.notify();
+        let poll = cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(POLL).await;
+                let status = mcp::status();
+                let tailscale = mcp::tailscale_address();
+                let updated = this.update(cx, |this, cx| {
+                    if this.status != status || this.tailscale != tailscale {
+                        this.status = status;
+                        this.tailscale = tailscale;
+                        cx.notify();
+                    }
+                });
+                if updated.is_err() {
+                    break;
                 }
-            });
-            if updated.is_err() {
-                break;
             }
         });
         Self {

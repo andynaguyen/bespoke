@@ -45,21 +45,6 @@ where
     }
 }
 
-#[cfg(test)]
-mod headless_guard_tests {
-    use super::run_headless_guarded;
-
-    #[test]
-    fn preserves_normal_exit_codes() {
-        assert_eq!(run_headless_guarded(|| 2), 2);
-    }
-
-    #[test]
-    fn converts_worker_panics_to_runtime_failures() {
-        assert_eq!(run_headless_guarded(|| panic!("simulated failure")), 1);
-    }
-}
-
 pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     use std::time::Instant;
 
@@ -179,11 +164,11 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     let mut times_ms: Vec<u64> = Vec::new();
     let mut text = String::new();
     for i in 0..runs {
-        if !tm.is_model_loaded() {
-            if let Err(e) = tm.load_model_with_device(&model_id, device_index) {
-                eprintln!("error: reload before run {} failed: {}", i + 1, e);
-                return 1;
-            }
+        if !tm.is_model_loaded()
+            && let Err(e) = tm.load_model_with_device(&model_id, device_index)
+        {
+            eprintln!("error: reload before run {} failed: {}", i + 1, e);
+            return 1;
         }
         let t = Instant::now();
         match tm.transcribe(samples.clone()) {
@@ -231,4 +216,19 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
         println!("text: {}", text);
     }
     0
+}
+
+#[cfg(test)]
+mod headless_guard_tests {
+    use super::run_headless_guarded;
+
+    #[test]
+    fn preserves_normal_exit_codes() {
+        assert_eq!(run_headless_guarded(|| 2), 2);
+    }
+
+    #[test]
+    fn converts_worker_panics_to_runtime_failures() {
+        assert_eq!(run_headless_guarded(|| panic!("simulated failure")), 1);
+    }
 }

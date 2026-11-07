@@ -25,9 +25,9 @@ pub mod toast;
 pub mod whats_new;
 
 use gpui::{
-    actions, px, size, App, AppContext, Bounds, Global, KeyBinding, Menu, MenuItem, OsAction,
-    TitlebarOptions, WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowKind,
-    WindowOptions,
+    App, AppContext, Bounds, Global, KeyBinding, Menu, MenuItem, OsAction, TitlebarOptions,
+    WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowKind, WindowOptions, actions, px,
+    size,
 };
 use gpui_component::Root;
 

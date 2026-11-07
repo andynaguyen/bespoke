@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use gpui::{
-    div, img, prelude::*, px, AnyElement, App, Context, FontWeight, Global, ObjectFit,
-    ScrollHandle, SharedString, Task,
+    AnyElement, App, Context, FontWeight, Global, ObjectFit, ScrollHandle, SharedString, Task, div,
+    img, prelude::*, px,
 };
 use gpui_component::scroll::ScrollableElement;
 use scrawl::host::KeyframeRow;
@@ -12,13 +12,13 @@ use scrawl::host::KeyframeRow;
 use crate::i18n::{t, t_count};
 use crate::ui::clay::keycap;
 use crate::ui::components::{
-    icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, SegmentedControl,
-    Typography,
+    Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, SegmentedControl, Typography,
+    icon,
 };
 use crate::ui::dates;
 use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, radius, Alpha};
+use crate::ui::theme::{Alpha, palette, radius};
 
 const LIMIT: usize = 120;
 const INSPECTOR_WIDTH: f32 = 320.;

@@ -46,9 +46,9 @@ pub fn reduce_motion() -> bool {
 
 #[cfg(target_os = "macos")]
 pub use imp::{
-    accessibility_granted, launch_as_accessory, microphone_authorization, microphone_granted,
-    prevent_panels_from_taking_focus, request_accessibility, request_microphone,
-    set_activation_policy_regular, set_app_appearance, CursorScreen,
+    CursorScreen, accessibility_granted, launch_as_accessory, microphone_authorization,
+    microphone_granted, prevent_panels_from_taking_focus, request_accessibility,
+    request_microphone, set_activation_policy_regular, set_app_appearance,
 };
 
 #[cfg(target_os = "macos")]
@@ -59,7 +59,7 @@ mod imp {
     use gpui::Window;
     use objc2::rc::Retained;
     use objc2::runtime::{AnyClass, AnyObject, Bool, Sel};
-    use objc2::{msg_send, sel, MainThreadMarker};
+    use objc2::{MainThreadMarker, msg_send, sel};
     use objc2_app_kit::{
         NSAppearance, NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSApplication,
         NSApplicationActivationPolicy, NSEvent, NSScreen, NSView, NSWindow,
@@ -152,8 +152,8 @@ mod imp {
 
     pub mod capsule {
         use gpui::Window;
-        use objc2::rc::Retained;
         use objc2::MainThreadMarker;
+        use objc2::rc::Retained;
         use objc2_app_kit::{
             NSEvent, NSScreen, NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior,
         };
@@ -582,7 +582,7 @@ mod imp {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        IsWindowVisible, SetForegroundWindow, ShowWindow, SW_HIDE, SW_RESTORE, SW_SHOW,
+        IsWindowVisible, SW_HIDE, SW_RESTORE, SW_SHOW, SetForegroundWindow, ShowWindow,
     };
 
     fn hwnd(window: &Window) -> Option<HWND> {
@@ -594,7 +594,7 @@ mod imp {
     }
 
     pub fn set_title_bar_dark(window: &Window, dark: bool) {
-        use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
+        use windows::Win32::Graphics::Dwm::{DWMWA_USE_IMMERSIVE_DARK_MODE, DwmSetWindowAttribute};
         let Some(hwnd) = hwnd(window) else {
             return;
         };

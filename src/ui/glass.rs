@@ -10,8 +10,8 @@
 //! `Blurred`.
 
 use gpui::{
-    canvas, div, fill, App, Bounds, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled,
-    Window,
+    App, Bounds, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled, Window, canvas,
+    div, fill,
 };
 
 use super::theme::palette;
@@ -81,7 +81,7 @@ mod imp {
     use gpui::{App, Bounds, Global, Hsla, Pixels, Rgba, SharedString, Window};
     use objc2::rc::Retained;
     use objc2::runtime::AnyClass;
-    use objc2::{msg_send, ClassType, Message};
+    use objc2::{ClassType, Message, msg_send};
     use objc2_app_kit::{
         NSAutoresizingMaskOptions, NSColor, NSView, NSVisualEffectBlendingMode,
         NSVisualEffectMaterial, NSVisualEffectState, NSWindowOrderingMode,
@@ -290,10 +290,9 @@ mod imp {
             .entries
             .get(&key)
             .is_some_and(|entry| entry.frame.is_some_and(|(_, old)| old.style != spec.style))
+            && let Some(entry) = registry.entries.remove(&key)
         {
-            if let Some(entry) = registry.entries.remove(&key) {
-                entry.view.removeFromSuperview();
-            }
+            entry.view.removeFromSuperview();
         }
         let entry = registry.entries.entry(key).or_insert_with(|| {
             let view = new_view(frame, spec.style);

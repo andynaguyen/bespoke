@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, px, Animation, AnimationExt, App, Div, Hsla, Pixels, SharedString, Stateful,
+    Animation, AnimationExt, App, Div, Hsla, Pixels, SharedString, Stateful, div, prelude::*, px,
 };
 
 use super::clay::Clay;
-use super::glass::{glass_with, GlassSpec, GlassStyle};
-use super::theme::{palette, shadow, Alpha};
+use super::glass::{GlassSpec, GlassStyle, glass_with};
+use super::theme::{Alpha, palette, shadow};
 
 pub const HEIGHT: f32 = 48.;
 pub const RADIUS: f32 = HEIGHT / 2.;

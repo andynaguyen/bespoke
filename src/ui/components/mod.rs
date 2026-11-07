@@ -11,11 +11,11 @@ mod text_field;
 mod toggle;
 
 pub use button::{Button, ButtonSize, ButtonVariant};
-pub use dialog::{Dialog, DialogFrame, DialogMaterial, DIALOG_CONTEXT};
+pub use dialog::{DIALOG_CONTEXT, Dialog, DialogFrame, DialogMaterial};
 pub use dropdown::{Dropdown, DropdownOption};
 pub use focus::init as focus_init;
 pub use focus::{
-    focus_handle_for, keyboard_modality, set_keyboard_modality, FocusVisible, KeyboardFocus,
+    FocusVisible, KeyboardFocus, focus_handle_for, keyboard_modality, set_keyboard_modality,
 };
 pub use icon::icon;
 pub use misc::*;
@@ -25,7 +25,7 @@ pub use slider::Slider;
 pub use text_field::{TextArea, TextField};
 pub use toggle::ToggleSwitchRow;
 
-use gpui::{px, relative, rems, Styled};
+use gpui::{Styled, px, relative, rems};
 
 /// `dir="rtl"` flips every flex row in the React app, and its logical
 /// classes (`ms-*`, `ps-*`, `text-end`, `start-*`) follow the direction.

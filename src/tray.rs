@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 use tray_icon::menu::{
-    accelerator::Accelerator, CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
+    CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu, accelerator::Accelerator,
 };
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
@@ -150,8 +150,8 @@ pub fn get_current_theme(app: &AppHandle) -> AppTheme {
 
 #[cfg(target_os = "windows")]
 fn windows_taskbar_theme() -> Option<AppTheme> {
-    use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
+    use winreg::enums::HKEY_CURRENT_USER;
 
     let personalize = RegKey::predef(HKEY_CURRENT_USER)
         .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")
@@ -731,7 +731,7 @@ pub fn copy_last_transcript(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_transcript_text, load_tray_icon, MenuInputs, TrayDesired, TrayIconState};
+    use super::{MenuInputs, TrayDesired, TrayIconState, last_transcript_text, load_tray_icon};
     use crate::managers::history::HistoryEntry;
 
     fn build_entry(transcription: &str, post_processed: Option<&str>) -> HistoryEntry {

@@ -1,16 +1,16 @@
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::{div, prelude::*, rems, App, Context, SharedString, Task, Window};
+use gpui::{App, Context, SharedString, Task, Window, div, prelude::*, rems};
 
 use super::top_padding;
 use crate::app_handle::AppHandle;
 use crate::i18n::t;
-use crate::ui::components::{icon, KeyboardFocus, RowDirection, Spinner, Typography};
+use crate::ui::WindowCallback;
+use crate::ui::components::{KeyboardFocus, RowDirection, Spinner, Typography, icon};
 use crate::ui::shell::logo;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, tw, Alpha};
-use crate::ui::WindowCallback;
+use crate::ui::theme::{Alpha, palette, tw};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Platform {
@@ -160,11 +160,13 @@ impl AccessibilityOnboarding {
         if self.polling.is_some() {
             return;
         }
-        self.polling = Some(cx.spawn_in(window, async move |this, cx| loop {
-            cx.background_executor().timer(Duration::from_secs(1)).await;
-            match this.update_in(cx, |this, window, cx| this.poll(window, cx)) {
-                Ok(false) => {}
-                _ => break,
+        self.polling = Some(cx.spawn_in(window, async move |this, cx| {
+            loop {
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+                match this.update_in(cx, |this, window, cx| this.poll(window, cx)) {
+                    Ok(false) => {}
+                    _ => break,
+                }
             }
         }));
     }

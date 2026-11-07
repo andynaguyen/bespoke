@@ -2,11 +2,11 @@ use crate::app_handle::AppHandle;
 use log::warn;
 use std::sync::Arc;
 
+use crate::TranscriptionCoordinator;
 use crate::actions::ACTION_MAP;
 use crate::managers::audio::AudioRecordingManager;
 use crate::settings::get_settings;
 use crate::transcription_coordinator::is_transcribe_binding;
-use crate::TranscriptionCoordinator;
 
 pub fn handle_shortcut_event(
     app: &AppHandle,

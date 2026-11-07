@@ -1,17 +1,17 @@
 //! Threading: clipboard ownership and delayed rendering are per-thread and
 //! need a message pump, so the whole transaction lives on a dedicated worker
 
-use std::sync::{mpsc::Sender, Arc, Mutex, Once};
+use std::sync::{Arc, Mutex, Once, mpsc::Sender};
 use std::thread;
 use std::time::Instant;
 
 use log::{error, info, warn};
-use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{
-    SetLastError, ERROR_SUCCESS, HANDLE, HGLOBAL, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM,
+    ERROR_SUCCESS, HANDLE, HGLOBAL, HINSTANCE, HWND, LPARAM, LRESULT, SetLastError, WPARAM,
 };
+use windows::core::{PCWSTR, w};
 
-use super::{evaluate, send_chord, TxState, WaitDecision};
+use super::{TxState, WaitDecision, evaluate, send_chord};
 use crate::clipboard::send_return_key;
 use crate::input::EnigoState;
 use crate::settings::{AutoSubmitKey, ClipboardHandling, PasteMethod};
@@ -22,16 +22,16 @@ use windows::Win32::System::DataExchange::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Memory::{
-    GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock, GMEM_MOVEABLE,
+    GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock,
 };
 use windows::Win32::System::Ole::{
     CF_BITMAP, CF_DSPBITMAP, CF_DSPENHMETAFILE, CF_DSPMETAFILEPICT, CF_DSPTEXT, CF_ENHMETAFILE,
     CF_OWNERDISPLAY, CF_PALETTE, CF_UNICODETEXT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CopyImage, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-    GetWindowLongPtrW, KillTimer, PostQuitMessage, RegisterClassW, SetTimer, SetWindowLongPtrW,
-    GDI_IMAGE_TYPE, GWLP_USERDATA, HWND_MESSAGE, IMAGE_FLAGS, MSG, WINDOW_EX_STYLE, WINDOW_STYLE,
+    CopyImage, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GDI_IMAGE_TYPE,
+    GWLP_USERDATA, GetMessageW, GetWindowLongPtrW, HWND_MESSAGE, IMAGE_FLAGS, KillTimer, MSG,
+    PostQuitMessage, RegisterClassW, SetTimer, SetWindowLongPtrW, WINDOW_EX_STYLE, WINDOW_STYLE,
     WM_DESTROYCLIPBOARD, WM_RENDERALLFORMATS, WM_RENDERFORMAT, WM_TIMER, WNDCLASSW,
 };
 

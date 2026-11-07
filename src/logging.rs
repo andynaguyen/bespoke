@@ -2,8 +2,8 @@ use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use env_filter::Builder as EnvFilterBuilder;
 use log::{LevelFilter, Log, Metadata, Record};
@@ -159,10 +159,10 @@ impl Log for BespokeLogger {
     }
 
     fn flush(&self) {
-        if let Ok(mut file) = self.file.lock() {
-            if let Some(file) = file.file.as_mut() {
-                let _ = file.flush();
-            }
+        if let Ok(mut file) = self.file.lock()
+            && let Some(file) = file.file.as_mut()
+        {
+            let _ = file.flush();
         }
     }
 }

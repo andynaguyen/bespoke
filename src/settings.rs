@@ -1030,15 +1030,15 @@ fn apply_settings_migrations(
         updated = true;
     }
 
-    if settings_value.get("shortcut_activation").is_none() {
-        if let Some(push_to_talk) = settings_value.get("push_to_talk").and_then(|v| v.as_bool()) {
-            settings.shortcut_activation = if push_to_talk {
-                ShortcutActivation::PushToTalk
-            } else {
-                ShortcutActivation::Toggle
-            };
-            updated = true;
-        }
+    if settings_value.get("shortcut_activation").is_none()
+        && let Some(push_to_talk) = settings_value.get("push_to_talk").and_then(|v| v.as_bool())
+    {
+        settings.shortcut_activation = if push_to_talk {
+            ShortcutActivation::PushToTalk
+        } else {
+            ShortcutActivation::Toggle
+        };
+        updated = true;
     }
 
     let stored_schema_version = settings_value
@@ -1080,15 +1080,14 @@ fn apply_settings_migrations(
         updated = true;
     }
 
-    if settings_value.get("microphone_priority").is_none() {
-        if let Some(name) = settings_value
+    if settings_value.get("microphone_priority").is_none()
+        && let Some(name) = settings_value
             .get("selected_microphone")
             .and_then(|v| v.as_str())
             .filter(|name| !name.eq_ignore_ascii_case("default"))
-        {
-            settings.microphone_priority = vec![name.to_string()];
-            updated = true;
-        }
+    {
+        settings.microphone_priority = vec![name.to_string()];
+        updated = true;
     }
 
     if settings_value.get("annotate_mcp_reach").is_none()

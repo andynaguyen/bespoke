@@ -1,5 +1,5 @@
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use gpui::App;
 
@@ -12,8 +12,8 @@ use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{self, get_settings};
 use crate::single_instance;
 use crate::{
-    autostart, managers, overlay, secure_input, shortcut, signal_handle, tray, ui, updater, utils,
-    voice_submit, TranscriptionCoordinator, FILE_LOG_LEVEL, LOG_STREAMING,
+    FILE_LOG_LEVEL, LOG_STREAMING, TranscriptionCoordinator, autostart, managers, overlay,
+    secure_input, shortcut, signal_handle, tray, ui, updater, utils, voice_submit,
 };
 
 pub fn run(

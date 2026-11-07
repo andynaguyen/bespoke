@@ -1,17 +1,17 @@
 use std::rc::Rc;
 use std::sync::LazyLock;
 
-use gpui::{div, prelude::*, px, rems, AnimationExt, App, FontWeight, SharedString, Window};
+use gpui::{AnimationExt, App, FontWeight, SharedString, Window, div, prelude::*, px, rems};
 
 use crate::i18n::{t, t_with};
 use crate::managers::model::{ModelInfo, ModelSource};
 use crate::ui::components::{
-    badge, icon, pulse_animation, pulse_opacity, BadgeVariant, Button, ButtonSize, ButtonVariant,
-    KeyboardFocus, RowDirection, Spinner, Tooltip, Typography,
+    BadgeVariant, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Spinner, Tooltip,
+    Typography, badge, icon, pulse_animation, pulse_opacity,
 };
 use crate::ui::format::{model_description, model_name, model_size};
 use crate::ui::languages::{language_label, unique_capability_languages};
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CardStatus {
@@ -235,10 +235,10 @@ impl RenderOnce for ModelCard {
                 let on_download = self.on_download.clone();
                 let on_select = self.on_select.clone();
                 card = card.on_click(move |_, window, cx| {
-                    if status == CardStatus::Downloadable {
-                        if let Some(f) = &on_download {
-                            return f(&id, window, cx);
-                        }
+                    if status == CardStatus::Downloadable
+                        && let Some(f) = &on_download
+                    {
+                        return f(&id, window, cx);
                     }
                     if let Some(f) = &on_select {
                         f(&id, window, cx);

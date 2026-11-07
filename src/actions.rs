@@ -1,10 +1,11 @@
+use crate::TranscriptionCoordinator;
 use crate::app_handle::AppHandle;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::apple_intelligence;
-use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
+use crate::audio_feedback::{SoundType, play_feedback_sound, play_feedback_sound_blocking};
 use crate::audio_toolkit::{
-    expand_snippets_with_fixes, is_microphone_access_denied, is_no_input_device_error, Fix,
-    VadPolicy,
+    Fix, VadPolicy, expand_snippets_with_fixes, is_microphone_access_denied,
+    is_no_input_device_error,
 };
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
@@ -12,22 +13,21 @@ use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{
-    get_settings, AppSettings, OverlayStyle, WritingStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
+    APPLE_INTELLIGENCE_PROVIDER_ID, AppSettings, OverlayStyle, WritingStyle, get_settings,
 };
 use crate::shortcut;
-use crate::tray::{set_tray_state, TrayIconState};
+use crate::tray::{TrayIconState, set_tray_state};
 use crate::utils::{
     self, show_processing_overlay, show_recording_overlay, show_transcribing_overlay,
 };
 use crate::voice_submit::VoiceSubmit;
 use crate::writing_style::{apply_style, style_for_app};
-use crate::TranscriptionCoordinator;
-use ferrous_opencc::{config::BuiltinConfig, OpenCC};
+use ferrous_opencc::{OpenCC, config::BuiltinConfig};
 use log::{debug, error, warn};
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -81,10 +81,10 @@ fn strip_invisible_chars(s: &str) -> String {
 }
 
 fn strip_think_block(s: &str) -> &str {
-    if let Some(rest) = s.trim_start().strip_prefix("<think>") {
-        if let Some(end) = rest.find("</think>") {
-            return rest[end + "</think>".len()..].trim_start();
-        }
+    if let Some(rest) = s.trim_start().strip_prefix("<think>")
+        && let Some(end) = rest.find("</think>")
+    {
+        return rest[end + "</think>".len()..].trim_start();
     }
     s
 }
@@ -333,8 +333,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         Err(e) => {
             error!(
                 "LLM post-processing failed for provider '{}': {}. Falling back to original transcription.",
-                provider.id,
-                e
+                provider.id, e
             );
             None
         }
@@ -375,7 +374,10 @@ async fn maybe_convert_chinese_variant(
             Some(converted)
         }
         Err(e) => {
-            error!("Failed to initialize OpenCC converter: {}. Falling back to original transcription.", e);
+            error!(
+                "Failed to initialize OpenCC converter: {}. Falling back to original transcription.",
+                e
+            );
             None
         }
     }
@@ -427,14 +429,13 @@ pub(crate) async fn process_transcription_output(
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                if let Some(prompt) = settings
+            if let Some(prompt_id) = &settings.post_process_selected_prompt_id
+                && let Some(prompt) = settings
                     .post_process_prompts
                     .iter()
                     .find(|prompt| &prompt.id == prompt_id)
-                {
-                    post_process_prompt = Some(prompt.prompt.clone());
-                }
+            {
+                post_process_prompt = Some(prompt.prompt.clone());
             }
         }
     } else if final_text != transcription {
@@ -823,16 +824,16 @@ impl ShortcutAction for TranscribeAction {
                                 error!("Failed to record usage stats: {}", err);
                             }
 
-                            if wav_saved {
-                                if let Err(err) = hm.save_entry(
+                            if wav_saved
+                                && let Err(err) = hm.save_entry(
                                     file_name,
                                     transcription,
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
-                                ) {
-                                    error!("Failed to save history entry: {}", err);
-                                }
+                                )
+                            {
+                                error!("Failed to save history entry: {}", err);
                             }
 
                             if processed.final_text.is_empty() {
@@ -878,16 +879,16 @@ impl ShortcutAction for TranscribeAction {
 
                             error!("Transcription failed: {}", err);
                             let _ = ah.emit("transcription-error", err.to_string());
-                            if wav_saved {
-                                if let Err(save_err) = hm.save_entry(
+                            if wav_saved
+                                && let Err(save_err) = hm.save_entry(
                                     file_name,
                                     String::new(),
                                     post_process,
                                     None,
                                     None,
-                                ) {
-                                    error!("Failed to save failed history entry: {}", save_err);
-                                }
+                                )
+                            {
+                                error!("Failed to save failed history entry: {}", save_err);
                             }
                             utils::hide_recording_overlay(&ah);
                             set_tray_state(&ah, TrayIconState::Idle);
@@ -970,8 +971,8 @@ mod tests {
     };
     use crate::settings::OverlayStyle;
     use std::future;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;
     use std::time::Duration;
 

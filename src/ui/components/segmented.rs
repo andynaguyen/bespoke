@@ -1,12 +1,12 @@
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use gpui::{div, prelude::*, px, App, Bounds, ElementId, FontWeight, Pixels, SharedString, Window};
+use gpui::{App, Bounds, ElementId, FontWeight, Pixels, SharedString, Window, div, prelude::*, px};
 
 use super::RowDirection;
 use super::{KeyboardFocus, Typography};
 use crate::ui::clay::Clay;
-use crate::ui::theme::{palette, Alpha, CONTROL_HEIGHT};
+use crate::ui::theme::{Alpha, CONTROL_HEIGHT, palette};
 
 type SelectHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 

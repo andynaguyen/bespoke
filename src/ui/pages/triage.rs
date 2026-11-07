@@ -1,17 +1,17 @@
 use std::path::PathBuf;
 
 use gpui::{
-    div, prelude::*, px, AnyElement, App, Context, FocusHandle, FontWeight, Global, SharedString,
-    Window,
+    AnyElement, App, Context, FocusHandle, FontWeight, Global, SharedString, Window, div,
+    prelude::*, px,
 };
 
 use crate::i18n::t;
 use crate::triage::Handoff;
 use crate::ui::components::{
-    icon, Button, ButtonVariant, Dialog, KeyboardFocus, RowDirection, Tooltip, Typography,
+    Button, ButtonVariant, Dialog, KeyboardFocus, RowDirection, Tooltip, Typography, icon,
 };
 use crate::ui::shell::close_dialog;
-use crate::ui::theme::{palette, radius, Alpha};
+use crate::ui::theme::{Alpha, palette, radius};
 
 const DIALOG_WIDTH: f32 = 540.;
 

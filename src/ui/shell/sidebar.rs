@@ -1,15 +1,15 @@
 use gpui::{
-    div, img, prelude::*, px, App, Context, FontWeight, ImageSource, Resource, SharedString, Window,
+    App, Context, FontWeight, ImageSource, Resource, SharedString, Window, div, img, prelude::*, px,
 };
 
 use super::{MainWindow, Section, TITLEBAR_HEIGHT};
 use crate::i18n::{t, t_with};
 use crate::ui::components::{
-    icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Tooltip, Typography,
+    Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Tooltip, Typography, icon,
 };
-use crate::ui::glass::{glass, GlassStyle};
+use crate::ui::glass::{GlassStyle, glass};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, radius, Alpha};
+use crate::ui::theme::{Alpha, palette, radius};
 
 pub const SIDEBAR_WIDTH: f32 = 220.;
 const LOGO_TOP: f32 = 26.;
@@ -194,7 +194,7 @@ pub fn render(
     main: &MainWindow,
     _window: &mut Window,
     cx: &mut Context<MainWindow>,
-) -> impl IntoElement {
+) -> impl IntoElement + use<> {
     let debug_mode = SettingsStore::get(cx).debug_mode;
     let active = main.section;
 

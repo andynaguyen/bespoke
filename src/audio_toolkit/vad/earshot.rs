@@ -78,10 +78,11 @@ mod tests {
     #[test]
     fn silence_is_not_voice() {
         let mut vad = EarshotVad::new(0.5).unwrap();
-        assert!(!vad
-            .push_frame(&[0.0; EARSHOT_FRAME_SAMPLES])
-            .unwrap()
-            .is_speech());
+        assert!(
+            !vad.push_frame(&[0.0; EARSHOT_FRAME_SAMPLES])
+                .unwrap()
+                .is_speech()
+        );
     }
 
     #[test]

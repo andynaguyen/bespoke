@@ -20,12 +20,12 @@ use hyper::body::{Bytes, Incoming};
 use hyper::header::{self, HeaderMap, HeaderValue};
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::task::{JoinHandle, JoinSet};
 
 use crate::app_handle::AppHandle;
-use crate::settings::{get_settings, write_settings, McpReach};
+use crate::settings::{McpReach, get_settings, write_settings};
 
 pub const PORT: u16 = 47790;
 const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -177,7 +177,7 @@ pub fn sync(app: &AppHandle) {
     });
 }
 
-async fn listen(app: &AppHandle) -> Result<impl Future<Output = ()>> {
+async fn listen(app: &AppHandle) -> Result<impl Future<Output = ()> + use<>> {
     let service = Arc::new(Service {
         token: token(app)?,
         captures: scrawl::host::captures_dir(),
@@ -515,10 +515,12 @@ mod tests {
         assert_eq!(init.status(), StatusCode::OK);
         let init: Value = init.json().await.unwrap();
         assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
-        assert!(init["result"]["instructions"]
-            .as_str()
-            .unwrap()
-            .contains("get_capture"));
+        assert!(
+            init["result"]["instructions"]
+                .as_str()
+                .unwrap()
+                .contains("get_capture")
+        );
 
         let initialized = post(
             &url,
@@ -554,10 +556,12 @@ mod tests {
         )
         .await;
         let content = &capture["result"]["content"];
-        assert!(content[0]["text"]
-            .as_str()
-            .unwrap()
-            .starts_with("[Bespoke annotation 0:07 · Slack · scrawl-1-a]"));
+        assert!(
+            content[0]["text"]
+                .as_str()
+                .unwrap()
+                .starts_with("[Bespoke annotation 0:07 · Slack · scrawl-1-a]")
+        );
         assert_eq!(content[1]["mimeType"], "image/png");
         let png = base64::engine::general_purpose::STANDARD
             .decode(content[1]["data"].as_str().unwrap())
@@ -572,23 +576,29 @@ mod tests {
         assert_eq!(frames["result"]["content"][1]["type"], "image");
 
         let listed = call(&url, 5, "list_captures", json!({})).await;
-        assert!(listed["result"]["content"][0]["text"]
-            .as_str()
-            .unwrap()
-            .starts_with("scrawl-1-a · "));
+        assert!(
+            listed["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .starts_with("scrawl-1-a · ")
+        );
 
         let manifest = call(&url, 6, "get_manifest", json!({"capture": "latest"})).await;
-        assert!(manifest["result"]["content"][0]["text"]
-            .as_str()
-            .unwrap()
-            .contains("\"keyframes\""));
+        assert!(
+            manifest["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("\"keyframes\"")
+        );
 
         let missing = call(&url, 7, "get_frames", json!({"keyframes": [9]})).await;
         assert_eq!(missing["result"]["isError"], true);
-        assert!(missing["result"]["content"][0]["text"]
-            .as_str()
-            .unwrap()
-            .contains("No keyframe #9"));
+        assert!(
+            missing["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("No keyframe #9")
+        );
         let unknown = call(&url, 8, "nope", json!({})).await;
         assert_eq!(unknown["error"]["code"], -32602);
         let method: Value = post(

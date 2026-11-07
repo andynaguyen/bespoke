@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use gpui::{
-    canvas, div, prelude::*, px, App, Bounds, Context, Entity, FocusHandle, FontWeight,
-    KeyDownEvent, KeyUpEvent, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent,
-    MouseUpEvent, NavigationDirection, Pixels, SharedString, Window,
+    App, Bounds, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, KeyUpEvent, Modifiers,
+    ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseUpEvent, NavigationDirection, Pixels,
+    SharedString, Window, canvas, div, prelude::*, px,
 };
 
 use crate::app_handle::{AppEvent, AppHandle};
@@ -12,12 +12,12 @@ use crate::settings::KeyboardImplementation;
 use crate::shortcut::handy_keys::FrontendKeyEvent;
 use crate::ui::clay::Clay;
 use crate::ui::components::{
-    reset_button, KeyboardFocus, RowDirection, SettingContainer, Typography,
+    KeyboardFocus, RowDirection, SettingContainer, Typography, reset_button,
 };
 use crate::ui::event_bus::event_bus;
 use crate::ui::keyboard::format_key_combination;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{mix, palette, Alpha};
+use crate::ui::theme::{Alpha, mix, palette};
 use crate::ui::toast;
 
 const MODIFIERS: &[&str] = &[
@@ -110,10 +110,10 @@ impl ShortcutInput {
         let store = SettingsStore::global(cx);
         cx.observe(&store, |_, _, cx| cx.notify()).detach();
         cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
-            if event.name == "handy-keys-event" {
-                if let Some(key_event) = event.parse::<FrontendKeyEvent>() {
-                    this.on_handy_keys_event(key_event, cx);
-                }
+            if event.name == "handy-keys-event"
+                && let Some(key_event) = event.parse::<FrontendKeyEvent>()
+            {
+                this.on_handy_keys_event(key_event, cx);
             }
         })
         .detach();
@@ -384,12 +384,13 @@ impl ShortcutInput {
         let shortcut = mouse_shortcut(event.button, &event.modifiers);
         let keyed_has_mouse = self.keyed.split('+').any(|k| k.starts_with("mouse"));
         if self.committing || shortcut.is_some() || keyed_has_mouse {
-            if !uses_handy_keys(cx) && self.capture.mouse.is_none() {
-                if let Some(shortcut) = shortcut {
-                    self.current = shortcut.clone();
-                    self.capture.mouse = Some((event.button, shortcut));
-                    cx.notify();
-                }
+            if !uses_handy_keys(cx)
+                && self.capture.mouse.is_none()
+                && let Some(shortcut) = shortcut
+            {
+                self.current = shortcut.clone();
+                self.capture.mouse = Some((event.button, shortcut));
+                cx.notify();
             }
             return;
         }
@@ -402,10 +403,10 @@ impl ShortcutInput {
         if !self.recording || uses_handy_keys(cx) {
             return;
         }
-        if let Some((button, shortcut)) = self.capture.mouse.clone() {
-            if button == event.button {
-                self.commit(shortcut, cx);
-            }
+        if let Some((button, shortcut)) = self.capture.mouse.clone()
+            && button == event.button
+        {
+            self.commit(shortcut, cx);
         }
     }
 

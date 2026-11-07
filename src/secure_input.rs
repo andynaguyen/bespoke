@@ -79,15 +79,15 @@ mod imp {
     use crate::settings::{self, KeyboardImplementation, ShortcutBinding};
     use log::{debug, error, info, warn};
     use std::process::Command;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{Duration, Instant};
 
     const POLL_INTERVAL: Duration = Duration::from_secs(1);
     const SUSTAIN_THRESHOLD: Duration = Duration::from_secs(3);
 
     #[link(name = "Carbon", kind = "framework")]
-    extern "C" {
+    unsafe extern "C" {
         // Carbon HIToolbox; Boolean is an unsigned char
         fn IsSecureEventInputEnabled() -> u8;
     }

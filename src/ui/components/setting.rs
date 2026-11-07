@@ -1,4 +1,4 @@
-use gpui::{div, prelude::*, px, rems, AnyElement, App, FontWeight, SharedString, Window};
+use gpui::{AnyElement, App, FontWeight, SharedString, Window, div, prelude::*, px, rems};
 
 use super::RowDirection;
 use super::Typography;

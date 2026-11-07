@@ -1,14 +1,14 @@
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, px, rems, AnyElement, App, FocusHandle, FontWeight, KeyDownEvent, MouseButton,
-    Pixels, SharedString, Window,
+    AnyElement, App, FocusHandle, FontWeight, KeyDownEvent, MouseButton, Pixels, SharedString,
+    Window, div, prelude::*, px, rems,
 };
 
 use super::RowDirection;
-use super::{icon, KeyboardFocus, Typography};
-use crate::ui::glass::{glass_with, GlassSpec, GlassStyle};
-use crate::ui::theme::{palette, radius, shadow_xl, Alpha};
+use super::{KeyboardFocus, Typography, icon};
+use crate::ui::glass::{GlassSpec, GlassStyle, glass_with};
+use crate::ui::theme::{Alpha, palette, radius, shadow_xl};
 
 type CloseHandler = Rc<dyn Fn(&mut Window, &mut App)>;
 

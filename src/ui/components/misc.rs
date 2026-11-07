@@ -1,15 +1,15 @@
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, percentage, prelude::*, px, rems, Animation, AnimationExt, AnyElement, AnyView,
-    App, ClickEvent, Context, ElementId, FontWeight, Hsla, Pixels, Rems, SharedString, WeakEntity,
-    Window,
+    Animation, AnimationExt, AnyElement, AnyView, App, ClickEvent, Context, ElementId, FontWeight,
+    Hsla, Pixels, Rems, SharedString, WeakEntity, Window, canvas, div, percentage, prelude::*, px,
+    rems,
 };
 
 use super::RowDirection;
-use super::{icon, Button, ButtonSize, ButtonVariant, KeyboardFocus, Typography};
+use super::{Button, ButtonSize, ButtonVariant, KeyboardFocus, Typography, icon};
 use crate::i18n::t;
-use crate::ui::theme::{palette, shadow_lg, tw, Alpha};
+use crate::ui::theme::{Alpha, palette, shadow_lg, tw};
 
 pub struct Spinner;
 

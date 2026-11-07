@@ -8,7 +8,7 @@ pub struct AppleLLMResponse {
     pub error_message: *mut c_char,
 }
 
-extern "C" {
+unsafe extern "C" {
     pub fn is_apple_intelligence_available() -> c_int;
     pub fn free_apple_llm_response(response: *mut AppleLLMResponse);
 }
@@ -17,7 +17,7 @@ pub fn check_apple_intelligence_availability() -> bool {
     unsafe { is_apple_intelligence_available() == 1 }
 }
 
-extern "C" {
+unsafe extern "C" {
     pub fn process_text_with_system_prompt_apple(
         system_prompt: *const c_char,
         user_content: *const c_char,

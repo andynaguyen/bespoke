@@ -1,7 +1,7 @@
 use crate::app_handle::{AppHandle, State};
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::{ModelStateEvent, TranscriptionManager};
-use crate::settings::{get_settings, write_settings, ModelUnloadTimeout};
+use crate::settings::{ModelUnloadTimeout, get_settings, write_settings};
 use log::error;
 use std::sync::Arc;
 

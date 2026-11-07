@@ -1,5 +1,5 @@
-use crate::app_handle::AppHandle;
 use crate::TranscriptionCoordinator;
+use crate::app_handle::AppHandle;
 #[cfg(unix)]
 use log::debug;
 use log::warn;

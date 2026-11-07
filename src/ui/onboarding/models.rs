@@ -2,20 +2,20 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    div, percentage, prelude::*, rems, Animation, AnimationExt, App, Context, Entity, FontWeight,
-    ScrollHandle, SharedString, Subscription, Window,
+    Animation, AnimationExt, App, Context, Entity, FontWeight, ScrollHandle, SharedString,
+    Subscription, Window, div, percentage, prelude::*, rems,
 };
 use gpui_component::scroll::ScrollableElement;
 
 use super::top_padding;
 use crate::i18n::{t, t_with};
 use crate::managers::model::ModelInfo;
-use crate::ui::components::{icon, KeyboardFocus, RowDirection, Typography};
-use crate::ui::model_card::{is_legacy, CardStatus, ModelCard};
+use crate::ui::WindowCallback;
+use crate::ui::components::{KeyboardFocus, RowDirection, Typography, icon};
+use crate::ui::model_card::{CardStatus, ModelCard, is_legacy};
 use crate::ui::shell::logo;
 use crate::ui::stores::ModelStore;
-use crate::ui::theme::{palette, Alpha};
-use crate::ui::WindowCallback;
+use crate::ui::theme::{Alpha, palette};
 
 pub struct ModelOnboarding {
     store: Entity<ModelStore>,

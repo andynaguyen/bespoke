@@ -1,6 +1,6 @@
 use gpui::{
-    div, point, prelude::*, px, rems, AnyElement, App, Context, Entity, FocusHandle, FontWeight,
-    ScrollHandle, SharedString, Task, Window,
+    AnyElement, App, Context, Entity, FocusHandle, FontWeight, ScrollHandle, SharedString, Task,
+    Window, div, point, prelude::*, px, rems,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -10,13 +10,13 @@ use crate::managers::transcription::AvailableAccelerators;
 use crate::settings::{AppSettings, TranscribeAcceleratorSetting};
 use crate::shortcut;
 use crate::ui::components::{
-    icon, DialogFrame, DialogMaterial, Dropdown, DropdownOption, KeyboardFocus, RowDirection,
-    SettingContainer, SettingsGroup, Typography,
+    DialogFrame, DialogMaterial, Dropdown, DropdownOption, KeyboardFocus, RowDirection,
+    SettingContainer, SettingsGroup, Typography, icon,
 };
 use crate::ui::event_bus::event_bus;
-use crate::ui::glass::{glass, GlassStyle};
+use crate::ui::glass::{GlassStyle, glass};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, radius, tw, Alpha};
+use crate::ui::theme::{Alpha, palette, radius, tw};
 
 #[cfg(target_os = "macos")]
 use super::annotate::{AnnotateSettings, AnnotateSettingsPage};
@@ -287,14 +287,16 @@ impl SettingsDialog {
             return;
         }
         let store = self.store.clone();
-        self.device_poll = Some(cx.spawn(async move |_, cx| loop {
-            if store
-                .update(cx, |store, cx| store.refresh_audio_devices(cx))
-                .is_err()
-            {
-                return;
+        self.device_poll = Some(cx.spawn(async move |_, cx| {
+            loop {
+                if store
+                    .update(cx, |store, cx| store.refresh_audio_devices(cx))
+                    .is_err()
+                {
+                    return;
+                }
+                cx.background_executor().timer(DEVICE_POLL).await;
             }
-            cx.background_executor().timer(DEVICE_POLL).await;
         }));
     }
 
@@ -363,48 +365,44 @@ impl SettingsDialog {
             transcribe.first().map(|o| o.value.to_string())
         };
         let store = self.store.read(cx);
-        let mut rows =
-            vec![
-                SettingContainer::new(t("settings.advanced.acceleration.transcribe.title"))
-                    .description(t("settings.advanced.acceleration.transcribe.description"))
-                    .child(
-                        Dropdown::new("transcribe_accelerator", transcribe)
-                            .selected(displayed)
-                            .disabled(
-                                store.is_updating("transcribe_accelerator")
-                                    || store.is_updating("transcribe_gpu_device"),
-                            )
-                            .on_select(|value, _, cx| {
-                                let (accelerator, device) = if value.as_ref() == "cpu" {
-                                    (TranscribeAcceleratorSetting::Cpu, None)
-                                } else if let Some(device) = value.strip_prefix("gpu:") {
-                                    (TranscribeAcceleratorSetting::Gpu, Some(device.to_string()))
-                                } else {
-                                    (TranscribeAcceleratorSetting::Auto, None)
-                                };
-                                let stored = device.clone();
-                                set(
-                                    cx,
-                                    "transcribe_accelerator",
-                                    move |s| {
-                                        s.transcribe_gpu_device = stored;
-                                        s.transcribe_accelerator = accelerator;
-                                    },
-                                    move |app| {
-                                        shortcut::change_transcribe_gpu_device(
-                                            app.clone(),
-                                            device,
-                                        )?;
-                                        shortcut::change_transcribe_accelerator_setting(
-                                            app,
-                                            accelerator,
-                                        )
-                                    },
-                                );
-                            }),
-                    )
-                    .into_any_element(),
-            ];
+        let mut rows = vec![
+            SettingContainer::new(t("settings.advanced.acceleration.transcribe.title"))
+                .description(t("settings.advanced.acceleration.transcribe.description"))
+                .child(
+                    Dropdown::new("transcribe_accelerator", transcribe)
+                        .selected(displayed)
+                        .disabled(
+                            store.is_updating("transcribe_accelerator")
+                                || store.is_updating("transcribe_gpu_device"),
+                        )
+                        .on_select(|value, _, cx| {
+                            let (accelerator, device) = if value.as_ref() == "cpu" {
+                                (TranscribeAcceleratorSetting::Cpu, None)
+                            } else if let Some(device) = value.strip_prefix("gpu:") {
+                                (TranscribeAcceleratorSetting::Gpu, Some(device.to_string()))
+                            } else {
+                                (TranscribeAcceleratorSetting::Auto, None)
+                            };
+                            let stored = device.clone();
+                            set(
+                                cx,
+                                "transcribe_accelerator",
+                                move |s| {
+                                    s.transcribe_gpu_device = stored;
+                                    s.transcribe_accelerator = accelerator;
+                                },
+                                move |app| {
+                                    shortcut::change_transcribe_gpu_device(app.clone(), device)?;
+                                    shortcut::change_transcribe_accelerator_setting(
+                                        app,
+                                        accelerator,
+                                    )
+                                },
+                            );
+                        }),
+                )
+                .into_any_element(),
+        ];
 
         if ort.len() > 2 {
             use crate::settings::OrtAcceleratorSetting;
@@ -500,10 +498,12 @@ impl SettingsDialog {
                     .update(cx, |annotate, cx| annotate.groups(page, cx))
             }
             SettingsSection::System => {
-                let mut groups = vec![SettingsGroup::new()
-                    .title(t("settings.advanced.groups.memory"))
-                    .child(rows::model_unload_timeout(&s, cx))
-                    .into_any_element()];
+                let mut groups = vec![
+                    SettingsGroup::new()
+                        .title(t("settings.advanced.groups.memory"))
+                        .child(rows::model_unload_timeout(&s, cx))
+                        .into_any_element(),
+                ];
                 groups.push(
                     SettingsGroup::new()
                         .title(t("settings.about.title"))

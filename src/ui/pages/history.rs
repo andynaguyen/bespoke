@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use gpui::{
-    canvas, div, prelude::*, px, relative, Animation, AnimationExt, AnyElement, App, Context,
-    Entity, FontWeight, ScrollHandle, SharedString, Subscription, Task, Window,
+    Animation, AnimationExt, AnyElement, App, Context, Entity, FontWeight, ScrollHandle,
+    SharedString, Subscription, Task, Window, canvas, div, prelude::*, px, relative,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -14,15 +14,15 @@ use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::t;
 use crate::managers::history::{HistoryEntry, HistoryManager, HistoryUpdatePayload};
 use crate::managers::transcription::TranscriptionManager;
-use crate::ui::audio_player::{self, audio_player, PlayerState};
+use crate::ui::audio_player::{self, PlayerState, audio_player};
 use crate::ui::components::{
-    focus_handle_for, icon, Button, ButtonVariant, FocusVisible, KeyboardFocus, RowDirection,
-    Tooltip, Typography,
+    Button, ButtonVariant, FocusVisible, KeyboardFocus, RowDirection, Tooltip, Typography,
+    focus_handle_for, icon,
 };
 use crate::ui::dates;
 use crate::ui::event_bus::event_bus;
 use crate::ui::shell::Toolbar;
-use crate::ui::theme::{palette, radius, Alpha, CONTROL_HEIGHT};
+use crate::ui::theme::{Alpha, CONTROL_HEIGHT, palette, radius};
 use crate::ui::toast;
 
 const PAGE_SIZE: usize = 30;
@@ -54,10 +54,10 @@ impl HistoryPage {
     pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
         let subscriptions = vec![
             cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
-                if event.name == HistoryUpdatePayload::EVENT {
-                    if let Some(update) = event.parse::<HistoryUpdatePayload>() {
-                        this.apply_update(update, cx);
-                    }
+                if event.name == HistoryUpdatePayload::EVENT
+                    && let Some(update) = event.parse::<HistoryUpdatePayload>()
+                {
+                    this.apply_update(update, cx);
                 }
             }),
         ];
@@ -224,13 +224,15 @@ impl HistoryPage {
         if self.ticker.is_some() {
             return;
         }
-        self.ticker = Some(cx.spawn(async move |this, cx| loop {
-            cx.background_executor()
-                .timer(Duration::from_millis(100))
-                .await;
-            let alive = this.update(cx, |_, cx| cx.notify()).is_ok();
-            if !alive {
-                break;
+        self.ticker = Some(cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(100))
+                    .await;
+                let alive = this.update(cx, |_, cx| cx.notify()).is_ok();
+                if !alive {
+                    break;
+                }
             }
         }));
     }
@@ -647,19 +649,22 @@ fn heading(label: SharedString, cx: &App) -> impl IntoElement {
 /// The toolbar's actions, or the inspector's top row when `compact`.
 fn actions(compact: bool) -> Vec<AnyElement> {
     let folder = t("settings.history.openFolder");
-    vec![Button::new("open-recordings")
-        .variant(ButtonVariant::Secondary)
-        .gap(px(5.))
-        .title(folder.clone())
-        .when(compact, |el| el.w(CONTROL_HEIGHT).px(px(0.)))
-        .child(icon("folder-open").size(px(13.)))
-        .when(!compact, |el| el.child(folder))
-        .on_click(|_, _, _| {
-            if let Err(e) = crate::commands::open_recordings_folder(AppHandle::global().clone()) {
-                log::error!("Failed to open recordings folder: {e}");
-            }
-        })
-        .into_any_element()]
+    vec![
+        Button::new("open-recordings")
+            .variant(ButtonVariant::Secondary)
+            .gap(px(5.))
+            .title(folder.clone())
+            .when(compact, |el| el.w(CONTROL_HEIGHT).px(px(0.)))
+            .child(icon("folder-open").size(px(13.)))
+            .when(!compact, |el| el.child(folder))
+            .on_click(|_, _, _| {
+                if let Err(e) = crate::commands::open_recordings_folder(AppHandle::global().clone())
+                {
+                    log::error!("Failed to open recordings folder: {e}");
+                }
+            })
+            .into_any_element(),
+    ]
 }
 
 impl Render for HistoryPage {

@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use gpui::{
-    div, ease_out_quint, prelude::*, px, size, Animation, AnimationExt, App, Bounds, Context,
-    Entity, FontWeight, Global, Pixels, Point, SharedString, Size, Window,
-    WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind, WindowOptions,
+    Animation, AnimationExt, App, Bounds, Context, Entity, FontWeight, Global, Pixels, Point,
+    SharedString, Size, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations,
+    WindowKind, WindowOptions, div, ease_out_quint, prelude::*, px, size,
 };
 
-use super::glass::{glass, GlassStyle};
-use super::theme::{palette, Alpha};
+use super::glass::{GlassStyle, glass};
+use super::theme::{Alpha, palette};
 
 const WINDOW_W: f32 = 300.;
 const WINDOW_H: f32 = 220.;

@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
-    canvas, div, img, prelude::*, px, relative, rems, AnyElement, App, Bounds, Context, Entity,
-    FontWeight, Global, Image, ImageFormat, Pixels, SharedString, Subscription, WeakEntity, Window,
+    AnyElement, App, Bounds, Context, Entity, FontWeight, Global, Image, ImageFormat, Pixels,
+    SharedString, Subscription, WeakEntity, Window, canvas, div, img, prelude::*, px, relative,
+    rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
@@ -12,12 +13,12 @@ use crate::i18n::t;
 use crate::settings::{AppStyleRule, WritingStyle};
 use crate::shortcut;
 use crate::ui::components::{
-    icon, width_tracker, Dropdown, DropdownOption, RowDirection, SegmentedControl, TextField,
-    Typography,
+    Dropdown, DropdownOption, RowDirection, SegmentedControl, TextField, Typography, icon,
+    width_tracker,
 };
 use crate::ui::hover_card::{self, Card};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 use crate::utils::RunningApp;
 
 use super::rows::set;

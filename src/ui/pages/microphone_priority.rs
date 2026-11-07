@@ -1,16 +1,16 @@
 use gpui::{
-    div, prelude::*, px, rems, AnyElement, App, Context, CursorStyle, FontWeight, SharedString,
-    Window,
+    AnyElement, App, Context, CursorStyle, FontWeight, SharedString, Window, div, prelude::*, px,
+    rems,
 };
 
 use crate::i18n::t;
 use crate::managers::audio::first_connected;
 use crate::settings::AppSettings;
 use crate::ui::components::{
-    icon, Dropdown, DropdownOption, KeyboardFocus, RowDirection, SettingContainer, Typography,
+    Dropdown, DropdownOption, KeyboardFocus, RowDirection, SettingContainer, Typography, icon,
 };
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha};
+use crate::ui::theme::{Alpha, palette};
 
 const KEY: &str = "microphone_priority";
 const GRIP_SIZE: f32 = 14.;

@@ -1,8 +1,8 @@
-use gpui::{div, prelude::*, px, AnyElement};
+use gpui::{AnyElement, div, prelude::*, px};
 
-use super::toolbar::{drag_region, TOOLBAR_HEIGHT};
+use super::toolbar::{TOOLBAR_HEIGHT, drag_region};
 use crate::ui::components::RowDirection;
-use crate::ui::glass::{glass, GlassStyle};
+use crate::ui::glass::{GlassStyle, glass};
 
 pub fn inspector(
     id: &'static str,

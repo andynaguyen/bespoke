@@ -4,7 +4,7 @@ pub mod models;
 pub mod transcription;
 
 use crate::app_handle::AppHandle;
-use crate::settings::{get_settings, write_settings, LogLevel};
+use crate::settings::{LogLevel, get_settings, write_settings};
 
 pub fn get_app_dir_path(app: AppHandle) -> Result<String, String> {
     let app_data_dir = crate::portable::app_data_dir(&app)

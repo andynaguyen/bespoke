@@ -4,8 +4,8 @@ mod sidebar;
 mod toolbar;
 
 use gpui::{
-    div, point, prelude::*, px, rems, AnyView, App, Context, Entity, FocusHandle, Focusable,
-    FontWeight, ScrollHandle, SharedString, Window,
+    AnyView, App, Context, Entity, FocusHandle, Focusable, FontWeight, ScrollHandle, SharedString,
+    Window, div, point, prelude::*, px, rems,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -14,12 +14,12 @@ use crate::i18n::{t, t_or, t_with};
 use crate::managers::transcription::ModelStateEvent;
 use crate::ui::components::{KeyboardFocus, RowDirection};
 use crate::ui::event_bus::event_bus;
-use crate::ui::glass::{glass_with, GlassSpec, GlassStyle};
+use crate::ui::glass::{GlassSpec, GlassStyle, glass_with};
 use crate::ui::onboarding::{AccessibilityOnboarding, ModelOnboarding, OnboardingPreview};
 use crate::ui::pages::{self, PageHandle, PageLayout};
 use crate::ui::popup::DialogWindow;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, radius, Alpha};
+use crate::ui::theme::{Alpha, palette, radius};
 use crate::ui::toast;
 use crate::ui::whats_new::WhatsNewGate;
 
@@ -439,19 +439,19 @@ impl MainWindow {
                 toast::error_with(t("errors.transcriptionFailedTitle"), detail, cx)
             }
             "model-state-changed" => {
-                if let Some(state) = event.parse::<ModelStateEvent>() {
-                    if state.event_type == "loading_failed" {
-                        let model = state
-                            .model_name
-                            .map(SharedString::from)
-                            .unwrap_or_else(|| t("errors.modelLoadFailedUnknown"));
-                        toast::show(
-                            toast::ToastKind::Error,
-                            t_with("errors.modelLoadFailed", &[("model", &model)]),
-                            state.error.map(Into::into),
-                            cx,
-                        );
-                    }
+                if let Some(state) = event.parse::<ModelStateEvent>()
+                    && state.event_type == "loading_failed"
+                {
+                    let model = state
+                        .model_name
+                        .map(SharedString::from)
+                        .unwrap_or_else(|| t("errors.modelLoadFailedUnknown"));
+                    toast::show(
+                        toast::ToastKind::Error,
+                        t_with("errors.modelLoadFailed", &[("model", &model)]),
+                        state.error.map(Into::into),
+                        cx,
+                    );
                 }
             }
             crate::updater::STATE_CHANGED => cx.notify(),

@@ -1,9 +1,9 @@
-use gpui::{div, prelude::*, px, App, Entity, Focusable, FontWeight, Pixels, Window};
+use gpui::{App, Entity, Focusable, FontWeight, Pixels, Window, div, prelude::*, px};
 use gpui_component::input::{Input, InputState};
 
 use super::RowDirection;
 use super::Typography;
-use crate::ui::theme::{palette, Alpha, CONTROL_HEIGHT};
+use crate::ui::theme::{Alpha, CONTROL_HEIGHT, palette};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Variant {

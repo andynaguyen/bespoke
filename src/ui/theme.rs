@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use gpui::{px, rgb, rgba, App, Global, Hsla, Pixels, Rgba, Window, WindowAppearance};
+use gpui::{App, Global, Hsla, Pixels, Rgba, Window, WindowAppearance, px, rgb, rgba};
 
 use crate::settings::Theme as ThemeSetting;
 
@@ -345,7 +345,7 @@ pub fn shadow(x: f32, y: f32, blur: f32, spread: f32, alpha: f32) -> gpui::BoxSh
 pub const CONTROL_HEIGHT: Pixels = px(34.);
 
 pub mod radius {
-    use gpui::{px, Pixels};
+    use gpui::{Pixels, px};
 
     pub const WINDOW: Pixels = px(26.);
     pub const INSET: Pixels = px(8.);

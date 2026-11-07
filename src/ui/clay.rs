@@ -7,11 +7,11 @@
 //! themes.
 
 use gpui::{
-    div, linear_color_stop, linear_gradient, point, prelude::*, px, BoxShadow, Hsla, Pixels,
-    SharedString,
+    BoxShadow, Hsla, Pixels, SharedString, div, linear_color_stop, linear_gradient, point,
+    prelude::*, px,
 };
 
-use super::theme::{mix, Alpha};
+use super::theme::{Alpha, mix};
 
 const GRADIENT_ANGLE: f32 = 172.;
 

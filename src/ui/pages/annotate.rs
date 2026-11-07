@@ -2,25 +2,25 @@ use std::collections::BTreeSet;
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, rems, AnyElement, App, Context, Entity, FontWeight, SharedString, Task,
+    AnyElement, App, Context, Entity, FontWeight, SharedString, Task, div, prelude::*, rems,
 };
 use scrawl::host::{Grants, Permission, PermissionStatus, Retention};
 
 use crate::i18n::{t, t_with};
 use crate::settings::AppSettings;
 use crate::ui::components::{
-    icon, Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection,
-    SettingContainer, SettingsGroup, Typography,
+    Button, ButtonSize, ButtonVariant, Dropdown, DropdownOption, RowDirection, SettingContainer,
+    SettingsGroup, Typography, icon,
 };
 use crate::ui::keyboard::format_key_combination;
 use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, tw, Alpha, CONTROL_HEIGHT};
+use crate::ui::theme::{Alpha, CONTROL_HEIGHT, palette, tw};
 
+use super::PageLayout;
 use super::captures::Captures;
 use super::settings::SettingsSection;
 use super::shortcut_input::ShortcutInput;
-use super::PageLayout;
 
 const POLL: Duration = Duration::from_millis(1500);
 
@@ -121,20 +121,22 @@ impl AnnotateSettings {
     pub fn new(cx: &mut Context<Self>) -> Self {
         cx.observe(&SettingsStore::global(cx), |_, _, cx| cx.notify())
             .detach();
-        let poll = cx.spawn(async move |this, cx| loop {
-            let grants = crate::runtime::spawn_blocking(scrawl::host::read_grants)
-                .await
-                .unwrap_or(None);
-            let updated = this.update(cx, |this, cx| {
-                if grants.is_some() {
-                    this.grants = grants;
+        let poll = cx.spawn(async move |this, cx| {
+            loop {
+                let grants = crate::runtime::spawn_blocking(scrawl::host::read_grants)
+                    .await
+                    .unwrap_or(None);
+                let updated = this.update(cx, |this, cx| {
+                    if grants.is_some() {
+                        this.grants = grants;
+                    }
+                    cx.notify();
+                });
+                if updated.is_err() {
+                    break;
                 }
-                cx.notify();
-            });
-            if updated.is_err() {
-                break;
+                cx.background_executor().timer(POLL).await;
             }
-            cx.background_executor().timer(POLL).await;
         });
         let mut page = Self {
             record_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::RECORD_BINDING, cx)),
@@ -404,19 +406,25 @@ impl AnnotateSettings {
     ) -> Vec<AnyElement> {
         match page {
             // One group each, so the page title in the header names them.
-            AnnotateSettingsPage::Shortcut => vec![SettingsGroup::new()
-                .child(self.record_shortcut.clone())
-                .child(self.paste_shortcut.clone())
-                .into_any_element()],
-            AnnotateSettingsPage::History => vec![SettingsGroup::new()
-                .child(self.retention_row(cx))
-                .child(self.captures_row(cx))
-                .into_any_element()],
+            AnnotateSettingsPage::Shortcut => vec![
+                SettingsGroup::new()
+                    .child(self.record_shortcut.clone())
+                    .child(self.paste_shortcut.clone())
+                    .into_any_element(),
+            ],
+            AnnotateSettingsPage::History => vec![
+                SettingsGroup::new()
+                    .child(self.retention_row(cx))
+                    .child(self.captures_row(cx))
+                    .into_any_element(),
+            ],
             // A group on the System page, among the app's other settings.
-            AnnotateSettingsPage::Permissions => vec![SettingsGroup::new()
-                .title(t("annotate.groups.permissions"))
-                .children(Permission::ALL.map(|permission| self.permission_row(permission, cx)))
-                .into_any_element()],
+            AnnotateSettingsPage::Permissions => vec![
+                SettingsGroup::new()
+                    .title(t("annotate.groups.permissions"))
+                    .children(Permission::ALL.map(|permission| self.permission_row(permission, cx)))
+                    .into_any_element(),
+            ],
         }
     }
 }

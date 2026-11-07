@@ -2,11 +2,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, linear_color_stop, linear_gradient, point, prelude::*, px, size, Animation,
-    AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Div, Entity, FontFeatures,
-    FontWeight, Global, HighlightStyle, Pixels, ScrollHandle, SharedString, Size, StyledText,
-    Subscription, Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations,
-    WindowHandle, WindowKind, WindowOptions,
+    Animation, AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Div, Entity,
+    FontFeatures, FontWeight, Global, HighlightStyle, Pixels, ScrollHandle, SharedString, Size,
+    StyledText, Subscription, Task, Window, WindowBackgroundAppearance, WindowBounds,
+    WindowDecorations, WindowHandle, WindowKind, WindowOptions, canvas, div, linear_color_stop,
+    linear_gradient, point, prelude::*, px, size,
 };
 
 use crate::app_handle::{AppEvent, AppHandle};
@@ -530,14 +530,16 @@ impl RecordingOverlay {
         let live = self.visible && self.state == OverlayState::Streaming;
         if live && self.capture_ready {
             if self.elapsed_timer.is_none() {
-                self.elapsed_timer = Some(cx.spawn(async move |this, cx| loop {
-                    cx.background_executor().timer(Duration::from_secs(1)).await;
-                    let ticked = this.update(cx, |this, cx| {
-                        this.elapsed += 1;
-                        cx.notify();
-                    });
-                    if ticked.is_err() {
-                        break;
+                self.elapsed_timer = Some(cx.spawn(async move |this, cx| {
+                    loop {
+                        cx.background_executor().timer(Duration::from_secs(1)).await;
+                        let ticked = this.update(cx, |this, cx| {
+                            this.elapsed += 1;
+                            cx.notify();
+                        });
+                        if ticked.is_err() {
+                            break;
+                        }
                     }
                 }));
             }
@@ -548,16 +550,18 @@ impl RecordingOverlay {
         if live && self.phase != StreamPhase::Working {
             if self.caret_blink.is_none() {
                 self.caret_on = true;
-                self.caret_blink = Some(cx.spawn(async move |this, cx| loop {
-                    cx.background_executor()
-                        .timer(Duration::from_millis(525))
-                        .await;
-                    let toggled = this.update(cx, |this, cx| {
-                        this.caret_on = !this.caret_on;
-                        cx.notify();
-                    });
-                    if toggled.is_err() {
-                        break;
+                self.caret_blink = Some(cx.spawn(async move |this, cx| {
+                    loop {
+                        cx.background_executor()
+                            .timer(Duration::from_millis(525))
+                            .await;
+                        let toggled = this.update(cx, |this, cx| {
+                            this.caret_on = !this.caret_on;
+                            cx.notify();
+                        });
+                        if toggled.is_err() {
+                            break;
+                        }
                     }
                 }));
             }

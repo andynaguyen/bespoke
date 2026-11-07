@@ -1,7 +1,7 @@
 use crate::app_handle::AppHandle;
 use crate::audio_feedback;
 use crate::audio_toolkit::audio::{
-    list_input_devices, list_output_devices, AudioRecorder, CpalDeviceInfo,
+    AudioRecorder, CpalDeviceInfo, list_input_devices, list_output_devices,
 };
 use crate::managers::audio::{AudioRecordingManager, MicrophoneMode};
 use crate::settings::{get_settings, write_settings};
@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
 use winreg::{
+    HKEY, RegKey,
     enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
-    RegKey, HKEY,
 };
 
 #[derive(Serialize, Clone, Copy, Default)]
@@ -77,10 +77,8 @@ fn read_registry_permission_access(root_hkey: HKEY, path: &str) -> PermissionAcc
 
 #[cfg(target_os = "windows")]
 pub fn get_windows_microphone_permission_status() -> WindowsMicrophonePermissionStatus {
-    const MICROPHONE_PATH: &str =
-        "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone";
-    const DESKTOP_APPS_PATH: &str =
-        "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone\\NonPackaged";
+    const MICROPHONE_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone";
+    const DESKTOP_APPS_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone\\NonPackaged";
 
     let device_access = read_registry_permission_access(HKEY_LOCAL_MACHINE, MICROPHONE_PATH);
     let app_access = read_registry_permission_access(HKEY_CURRENT_USER, MICROPHONE_PATH);

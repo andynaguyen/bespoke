@@ -1,9 +1,9 @@
 use std::ops::Range;
 
 use gpui::{
-    div, img, prelude::*, px, rems, AnyElement, App, Context, FocusHandle, FontStyle, FontWeight,
-    HighlightStyle, ImageSource, InteractiveText, Resource, SharedString, StyledText, Subscription,
-    UnderlineStyle, Window,
+    AnyElement, App, Context, FocusHandle, FontStyle, FontWeight, HighlightStyle, ImageSource,
+    InteractiveText, Resource, SharedString, StyledText, Subscription, UnderlineStyle, Window, div,
+    img, prelude::*, px, rems,
 };
 use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
 
@@ -12,7 +12,7 @@ use crate::shortcut;
 use crate::ui::components::{Dialog, RowDirection, Typography};
 use crate::ui::shell::{close_dialog, open_dialog};
 use crate::ui::stores::SettingsStore;
-use crate::ui::theme::{palette, Alpha, MONO_FONT};
+use crate::ui::theme::{Alpha, MONO_FONT, palette};
 
 include!(concat!(env!("OUT_DIR"), "/release_notes.rs"));
 

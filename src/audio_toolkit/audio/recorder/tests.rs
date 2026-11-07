@@ -1,13 +1,14 @@
 use super::{
-    is_microphone_access_denied, is_no_input_device_error, run_consumer, AudioRecorder,
-    CaptureProcessor, CaptureTransportState, ChunkDisposition, Cmd, VadConfig, VadPolicy,
+    AudioRecorder, CaptureProcessor, CaptureTransportState, ChunkDisposition, Cmd, VadConfig,
+    VadPolicy, is_microphone_access_denied, is_no_input_device_error, run_consumer,
 };
 use crate::audio_toolkit::vad::{VadFrame, VoiceActivityDetector};
 use rtrb::RingBuffer;
 use std::{
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc, Mutex,
+        mpsc,
     },
     thread,
     time::{Duration, Instant},
@@ -281,9 +282,11 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
         .expect("first stop reply");
     let first_expected = [0.25f32, -0.5, 1.0, 99.0];
     assert_eq!(&first_samples[..first_expected.len()], &first_expected);
-    assert!(first_samples[first_expected.len()..]
-        .iter()
-        .all(|&sample| sample == 0.0));
+    assert!(
+        first_samples[first_expected.len()..]
+            .iter()
+            .all(|&sample| sample == 0.0)
+    );
     assert!(!transport.pause_requested.load(Ordering::Acquire));
 
     let first_streamed_len = {
@@ -312,15 +315,21 @@ fn repeated_start_stop_cycles_resume_capture_without_leaking_samples() {
         .expect("second stop reply");
     let second_expected = [0.75f32, -0.25, 0.5, 199.0];
     assert_eq!(&second_samples[..second_expected.len()], &second_expected);
-    assert!(second_samples[second_expected.len()..]
-        .iter()
-        .all(|&sample| sample == 0.0));
-    assert!(!first_samples
-        .iter()
-        .any(|sample| second_expected.contains(sample)));
-    assert!(!second_samples
-        .iter()
-        .any(|sample| first_expected.contains(sample)));
+    assert!(
+        second_samples[second_expected.len()..]
+            .iter()
+            .all(|&sample| sample == 0.0)
+    );
+    assert!(
+        !first_samples
+            .iter()
+            .any(|sample| second_expected.contains(sample))
+    );
+    assert!(
+        !second_samples
+            .iter()
+            .any(|sample| first_expected.contains(sample))
+    );
     assert!(!transport.pause_requested.load(Ordering::Acquire));
 
     {

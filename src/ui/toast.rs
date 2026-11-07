@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, px, svg, App, Context, Entity, Global, IntoElement, SharedString, Window,
+    App, Context, Entity, Global, IntoElement, SharedString, Window, div, prelude::*, px, svg,
 };
 
 use crate::ui::components::RowDirection;
 use crate::ui::popup::{self, Placement, Spec};
-use crate::ui::theme::{palette, radius, shadow_lg, Alpha};
+use crate::ui::theme::{Alpha, palette, radius, shadow_lg};
 
 const DURATION: Duration = Duration::from_millis(4000);
 const MAX_VISIBLE: usize = 3;

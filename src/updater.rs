@@ -21,13 +21,13 @@ pub use other::{
 #[cfg(target_os = "macos")]
 mod macos {
     use std::cell::RefCell;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{Duration, SystemTime};
 
     use objc2::rc::Retained;
     use objc2::runtime::{AnyClass, AnyObject, NSObject};
-    use objc2::{define_class, msg_send, ClassType, MainThreadMarker};
+    use objc2::{ClassType, MainThreadMarker, define_class, msg_send};
     use objc2_foundation::{NSBundle, NSDate, NSString};
 
     use crate::app_handle::AppHandle;

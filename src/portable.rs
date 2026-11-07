@@ -26,7 +26,8 @@ pub fn init() {
                 std::fs::create_dir_all(&data_dir).ok()?;
             }
             let hf_home = hugging_face_home(&data_dir);
-            std::env::set_var("HF_HOME", &hf_home);
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("HF_HOME", &hf_home) };
             eprintln!("[portable] data dir: {}", data_dir.display());
             eprintln!("[portable] Hugging Face home: {}", hf_home.display());
             Some(data_dir)
@@ -150,7 +151,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let marker = dir.join("portable");
         let mut f = std::fs::File::create(&marker).unwrap();
-        write!(f, "  Bespoke Portable Mode\n").unwrap();
+        writeln!(f, "  Bespoke Portable Mode").unwrap();
         assert!(is_valid_portable_marker(&marker));
         std::fs::remove_dir_all(dir).unwrap();
     }

@@ -1,12 +1,12 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use base64::Engine as _;
 use chrono::{Local, TimeZone};
-use image::{imageops::FilterType, ImageFormat, ImageReader};
+use image::{ImageFormat, ImageReader, imageops::FilterType};
 use scrawl::host::Capture;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const MAX_IMAGE_EDGE: u32 = 1600;
 const MAX_FRAMES: usize = 8;
