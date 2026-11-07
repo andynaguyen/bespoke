@@ -207,13 +207,18 @@ impl DictationSettings {
     }
 
     fn refresh_channels(&mut self, cx: &mut Context<Self>) {
-        let device = self
-            .store
-            .read(cx)
-            .settings
-            .selected_microphone
-            .clone()
-            .unwrap_or_else(|| "default".into());
+        let store = self.store.read(cx);
+        let connected: Vec<&str> = store
+            .audio_devices
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        let device = crate::managers::audio::first_connected(
+            &store.settings.microphone_priority,
+            &connected,
+        )
+        .unwrap_or("default")
+        .to_string();
         if device == self.channels.0 {
             return;
         }
@@ -567,7 +572,7 @@ impl DictationSettings {
             DictatePage::Sound => vec![
                 SettingsGroup::new()
                     .title(t("settings.sound.microphone.title"))
-                    .child(rows::microphone(&s, cx))
+                    .children(super::microphone_priority::rows(&s, cx))
                     .children(self.channel_row(&s, cx))
                     .child(rows::mute_while_recording(&s, cx)),
                 SettingsGroup::new()

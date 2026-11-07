@@ -8,7 +8,7 @@ use crate::audio_toolkit::{
 };
 use crate::helpers::clamshell;
 use crate::managers::transcription::StreamRouter;
-use crate::settings::{get_settings, write_settings, AppSettings, VadBackend};
+use crate::settings::{get_settings, AppSettings, VadBackend};
 use crate::utils;
 use log::{debug, error, info, trace, warn};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -228,7 +228,7 @@ struct MuteState {
 
 enum DesiredMicrophone {
     Default,
-    Selected(String),
+    Priority(Vec<String>),
     Clamshell(String),
 }
 
@@ -245,10 +245,23 @@ fn desired_microphone(settings: &AppSettings) -> DesiredMicrophone {
             return DesiredMicrophone::Clamshell(clamshell_microphone.clone());
         }
     }
-    match &settings.selected_microphone {
-        Some(name) => DesiredMicrophone::Selected(name.clone()),
-        None => DesiredMicrophone::Default,
+    if settings.microphone_priority.is_empty() {
+        DesiredMicrophone::Default
+    } else {
+        DesiredMicrophone::Priority(settings.microphone_priority.clone())
     }
+}
+
+/// The first microphone in `priority` whose name is in `connected`, or `None` when none of them
+/// are, which means the system default.
+pub fn first_connected<'a, S: AsRef<str>>(
+    priority: &'a [String],
+    connected: &[S],
+) -> Option<&'a str> {
+    priority
+        .iter()
+        .find(|name| connected.iter().any(|c| c.as_ref() == name.as_str()))
+        .map(String::as_str)
 }
 
 /// The input Bespoke records from under `settings`, by device name, with `None` for the system
@@ -257,13 +270,18 @@ fn desired_microphone(settings: &AppSettings) -> DesiredMicrophone {
 pub fn preferred_microphone(settings: &AppSettings) -> Option<String> {
     match desired_microphone(settings) {
         DesiredMicrophone::Default => None,
-        DesiredMicrophone::Selected(name) | DesiredMicrophone::Clamshell(name) => Some(name),
+        DesiredMicrophone::Clamshell(name) => Some(name),
+        DesiredMicrophone::Priority(list) => match list_input_devices() {
+            Ok(devices) => {
+                let names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
+                first_connected(&list, &names).map(str::to_string)
+            }
+            Err(e) => {
+                debug!("Failed to list devices, using the top microphone: {e}");
+                list.into_iter().next()
+            }
+        },
     }
-}
-
-struct MicrophoneResolution {
-    device: Option<cpal::Device>,
-    unavailable_selected_microphone: Option<String>,
 }
 
 fn create_audio_recorder(
@@ -367,6 +385,7 @@ pub struct AudioRecordingManager {
     recording_active: Arc<AtomicBool>,
     capture_generation: Arc<AtomicU64>,
     cached_device: Arc<Mutex<Option<(String, cpal::Device)>>>,
+    open_microphone: Arc<Mutex<Option<String>>>,
 }
 
 impl AudioRecordingManager {
@@ -398,6 +417,7 @@ impl AudioRecordingManager {
             recording_active: Arc::new(AtomicBool::new(false)),
             capture_generation: Arc::new(AtomicU64::new(0)),
             cached_device: Arc::new(Mutex::new(None)),
+            open_microphone: Arc::new(Mutex::new(None)),
         };
 
         if matches!(mode, MicrophoneMode::AlwaysOn) {
@@ -411,79 +431,54 @@ impl AudioRecordingManager {
         *self.cached_device.lock().unwrap() = None;
     }
 
-    fn resolve_microphone_device(&self, settings: &AppSettings) -> MicrophoneResolution {
-        let desired = desired_microphone(settings);
-        let (device_name, selected_microphone) = match desired {
+    fn cached_top_choice(&self, wanted: &[String]) -> Option<(String, cpal::Device)> {
+        self.cached_device
+            .lock()
+            .unwrap()
+            .clone()
+            .filter(|(name, _)| wanted.first() == Some(name))
+    }
+
+    fn resolve_microphone_device(&self, settings: &AppSettings) -> Option<(String, cpal::Device)> {
+        let wanted = match desired_microphone(settings) {
             DesiredMicrophone::Default => {
                 debug!("device resolve: no mic configured -> system default");
-                return MicrophoneResolution {
-                    device: None,
-                    unavailable_selected_microphone: None,
-                };
+                return None;
             }
-            DesiredMicrophone::Selected(name) => (name.clone(), Some(name)),
-            DesiredMicrophone::Clamshell(name) => (name, None),
+            DesiredMicrophone::Priority(list) => list,
+            DesiredMicrophone::Clamshell(name) => vec![name],
         };
 
-        if let Some((cached_name, device)) = self.cached_device.lock().unwrap().as_ref() {
-            if *cached_name == device_name {
-                debug!("device resolve: cache hit for '{}'", device_name);
-                return MicrophoneResolution {
-                    device: Some(device.clone()),
-                    unavailable_selected_microphone: None,
-                };
-            }
+        if let Some(cached) = self.cached_top_choice(&wanted) {
+            debug!("device resolve: cache hit for '{}'", cached.0);
+            return Some(cached);
         }
 
         let enumerate_started = Instant::now();
-        let (device, enumeration_succeeded) = match list_input_devices() {
-            Ok(devices) => (
-                devices
-                    .into_iter()
-                    .find(|d| d.name == device_name)
-                    .map(|d| d.device),
-                true,
-            ),
+        let found = match list_input_devices() {
+            Ok(devices) => {
+                let names: Vec<&str> = devices.iter().map(|d| d.name.as_str()).collect();
+                let pick = first_connected(&wanted, &names).map(str::to_string);
+                pick.and_then(|name| {
+                    devices
+                        .into_iter()
+                        .find(|d| d.name == name)
+                        .map(|d| (name, d.device))
+                })
+            }
             Err(e) => {
                 debug!("Failed to list devices, using default: {}", e);
-                (None, false)
+                None
             }
         };
         debug!(
-            "device resolve: enumerate={:?} (found={})",
+            "device resolve: enumerate={:?} (found={:?})",
             enumerate_started.elapsed(),
-            device.is_some()
+            found.as_ref().map(|(name, _)| name)
         );
-        if let Some(d) = &device {
-            *self.cached_device.lock().unwrap() = Some((device_name, d.clone()));
-        }
-
-        let unavailable_selected_microphone = if enumeration_succeeded && device.is_none() {
-            selected_microphone
-        } else {
-            None
-        };
-        MicrophoneResolution {
-            device,
-            unavailable_selected_microphone,
-        }
-    }
-
-    fn persist_default_microphone_after_fallback(&self, unavailable_name: &str) {
-        let mut settings = get_settings(&self.app_handle);
-        if settings.selected_microphone.as_deref() != Some(unavailable_name) {
-            return;
-        }
-
-        settings.selected_microphone = None;
-        write_settings(&self.app_handle, settings);
-        let _ = self.app_handle.emit(
-            "settings-changed",
-            serde_json::json!({
-                "setting": "selected_microphone",
-                "value": "Default"
-            }),
-        );
+        let found = found?;
+        *self.cached_device.lock().unwrap() = Some(found.clone());
+        Some(found)
     }
 
     fn schedule_lazy_close(&self) {
@@ -561,12 +556,22 @@ impl AudioRecordingManager {
                 .as_ref()
                 .is_some_and(|rec| rec.needs_reopen());
 
-            if !needs_reopen {
-                trace!("Microphone stream already active");
-                return Ok(());
+            if needs_reopen {
+                warn!("Microphone stream is no longer running (device disconnected?); reopening");
+                self.invalidate_device_cache();
+            } else {
+                let picked = self
+                    .resolve_microphone_device(&get_settings(&self.app_handle))
+                    .map(|(name, _)| name);
+                if picked == *self.open_microphone.lock().unwrap() {
+                    trace!("Microphone stream already active");
+                    return Ok(());
+                }
+                info!(
+                    "Microphone changed to {}; reopening",
+                    picked.as_deref().unwrap_or("the system default")
+                );
             }
-
-            warn!("Microphone stream is no longer running (device disconnected?); reopening");
 
             {
                 let mut mute_guard = self.mute_state.lock().unwrap();
@@ -580,7 +585,6 @@ impl AudioRecordingManager {
             }
             *self.is_recording.lock().unwrap() = false;
             *open_flag = false;
-            self.invalidate_device_cache();
         }
 
         let start_time = Instant::now();
@@ -595,7 +599,7 @@ impl AudioRecordingManager {
 
         let settings = get_settings(&self.app_handle);
         let resolve_started = Instant::now();
-        let mut resolution = self.resolve_microphone_device(&settings);
+        let mut device = self.resolve_microphone_device(&settings);
         let resolve_elapsed = resolve_started.elapsed();
 
         let vad_started = Instant::now();
@@ -605,14 +609,15 @@ impl AudioRecordingManager {
         let open_started = Instant::now();
         let mut recorder_opt = self.recorder.lock().unwrap();
         if let Some(rec) = recorder_opt.as_mut() {
-            if let Err(first_err) = rec.open(resolution.device.clone()) {
+            if let Err(first_err) = rec.open(device.as_ref().map(|(_, d)| d.clone())) {
                 warn!("Recorder open failed ({first_err}); re-resolving device and retrying once");
                 self.invalidate_device_cache();
-                resolution = self.resolve_microphone_device(&settings);
-                rec.open(resolution.device.clone())
+                device = self.resolve_microphone_device(&settings);
+                rec.open(device.as_ref().map(|(_, d)| d.clone()))
                     .map_err(|e| anyhow::anyhow!("Failed to open recorder: {}", e))?;
             }
         }
+        *self.open_microphone.lock().unwrap() = device.map(|(name, _)| name);
         debug!(
             "mic stream breakdown: device_resolve={:?} vad_ensure={:?} open={:?}",
             resolve_elapsed,
@@ -622,9 +627,6 @@ impl AudioRecordingManager {
         drop(recorder_opt);
 
         *open_flag = true;
-        if let Some(unavailable_name) = resolution.unavailable_selected_microphone {
-            self.persist_default_microphone_after_fallback(&unavailable_name);
-        }
         // This timing covers through cpal's stream.play() returning — i.e. the
         // point cpal surfaces as "stream running." It does NOT guarantee the
         // host audio device is producing samples yet; the first input callback
@@ -784,15 +786,15 @@ impl AudioRecordingManager {
         Ok(())
     }
 
+    /// Applies a changed microphone setting to an open stream. A recording keeps its stream,
+    /// because closing it drops what was said, and the next recording's start picks again. An
+    /// idle stream reopens only when the pick changed.
     pub fn update_selected_device(&self) -> Result<(), anyhow::Error> {
-        self.invalidate_device_cache();
-        let was_open = *self.is_open.lock().unwrap();
-        if was_open {
-            self.close_generation.fetch_add(1, Ordering::SeqCst);
-            self.stop_microphone_stream();
-            self.start_microphone_stream()?;
+        let state = self.state.lock().unwrap();
+        if !matches!(*state, RecordingState::Idle) || !*self.is_open.lock().unwrap() {
+            return Ok(());
         }
-        Ok(())
+        self.start_microphone_stream()
     }
 
     pub fn update_selected_channel(
@@ -947,5 +949,28 @@ impl AudioRecordingManager {
             }
             RecordingState::Idle => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::first_connected;
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn first_connected_skips_disconnected_microphones() {
+        let priority = names(&["Shure MV7", "AirPods Pro", "MacBook Pro Microphone"]);
+        let connected = ["MacBook Pro Microphone", "AirPods Pro"];
+        assert_eq!(first_connected(&priority, &connected), Some("AirPods Pro"));
+    }
+
+    #[test]
+    fn first_connected_is_none_when_nothing_in_the_list_is_connected() {
+        let priority = names(&["Shure MV7"]);
+        assert_eq!(first_connected(&priority, &["AirPods Pro"]), None);
+        assert_eq!(first_connected::<&str>(&[], &["AirPods Pro"]), None);
     }
 }

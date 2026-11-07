@@ -132,42 +132,6 @@ fn device_value(name: &str) -> String {
     }
 }
 
-pub fn microphone(s: &AppSettings, cx: &App) -> AnyElement {
-    let store = store(cx);
-    device_row(
-        DeviceRow {
-            id: "selected_microphone",
-            reset_id: "reset-microphone",
-            title: "settings.sound.microphone.title",
-            description: "settings.sound.microphone.description",
-            loading: "settings.sound.microphone.loading",
-            placeholder: "settings.sound.microphone.placeholder",
-            devices: &store.audio_devices,
-            selected: &s.selected_microphone,
-            disabled: false,
-            refresh: SettingsStore::refresh_audio_devices,
-        },
-        set_microphone,
-        cx,
-    )
-}
-
-fn set_microphone(name: String, cx: &mut App) {
-    let value = device_value(&name);
-    let stored = (value != "default").then(|| value.clone());
-    SettingsStore::global(cx).update(cx, |store, cx| {
-        store.update_async(
-            "selected_microphone",
-            move |s| s.selected_microphone = stored,
-            {
-                let app = store.app().clone();
-                async move { crate::commands::audio::set_selected_microphone(app, value).await }
-            },
-            cx,
-        )
-    });
-}
-
 pub fn output_device(s: &AppSettings, disabled: bool, cx: &App) -> AnyElement {
     let store = store(cx);
     device_row(

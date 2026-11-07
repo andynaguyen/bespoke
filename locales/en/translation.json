@@ -279,7 +279,17 @@
         "title": "Microphone",
         "description": "Dictate and Annotate both record from this microphone",
         "placeholder": "Select microphone...",
-        "loading": "Loading..."
+        "loading": "Loading...",
+        "priority": {
+          "title": "Priority",
+          "description": "Dictate and Annotate record from the first connected microphone. Drag to reorder.",
+          "add": "Add microphone",
+          "noneToAdd": "No other microphones connected",
+          "inUse": "In use",
+          "notConnected": "Not connected",
+          "systemDefault": "System default",
+          "alwaysLast": "Always last"
+        }
       },
       "channel": {
         "title": "Input Channel",

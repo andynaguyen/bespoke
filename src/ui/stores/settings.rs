@@ -61,13 +61,7 @@ impl SettingsStore {
             &event_bus(cx),
             |this, _, event: &AppEvent, cx| match event.name.as_str() {
                 "model-state-changed" => this.refresh(cx),
-                "settings-changed" => {
-                    this.refresh(cx);
-                    let setting = event.payload.get("setting").and_then(|s| s.as_str());
-                    if setting == Some("selected_microphone") {
-                        this.refresh_audio_devices(cx);
-                    }
-                }
+                "settings-changed" => this.refresh(cx),
                 _ => {}
             },
         )
@@ -156,8 +150,11 @@ impl SettingsStore {
                     Vec::new()
                 });
             let _ = this.update(cx, |this, cx| {
-                this.audio_devices = with_default_device(devices);
-                cx.notify();
+                let devices = with_default_device(devices);
+                if this.audio_devices != devices {
+                    this.audio_devices = devices;
+                    cx.notify();
+                }
             });
         })
         .detach();

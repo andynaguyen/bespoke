@@ -440,8 +440,15 @@ fn settings(app: &AppHandle) -> Vec<String> {
         format!("Shortcut activation: {:?}", s.shortcut_activation),
         format!("Keyboard implementation: {:?}", s.keyboard_implementation),
         format!(
-            "Microphone: {}{}",
-            s.selected_microphone.as_deref().unwrap_or("system default"),
+            "Microphones: {}{}",
+            if s.microphone_priority.is_empty() {
+                "system default".to_string()
+            } else {
+                format!(
+                    "{}, then system default",
+                    s.microphone_priority.join(", then ")
+                )
+            },
             if s.always_on_microphone {
                 ", always on"
             } else {

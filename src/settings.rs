@@ -377,7 +377,9 @@ pub struct AppSettings {
     pub selected_model: String,
     pub onboarding_completed: bool,
     pub always_on_microphone: bool,
-    pub selected_microphone: Option<String>,
+    /// Microphones by device name, highest priority first. Recording uses the first one that is
+    /// connected, and the system default when none are. Empty means the system default.
+    pub microphone_priority: Vec<String>,
     pub selected_channel: Option<u16>,
     pub clamshell_microphone: Option<String>,
     pub selected_output_device: Option<String>,
@@ -842,7 +844,7 @@ pub fn get_default_settings() -> AppSettings {
         selected_model: "".to_string(),
         onboarding_completed: false,
         always_on_microphone: false,
-        selected_microphone: None,
+        microphone_priority: Vec::new(),
         selected_channel: None,
         clamshell_microphone: None,
         selected_output_device: None,
@@ -1078,6 +1080,17 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    if settings_value.get("microphone_priority").is_none() {
+        if let Some(name) = settings_value
+            .get("selected_microphone")
+            .and_then(|v| v.as_str())
+            .filter(|name| !name.eq_ignore_ascii_case("default"))
+        {
+            settings.microphone_priority = vec![name.to_string()];
+            updated = true;
+        }
+    }
+
     if settings_value.get("annotate_mcp_reach").is_none()
         && settings_value
             .get("annotate_mcp_enabled")
@@ -1283,6 +1296,32 @@ mod tests {
         );
         assert_eq!(settings.shortcut_activation, ShortcutActivation::Toggle);
         assert_eq!(settings.transcribe_gpu_device, None);
+        assert_eq!(
+            settings.microphone_priority,
+            vec!["MacBook Pro Microphone".to_string()]
+        );
+    }
+
+    #[test]
+    fn microphone_migration_leaves_system_default_empty() {
+        let raw = serde_json::json!({ "selected_microphone": null });
+        let mut settings: AppSettings = serde_json::from_value(raw.clone()).unwrap();
+        apply_settings_migrations(&mut settings, &raw);
+        assert!(settings.microphone_priority.is_empty());
+    }
+
+    #[test]
+    fn microphone_migration_respects_an_existing_list() {
+        let raw = serde_json::json!({
+            "selected_microphone": "Old Mic",
+            "microphone_priority": ["Shure MV7", "AirPods Pro"]
+        });
+        let mut settings: AppSettings = serde_json::from_value(raw.clone()).unwrap();
+        apply_settings_migrations(&mut settings, &raw);
+        assert_eq!(
+            settings.microphone_priority,
+            vec!["Shure MV7", "AirPods Pro"]
+        );
     }
 
     #[test]

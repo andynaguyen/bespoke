@@ -1,6 +1,6 @@
 use gpui::{
     div, point, prelude::*, px, rems, AnyElement, App, Context, Entity, FocusHandle, FontWeight,
-    ScrollHandle, SharedString, Window,
+    ScrollHandle, SharedString, Task, Window,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -27,6 +27,7 @@ use super::shortcut_input::ShortcutInput;
 
 const DIALOG_WIDTH: f32 = 980.;
 const NAV_WIDTH: f32 = 210.;
+const DEVICE_POLL: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// A page of the Settings dialog, listed in its sidebar.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -198,6 +199,7 @@ pub struct SettingsDialog {
     accelerators: Option<AvailableAccelerators>,
     app_dir: Result<String, String>,
     log_dir: Result<String, String>,
+    device_poll: Option<Task<()>>,
 }
 
 impl SettingsDialog {
@@ -223,7 +225,8 @@ impl SettingsDialog {
         cx.observe(&annotate, |_, _, cx| cx.notify()).detach();
 
         let app = AppHandle::global().clone();
-        let this = Self {
+        let mut this = Self {
+            device_poll: None,
             post_process_shortcut: cx
                 .new(|cx| ShortcutInput::new("transcribe_with_post_process", cx)),
             post_processing_api: cx.new(|cx| PostProcessingApi::new(window, cx)),
@@ -248,6 +251,7 @@ impl SettingsDialog {
             });
         })
         .detach();
+        this.sync_device_poll(cx);
         this
     }
 
@@ -268,9 +272,30 @@ impl SettingsDialog {
     pub fn select(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         if self.section != section {
             self.section = section;
+            self.sync_device_poll(cx);
             self.scroll.set_offset(point(px(0.), px(0.)));
         }
         cx.notify();
+    }
+
+    fn sync_device_poll(&mut self, cx: &mut Context<Self>) {
+        if self.section != SettingsSection::Sound {
+            self.device_poll = None;
+            return;
+        }
+        if self.device_poll.is_some() {
+            return;
+        }
+        let store = self.store.clone();
+        self.device_poll = Some(cx.spawn(async move |_, cx| loop {
+            if store
+                .update(cx, |store, cx| store.refresh_audio_devices(cx))
+                .is_err()
+            {
+                return;
+            }
+            cx.background_executor().timer(DEVICE_POLL).await;
+        }));
     }
 
     #[cfg(target_os = "macos")]

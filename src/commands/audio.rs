@@ -33,7 +33,7 @@ pub fn check_custom_sounds(app: AppHandle) -> CustomSounds {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AudioDevice {
     pub index: String,
     pub name: String,
@@ -169,13 +169,9 @@ async fn list_devices(
     .map_err(|e| format!("audio task join failed: {}", e))?
 }
 
-pub async fn set_selected_microphone(app: AppHandle, device_name: String) -> Result<(), String> {
+pub async fn set_microphone_priority(app: AppHandle, priority: Vec<String>) -> Result<(), String> {
     let mut settings = get_settings(&app);
-    settings.selected_microphone = if device_name == "default" {
-        None
-    } else {
-        Some(device_name)
-    };
+    settings.microphone_priority = priority;
     write_settings(&app, settings);
 
     let rm = app.state::<Arc<AudioRecordingManager>>().inner().clone();

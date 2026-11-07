@@ -10,6 +10,7 @@ mod keyword_field;
 mod language_picker;
 #[cfg(target_os = "macos")]
 mod mcp;
+mod microphone_priority;
 mod models;
 mod post_processing;
 pub mod rows;
