@@ -782,8 +782,8 @@ impl CaptureProcessor {
             return;
         }
 
-        if let Some(buckets) = self.visualizer.feed(raw)
-            && let Some(callback) = &self.level_cb
+        if let Some(callback) = &self.level_cb
+            && let Some(buckets) = self.visualizer.feed(raw)
         {
             callback(buckets);
         }
