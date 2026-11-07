@@ -1,3 +1,10 @@
+# Third-party notices
+
+## Scrawl
+
+Annotate's capture code in `src/annotate/` and its helper in `swift/annotate-helper/` derive from [Scrawl](https://github.com/kitlangton/scrawl). `docs/annotate-upstream.md` maps them to upstream.
+
+```text
 MIT License
 
 Copyright (c) 2026 Kit Langton
@@ -19,3 +26,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```

@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 
 use screencapturekit::prelude::*;
 use screencapturekit::recording_output::{
-    RecordingCallbacks, SCRecordingOutput, SCRecordingOutputCodec,
-    SCRecordingOutputConfiguration, SCRecordingOutputFileType,
+    RecordingCallbacks, SCRecordingOutput, SCRecordingOutputCodec, SCRecordingOutputConfiguration,
+    SCRecordingOutputFileType,
 };
 use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
 
@@ -20,7 +20,7 @@ use super::{
     ShortcutConfig, capture_size, clean_label, pick_display, poll_clicks, scrawl_log,
     track_shift_ink,
 };
-use crate::model::{CaptureMode, InteractionEvent, RgbaFrame, TargetInfo};
+use crate::annotate::model::{CaptureMode, InteractionEvent, RgbaFrame, TargetInfo};
 
 pub const MAX_CAPTURE_SCALE: f64 = 2.0;
 
@@ -30,7 +30,7 @@ pub(super) const NO_KEY_SOURCE: &str =
     "nowhere (Accessibility off; the record shortcut still works)";
 
 pub fn log_dir() -> Option<PathBuf> {
-    if let Some(dir) = crate::host::log_dir() {
+    if let Some(dir) = crate::annotate::host::log_dir() {
         return Some(dir.to_path_buf());
     }
     dirs::home_dir().map(|home| home.join("Library/Logs/Scrawl"))
@@ -40,8 +40,8 @@ pub fn main_display_id() -> u32 {
     unsafe { CGMainDisplayID() }
 }
 
-pub(super) fn raw_windows_now() -> Vec<crate::windows::RawWindow> {
-    objc2::rc::autoreleasepool(|_| crate::windows::raw_windows())
+pub(super) fn raw_windows_now() -> Vec<crate::annotate::windows::RawWindow> {
+    objc2::rc::autoreleasepool(|_| crate::annotate::windows::raw_windows())
 }
 
 type CfTypeRef = *const c_void;
@@ -482,7 +482,7 @@ pub fn discover_target(window_query: Option<&str>) -> TargetInfo {
 
 pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -> TargetInfo {
     let frontmost = frontmost_app_info();
-    let screens = crate::screens::displays();
+    let screens = crate::annotate::screens::displays();
     if let Ok(content) = SCShareableContent::get() {
         let our_pid = std::process::id() as i32;
         if let Some(query) = window_query {
@@ -512,7 +512,7 @@ pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -
                     window_title: win.title(),
                     window_id: Some(win.window_id()),
                     display_id,
-                    frame: crate::screens::with_scale(rect, scale),
+                    frame: crate::annotate::screens::with_scale(rect, scale),
                 };
             }
         }
@@ -553,7 +553,7 @@ pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -
                 window_title,
                 window_id: None,
                 display_id: display.display_id(),
-                frame: crate::screens::with_scale(rect, scale),
+                frame: crate::annotate::screens::with_scale(rect, scale),
             };
         }
     }
@@ -564,9 +564,12 @@ pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -
             let id = unsafe { CGMainDisplayID() };
             let w = (unsafe { CGDisplayPixelsWide(id) } as f64).max(1440.0);
             let h = (unsafe { CGDisplayPixelsHigh(id) } as f64).max(900.0);
-            (id, crate::screens::with_scale([0.0, 0.0, w, h], 2.0))
+            (
+                id,
+                crate::annotate::screens::with_scale([0.0, 0.0, w, h], 2.0),
+            )
         },
-        |s| (s.id, crate::screens::with_scale(s.frame, s.scale)),
+        |s| (s.id, crate::annotate::screens::with_scale(s.frame, s.scale)),
     );
     TargetInfo {
         mode: CaptureMode::Display,
@@ -579,8 +582,8 @@ pub fn discover_target_at(window_query: Option<&str>, point: Option<[f64; 2]>) -
     }
 }
 
-fn display_of(screens: &[crate::screens::Screen], rect: [f64; 4]) -> (u32, f64) {
-    crate::screens::index_for_rect(screens, rect).map_or_else(
+fn display_of(screens: &[crate::annotate::screens::Screen], rect: [f64; 4]) -> (u32, f64) {
+    crate::annotate::screens::index_for_rect(screens, rect).map_or_else(
         || (unsafe { CGMainDisplayID() }, 2.0),
         |i| (screens[i].id, screens[i].scale),
     )
@@ -591,7 +594,7 @@ pub fn list_selectable_windows() -> Vec<TargetInfo> {
         return Vec::new();
     };
     let our_pid = std::process::id() as i32;
-    let screens = crate::screens::displays();
+    let screens = crate::annotate::screens::displays();
 
     content
         .windows()
@@ -621,7 +624,7 @@ pub fn list_selectable_windows() -> Vec<TargetInfo> {
                 window_title: w.title().map(|t| clean_label(&t)).filter(|t| !t.is_empty()),
                 window_id: Some(w.window_id()),
                 display_id,
-                frame: crate::screens::with_scale(rect, scale),
+                frame: crate::annotate::screens::with_scale(rect, scale),
             }
         })
         .collect()
@@ -732,7 +735,7 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         started_at,
         &thread_offset,
     );
-    crate::ui::start_metric("sck_ready_ms", started_at);
+    crate::annotate::coordinator::start_metric("sck_ready_ms", started_at);
     let shot_edge = if video_path.is_some() {
         CANDIDATE_EDGE
     } else {
@@ -791,10 +794,10 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
             }
             let frame = if let Some((ref filter, ref config)) = filter_and_config {
                 capture_sck_frame(filter, config, t_ms).unwrap_or_else(|| {
-                    crate::render::render_synthetic_demo_frame(1280, 800, t_ms, phase)
+                    crate::annotate::render::render_synthetic_demo_frame(1280, 800, t_ms, phase)
                 })
             } else {
-                crate::render::render_synthetic_demo_frame(1280, 800, t_ms, phase)
+                crate::annotate::render::render_synthetic_demo_frame(1280, 800, t_ms, phase)
             };
             thread_frames
                 .lock()
@@ -964,7 +967,7 @@ fn sck_config(target: &TargetInfo, long_edge: f64) -> SCStreamConfiguration {
             target.frame.height,
         ];
         let [x, y, w, h] = if display[2] > 0.0 && display[3] > 0.0 {
-            crate::screens::source_rect(area, display)
+            crate::annotate::screens::source_rect(area, display)
         } else {
             area
         };
@@ -1061,7 +1064,7 @@ fn capture_sck_frame(
 /// starts. They're left out of the recording when ScreenCaptureKit lists them, and frames that
 /// could show one are never candidates, so a prompt doesn't become a keyframe.
 struct SystemPrompts {
-    frame: Option<crate::model::TargetFrame>,
+    frame: Option<crate::annotate::model::TargetFrame>,
     ids: Vec<u32>,
     hidden: Vec<u32>,
     checked: Option<Instant>,
@@ -1093,8 +1096,8 @@ impl SystemPrompts {
             return false;
         }
         self.checked = Some(Instant::now());
-        let raw = objc2::rc::autoreleasepool(|_| crate::windows::raw_windows());
-        let ids = crate::windows::system_prompts_over(&raw, frame);
+        let raw = objc2::rc::autoreleasepool(|_| crate::annotate::windows::raw_windows());
+        let ids = crate::annotate::windows::system_prompts_over(&raw, frame);
         let appeared = ids.iter().any(|id| !self.ids.contains(id));
         if appeared {
             scrawl_log(format!("system prompt over the capture: windows {ids:?}"));
@@ -1628,12 +1631,12 @@ fn ansi_key_char(keycode: u16) -> Option<char> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::TargetFrame;
+    use crate::annotate::model::TargetFrame;
 
     /// Records the main display for 2 s and ends it the way a capture does: the MP4 must be
     /// complete when `finish_sck_recording` returns. Needs Screen Recording for the process
     /// that runs the test. Run with
-    /// `cargo test -p scrawl recording_ends_with_a_complete_mp4 -- --ignored --nocapture`.
+    /// `cargo test recording_ends_with_a_complete_mp4 -- --ignored --nocapture`.
     #[test]
     #[ignore = "records the screen"]
     fn recording_ends_with_a_complete_mp4() {
@@ -1652,7 +1655,8 @@ mod tests {
                 scale: 2.0,
             },
         };
-        let path = std::env::temp_dir().join(format!("{}.mp4", crate::make_bundle_id()));
+        let path =
+            std::env::temp_dir().join(format!("{}.mp4", crate::annotate::bundle::make_bundle_id()));
         let (stream, recording, video, _) = setup_sck_capture(
             &target,
             Some(path.clone()),
@@ -1803,8 +1807,8 @@ mod tests {
                 (Some(3), [0.7, 0.3])
             ]
         );
-        let shape = crate::sketch::shape_of(&strokes[0]);
-        assert_eq!(shape, crate::model::Shape::Pin);
+        let shape = crate::annotate::sketch::shape_of(&strokes[0]);
+        assert_eq!(shape, crate::annotate::model::Shape::Pin);
         assert!(
             matches!(events[..], [InteractionEvent::Click { x, .. }] if (x - 0.9).abs() < 1e-3),
             "{events:?}"

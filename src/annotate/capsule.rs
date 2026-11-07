@@ -2,14 +2,14 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
+use crate::annotate::host::{
+    CapsuleActions, CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
+    SelectionMode,
+};
 use gpui::{
     Animation, AnimationExt, AnyElement, App, Bounds, Context, FontWeight, Pixels, SharedString,
     Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind,
     WindowOptions, canvas, div, prelude::*, px, size,
-};
-use scrawl::host::{
-    CapsuleActions, CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
-    SelectionMode,
 };
 
 use crate::app_handle::AppHandle;
@@ -67,7 +67,7 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
         },
     };
     let anchor = native::pointer().map_or([0., 0.], |(p, _)| p);
-    scrawl::host::preview_capsule(
+    crate::annotate::host::preview_capsule(
         PillSnapshot {
             pres,
             clock: "0:21".into(),
@@ -81,7 +81,7 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
 
 pub fn init(app: &AppHandle) {
     let ui = app.clone();
-    scrawl::host::on_capsule(move |link| {
+    crate::annotate::host::on_capsule(move |link| {
         ui.with_ui(move |cx| open(link, cx));
     });
 }
@@ -216,7 +216,9 @@ impl AnnotateCapsule {
         };
         let at_top = self.at_top();
         let size = [f64::from(WINDOW_W), f64::from(WINDOW_H)];
-        let Some(mut origin) = scrawl::host::capsule_origin(anchor, size, at_top, EDGE_GAP) else {
+        let Some(mut origin) =
+            crate::annotate::host::capsule_origin(anchor, size, at_top, EDGE_GAP)
+        else {
             return;
         };
         if at_top {

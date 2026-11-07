@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 
-use crate::capture::scrawl_log;
+use crate::annotate::capture::scrawl_log;
 
 pub const PINNED: &str = ".pinned";
 pub const MEDIA_CLEANED: &str = ".media-cleaned";
@@ -66,7 +66,7 @@ impl Policy {
     }
 
     pub fn load() -> Self {
-        Self::load_from(&crate::handoff::default_config_path())
+        Self::load_from(&crate::annotate::handoff::default_config_path())
     }
 
     pub fn load_from(path: &Path) -> Self {
@@ -79,7 +79,11 @@ impl Policy {
     }
 
     pub fn save_to(&self, path: &Path) -> Result<()> {
-        crate::handoff::set_config_value_in(path, "retention", serde_json::to_value(self)?)
+        crate::annotate::handoff::set_config_value_in(
+            path,
+            "retention",
+            serde_json::to_value(self)?,
+        )
     }
 }
 
@@ -163,7 +167,7 @@ fn changed_ago(path: &Path, now: SystemTime) -> Option<Duration> {
 fn created_ms(dir: &Path, manifest: &Manifest) -> Option<u64> {
     manifest
         .created_at_ms
-        .or_else(|| crate::handoff::created_ms_in_name(dir))
+        .or_else(|| crate::annotate::handoff::created_ms_in_name(dir))
 }
 
 pub fn plan(captures: &Path, policy: &Policy, now: SystemTime) -> Vec<Action> {
@@ -206,7 +210,7 @@ pub fn plan(captures: &Path, policy: &Policy, now: SystemTime) -> Vec<Action> {
             continue;
         }
         if due(policy.media_days) {
-            let items: Vec<PathBuf> = crate::handoff::HEAVY_MEDIA
+            let items: Vec<PathBuf> = crate::annotate::handoff::HEAVY_MEDIA
                 .iter()
                 .map(|rel| dir.join(rel))
                 .filter(|p| p.exists())
@@ -298,7 +302,7 @@ fn trash_media(bundle: &Path, items: &[PathBuf], days: u32, trasher: Trasher) ->
         moved.push(file.to_string_lossy().into_owned());
     }
     let note = serde_json::json!({
-        "cleanedAtMs": crate::now_epoch_ms(),
+        "cleanedAtMs": crate::annotate::bundle::now_epoch_ms(),
         "afterDays": days,
         "trashed": moved,
     });
@@ -420,7 +424,7 @@ pub fn nudge() {
 
 fn worker(jobs: &flume::Receiver<()>) {
     lower_priority();
-    let captures = crate::handoff::default_captures_dir();
+    let captures = crate::annotate::handoff::default_captures_dir();
     let mut next_pass = Instant::now() + Duration::from_secs(90);
     let mut last_pass: Option<SystemTime> = None;
     loop {
@@ -469,7 +473,7 @@ mod tests {
             let dir = std::env::temp_dir().join(format!(
                 "scrawl-retention-{tag}-{}-{}",
                 std::process::id(),
-                crate::make_bundle_id()
+                crate::annotate::bundle::make_bundle_id()
             ));
             std::fs::create_dir_all(&dir).unwrap();
             Self(dir)

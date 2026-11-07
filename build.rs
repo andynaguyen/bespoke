@@ -4,9 +4,91 @@ fn main() {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     build_apple_intelligence_bridge();
 
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        build_annotate_helper();
+        link_swift_runtime();
+    }
+
     embed_locales();
     embed_release_notes();
     embed_assets();
+}
+
+/// Builds Annotate's Swift helper (`swift/annotate-helper/`), which transcribes with Apple
+/// Speech, reads frames from the recording and shows the permission panel, into
+/// `target/<profile>/scrawl-helper`. `scripts/bundle-app.sh` copies it into the app. The file
+/// keeps its name and bundle id so the macOS permissions it was granted carry over.
+fn build_annotate_helper() {
+    use std::process::Command;
+
+    let helper_dir = manifest_dir().join("swift/annotate-helper");
+    println!("cargo:rerun-if-changed={}", helper_dir.display());
+    let mut sources: Vec<PathBuf> = std::fs::read_dir(&helper_dir)
+        .expect("swift/annotate-helper is missing")
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "swift"))
+        .collect();
+    sources.sort();
+    for source in &sources {
+        println!("cargo:rerun-if-changed={}", source.display());
+    }
+    let plist = helper_dir.join("Info.plist");
+    println!("cargo:rerun-if-changed={}", plist.display());
+    let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
+    let profile_dir = out_dir
+        .ancestors()
+        .nth(3)
+        .expect("Unexpected OUT_DIR layout");
+    let arch = match std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
+        Ok("x86_64") => "x86_64",
+        _ => "arm64",
+    };
+    let built = out_dir.join("scrawl-helper");
+    let status = Command::new("xcrun")
+        .args(["swiftc", "-O", "-swift-version", "5", "-target"])
+        .arg(format!("{arch}-apple-macos26.0"))
+        .args(&sources)
+        .arg("-o")
+        .arg(&built)
+        .args([
+            "-Xlinker",
+            "-sectcreate",
+            "-Xlinker",
+            "__TEXT",
+            "-Xlinker",
+            "__info_plist",
+            "-Xlinker",
+        ])
+        .arg(&plist)
+        .status()
+        .expect("xcrun swiftc is required to build Annotate's helper");
+    assert!(
+        status.success(),
+        "Annotate's helper failed to compile (needs the macOS 26 SDK)"
+    );
+    let dest = profile_dir.join("scrawl-helper");
+    let _ = std::fs::remove_file(&dest);
+    std::fs::copy(&built, dest).expect("Could not place Annotate's helper");
+}
+
+/// screencapturekit's Swift bridge needs the Swift runtime, from the OS or, for older
+/// back-deployment libraries, from Xcode's toolchain.
+fn link_swift_runtime() {
+    use std::process::Command;
+
+    println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
+    if let Ok(output) = Command::new("xcode-select").arg("-p").output()
+        && output.status.success()
+        && let Ok(developer_dir) = String::from_utf8(output.stdout)
+    {
+        for runtime in ["swift-5.5/macosx", "swift/macosx"] {
+            let swift_runtime = format!(
+                "{}/Toolchains/XcodeDefault.xctoolchain/usr/lib/{runtime}",
+                developer_dir.trim()
+            );
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{swift_runtime}");
+        }
+    }
 }
 
 fn embed_assets() {
@@ -293,8 +375,6 @@ fn build_apple_intelligence_bridge() {
         println!("cargo:rustc-link-arg=-weak_framework");
         println!("cargo:rustc-link-arg=FoundationModels");
     }
-
-    println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
 }
 
 /// Returns true when the active developer directory is the standalone Command

@@ -6,7 +6,7 @@
 //! - **Local** points, top-left origin at one display's top-left corner: what an overlay
 //!   covering that display draws in, and `SCStreamConfiguration.sourceRect`.
 //!
-use crate::model::TargetFrame;
+use crate::annotate::model::TargetFrame;
 
 pub type Rect = [f64; 4];
 
@@ -203,7 +203,7 @@ pub fn current() -> Vec<Screen> {
 }
 
 pub fn pointer() -> Option<[f64; 2]> {
-    crate::capture::current_mouse_screen().map(|[x, y]| [f64::from(x), f64::from(y)])
+    crate::annotate::capture::current_mouse_screen().map(|[x, y]| [f64::from(x), f64::from(y)])
 }
 
 #[cfg(test)]

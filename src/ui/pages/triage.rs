@@ -164,7 +164,7 @@ impl TriageDialog {
     }
 
     #[cfg(target_os = "macos")]
-    fn attach(&mut self, capture: Option<scrawl::host::Finished>) {
+    fn attach(&mut self, capture: Option<crate::annotate::host::Finished>) {
         if let Some(capture) = capture.filter(|capture| capture.dir.is_dir()) {
             self.capture = Some(Attached {
                 label: capture_label(capture.created_at_ms, &capture.duration()),
@@ -179,7 +179,7 @@ impl TriageDialog {
         draft.agent = Some(self.agent);
         draft.reopen_after_recording = true;
         close_dialog(window, cx);
-        scrawl::host::menu(scrawl::MenuAction::ToggleCapture);
+        crate::annotate::host::menu(crate::annotate::coordinator::MenuAction::ToggleCapture);
     }
 
     fn start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -458,7 +458,7 @@ fn show_hint(cx: &App) -> impl IntoElement {
     let shortcut = super::annotate::shortcut_label(
         crate::ui::stores::SettingsStore::get(cx),
         crate::annotate::RECORD_BINDING,
-        scrawl::ShortcutKind::Record,
+        crate::annotate::capture::ShortcutKind::Record,
     );
     let (before, after) = (before.trim_end(), after.trim_start());
     line.when(!before.is_empty(), |el| {

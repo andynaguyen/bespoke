@@ -107,18 +107,28 @@ transcribe-cpp = { version = "0.2.3", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 transcribe-cpp = { version = "0.2.3", default-features = false, features = ["metal"] }
-scrawl = { path = "vendor/scrawl" }
 base64 = "0.22"
 getrandom = "0.3"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 objc2 = "0.6"
-objc2-foundation = "0.3"
-objc2-app-kit = "0.3"
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSData", "NSString"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSPasteboardItem"] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
 objc2-service-management = "0.3.2"
 raw-window-handle = "0.6"
 block2 = "0.6"
+# Annotate: screen recording, ink overlay and contact sheets.
+core-foundation = "0.10.0"
+core-graphics = "0.24.0"
+core-graphics-types = "0.1.3"
+core-text = "21.0.0"
+core-video = "0.4.3"
+flume = "0.12.0"
+metal = "0.29.0"
+png = "0.18.1"
+screencapturekit = { version = "=11.0.0", features = ["macos_15_0"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"

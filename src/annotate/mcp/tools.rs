@@ -1,11 +1,11 @@
 use std::io::Cursor;
 use std::path::Path;
 
+use crate::annotate::host::Capture;
 use anyhow::{Context, Result, ensure};
 use base64::Engine as _;
 use chrono::{Local, TimeZone};
 use image::{ImageFormat, ImageReader, imageops::FilterType};
-use scrawl::host::Capture;
 use serde_json::{Value, json};
 
 const MAX_IMAGE_EDGE: u32 = 1600;

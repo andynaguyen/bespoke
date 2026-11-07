@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use crate::windows::{CursorSample, WindowSnapshot};
+pub use crate::annotate::windows::{CursorSample, WindowSnapshot};
 
 pub const SCALE: i32 = 10_000;
 
@@ -76,7 +76,7 @@ pub struct KeyframeCrop {
     pub y: f64,
     pub width: f64,
     pub height: f64,
-    pub kind: crate::autocrop::CropKind,
+    pub kind: crate::annotate::autocrop::CropKind,
     pub reason: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub apps: Vec<String>,

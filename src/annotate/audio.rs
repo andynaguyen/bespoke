@@ -33,9 +33,11 @@ impl AudioRecorder {
             .spawn(move || {
                 let stream =
                     Self::open_stream(worker_samples, worker_error).inspect_err(|error| {
-                        crate::capture::scrawl_log(format!("Microphone startup failed: {error:#}"));
+                        crate::annotate::capture::scrawl_log(format!(
+                            "Microphone startup failed: {error:#}"
+                        ));
                     })?;
-                crate::ui::start_metric("audio_ready_ms", started);
+                crate::annotate::coordinator::start_metric("audio_ready_ms", started);
                 let _ = stop_receiver.recv();
                 drop(stream);
                 Ok(())
@@ -53,23 +55,23 @@ impl AudioRecorder {
         samples: Arc<Mutex<Vec<f32>>>,
         error: Arc<Mutex<Option<String>>>,
     ) -> Result<cpal::Stream> {
-        if let Some(wanted) = crate::host::host_microphone() {
+        if let Some(wanted) = crate::annotate::host::host_microphone() {
             return Self::open_named(wanted.as_deref(), samples, error);
         }
-        let choice = crate::mic::choice();
+        let choice = crate::annotate::mic::choice();
         if let Some(choice) = &choice {
-            if let Some(device) = crate::mic::device(&choice.id) {
-                let input = crate::mic::Input {
+            if let Some(device) = crate::annotate::mic::device(&choice.id) {
+                let input = crate::annotate::mic::Input {
                     id: choice.id.clone(),
                     name: device_name(&device).unwrap_or_else(|| choice.name.clone()),
                 };
-                crate::mic::note_pick(&crate::mic::Pick::Chosen(&input));
+                crate::annotate::mic::note_pick(&crate::annotate::mic::Pick::Chosen(&input));
                 match Self::open_device(&device, samples.clone(), error.clone()) {
                     Ok(stream) => {
-                        crate::capture::scrawl_log(format!("Microphone: {}", input.name));
+                        crate::annotate::capture::scrawl_log(format!("Microphone: {}", input.name));
                         return Ok(stream);
                     }
-                    Err(e) => crate::capture::scrawl_log(format!(
+                    Err(e) => crate::annotate::capture::scrawl_log(format!(
                         "Microphone: could not open {} ({e:#}); using the default",
                         input.name
                     )),
@@ -78,16 +80,19 @@ impl AudioRecorder {
                 let default = cpal::default_host()
                     .default_input_device()
                     .and_then(|device| {
-                        Some(crate::mic::Input {
-                            id: crate::mic::device_uid(&device)?,
+                        Some(crate::annotate::mic::Input {
+                            id: crate::annotate::mic::device_uid(&device)?,
                             name: device_name(&device)?,
                         })
                     });
-                let inputs = crate::mic::Inputs {
+                let inputs = crate::annotate::mic::Inputs {
                     default: default.as_ref().map(|d| d.id.clone()),
                     devices: default.into_iter().collect(),
                 };
-                crate::mic::note_pick(&crate::mic::Pick::new(Some(choice), &inputs));
+                crate::annotate::mic::note_pick(&crate::annotate::mic::Pick::new(
+                    Some(choice),
+                    &inputs,
+                ));
             }
         }
         Self::open_default(samples, error)
@@ -111,14 +116,14 @@ impl AudioRecorder {
         match device {
             Some(device) => match Self::open_device(&device, samples.clone(), error.clone()) {
                 Ok(stream) => {
-                    crate::capture::scrawl_log(format!("Microphone: {name}"));
+                    crate::annotate::capture::scrawl_log(format!("Microphone: {name}"));
                     return Ok(stream);
                 }
-                Err(e) => crate::capture::scrawl_log(format!(
+                Err(e) => crate::annotate::capture::scrawl_log(format!(
                     "Microphone: could not open {name} ({e:#}); using the default"
                 )),
             },
-            None => crate::capture::scrawl_log(format!(
+            None => crate::annotate::capture::scrawl_log(format!(
                 "Microphone: {name} isn't connected; using the default"
             )),
         }
@@ -133,7 +138,7 @@ impl AudioRecorder {
             .default_input_device()
             .context("No microphone is available")?;
         let stream = Self::open_device(&device, samples, error)?;
-        crate::capture::scrawl_log(format!(
+        crate::annotate::capture::scrawl_log(format!(
             "Microphone: {} (default)",
             device_name(&device).unwrap_or_default()
         ));
@@ -147,7 +152,7 @@ impl AudioRecorder {
     ) -> Result<cpal::Stream> {
         let supported = device.default_input_config()?;
         let config = supported.config();
-        crate::capture::scrawl_log(format!(
+        crate::annotate::capture::scrawl_log(format!(
             "Microphone: {} Hz, {} ch, {:?}",
             config.sample_rate.0,
             config.channels,
@@ -207,7 +212,9 @@ impl AudioRecorder {
             if samples_16k.is_empty() {
                 bail!("Microphone capture failed: {error}");
             }
-            crate::capture::scrawl_log(format!("Microphone: {error}; keeping what it heard"));
+            crate::annotate::capture::scrawl_log(format!(
+                "Microphone: {error}; keeping what it heard"
+            ));
         }
         let sample_count = samples_16k.len();
         let duration_ms = sample_count as u64 * 1_000 / SAMPLE_RATE as u64;

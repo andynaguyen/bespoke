@@ -5,10 +5,10 @@ use std::process::Command;
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use serde::{Deserialize, Serialize};
 
-use crate::model::ScrawlBundle;
+use crate::annotate::model::ScrawlBundle;
 
 pub fn default_captures_dir() -> PathBuf {
-    match crate::host::data_dir() {
+    match crate::annotate::host::data_dir() {
         Some(dir) => dir.join("captures"),
         None => std::env::temp_dir().join("scrawl-captures"),
     }
@@ -138,11 +138,11 @@ impl Capture {
                 _ => None,
             })
             .collect();
-        let name = match names
-            .iter()
-            .rev()
-            .find(|name| Path::new(name).extension().is_some_and(|ext| ext == "scrawl"))
-        {
+        let name = match names.iter().rev().find(|name| {
+            Path::new(name)
+                .extension()
+                .is_some_and(|ext| ext == "scrawl")
+        }) {
             Some(name) => name.to_os_string(),
             None if names.len() == 1 => {
                 let mut name = names[0].to_os_string();
@@ -192,11 +192,11 @@ impl Capture {
     }
 
     pub fn duration(&self) -> String {
-        crate::model::format_clock(self.bundle.duration_ms)
+        crate::annotate::model::format_clock(self.bundle.duration_ms)
     }
 
     pub fn target(&self) -> String {
-        crate::sketch::target_label(&self.bundle.target)
+        crate::annotate::sketch::target_label(&self.bundle.target)
     }
 
     pub fn keyframe_count(&self) -> usize {
@@ -226,7 +226,7 @@ impl Capture {
                     .to_owned();
                 Some(KeyframeRow {
                     index: keyframe.index,
-                    clock: crate::model::format_clock(keyframe.t),
+                    clock: crate::annotate::model::format_clock(keyframe.t),
                     action,
                     said: keyframe
                         .said
@@ -234,7 +234,7 @@ impl Capture {
                         .map(str::trim)
                         .filter(|said| !said.is_empty())
                         .map(str::to_owned),
-                    mark: keyframe.reason == crate::model::KeyframeReason::Mark
+                    mark: keyframe.reason == crate::annotate::model::KeyframeReason::Mark
                         || keyframe.mark_id.is_some(),
                     path,
                 })
@@ -242,8 +242,8 @@ impl Capture {
             .collect()
     }
 
-    pub(crate) fn finished(&self) -> crate::host::Finished {
-        crate::host::Finished::of(&self.dir, &self.bundle)
+    pub(crate) fn finished(&self) -> crate::annotate::host::Finished {
+        crate::annotate::host::Finished::of(&self.dir, &self.bundle)
     }
 
     /// The newest capture by the time in its folder's name. Reads only that capture's manifest.
@@ -267,7 +267,7 @@ impl Capture {
     }
 
     pub fn summary(&self) -> String {
-        crate::sketch::summary_markdown(&self.bundle, Path::new(&self.id()))
+        crate::annotate::sketch::summary_markdown(&self.bundle, Path::new(&self.id()))
     }
 
     pub fn contact_sheet(&self, full: bool) -> Result<PathBuf> {
@@ -291,7 +291,7 @@ impl Capture {
         };
         let label = format!(
             "#{index} ({})",
-            crate::model::format_clock(keyframe.t)
+            crate::annotate::model::format_clock(keyframe.t)
         );
         let path = match &self.bundle.autocrop {
             Some(crop) if full => {
@@ -323,7 +323,10 @@ impl Capture {
                 .get_mut("strokes")
                 .and_then(serde_json::Value::as_array_mut)
         {
-            for stroke in strokes.iter_mut().filter_map(serde_json::Value::as_object_mut) {
+            for stroke in strokes
+                .iter_mut()
+                .filter_map(serde_json::Value::as_object_mut)
+            {
                 stroke.remove("pts");
             }
         }
@@ -340,7 +343,11 @@ impl Capture {
             relative.display()
         );
         let path = self.dir.join(relative);
-        ensure!(path.is_file(), "Missing from the capture: {}", relative.display());
+        ensure!(
+            path.is_file(),
+            "Missing from the capture: {}",
+            relative.display()
+        );
         Ok(path)
     }
 
@@ -391,16 +398,16 @@ pub fn copy_png_to_clipboard(png_bytes: &[u8]) -> Result<()> {
 
 pub fn copy_bundle_to_clipboard(bundle_dir: &Path) -> Result<()> {
     let (directory, bundle) = load_bundle(bundle_dir)?;
-    let summary = crate::sketch::summary_markdown(&bundle, &directory);
+    let summary = crate::annotate::sketch::summary_markdown(&bundle, &directory);
     copy_string_to_clipboard(&summary)
 }
 
 pub fn paste_bundle_at_target(bundle_dir: &Path, click_target: Option<[f32; 2]>) -> Result<()> {
     if let Some([x, y]) = click_target {
-        crate::capture::post_synthetic_click(f64::from(x), f64::from(y));
+        crate::annotate::capture::post_synthetic_click(f64::from(x), f64::from(y));
         std::thread::sleep(std::time::Duration::from_millis(65));
     } else {
-        crate::capture::ensure_external_app_active();
+        crate::annotate::capture::ensure_external_app_active();
     }
     paste_bundle_image_and_text(bundle_dir)
 }
@@ -409,11 +416,11 @@ pub fn paste_bundle_image_and_text(bundle_dir: &Path) -> Result<()> {
     let (directory, bundle) = load_bundle(bundle_dir)?;
     let sheet_path = directory.join(&bundle.contact_sheet);
     let image = fs::read(&sheet_path).context("Could not read contact sheet")?;
-    let summary = crate::sketch::summary_markdown(&bundle, &directory);
+    let summary = crate::annotate::sketch::summary_markdown(&bundle, &directory);
 
-    crate::capture::wait_for_modifiers_released(350);
+    crate::annotate::capture::wait_for_modifiers_released(350);
 
-    if crate::capture::is_frontmost_terminal() {
+    if crate::annotate::capture::is_frontmost_terminal() {
         // In terminals (Ghostty / OpenCode TUI / Claude Code), pasting the image path first
         // resolves and attaches `[Image 1]`, and the second paste inserts the text summary.
         copy_string_to_clipboard(&sheet_path.display().to_string())?;
@@ -422,12 +429,12 @@ pub fn paste_bundle_image_and_text(bundle_dir: &Path) -> Result<()> {
         copy_png_to_clipboard(&image)?;
     }
     std::thread::sleep(std::time::Duration::from_millis(20));
-    crate::capture::post_synthetic_cmd_v();
+    crate::annotate::capture::post_synthetic_cmd_v();
 
     std::thread::sleep(std::time::Duration::from_millis(160));
     copy_string_to_clipboard(&summary)?;
     std::thread::sleep(std::time::Duration::from_millis(20));
-    crate::capture::post_synthetic_cmd_v();
+    crate::annotate::capture::post_synthetic_cmd_v();
     Ok(())
 }
 
@@ -439,7 +446,7 @@ pub struct Config {
     #[serde(default)]
     pub pill_style: Option<String>,
     #[serde(default)]
-    pub microphone: Option<crate::mic::Choice>,
+    pub microphone: Option<crate::annotate::mic::Choice>,
 }
 
 fn log_config_once(message: String) {
@@ -448,13 +455,13 @@ fn log_config_once(message: String) {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     if !seen.contains(&message) {
-        crate::capture::scrawl_log(&message);
+        crate::annotate::capture::scrawl_log(&message);
         seen.push(message);
     }
 }
 
 pub fn default_config_path() -> PathBuf {
-    match crate::host::data_dir() {
+    match crate::annotate::host::data_dir() {
         Some(dir) => dir.join("config.json"),
         None => std::env::temp_dir().join("scrawl-config.json"),
     }
@@ -649,7 +656,11 @@ mod tests {
         assert_eq!(newest.id(), "bespoke-300-c");
         assert_eq!(
             newest.finished().dir,
-            fixture.0.join("bespoke-300-c.scrawl").canonicalize().unwrap()
+            fixture
+                .0
+                .join("bespoke-300-c.scrawl")
+                .canonicalize()
+                .unwrap()
         );
         assert!(Capture::newest(&fixture.0.join("missing")).is_none());
     }
@@ -677,39 +688,79 @@ mod tests {
         fs::write(dir.join("contact-sheet.png"), b"sheet").unwrap();
         let capture = Capture::find(&fixture.0, "scrawl-1-a").unwrap();
 
-        assert!(capture.summary().starts_with("[Bespoke annotation 0:07 · Display · scrawl-1-a]"));
-        assert!(capture.contact_sheet(false).unwrap().ends_with("contact-sheet.png"));
-        assert!(capture.contact_sheet(true).unwrap().ends_with("contact-sheet.png"));
+        assert!(
+            capture
+                .summary()
+                .starts_with("[Bespoke annotation 0:07 · Display · scrawl-1-a]")
+        );
+        assert!(
+            capture
+                .contact_sheet(false)
+                .unwrap()
+                .ends_with("contact-sheet.png")
+        );
+        assert!(
+            capture
+                .contact_sheet(true)
+                .unwrap()
+                .ends_with("contact-sheet.png")
+        );
         let (label, path) = capture.keyframe(3, true).unwrap();
         assert_eq!(label, "#3 (0:04)");
         assert!(path.ends_with("frames/frame-003.png"));
-        assert!(capture.keyframe(9, false).unwrap_err().to_string().contains("#0 to #5"));
+        assert!(
+            capture
+                .keyframe(9, false)
+                .unwrap_err()
+                .to_string()
+                .contains("#0 to #5")
+        );
 
         let mut manifest: serde_json::Value =
             serde_json::from_slice(&fs::read(dir.join("scrawl.json")).unwrap()).unwrap();
         manifest["cursor"] = serde_json::json!([[0, 0.5, 0.5]]);
-        manifest["strokes"] = serde_json::json!([{"t0": 0, "t1": 1, "fw": 1, "fh": 1, "pts": [1, 2]}]);
+        manifest["strokes"] =
+            serde_json::json!([{"t0": 0, "t1": 1, "fw": 1, "fh": 1, "pts": [1, 2]}]);
         manifest["autocrop"] = serde_json::json!({
             "label": "Slack", "fullFrames": "frames-full",
             "fullContactSheet": "contact-sheet-full.png", "crops": []
         });
-        fs::write(dir.join("scrawl.json"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::write(
+            dir.join("scrawl.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
         let capture = Capture::find(&fixture.0, "scrawl-1-a").unwrap();
 
         let trimmed: serde_json::Value =
             serde_json::from_str(&capture.manifest(&[]).unwrap()).unwrap();
         assert!(trimmed.get("cursor").is_none());
-        assert_eq!(trimmed["strokes"], serde_json::json!([{"t0": 0, "t1": 1, "fw": 1, "fh": 1}]));
+        assert_eq!(
+            trimmed["strokes"],
+            serde_json::json!([{"t0": 0, "t1": 1, "fw": 1, "fh": 1}])
+        );
         let all: serde_json::Value =
             serde_json::from_str(&capture.manifest(&["cursor", "strokes"]).unwrap()).unwrap();
         assert_eq!(all["cursor"], manifest["cursor"]);
         assert_eq!(all["strokes"], manifest["strokes"]);
 
-        assert!(capture.contact_sheet(true).unwrap_err().to_string().contains("gone"));
+        assert!(
+            capture
+                .contact_sheet(true)
+                .unwrap_err()
+                .to_string()
+                .contains("gone")
+        );
         assert!(capture.keyframe(3, true).is_err());
         fs::create_dir_all(dir.join("frames-full")).unwrap();
         fs::write(dir.join("frames-full/frame-003.png"), b"full").unwrap();
-        assert!(capture.keyframe(3, true).unwrap().1.ends_with("frames-full/frame-003.png"));
+        assert!(
+            capture
+                .keyframe(3, true)
+                .unwrap()
+                .1
+                .ends_with("frames-full/frame-003.png")
+        );
     }
 
     #[test]

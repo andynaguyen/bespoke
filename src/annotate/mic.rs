@@ -67,11 +67,11 @@ impl<'a> Pick<'a> {
 }
 
 pub fn choice() -> Option<Choice> {
-    choice_in(&crate::handoff::default_config_path())
+    choice_in(&crate::annotate::handoff::default_config_path())
 }
 
 pub fn choice_in(path: &std::path::Path) -> Option<Choice> {
-    crate::handoff::load_config_from(path)
+    crate::annotate::handoff::load_config_from(path)
         .microphone
         .filter(|c| !c.id.trim().is_empty())
 }
@@ -87,7 +87,7 @@ pub fn save_in(path: &std::path::Path, id: &str, inputs: &Inputs) -> anyhow::Res
     } else {
         return Ok(());
     };
-    crate::handoff::set_config_value_in(path, "microphone", value)
+    crate::annotate::handoff::set_config_value_in(path, "microphone", value)
 }
 
 pub fn inputs() -> Inputs {
@@ -237,7 +237,7 @@ pub fn note_pick(pick: &Pick) {
     match (pick, pick.note()) {
         (Pick::Missing { wanted, .. }, Some(note)) => {
             if warned.as_deref() != Some(wanted.id.as_str()) {
-                crate::capture::scrawl_log(format!("Microphone: {note}"));
+                crate::annotate::capture::scrawl_log(format!("Microphone: {note}"));
                 *warned = Some(wanted.id.clone());
             }
         }
@@ -314,7 +314,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!(
             "scrawl-mic-{}-{}",
             std::process::id(),
-            crate::now_epoch_ms()
+            crate::annotate::bundle::now_epoch_ms()
         ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.json");
@@ -348,7 +348,7 @@ mod tests {
         std::fs::write(&path, r#"{"microphone":42,"pillStyle":"kept"}"#).unwrap();
         assert_eq!(choice_in(&path), None);
         assert_eq!(
-            crate::handoff::load_config_from(&path)
+            crate::annotate::handoff::load_config_from(&path)
                 .pill_style
                 .as_deref(),
             Some("kept"),

@@ -1,5 +1,7 @@
-use crate::model::*;
-use crate::sketch::{FreehandOptions, freehand_outline, slice_laser_window, smooth_laser_points};
+use crate::annotate::model::*;
+use crate::annotate::sketch::{
+    FreehandOptions, freehand_outline, slice_laser_window, smooth_laser_points,
+};
 use std::path::Path;
 
 type Color = [u8; 4];
@@ -283,7 +285,7 @@ pub fn annotate_keyframe_marks_in_place(
     }
     let k = (w.min(h) / 800.0).max(w.max(h) / 1280.0).clamp(1.0, 2.0);
     let size = (w.min(h) * 0.0065).clamp(4.2, 6.0) * k;
-    let shown = crate::sketch::marks_on(keyframe, marks);
+    let shown = crate::annotate::sketch::marks_on(keyframe, marks);
     for (index, stroke) in strokes.iter().enumerate() {
         if stroke.laser {
             continue;

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::TargetFrame;
+use crate::annotate::model::TargetFrame;
 
 const TICK: Duration = Duration::from_millis(66);
 const MOVING_INTERVAL: Duration = Duration::from_millis(500);
@@ -345,7 +345,7 @@ pub fn snapshot(
 ) -> Vec<WindowEntry> {
     objc2::rc::autoreleasepool(|_| {
         let raw = raw_windows();
-        let front = crate::capture::frontmost_external_pid();
+        let front = crate::annotate::capture::frontmost_external_pid();
         filter_windows(
             &raw,
             frame,
@@ -385,7 +385,7 @@ impl WindowLogger {
             })
             .unwrap_or_default();
         if log.snapshot_calls > 0 {
-            crate::capture::scrawl_log(format!(
+            crate::annotate::capture::scrawl_log(format!(
                 "Window log: {} snapshots taken, {} stored, {:.2} ms each; {} cursor samples",
                 log.snapshot_calls,
                 log.windows.len(),
@@ -428,11 +428,11 @@ fn run(
     loop {
         let finishing = stopping.load(Ordering::Acquire);
         let t = started_at.elapsed().as_millis() as u64;
-        let cursor = crate::capture::current_mouse_screen();
+        let cursor = crate::annotate::capture::current_mouse_screen();
         if let Some([x, y]) = cursor {
             log.push_cursor(t, f64::from(x) - frame.x, f64::from(y) - frame.y, frame);
         }
-        let front = crate::capture::frontmost_external_pid();
+        let front = crate::annotate::capture::frontmost_external_pid();
         let since = last_snapshot.map(|s| s.elapsed());
         let moved = cursor != cursor_at_snapshot;
         let due = !finishing

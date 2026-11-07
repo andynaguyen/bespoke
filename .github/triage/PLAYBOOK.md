@@ -72,8 +72,8 @@ Before cloning, delete other entries in the source cache folder, but only entrie
 whose git state is clean (no uncommitted changes, no unpushed commits).
 
 Read `AGENTS.md` in the clone first: it maps each part of the app to its files.
-Annotate is vendored Scrawl under `vendor/scrawl`, and `vendor/scrawl/BESPOKE.md`
-lists what Bespoke changed in it. Use the clone to map log lines and error messages
+Annotate's capture code is in `src/annotate/`, and `docs/annotate-upstream.md`
+maps it to the Scrawl project it started from. Use the clone to map log lines and error messages
 to real code. A diagnosis grounded in source beats guessing.
 
 ## 5. Investigate

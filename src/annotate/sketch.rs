@@ -1,4 +1,4 @@
-use crate::model::*;
+use crate::annotate::model::*;
 use std::f32::consts::PI;
 
 pub fn bounds(points: &[[f32; 2]]) -> [f32; 4] {
@@ -1929,7 +1929,11 @@ mod tests {
         let mut silent = bundle.clone();
         silent.transcript = TranscriptData {
             source: "offline".into(),
-            missing: Some(crate::speech_model::missing("downloading", "en_US", None)),
+            missing: Some(crate::annotate::speech_model::missing(
+                "downloading",
+                "en_US",
+                None,
+            )),
             ..Default::default()
         };
         let summary = summary_markdown(&silent, std::path::Path::new("/recordings/test"));

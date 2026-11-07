@@ -64,7 +64,7 @@ Handle errors explicitly. Production code avoids `unwrap`. Give public APIs doc 
 | `src/managers/` | Audio recording, model downloads, transcription, and history |
 | `src/audio_toolkit/` | Device enumeration, recording, resampling, and voice activity detection |
 | `src/shortcut/` | Global shortcuts (`handy-keys` and `global-hotkey` backends) |
-| `src/annotate.rs`, `vendor/scrawl/` | Annotate: the parts of Scrawl's screen, voice and ink capture that Annotate runs. `vendor/scrawl/BESPOKE.md` lists what was kept and changed |
+| `src/annotate.rs`, `src/annotate/`, `swift/annotate-helper/` | Annotate: screen, voice and ink capture, started from Scrawl. `docs/annotate-upstream.md` maps it to upstream |
 | `src/overlay.rs`, `src/ui/overlay.rs` | The recording overlay: backend entry points, then the window and view |
 | `src/tray.rs` | The menu bar icon and menu |
 | `src/updater.rs` | Self-updates through Sparkle |
@@ -77,7 +77,7 @@ Handle errors explicitly. Production code avoids `unwrap`. Give public APIs doc 
 
 Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
 
-`vendor/` holds two patched dependencies. `vendor/handy-keys` replaces the `handy-keys` crate, and `vendor/scrawl` is the part of [Scrawl](https://github.com/kitlangton/scrawl) that Annotate runs. Read `vendor/scrawl/BESPOKE.md` before you change the vendored Scrawl code.
+`vendor/handy-keys` is a patched copy of the `handy-keys` crate.
 
 ## Translations
 

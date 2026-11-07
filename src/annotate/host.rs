@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use crate::capture::{SharedCaptureTelemetry, ShortcutConfig, ShortcutKind};
-use crate::model::ScrawlBundle;
-use crate::ui::MenuAction;
+use crate::annotate::capture::{SharedCaptureTelemetry, ShortcutConfig, ShortcutKind};
+use crate::annotate::coordinator::MenuAction;
+use crate::annotate::model::ScrawlBundle;
 
 pub struct Paths {
     pub data_dir: PathBuf,
@@ -44,7 +44,7 @@ pub(crate) fn set_telemetry(telemetry: Arc<SharedCaptureTelemetry>) {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .take();
     if let Some((record, paste)) = pending {
-        crate::capture::set_shortcuts(&telemetry, record, paste);
+        crate::annotate::capture::set_shortcuts(&telemetry, record, paste);
     }
     let _ = TELEMETRY.set(telemetry);
 }
@@ -73,13 +73,13 @@ pub fn press(kind: ShortcutKind) {
 
 pub fn pause_shortcuts(paused: bool) {
     if let Some(telemetry) = TELEMETRY.get() {
-        crate::capture::pause_shortcuts(telemetry, paused);
+        crate::annotate::capture::pause_shortcuts(telemetry, paused);
     }
 }
 
 pub fn set_shortcuts(record: ShortcutConfig, paste: ShortcutConfig) {
     if let Some(telemetry) = TELEMETRY.get() {
-        crate::capture::set_shortcuts(telemetry, record, paste);
+        crate::annotate::capture::set_shortcuts(telemetry, record, paste);
     } else {
         *PENDING_SHORTCUTS
             .lock()
@@ -88,7 +88,7 @@ pub fn set_shortcuts(record: ShortcutConfig, paste: ShortcutConfig) {
 }
 
 pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
-    use crate::capture::{
+    use crate::annotate::capture::{
         CARBON_CMD_KEY, CARBON_CONTROL_KEY, CARBON_OPTION_KEY, CARBON_SHIFT_KEY, shortcut_label,
     };
     let mut modifiers = 0;
@@ -111,7 +111,7 @@ pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
         if chars.next().is_some() {
             return None;
         }
-        let code = crate::capture::key_code_for_char(ch)?;
+        let code = crate::annotate::capture::key_code_for_char(ch)?;
         Some((u32::from(code), ch.to_uppercase().collect()))
     })?;
     Some(ShortcutConfig {
@@ -144,18 +144,18 @@ fn named_key(name: &str) -> Option<(u32, String)> {
     Some((code, label.to_owned()))
 }
 
-pub use crate::handoff::{Capture, KeyframeRow};
+pub use crate::annotate::handoff::{Capture, KeyframeRow};
 
 pub fn recent_captures(limit: usize) -> Vec<Capture> {
     Capture::recent(&captures_dir(), limit)
 }
 
 pub fn copy_capture(dir: &Path) -> Result<(), String> {
-    crate::handoff::copy_bundle_to_clipboard(dir).map_err(|e| e.to_string())
+    crate::annotate::handoff::copy_bundle_to_clipboard(dir).map_err(|e| e.to_string())
 }
 
 pub fn reveal_capture(dir: &Path) {
-    let _ = crate::handoff::open_path(dir);
+    let _ = crate::annotate::handoff::open_path(dir);
 }
 
 static ON_INSPECT: OnceLock<Box<dyn Fn(PathBuf) + Send + Sync>> = OnceLock::new();
@@ -175,7 +175,7 @@ pub(crate) fn inspect(dir: PathBuf) -> bool {
 }
 
 pub fn captures_dir() -> PathBuf {
-    crate::handoff::default_captures_dir()
+    crate::annotate::handoff::default_captures_dir()
 }
 
 #[derive(Clone, Debug)]
@@ -199,7 +199,7 @@ impl Finished {
     }
 
     pub fn duration(&self) -> String {
-        crate::model::format_clock(self.duration_ms)
+        crate::annotate::model::format_clock(self.duration_ms)
     }
 }
 
@@ -239,18 +239,19 @@ pub fn finished_captures() -> Vec<Finished> {
         .collect()
 }
 
-pub use crate::native::pill::{
+pub use crate::annotate::capsule_link::{
     CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
 };
-pub use crate::ui::SelectionMode;
+pub use crate::annotate::coordinator::SelectionMode;
 
 pub fn preview_capsule(snapshot: PillSnapshot, anchor: [f64; 2]) {
-    static PREVIEW: Mutex<Option<crate::native::pill::NativePill>> = Mutex::new(None);
+    static PREVIEW: Mutex<Option<crate::annotate::capsule_link::NativePill>> = Mutex::new(None);
     let mut preview = PREVIEW
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     if preview.is_none() {
-        *preview = crate::native::pill::NativePill::open(Arc::new(Mutex::new(Vec::new()))).ok();
+        *preview =
+            crate::annotate::capsule_link::NativePill::open(Arc::new(Mutex::new(Vec::new()))).ok();
     }
     if let Some(pill) = preview.as_ref() {
         pill.place_on(anchor);
@@ -261,28 +262,28 @@ pub fn preview_capsule(snapshot: PillSnapshot, anchor: [f64; 2]) {
 pub type CapsuleActions = flume::Sender<PillAction>;
 
 pub fn capsule_origin(point: [f64; 2], size: [f64; 2], at_top: bool, gap: f64) -> Option<[f64; 2]> {
-    let screens = crate::screens::current();
-    let index = crate::screens::index_at(&screens, point).or(if screens.is_empty() {
+    let screens = crate::annotate::screens::current();
+    let index = crate::annotate::screens::index_at(&screens, point).or(if screens.is_empty() {
         None
     } else {
         Some(0)
     })?;
     let screen = &screens[index];
     Some(if at_top {
-        crate::screens::pill_origin(screen, size[0], gap)
+        crate::annotate::screens::pill_origin(screen, size[0], gap)
     } else {
-        crate::screens::pill_origin_bottom(screen, size, gap)
+        crate::annotate::screens::pill_origin_bottom(screen, size, gap)
     })
 }
 
 pub fn on_capsule(open: impl Fn(CapsuleLink) + Send + Sync + 'static) {
-    crate::native::pill::set_host(open);
+    crate::annotate::capsule_link::set_host(open);
 }
 
-pub use crate::mic::{Input as Microphone, Inputs as Microphones};
-pub use crate::permissions::{Grants, Permission, Status as PermissionStatus};
-pub use crate::retention::Preset as Retention;
-pub use crate::speech_model::{State as SpeechState, Status as SpeechStatus};
+pub use crate::annotate::mic::{Input as Microphone, Inputs as Microphones};
+pub use crate::annotate::permissions::{Grants, Permission, Status as PermissionStatus};
+pub use crate::annotate::retention::Preset as Retention;
+pub use crate::annotate::speech_model::{State as SpeechState, Status as SpeechStatus};
 
 static MICROPHONE: OnceLock<Box<dyn Fn() -> Option<String> + Send + Sync>> = OnceLock::new();
 
@@ -300,7 +301,7 @@ pub(crate) fn host_microphone() -> Option<Option<String>> {
 }
 
 pub fn microphones() -> Microphones {
-    crate::mic::inputs()
+    crate::annotate::mic::inputs()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -310,7 +311,7 @@ pub enum MicrophoneChoice {
 }
 
 pub fn microphone_choice() -> MicrophoneChoice {
-    match crate::mic::choice_in(&crate::handoff::default_config_path()) {
+    match crate::annotate::mic::choice_in(&crate::annotate::handoff::default_config_path()) {
         Some(choice) => MicrophoneChoice::Device {
             id: choice.id,
             name: choice.name,
@@ -320,50 +321,50 @@ pub fn microphone_choice() -> MicrophoneChoice {
 }
 
 pub fn set_microphone(id: &str, inputs: &Microphones) {
-    let path = crate::handoff::default_config_path();
-    if let Err(error) = crate::mic::save_in(&path, id, inputs) {
-        crate::capture::scrawl_log(format!("Saving microphone failed: {error:#}"));
+    let path = crate::annotate::handoff::default_config_path();
+    if let Err(error) = crate::annotate::mic::save_in(&path, id, inputs) {
+        crate::annotate::capture::scrawl_log(format!("Saving microphone failed: {error:#}"));
     }
 }
 
 pub fn retention() -> Option<Retention> {
-    crate::retention::Policy::load().preset()
+    crate::annotate::retention::Policy::load().preset()
 }
 
 pub fn set_retention(preset: Retention) {
     if let Err(error) = preset
         .policy()
-        .save_to(&crate::handoff::default_config_path())
+        .save_to(&crate::annotate::handoff::default_config_path())
     {
-        crate::capture::scrawl_log(format!("Saving retention failed: {error:#}"));
+        crate::annotate::capture::scrawl_log(format!("Saving retention failed: {error:#}"));
     }
-    crate::retention::nudge();
+    crate::annotate::retention::nudge();
 }
 
 pub fn captures_size() -> String {
-    crate::retention::format_bytes(crate::retention::captures_size(
-        &crate::handoff::default_captures_dir(),
+    crate::annotate::retention::format_bytes(crate::annotate::retention::captures_size(
+        &crate::annotate::handoff::default_captures_dir(),
     ))
 }
 
 pub fn show_captures() {
-    let dir = crate::handoff::default_captures_dir();
+    let dir = crate::annotate::handoff::default_captures_dir();
     let _ = std::fs::create_dir_all(&dir);
-    let _ = crate::handoff::open_path(&dir);
+    let _ = crate::annotate::handoff::open_path(&dir);
 }
 
 pub fn read_grants() -> Option<Grants> {
-    crate::permissions::read_grants()
+    crate::annotate::permissions::read_grants()
 }
 
 /// Whether this process may record the screen, by `CGPreflightScreenCaptureAccess`. It keeps its
 /// first answer until the app relaunches, unlike `read_grants`, which asks a fresh helper.
 pub fn screen_capture_granted() -> bool {
-    crate::capture::screen_capture_granted()
+    crate::annotate::capture::screen_capture_granted()
 }
 
 pub fn speech_status() -> SpeechStatus {
-    crate::speech_model::current()
+    crate::annotate::speech_model::current()
 }
 
 static ON_SPEECH_STATUS: OnceLock<Box<dyn Fn(&SpeechStatus) + Send + Sync>> = OnceLock::new();
@@ -382,10 +383,12 @@ pub(crate) fn speech_status_changed(status: &SpeechStatus) {
 /// Starts installing Apple's speech model, or starts the next try now after a failure. Returns
 /// the `SpeechStatus::attempts` number of the try that answers this call.
 pub fn ensure_speech_model() -> u32 {
-    crate::speech_model::ensure()
+    crate::annotate::speech_model::ensure()
 }
 
-pub use crate::model::{MissingTranscript, TranscriptData, TranscriptSegment, WordTiming};
+pub use crate::annotate::model::{
+    MissingTranscript, TranscriptData, TranscriptSegment, WordTiming,
+};
 
 type Transcriber = Box<dyn Fn(&Path) -> anyhow::Result<TranscriptData> + Send + Sync>;
 
@@ -408,27 +411,29 @@ pub(crate) fn transcriber() -> Option<&'static Transcriber> {
 /// recognition toward those words. When the model is still downloading, the transcript is empty
 /// and `missing` says so.
 pub fn apple_speech(wav: &Path, contextual_strings: &[String]) -> anyhow::Result<TranscriptData> {
-    crate::helper::transcribe(wav, contextual_strings)
+    crate::annotate::helper::transcribe(wav, contextual_strings)
 }
 
 /// Asks macOS for Screen Recording. The prompt is attributed to this process, so the host app
 /// gets the grant. macOS prompts once per app and adds it to the Screen Recording list, switched
 /// off. Later calls return without a prompt.
 pub fn request_screen_capture() {
-    let granted = crate::capture::request_screen_capture();
-    crate::capture::scrawl_log(format!(
+    let granted = crate::annotate::capture::request_screen_capture();
+    crate::annotate::capture::scrawl_log(format!(
         "screen recording: asked macOS, CGRequestScreenCaptureAccess -> {granted}"
     ));
 }
 
 pub fn open_permission_settings(permission: Permission) {
-    crate::capture::scrawl_log(format!("permission settings: opening for {permission:?}"));
+    crate::annotate::capture::scrawl_log(format!(
+        "permission settings: opening for {permission:?}"
+    ));
     if permission.draggable() {
         let name = match permission {
             Permission::ScreenRecording => "screen-recording",
             _ => "accessibility",
         };
-        let spawned = crate::helper::path().and_then(|helper| {
+        let spawned = crate::annotate::helper::path().and_then(|helper| {
             std::process::Command::new(helper)
                 .args(["permission-panel", "--permission", name])
                 .stdin(std::process::Stdio::piped())
@@ -446,7 +451,7 @@ pub fn open_permission_settings(permission: Permission) {
                 return;
             }
             Err(error) => {
-                crate::capture::scrawl_log(format!("permission panel: {error:#}"));
+                crate::annotate::capture::scrawl_log(format!("permission panel: {error:#}"));
             }
         }
     }
@@ -457,5 +462,5 @@ pub fn open_permission_settings(permission: Permission) {
     };
     let url =
         format!("x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?{anchor}");
-    let _ = crate::handoff::open_path(Path::new(&url));
+    let _ = crate::annotate::handoff::open_path(Path::new(&url));
 }

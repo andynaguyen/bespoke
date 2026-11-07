@@ -1,6 +1,27 @@
+mod audio;
+mod autocrop;
+mod bundle;
 pub mod capsule;
+mod capsule_link;
+pub mod capture;
+pub mod coordinator;
+mod handoff;
+mod helper;
+mod hold;
+pub mod host;
+mod keyframes;
+mod laser_overlay;
 pub mod mcp;
+mod mic;
+mod model;
+mod permissions;
+mod render;
+mod retention;
+mod screens;
+mod sketch;
+mod speech_model;
 mod transcribe;
+mod windows;
 
 use std::sync::{Arc, Mutex};
 
@@ -20,15 +41,15 @@ pub const CAPTURE_FINISHED: &str = "annotate-capture-finished";
 /// Emitted when a recording or the picker ends without a capture.
 pub const CAPTURE_CANCELLED: &str = "annotate-capture-cancelled";
 
-static NEWEST_CAPTURE: Mutex<Option<scrawl::host::Finished>> = Mutex::new(None);
+static NEWEST_CAPTURE: Mutex<Option<crate::annotate::host::Finished>> = Mutex::new(None);
 
 /// The newest finished capture: the newest on disk at launch, then each one recorded since.
 /// `CAPTURE_FINISHED` fires after this updates.
-pub fn newest_capture() -> Option<scrawl::host::Finished> {
+pub fn newest_capture() -> Option<crate::annotate::host::Finished> {
     NEWEST_CAPTURE.lock().ok()?.clone()
 }
 
-fn note_capture(capture: &scrawl::host::Finished) {
+fn note_capture(capture: &crate::annotate::host::Finished) {
     let Ok(mut newest) = NEWEST_CAPTURE.lock() else {
         return;
     };
@@ -56,29 +77,32 @@ pub fn start(app: &AppHandle, cx: &mut App) {
         return;
     };
     let ui = app.clone();
-    scrawl::host::configure(scrawl::host::Paths { data_dir, log_dir }, move |missing| {
-        let missing = missing.to_vec();
-        ui.with_ui(move |cx| {
-            if missing.is_empty() {
-                crate::ui::show_settings(SettingsSection::AnnotateShortcut, cx);
-            } else {
-                crate::ui::pages::annotate::show_missing_permissions(&missing, cx);
-            }
-        });
-    });
+    crate::annotate::host::configure(
+        crate::annotate::host::Paths { data_dir, log_dir },
+        move |missing| {
+            let missing = missing.to_vec();
+            ui.with_ui(move |cx| {
+                if missing.is_empty() {
+                    crate::ui::show_settings(SettingsSection::AnnotateShortcut, cx);
+                } else {
+                    crate::ui::pages::annotate::show_missing_permissions(&missing, cx);
+                }
+            });
+        },
+    );
     follow_captures(app);
     transcribe::init(app);
     sync_shortcuts(&get_settings(app));
     capsule::init(app);
     let settings = app.clone();
-    scrawl::host::on_microphone(move || {
+    crate::annotate::host::on_microphone(move || {
         crate::managers::audio::preferred_microphone(&get_settings(&settings))
     });
     let ui = app.clone();
-    scrawl::host::on_inspect(move |dir| {
+    crate::annotate::host::on_inspect(move |dir| {
         ui.with_ui(move |cx| crate::ui::pages::captures::inspect(dir, cx));
     });
-    scrawl::start(cx);
+    crate::annotate::coordinator::start(cx);
     mcp::sync(app);
 }
 
@@ -86,7 +110,7 @@ fn follow_captures(app: &AppHandle) {
     let history = Arc::clone(&app.state::<Arc<HistoryManager>>());
     let seed = Arc::clone(&history);
     let events = app.clone();
-    scrawl::host::on_capture(move |capture| {
+    crate::annotate::host::on_capture(move |capture| {
         note_capture(&capture);
         if let Err(e) = history.record_capture(&capture_usage(capture)) {
             log::error!("Failed to record Annotate usage: {e}");
@@ -96,17 +120,17 @@ fn follow_captures(app: &AppHandle) {
         }
     });
     let events = app.clone();
-    scrawl::host::on_cancel(move || {
+    crate::annotate::host::on_cancel(move || {
         if let Err(e) = events.emit(CAPTURE_CANCELLED, ()) {
             log::warn!("Failed to announce a cancelled capture: {e}");
         }
     });
     crate::runtime::spawn_blocking(move || {
-        if let Some(capture) = scrawl::host::newest_capture() {
+        if let Some(capture) = crate::annotate::host::newest_capture() {
             note_capture(&capture);
         }
         let load = || {
-            scrawl::host::finished_captures()
+            crate::annotate::host::finished_captures()
                 .into_iter()
                 .map(capture_usage)
                 .collect()
@@ -119,7 +143,7 @@ fn follow_captures(app: &AppHandle) {
     });
 }
 
-fn capture_usage(capture: scrawl::host::Finished) -> CaptureUsage {
+fn capture_usage(capture: crate::annotate::host::Finished) -> CaptureUsage {
     CaptureUsage {
         timestamp: (capture.created_at_ms / 1000) as i64,
         duration_ms: capture.duration_ms as i64,
@@ -135,28 +159,31 @@ pub fn handle_shortcut(binding_id: &str, is_pressed: bool) {
         return;
     }
     let kind = if binding_id == PASTE_BINDING {
-        scrawl::ShortcutKind::Paste
+        crate::annotate::capture::ShortcutKind::Paste
     } else {
-        scrawl::ShortcutKind::Record
+        crate::annotate::capture::ShortcutKind::Record
     };
-    scrawl::host::press(kind);
+    crate::annotate::host::press(kind);
 }
 
 pub fn sync_shortcuts(settings: &AppSettings) {
-    let config = |id: &str, kind: scrawl::ShortcutKind| {
+    let config = |id: &str, kind: crate::annotate::capture::ShortcutKind| {
         let Some(binding) = settings.bindings.get(id) else {
             return kind.default_config();
         };
-        scrawl::host::shortcut_from_binding(&binding.current_binding).unwrap_or_else(|| {
-            scrawl::ShortcutConfig {
+        crate::annotate::host::shortcut_from_binding(&binding.current_binding).unwrap_or_else(
+            || crate::annotate::capture::ShortcutConfig {
                 key_code: u32::MAX,
                 carbon_modifiers: 0,
                 label: binding.current_binding.clone(),
-            }
-        })
+            },
+        )
     };
-    scrawl::host::set_shortcuts(
-        config(RECORD_BINDING, scrawl::ShortcutKind::Record),
-        config(PASTE_BINDING, scrawl::ShortcutKind::Paste),
+    crate::annotate::host::set_shortcuts(
+        config(
+            RECORD_BINDING,
+            crate::annotate::capture::ShortcutKind::Record,
+        ),
+        config(PASTE_BINDING, crate::annotate::capture::ShortcutKind::Paste),
     );
 }

@@ -6,14 +6,12 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 
-use crate::model::{
+use crate::annotate::model::{
     CaptureMode, InteractionEvent, RgbaFrame, SCALE, Stroke, TargetFrame, TargetInfo,
 };
 
-#[cfg_attr(target_os = "macos", path = "capture/macos.rs")]
-#[cfg_attr(target_os = "windows", path = "capture/windows.rs")]
-mod platform;
-pub use platform::*;
+mod macos;
+pub use macos::*;
 
 pub const FRAME_SAMPLE_INTERVAL: Duration = Duration::from_millis(220);
 pub const CANDIDATE_EDGE: f64 = 480.0;
@@ -109,7 +107,7 @@ pub enum LiveOverlayEvent {
     PasteLatestShortcut,
     UndoStroke,
     RequestSnapshot,
-    Grants(crate::permissions::Grants),
+    Grants(crate::annotate::permissions::Grants),
 }
 
 pub const CARBON_CMD_KEY: u32 = 1 << 8;
@@ -244,7 +242,7 @@ pub fn scrawl_log(msg: impl AsRef<str>) {
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(dir.join(if crate::host::log_dir().is_some() {
+        .open(dir.join(if crate::annotate::host::log_dir().is_some() {
             "annotate.log"
         } else {
             "scrawl.log"
@@ -364,11 +362,11 @@ pub fn region_target(
     let mid_y = y + height * 0.5;
     let hit = selectable_window_at(windows, mid_x, mid_y);
     let frontmost = frontmost_app_info();
-    let screens = crate::screens::displays();
+    let screens = crate::annotate::screens::displays();
     let (display_id, scale, [x, y, width, height]) =
-        crate::screens::area_on_display(&screens, [x, y, width, height]).map_or_else(
+        crate::annotate::screens::area_on_display(&screens, [x, y, width, height]).map_or_else(
             || {
-                let min = crate::screens::MIN_AREA;
+                let min = crate::annotate::screens::MIN_AREA;
                 let rect = [x, y, width.max(min), height.max(min)];
                 (main_display_id(), MAX_CAPTURE_SCALE, rect)
             },
@@ -424,7 +422,7 @@ pub struct ScreenCaptureSession {
     frames: Arc<Mutex<CandidateBuffer>>,
     video_offset_ms: Arc<AtomicU64>,
     sampler_thread: Option<JoinHandle<Option<PathBuf>>>,
-    _recording: crate::retention::Recording,
+    _recording: crate::annotate::retention::Recording,
 }
 
 impl ScreenCaptureSession {
@@ -447,7 +445,7 @@ impl ScreenCaptureSession {
         let sampler_thread = thread::Builder::new()
             .name("scrawl-frame-sampler".into())
             .spawn(move || {
-                platform::run_sampler(Sampler {
+                macos::run_sampler(Sampler {
                     target: sampler_target,
                     video_output_path,
                     excluded_window_ids,
@@ -467,7 +465,7 @@ impl ScreenCaptureSession {
             frames,
             video_offset_ms,
             sampler_thread,
-            _recording: crate::retention::Recording::start(),
+            _recording: crate::annotate::retention::Recording::start(),
         }
     }
 
@@ -502,7 +500,9 @@ impl ScreenCaptureSession {
         );
         let mut collected = buffer.into_frames();
         if collected.is_empty() {
-            collected.push(crate::render::render_synthetic_demo_frame(1280, 800, 0, 0));
+            collected.push(crate::annotate::render::render_synthetic_demo_frame(
+                1280, 800, 0, 0,
+            ));
         }
         let valid_video =
             video_path.filter(|path| path.exists() && path.metadata().is_ok_and(|m| m.len() > 0));
@@ -739,14 +739,14 @@ impl SharedCaptureTelemetry {
         self.window_log_request.store(false, Ordering::Release);
         self.active.store(true, Ordering::Release);
         let clicks = if self.mouse_live.load(Ordering::Acquire) {
-            platform::MOUSE_SOURCE
+            macos::MOUSE_SOURCE
         } else {
             "polled mouse buttons"
         };
         let keys = if self.tap_live.load(Ordering::Acquire) {
-            platform::KEY_SOURCE
+            macos::KEY_SOURCE
         } else {
-            platform::NO_KEY_SOURCE
+            macos::NO_KEY_SOURCE
         };
         scrawl_log(format!("session clicks from {clicks}, keys from {keys}"));
     }
@@ -783,8 +783,8 @@ impl SharedCaptureTelemetry {
         }
         #[cfg(target_os = "macos")]
         {
-            let raw = objc2::rc::autoreleasepool(|_| crate::windows::raw_windows());
-            if crate::windows::system_prompt_at(&raw, screen_x, screen_y) {
+            let raw = objc2::rc::autoreleasepool(|_| crate::annotate::windows::raw_windows());
+            if crate::annotate::windows::system_prompt_at(&raw, screen_x, screen_y) {
                 return;
             }
         }
@@ -930,8 +930,14 @@ impl SharedCaptureTelemetry {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
-        let windows = platform::raw_windows_now();
-        crate::windows::owned_window_at(&windows, x, y, std::process::id() as i32, &passthrough)
+        let windows = macos::raw_windows_now();
+        crate::annotate::windows::owned_window_at(
+            &windows,
+            x,
+            y,
+            std::process::id() as i32,
+            &passthrough,
+        )
     }
 
     pub fn normalize_point(&self, screen_x: f64, screen_y: f64) -> (f32, f32, u32, u32) {
@@ -1191,8 +1197,8 @@ pub fn is_frontmost_terminal() -> bool {
 
 pub fn write_bundle_artifacts(
     out_dir: &Path,
-    bundle: &crate::model::ScrawlBundle,
-    annotated_frames: &[(crate::model::Keyframe, RgbaFrame)],
+    bundle: &crate::annotate::model::ScrawlBundle,
+    annotated_frames: &[(crate::annotate::model::Keyframe, RgbaFrame)],
     contact_sheet: &RgbaFrame,
     summary_md: &str,
 ) -> Result<()> {
@@ -1209,11 +1215,11 @@ pub fn write_bundle_artifacts(
             .iter()
             .map(|(kf, frame)| {
                 scope.spawn(move || -> Result<()> {
-                    crate::render::save_png(frame, &out_dir.join(&kf.file))
+                    crate::annotate::render::save_png(frame, &out_dir.join(&kf.file))
                 })
             })
             .collect();
-        crate::render::save_png(contact_sheet, &out_dir.join(&bundle.contact_sheet))?;
+        crate::annotate::render::save_png(contact_sheet, &out_dir.join(&bundle.contact_sheet))?;
         for worker in workers {
             worker
                 .join()
@@ -1239,7 +1245,7 @@ mod tests {
         let frames = Arc::new(Mutex::new(CandidateBuffer::new(1 << 20)));
         let worker_stopping = Arc::clone(&stopping);
         let worker_frames = Arc::clone(&frames);
-        let path = std::env::temp_dir().join(crate::make_bundle_id());
+        let path = std::env::temp_dir().join(crate::annotate::bundle::make_bundle_id());
         let worker_path = path.clone();
         let worker = thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(2);
@@ -1261,7 +1267,7 @@ mod tests {
             frames,
             video_offset_ms: Arc::new(AtomicU64::new(120)),
             sampler_thread: Some(worker),
-            _recording: crate::retention::Recording::start(),
+            _recording: crate::annotate::retention::Recording::start(),
         };
         let recording = session.stop();
         let frames = recording.frames;
@@ -1471,7 +1477,7 @@ mod tests {
             (small_left, 2.0, [-320.0, 500.0], (0.75, 0.75), (2560, 1600)),
         ];
         for (rect, scale, point, expected, size) in cases {
-            let frame = crate::screens::with_scale(rect, scale);
+            let frame = crate::annotate::screens::with_scale(rect, scale);
             let target = TargetInfo {
                 mode: CaptureMode::Display,
                 app: None,
@@ -1498,11 +1504,11 @@ mod tests {
                 "{events:?}"
             );
         }
-        let frame = crate::screens::with_scale([-1920.0, 37.0, 1920.0, 1080.0], 1.0);
+        let frame = crate::annotate::screens::with_scale([-1920.0, 37.0, 1920.0, 1080.0], 1.0);
         telemetry.reset_for_session(frame);
         let (nx, ny, _, _) = telemetry.normalize_point(-960.0, 577.0);
         assert_eq!((nx * 1920.0, ny * 1080.0), (960.0, 540.0));
-        let frame = crate::screens::with_scale([0.0, -1440.0, 2560.0, 1440.0], 2.0);
+        let frame = crate::annotate::screens::with_scale([0.0, -1440.0, 2560.0, 1440.0], 2.0);
         telemetry.reset_for_session(frame);
         let (nx, ny, _, _) = telemetry.normalize_point(640.0, -360.0);
         assert_eq!((nx * 2560.0, ny * 1440.0), (640.0, 1080.0));
@@ -1685,7 +1691,7 @@ mod tests {
         }
 
         let external = |mode, width, height| TargetInfo {
-            frame: crate::screens::with_scale([-1920.0, 37.0, width, height], 1.0),
+            frame: crate::annotate::screens::with_scale([-1920.0, 37.0, width, height], 1.0),
             ..target(mode, width, height)
         };
         let screen = external(CaptureMode::Display, 1920.0, 1080.0);
@@ -1694,7 +1700,7 @@ mod tests {
         let region = external(CaptureMode::Region, 480.0, 320.0);
         assert_eq!(capture_size(&region, 1280.0), (480, 320));
         let above = TargetInfo {
-            frame: crate::screens::with_scale([0.0, -1440.0, 2560.0, 1440.0], 2.0),
+            frame: crate::annotate::screens::with_scale([0.0, -1440.0, 2560.0, 1440.0], 2.0),
             ..target(CaptureMode::Display, 2560.0, 1440.0)
         };
         assert_eq!(capture_size(&above, 2560.0), (2560, 1440));

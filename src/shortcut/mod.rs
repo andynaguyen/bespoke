@@ -194,7 +194,7 @@ fn startup_bindings(app: &AppHandle) -> Vec<(String, ShortcutBinding)> {
 
 pub fn suspend_all_shortcuts(app: &AppHandle) {
     #[cfg(target_os = "macos")]
-    scrawl::host::pause_shortcuts(true);
+    crate::annotate::host::pause_shortcuts(true);
     for (id, binding) in settings::get_bindings(app) {
         if id == "cancel" {
             continue;
@@ -210,7 +210,7 @@ pub fn suspend_all_shortcuts(app: &AppHandle) {
 
 pub fn resume_all_shortcuts(app: &AppHandle) {
     #[cfg(target_os = "macos")]
-    scrawl::host::pause_shortcuts(false);
+    crate::annotate::host::pause_shortcuts(false);
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
         if id == "cancel" {

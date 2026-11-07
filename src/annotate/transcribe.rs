@@ -3,7 +3,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Result;
-use scrawl::host::{TranscriptData, TranscriptSegment, WordTiming};
+
+use crate::annotate::audio::RecordedAudio;
+use crate::annotate::host::{TranscriptData, TranscriptSegment, WordTiming};
 
 use crate::app_handle::AppHandle;
 use crate::audio_toolkit::{TimedText, apply_custom_words, apply_custom_words_to_timed};
@@ -21,7 +23,7 @@ const MIN_TAIL: usize = 2 * SAMPLE_RATE;
 
 pub fn init(app: &AppHandle) {
     let transcribing = app.clone();
-    scrawl::host::on_transcribe(move |wav| transcribe(&transcribing, wav));
+    crate::annotate::host::on_transcribe(move |wav| with_selected_model(&transcribing, wav));
     let refreshing = app.clone();
     crate::apple_speech::on_change(move || {
         refreshing
@@ -30,7 +32,41 @@ pub fn init(app: &AppHandle) {
     });
 }
 
-fn transcribe(app: &AppHandle, wav: &Path) -> Result<TranscriptData> {
+pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> TranscriptData {
+    let (Some(wav), Some(_)) = (wav, audio.filter(|audio| audio.sample_count > 0)) else {
+        return TranscriptData {
+            source: "none".into(),
+            ..Default::default()
+        };
+    };
+    let transcript = run(wav).unwrap_or_else(|error| {
+        crate::annotate::capture::scrawl_log(format!("Transcription failed: {error:#}"));
+        TranscriptData {
+            source: "offline".into(),
+            missing: Some(crate::annotate::model::MissingTranscript {
+                reason: format!("Transcription failed ({error:#})."),
+                retry: false,
+            }),
+            ..Default::default()
+        }
+    });
+    if let Some(missing) = &transcript.missing {
+        crate::annotate::capture::scrawl_log(format!("No transcript: {}", missing.reason));
+        if missing.retry {
+            crate::annotate::speech_model::ensure();
+        }
+    }
+    transcript
+}
+
+pub fn run(wav: &Path) -> Result<TranscriptData> {
+    match crate::annotate::host::transcriber() {
+        Some(transcribe) => transcribe(wav),
+        None => crate::annotate::helper::transcribe(wav, &[]),
+    }
+}
+
+fn with_selected_model(app: &AppHandle, wav: &Path) -> Result<TranscriptData> {
     let settings = get_settings(app);
     let local = app
         .state::<Arc<ModelManager>>()

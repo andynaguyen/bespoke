@@ -2,8 +2,10 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{InteractionEvent, Keyframe, Mark, RgbaFrame, SCALE, Stroke, TargetFrame};
-use crate::windows::{CursorSample, WindowSnapshot};
+use crate::annotate::model::{
+    InteractionEvent, Keyframe, Mark, RgbaFrame, SCALE, Stroke, TargetFrame,
+};
+use crate::annotate::windows::{CursorSample, WindowSnapshot};
 
 pub type Rect = [f32; 4];
 
@@ -168,7 +170,9 @@ impl Settings {
     }
 
     pub fn configured() -> Option<Self> {
-        let config = crate::handoff::load_config_from(&crate::handoff::default_config_path());
+        let config = crate::annotate::handoff::load_config_from(
+            &crate::annotate::handoff::default_config_path(),
+        );
         Self::from_config(config.autocrop.as_ref())
     }
 }
@@ -1603,7 +1607,7 @@ pub fn annotate_and_crop(
     selected: Vec<(Keyframe, RgbaFrame)>,
     baseline: Option<&RgbaFrame>,
     settings: Option<&Settings>,
-    target: &crate::model::TargetInfo,
+    target: &crate::annotate::model::TargetInfo,
     duration_ms: u64,
     strokes: &[Stroke],
     marks: &[Mark],
@@ -1612,11 +1616,16 @@ pub fn annotate_and_crop(
     cursor: &[CursorSample],
 ) -> (
     Vec<(Keyframe, RgbaFrame)>,
-    Option<(crate::model::AutocropInfo, Vec<(Keyframe, RgbaFrame)>)>,
+    Option<(
+        crate::annotate::model::AutocropInfo,
+        Vec<(Keyframe, RgbaFrame)>,
+    )>,
 ) {
-    use crate::render::annotate_keyframe_marks_in_place;
+    use crate::annotate::render::annotate_keyframe_marks_in_place;
     let plan = settings
-        .filter(|_| target.mode == crate::model::CaptureMode::Display && !selected.is_empty())
+        .filter(|_| {
+            target.mode == crate::annotate::model::CaptureMode::Display && !selected.is_empty()
+        })
         .and_then(|settings| {
             let changes: Vec<Vec<Rect>> = (0..selected.len())
                 .map(|i| match (i, baseline) {
@@ -1698,7 +1707,7 @@ pub fn annotate_and_crop(
                         out
                     };
                     let r = crop.rect.map(f64::from);
-                    let crop_info = crate::model::KeyframeCrop {
+                    let crop_info = crate::annotate::model::KeyframeCrop {
                         index: kf.index,
                         x: (r[0] * w).round(),
                         y: (r[1] * h).round(),
@@ -1719,7 +1728,7 @@ pub fn annotate_and_crop(
         cropped.push(crop_pair);
         full.push(full_pair);
     }
-    let info = crate::model::AutocropInfo {
+    let info = crate::annotate::model::AutocropInfo {
         label: label(&crops).unwrap_or_else(|| "the activity".into()),
         full_frames: "frames-full".into(),
         full_contact_sheet: "contact-sheet-full.png".into(),
@@ -1731,7 +1740,7 @@ pub fn annotate_and_crop(
 
 pub fn write_full_frames(
     dir: &std::path::Path,
-    info: &crate::model::AutocropInfo,
+    info: &crate::annotate::model::AutocropInfo,
     frames: &[(Keyframe, RgbaFrame)],
     sheet: &RgbaFrame,
 ) -> anyhow::Result<()> {
@@ -1746,11 +1755,11 @@ pub fn write_full_frames(
                     let name = std::path::Path::new(&kf.file)
                         .file_name()
                         .unwrap_or_default();
-                    crate::render::save_png(frame, &out.join(name))
+                    crate::annotate::render::save_png(frame, &out.join(name))
                 })
             })
             .collect();
-        crate::render::save_png(sheet, &dir.join(&info.full_contact_sheet))?;
+        crate::annotate::render::save_png(sheet, &dir.join(&info.full_contact_sheet))?;
         for worker in workers {
             worker
                 .join()
@@ -1763,8 +1772,8 @@ pub fn write_full_frames(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{CaptureMode, KeyframeReason, TargetInfo};
-    use crate::windows::WindowEntry;
+    use crate::annotate::model::{CaptureMode, KeyframeReason, TargetInfo};
+    use crate::annotate::windows::WindowEntry;
 
     const FRAME: TargetFrame = TargetFrame {
         x: 0.0,
@@ -1810,7 +1819,7 @@ mod tests {
             t0: strokes[stroke].t0,
             t1: strokes[stroke].t1,
             box_norm: [0.0, 0.0, 1.0, 1.0],
-            shape: crate::model::Shape::Line,
+            shape: crate::annotate::model::Shape::Line,
             from: None,
             to: None,
             pin: None,

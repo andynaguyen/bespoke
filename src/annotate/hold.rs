@@ -1,4 +1,4 @@
-use crate::ui::SelectionMode;
+use crate::annotate::coordinator::SelectionMode;
 
 pub const TAP_MS: u64 = 250;
 pub const DOUBLE_PRESS_MS: u64 = 400;
@@ -7,9 +7,7 @@ pub const DOUBLE_PRESS_MS: u64 = 400;
 pub enum Activity {
     Free,
     Picker,
-    Recording {
-        elapsed_ms: u64,
-    },
+    Recording { elapsed_ms: u64 },
     Processing,
 }
 

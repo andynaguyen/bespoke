@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use crate::model::MissingTranscript;
+use crate::annotate::model::MissingTranscript;
 
 pub const PENDING: &str = ".transcript-pending";
 
@@ -83,7 +83,7 @@ fn update(change: impl FnOnce(&mut Status)) {
         (before, status.clone())
     };
     if before != after {
-        crate::host::speech_status_changed(&after);
+        crate::annotate::host::speech_status_changed(&after);
     }
 }
 
@@ -153,7 +153,7 @@ fn install_once() -> Attempt {
         }
         s.attempts += 1;
     });
-    let result = crate::helper::install_speech_model(|line| {
+    let result = crate::annotate::helper::install_speech_model(|line| {
         update(|s| {
             s.engine = line.engine.clone().or(s.engine.take());
             s.locale = line.locale.clone().or(s.locale.take());
@@ -174,7 +174,7 @@ fn install_once() -> Attempt {
             s.error = Some(format!("{error:#}"));
         });
     }
-    crate::capture::scrawl_log(format!(
+    crate::annotate::capture::scrawl_log(format!(
         "speech model: {:?} {} {}{}",
         current().state,
         status.engine.as_deref().unwrap_or("?"),
@@ -186,7 +186,7 @@ fn install_once() -> Attempt {
     ));
     match current().state {
         State::Ready => {
-            transcribe_pending(&crate::handoff::default_captures_dir());
+            transcribe_pending(&crate::annotate::handoff::default_captures_dir());
             Attempt::Done
         }
         State::Unavailable => Attempt::Done,
@@ -243,13 +243,13 @@ pub fn transcribe_pending(captures: &Path) {
 
 fn transcribe_one(dir: &Path) {
     match transcribe_again(dir) {
-        Ok(done) => crate::capture::scrawl_log(format!(
+        Ok(done) => crate::annotate::capture::scrawl_log(format!(
             "transcribed again {}: {}",
             dir.display(),
             if done { "done" } else { "still no model" }
         )),
         Err(error) => {
-            crate::capture::scrawl_log(format!(
+            crate::annotate::capture::scrawl_log(format!(
                 "transcribing {} again failed: {error:#}",
                 dir.display()
             ));
@@ -259,10 +259,10 @@ fn transcribe_one(dir: &Path) {
 }
 
 pub fn transcribe_again(dir: &Path) -> Result<bool> {
-    let (dir, mut bundle) = crate::handoff::load_bundle(dir)?;
+    let (dir, mut bundle) = crate::annotate::handoff::load_bundle(dir)?;
     let wav = dir.join(bundle.audio.as_deref().unwrap_or("audio.wav"));
     anyhow::ensure!(wav.is_file(), "the bundle has no audio.wav any more");
-    let transcript = crate::transcribe::run(&wav)?;
+    let transcript = crate::annotate::transcribe::run(&wav)?;
     if transcript
         .missing
         .as_ref()
@@ -271,7 +271,7 @@ pub fn transcribe_again(dir: &Path) -> Result<bool> {
         return Ok(false);
     }
     let times: Vec<u64> = bundle.keyframes.iter().map(|k| k.t).collect();
-    let said = crate::keyframes::said_per_keyframe(&times, &[], &transcript);
+    let said = crate::annotate::keyframes::said_per_keyframe(&times, &[], &transcript);
     for (frame, said) in bundle.keyframes.iter_mut().zip(said) {
         frame.said = said;
     }
@@ -282,7 +282,7 @@ pub fn transcribe_again(dir: &Path) -> Result<bool> {
     )?;
     std::fs::write(
         dir.join("summary.md"),
-        crate::sketch::summary_markdown(&bundle, &dir),
+        crate::annotate::sketch::summary_markdown(&bundle, &dir),
     )?;
     let _ = std::fs::remove_file(dir.join(PENDING));
     Ok(true)

@@ -715,7 +715,7 @@ impl DictionaryPage {
             .bindings
             .get(TRANSCRIBE_BINDING)
             .map(|binding| {
-                scrawl::host::shortcut_from_binding(&binding.current_binding)
+                crate::annotate::host::shortcut_from_binding(&binding.current_binding)
                     .map_or_else(|| binding.current_binding.clone(), |c| c.label)
             })
             .unwrap_or_default();

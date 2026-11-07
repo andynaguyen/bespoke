@@ -180,7 +180,7 @@ pub fn sync(app: &AppHandle) {
 async fn listen(app: &AppHandle) -> Result<impl Future<Output = ()> + use<>> {
     let service = Arc::new(Service {
         token: token(app)?,
-        captures: scrawl::host::captures_dir(),
+        captures: crate::annotate::host::captures_dir(),
     });
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, PORT))
         .await

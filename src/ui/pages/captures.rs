@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::annotate::host::KeyframeRow;
 use chrono::{Local, TimeZone};
 use gpui::{
     AnyElement, App, Context, FontWeight, Global, ObjectFit, ScrollHandle, SharedString, Task, div,
     img, prelude::*, px,
 };
 use gpui_component::scroll::ScrollableElement;
-use scrawl::host::KeyframeRow;
 
 use crate::i18n::{t, t_count};
 use crate::ui::clay::keycap;
@@ -40,7 +40,7 @@ fn empty_hint(cx: &App) -> impl IntoElement {
     let record = super::annotate::shortcut_label(
         SettingsStore::get(cx),
         crate::annotate::RECORD_BINDING,
-        scrawl::ShortcutKind::Record,
+        crate::annotate::capture::ShortcutKind::Record,
     );
     let (before, after) = (before.trim_end(), after.trim_start());
     line.when(!before.is_empty(), |el| {
@@ -77,7 +77,7 @@ struct Item {
 }
 
 impl Item {
-    fn read(capture: &scrawl::host::Capture) -> Self {
+    fn read(capture: &crate::annotate::host::Capture) -> Self {
         let sheet = capture.contact_sheet(false).ok();
         let rows = capture.keyframe_rows();
         Self {
@@ -153,7 +153,7 @@ impl Captures {
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         self._load = cx.spawn(async move |this, cx| {
             let items = crate::runtime::spawn_blocking(|| {
-                scrawl::host::recent_captures(LIMIT)
+                crate::annotate::host::recent_captures(LIMIT)
                     .iter()
                     .map(Item::read)
                     .collect::<Vec<_>>()
@@ -211,7 +211,7 @@ impl Captures {
         let Some(item) = &self.open else {
             return;
         };
-        match scrawl::host::copy_capture(&item.dir) {
+        match crate::annotate::host::copy_capture(&item.dir) {
             Ok(()) => {
                 self.copied = true;
                 cx.spawn(async move |this, cx| {
@@ -298,7 +298,7 @@ impl Captures {
                 t("annotate.library.showInFinder"),
             )
             .size(ButtonSize::Md)
-            .on_click(move |_, _, _| scrawl::host::reveal_capture(&reveal_dir))
+            .on_click(move |_, _, _| crate::annotate::host::reveal_capture(&reveal_dir))
             .into_any_element(),
             Button::new("capture-copy")
                 .gap(px(6.))

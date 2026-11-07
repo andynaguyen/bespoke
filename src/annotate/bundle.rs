@@ -1,42 +1,18 @@
-mod audio;
-mod autocrop;
-mod capture;
-mod handoff;
-mod helper;
-mod hold;
-pub mod host;
-mod keyframes;
-mod laser_overlay;
-mod mic;
-mod model;
-mod native;
-mod permissions;
-mod render;
-mod retention;
-mod screens;
-mod sketch;
-mod speech_model;
-mod transcribe;
-mod ui;
-mod windows;
-
-pub use crate::capture::{ShortcutConfig, ShortcutKind};
-pub use crate::ui::{MenuAction, start};
-
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 
-use crate::audio::RecordedAudio;
-use crate::capture::write_bundle_artifacts;
-use crate::keyframes::select_keyframes;
-use crate::model::{
+use super::{autocrop, capture, helper, model, render, speech_model, transcribe, windows};
+use crate::annotate::audio::RecordedAudio;
+use crate::annotate::capture::write_bundle_artifacts;
+use crate::annotate::keyframes::select_keyframes;
+use crate::annotate::model::{
     CaptureMode, InteractionEvent, Mark, RgbaFrame, ScrawlBundle, Stroke, TargetInfo,
     TranscriptData, keyframe_budget,
 };
-use crate::render::render_contact_sheet;
-use crate::sketch::{marks_of, summary_markdown};
+use crate::annotate::render::render_contact_sheet;
+use crate::annotate::sketch::{marks_of, summary_markdown};
 
 pub fn now_epoch_ms() -> u64 {
     SystemTime::now()
@@ -678,12 +654,13 @@ pub fn build_bundle_from_parts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{SCALE, TargetFrame, TranscriptSegment, WordTiming};
-    use crate::render::render_synthetic_demo_frame;
+    use crate::annotate::model::{SCALE, TargetFrame, TranscriptSegment, WordTiming};
+    use crate::annotate::render::render_synthetic_demo_frame;
 
     fn generate_demo_bundle(out: Option<PathBuf>) -> Result<(PathBuf, ScrawlBundle, String)> {
         let bundle_dir = out.unwrap_or_else(|| {
-            handoff::default_captures_dir().join(format!("{}.scrawl", make_bundle_id()))
+            crate::annotate::handoff::default_captures_dir()
+                .join(format!("{}.scrawl", make_bundle_id()))
         });
         let (fw, fh) = (1280_u32, 800_u32);
         let target = TargetInfo {

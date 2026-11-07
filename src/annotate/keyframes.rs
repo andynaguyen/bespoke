@@ -1,5 +1,5 @@
-use crate::model::*;
-use crate::sketch::{describe_event, describe_mark, settled_events};
+use crate::annotate::model::*;
+use crate::annotate::sketch::{describe_event, describe_mark, settled_events};
 
 const THUMB_WIDTH: usize = 64;
 const THUMB_HEIGHT: usize = 36;

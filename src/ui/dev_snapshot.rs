@@ -110,10 +110,10 @@ fn navigate(page: &str, cx: &mut App) {
     if let Some(action) = page.strip_prefix("scrawl:") {
         CAPTURE_SCREEN.set(true);
         let action = match action {
-            "latest" => scrawl::MenuAction::OpenLatest,
-            _ => scrawl::MenuAction::ChooseTarget,
+            "latest" => crate::annotate::coordinator::MenuAction::OpenLatest,
+            _ => crate::annotate::coordinator::MenuAction::ChooseTarget,
         };
-        scrawl::host::menu(action);
+        crate::annotate::host::menu(action);
         return;
     }
     CAPTURE_SCREEN.set(false);
@@ -141,7 +141,7 @@ fn navigate(page: &str, cx: &mut App) {
         return;
     }
     if page == "annotate:latest" {
-        if let Some(capture) = scrawl::host::recent_captures(1).first() {
+        if let Some(capture) = crate::annotate::host::recent_captures(1).first() {
             crate::ui::pages::captures::inspect(capture.dir().to_path_buf(), cx);
         }
         return;

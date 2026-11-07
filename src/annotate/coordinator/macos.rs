@@ -11,7 +11,7 @@ use objc2_app_kit::{
 use objc2_foundation::MainThreadMarker;
 
 use super::{LaserOverlay, MenuAction};
-use crate::capture::SharedCaptureTelemetry;
+use crate::annotate::capture::SharedCaptureTelemetry;
 
 pub(super) const FILE_MANAGER: &str = "Finder";
 pub(super) const HEADER_LEAD: f32 = 78.0;
@@ -24,8 +24,9 @@ pub(super) fn display_at(
     frame: [f32; 4],
     cx: &App,
 ) -> Option<std::rc::Rc<dyn gpui::PlatformDisplay>> {
-    let screens = crate::screens::displays();
-    let id = crate::screens::index_for_rect(&screens, frame.map(f64::from)).map(|i| screens[i].id);
+    let screens = crate::annotate::screens::displays();
+    let id = crate::annotate::screens::index_for_rect(&screens, frame.map(f64::from))
+        .map(|i| screens[i].id);
     id.and_then(|id| cx.displays().into_iter().find(|d| u32::from(d.id()) == id))
         .or_else(|| cx.primary_display())
 }
@@ -47,7 +48,7 @@ fn move_window_to_screen(ns_win: &NSWindow, frame: [f64; 4]) {
     else {
         return;
     };
-    let [x, y, w, h] = crate::screens::flip(frame, primary_h);
+    let [x, y, w, h] = crate::annotate::screens::flip(frame, primary_h);
     ns_win.setFrame_display(
         objc2_foundation::NSRect::new(
             objc2_foundation::NSPoint::new(x, y),
@@ -197,7 +198,7 @@ pub(super) fn reduce_motion() -> bool {
 }
 
 pub(super) fn install_status_bar() -> Option<flume::Receiver<MenuAction>> {
-    Some(crate::host::menu_receiver())
+    Some(crate::annotate::host::menu_receiver())
 }
 
 static PICKER_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 
-use crate::model::{RgbaFrame, TranscriptData, TranscriptSegment, WordTiming};
+use crate::annotate::model::{RgbaFrame, TranscriptData, TranscriptSegment, WordTiming};
 
 pub fn path() -> Result<PathBuf> {
     if let Some(path) = std::env::var_os("SCRAWL_HELPER") {
@@ -79,8 +79,12 @@ fn os(s: &str) -> &std::ffi::OsStr {
     std::ffi::OsStr::new(s)
 }
 
-pub fn permissions()
--> Result<std::collections::BTreeMap<crate::permissions::Permission, crate::permissions::Status>> {
+pub fn permissions() -> Result<
+    std::collections::BTreeMap<
+        crate::annotate::permissions::Permission,
+        crate::annotate::permissions::Status,
+    >,
+> {
     run(&[os("permissions")], Duration::from_secs(5))
 }
 
@@ -110,7 +114,11 @@ pub fn transcribe(audio: &Path, contextual_strings: &[String]) -> Result<Transcr
         .engine
         .unwrap_or_else(|| "SpeechTranscriber".into());
     let missing = transcript.missing.map(|why| {
-        crate::speech_model::missing(&why, &transcript.locale, transcript.error.as_deref())
+        crate::annotate::speech_model::missing(
+            &why,
+            &transcript.locale,
+            transcript.error.as_deref(),
+        )
     });
     Ok(TranscriptData {
         source: if missing.is_some() {
@@ -181,7 +189,10 @@ pub fn frames(movie: &Path, times: &[u64], max_edge: u32) -> Result<Vec<RgbaFram
     if times.is_empty() {
         return Ok(Vec::new());
     }
-    let dir = std::env::temp_dir().join(format!("scrawl-frames-{}", crate::make_bundle_id()));
+    let dir = std::env::temp_dir().join(format!(
+        "scrawl-frames-{}",
+        crate::annotate::bundle::make_bundle_id()
+    ));
     let at = times
         .iter()
         .map(u64::to_string)

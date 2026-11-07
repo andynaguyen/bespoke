@@ -1,9 +1,37 @@
-mod types;
-
-pub use self::types::{PillAction, PillSnapshot, Pres};
-
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+
+use crate::annotate::coordinator::SelectionMode;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Pres {
+    Hidden,
+    Recording { chips: bool, stroke_count: usize },
+    Selecting { mode: SelectionMode, hold: bool },
+    Processing,
+    Completed { label: String },
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PillAction {
+    SelectMode(SelectionMode),
+    SwitchRecording(SelectionMode),
+    RecordSelected,
+    Undo,
+    Cancel,
+    Finish,
+    Paste(Option<[f32; 2]>),
+    Inspect,
+    DismissCompleted,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PillSnapshot {
+    pub pres: Pres,
+    pub clock: String,
+    pub reduced_motion: bool,
+    pub shortcut: String,
+}
 
 #[derive(Clone, Debug)]
 pub enum CapsuleCommand {
@@ -69,7 +97,10 @@ impl NativePill {
     }
 
     pub fn sync(&self, snapshot: PillSnapshot) {
-        let mut last = self.last.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut last = self
+            .last
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if last.as_ref() == Some(&snapshot) {
             return;
         }

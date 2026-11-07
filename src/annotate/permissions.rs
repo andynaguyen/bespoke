@@ -54,13 +54,15 @@ impl Grants {
 }
 
 pub fn read_grants() -> Option<Grants> {
-    let statuses = crate::helper::permissions()
-        .inspect_err(|error| crate::capture::scrawl_log(format!("permissions: {error:#}")))
+    let statuses = crate::annotate::helper::permissions()
+        .inspect_err(|error| {
+            crate::annotate::capture::scrawl_log(format!("permissions: {error:#}"))
+        })
         .ok()?;
     let screen = statuses.get(&Permission::ScreenRecording) == Some(&Status::Granted);
     let grants = Grants {
         statuses,
-        screen_needs_relaunch: screen && !crate::capture::screen_capture_usable(true),
+        screen_needs_relaunch: screen && !crate::annotate::capture::screen_capture_usable(true),
     };
     log_change(&grants);
     Some(grants)
@@ -76,7 +78,7 @@ fn log_change(grants: &Grants) {
     if last.as_ref() == Some(grants) {
         return;
     }
-    crate::capture::scrawl_log(describe(grants));
+    crate::annotate::capture::scrawl_log(describe(grants));
     *last = Some(grants.clone());
 }
 

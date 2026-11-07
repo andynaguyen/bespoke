@@ -41,8 +41,8 @@ mod imp {
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    use crate::annotate::host::{SpeechState, TranscriptData};
     use anyhow::Result;
-    use scrawl::host::{SpeechState, TranscriptData};
 
     use super::Status;
 
@@ -58,7 +58,7 @@ mod imp {
         if !supported_os() {
             return Status::Unsupported;
         }
-        match scrawl::host::speech_status().state {
+        match crate::annotate::host::speech_status().state {
             SpeechState::Unknown | SpeechState::Checking => Status::Unchecked,
             SpeechState::Downloading => Status::Downloading,
             SpeechState::Ready => Status::Installed,
@@ -68,28 +68,28 @@ mod imp {
     }
 
     pub fn attempts() -> u32 {
-        scrawl::host::speech_status().attempts
+        crate::annotate::host::speech_status().attempts
     }
 
     /// Download progress from 0 to 1, while macOS downloads the model.
     pub fn progress() -> f64 {
-        scrawl::host::speech_status().progress
+        crate::annotate::host::speech_status().progress
     }
 
     pub fn error() -> Option<String> {
-        scrawl::host::speech_status().error
+        crate::annotate::host::speech_status().error
     }
 
     /// Starts an install, or the next try now when an earlier one failed. Returns the
     /// `attempts` number of the try that answers this call.
     pub fn install() -> u32 {
-        scrawl::host::ensure_speech_model()
+        crate::annotate::host::ensure_speech_model()
     }
 
     /// Runs `changed` when the model's state changes. Download progress alone doesn't count.
     pub fn on_change(changed: impl Fn() + Send + Sync + 'static) {
         let last = std::sync::Mutex::new(None::<SpeechState>);
-        scrawl::host::on_speech_status(move |status| {
+        crate::annotate::host::on_speech_status(move |status| {
             let mut last = last
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -103,7 +103,7 @@ mod imp {
 
     /// Transcribes a WAV file with word times. `missing` is set when the model can't run yet.
     pub fn transcribe_file(wav: &Path, custom_words: &[String]) -> Result<TranscriptData> {
-        scrawl::host::apple_speech(wav, custom_words)
+        crate::annotate::host::apple_speech(wav, custom_words)
     }
 
     /// Transcribes 16 kHz mono samples.

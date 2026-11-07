@@ -20,8 +20,10 @@ use objc2_app_kit::{
 use objc2_foundation::{NSPoint, NSRect};
 use objc2_quartz_core::CALayer;
 
-use crate::capture::SharedCaptureTelemetry;
-use crate::sketch::{pin_pulse, slice_laser_window, smooth_ink_points, smooth_laser_points};
+use crate::annotate::capture::SharedCaptureTelemetry;
+use crate::annotate::sketch::{
+    pin_pulse, slice_laser_window, smooth_ink_points, smooth_laser_points,
+};
 
 const TAIL_DURATION_SEC: f32 = 0.42;
 const MAX_SEGMENTS: usize = 16_384;
@@ -98,15 +100,18 @@ pub struct MetalLaserOverlay {
 fn pick_screen(
     mtm: MainThreadMarker,
     on: Option<[f64; 4]>,
-) -> Option<(crate::screens::Screen, NSRect)> {
-    let screens = crate::screens::current();
+) -> Option<(crate::annotate::screens::Screen, NSRect)> {
+    let screens = crate::annotate::screens::current();
     let index = on
-        .and_then(|r| crate::screens::index_for_rect(&screens, r))
-        .or_else(|| crate::screens::pointer().and_then(|p| crate::screens::index_at(&screens, p)))
+        .and_then(|r| crate::annotate::screens::index_for_rect(&screens, r))
+        .or_else(|| {
+            crate::annotate::screens::pointer()
+                .and_then(|p| crate::annotate::screens::index_at(&screens, p))
+        })
         .or(if screens.is_empty() { None } else { Some(0) })?;
     let screen = screens[index];
     let primary_h = NSScreen::screens(mtm).firstObject()?.frame().size.height;
-    let [x, y, w, h] = crate::screens::flip(screen.frame, primary_h);
+    let [x, y, w, h] = crate::annotate::screens::flip(screen.frame, primary_h);
     Some((
         screen,
         NSRect::new(NSPoint::new(x, y), objc2_foundation::NSSize::new(w, h)),
@@ -430,7 +435,7 @@ impl SharedMetalOverlay {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
 
-        let mut strokes: Vec<(crate::model::Stroke, bool)> =
+        let mut strokes: Vec<(crate::annotate::model::Stroke, bool)> =
             committed_strokes.into_iter().map(|s| (s, false)).collect();
         if let Some(laser) = active_laser {
             strokes.push((laser, true));
@@ -936,7 +941,15 @@ mod tests {
         let (size, scale) = (80_u64, 2.0_f32);
         let points = size as f32 / scale;
         let centre = points / 2.0;
-        for age in [0, 40, 90, 150, 220, 300, crate::sketch::PIN_PULSE_MS] {
+        for age in [
+            0,
+            40,
+            90,
+            150,
+            220,
+            300,
+            crate::annotate::sketch::PIN_PULSE_MS,
+        ] {
             let pin = pin_pulse(age).map_or(PinMarker::default(), |(radius, alpha)| PinMarker {
                 pos: [centre, centre],
                 radius,
@@ -961,7 +974,7 @@ mod tests {
             };
             let max_alpha = pixels.chunks_exact(4).map(|p| p[3]).max().unwrap_or(0);
             let mid = ((size / 2 * size + size / 2) * 4 + 3) as usize;
-            if age >= crate::sketch::PIN_PULSE_MS {
+            if age >= crate::annotate::sketch::PIN_PULSE_MS {
                 assert_eq!(max_alpha, 0, "pulse still showing at {age} ms");
             } else {
                 assert!(max_alpha > 0, "no pulse at {age} ms");
@@ -1432,22 +1445,24 @@ mod tests {
         let refresh_ms = 8;
         let mut shown = frame_at(0).0;
         let mut drawn = Vec::new();
-        for age in (refresh_ms..crate::sketch::PIN_PULSE_MS + 200).step_by(refresh_ms as usize) {
+        for age in
+            (refresh_ms..crate::annotate::sketch::PIN_PULSE_MS + 200).step_by(refresh_ms as usize)
+        {
             let frame = frame_at(age).0;
             if frame != shown {
                 drawn.push(age);
                 shown = frame;
             }
         }
-        let pulse_frames = (crate::sketch::PIN_PULSE_MS - 1) / refresh_ms;
+        let pulse_frames = (crate::annotate::sketch::PIN_PULSE_MS - 1) / refresh_ms;
         let last = *drawn.last().expect("the pulse draws");
         assert_eq!(drawn.len() as u64, pulse_frames + 1, "drawn at {drawn:?}");
         assert!(
-            last >= crate::sketch::PIN_PULSE_MS,
+            last >= crate::annotate::sketch::PIN_PULSE_MS,
             "the frame after the pulse is drawn"
         );
         assert!(
-            last < crate::sketch::PIN_PULSE_MS + refresh_ms,
+            last < crate::annotate::sketch::PIN_PULSE_MS + refresh_ms,
             "nothing drawn once it's cleared: {drawn:?}"
         );
 
