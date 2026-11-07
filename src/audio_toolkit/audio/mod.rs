@@ -10,5 +10,5 @@ pub use recorder::{
     is_no_input_device_error,
 };
 pub use resampler::FrameResampler;
-pub use utils::{read_wav_samples, save_wav_file, verify_wav_file};
+pub use utils::{pcm16, read_wav_samples, save_wav_file, verify_wav_file};
 pub use visualizer::AudioVisualiser;

@@ -293,15 +293,6 @@ where
     )?)
 }
 
-pub fn pcm16(sample: f32) -> i16 {
-    let sample = if sample.is_finite() {
-        sample.clamp(-1.0, 1.0)
-    } else {
-        0.0
-    };
-    (sample * 32_768.0).round().clamp(-32_768.0, 32_767.0) as i16
-}
-
 pub fn encode_wav_16k(samples_16k: &[f32]) -> Result<Vec<u8>> {
     let mut bytes = Cursor::new(Vec::with_capacity(44 + samples_16k.len() * 2));
     {
@@ -316,7 +307,7 @@ pub fn encode_wav_16k(samples_16k: &[f32]) -> Result<Vec<u8>> {
         )?;
         let mut i16_writer = writer.get_i16_writer(samples_16k.len() as u32);
         for &sample in samples_16k {
-            i16_writer.write_sample(pcm16(sample));
+            i16_writer.write_sample(crate::audio_toolkit::audio::pcm16(sample));
         }
         i16_writer.flush()?;
         writer.finalize()?;
@@ -461,7 +452,7 @@ mod tests {
                 .samples::<i16>()
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .unwrap(),
-            vec![-32_768, -16_384, 0, 16_384, 32_767, 0]
+            vec![-32_767, -16_384, 0, 16_384, 32_767, 0]
         );
     }
 }
