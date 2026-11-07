@@ -580,18 +580,8 @@ pub(crate) fn direction(dx: f32, dy: f32, threshold: f32) -> String {
 pub fn describe_event(event: &InteractionEvent) -> String {
     match event {
         InteractionEvent::Click {
-            x,
-            y,
-            label,
-            button,
-            role,
-            ..
+            x, y, label, role, ..
         } => {
-            let verb = if button.as_deref() == Some("touch") {
-                "tapped"
-            } else {
-                "clicked"
-            };
             let role = role
                 .as_deref()
                 .filter(|r| !r.is_empty())
@@ -599,9 +589,9 @@ pub fn describe_event(event: &InteractionEvent) -> String {
                 .unwrap_or_default();
             match label.as_deref() {
                 Some(l) if !l.is_empty() => {
-                    format!("{verb}{role} {} ({})", quote_label(l), at([*x, *y]))
+                    format!("clicked{role} {} ({})", quote_label(l), at([*x, *y]))
                 }
-                _ => format!("{verb}{role} ({})", at([*x, *y])),
+                _ => format!("clicked{role} ({})", at([*x, *y])),
             }
         }
         InteractionEvent::Drag {
@@ -610,37 +600,18 @@ pub fn describe_event(event: &InteractionEvent) -> String {
             x1,
             y1,
             label,
-            button,
             ..
-        } => {
-            if label.as_deref() == Some("long press") {
-                format!("long-pressed ({})", at([*x0, *y0]))
-            } else if let Some(target) = label
-                .as_deref()
-                .and_then(|l| l.strip_prefix("long press:"))
-                .map(str::trim)
+        } => format!(
+            "dragged{} {} ({} → {})",
+            label
+                .as_ref()
                 .filter(|s| !s.is_empty())
-            {
-                format!("long-pressed “{target}” ({})", at([*x0, *y0]))
-            } else {
-                format!(
-                    "{}{} {} ({} → {})",
-                    if button.as_deref() == Some("touch") {
-                        "swiped"
-                    } else {
-                        "dragged"
-                    },
-                    label
-                        .as_ref()
-                        .filter(|s| !s.is_empty())
-                        .map(|s| format!(" {}", quote_label(s)))
-                        .unwrap_or_default(),
-                    direction(x1 - x0, y1 - y0, 0.04),
-                    at([*x0, *y0]),
-                    at([*x1, *y1])
-                )
-            }
-        }
+                .map(|s| format!(" {}", quote_label(s)))
+                .unwrap_or_default(),
+            direction(x1 - x0, y1 - y0, 0.04),
+            at([*x0, *y0]),
+            at([*x1, *y1])
+        ),
         InteractionEvent::Scroll { dx, dy, label, .. } => match label.as_deref() {
             Some(l) if !l.is_empty() => format!("scrolled “{l}” {}", direction(*dx, *dy, 0.0)),
             _ => format!("scrolled {}", direction(*dx, *dy, 0.0)),

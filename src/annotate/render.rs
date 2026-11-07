@@ -330,53 +330,11 @@ pub fn annotate_keyframe_marks_in_place(
     for stroke in strokes.iter().filter(|s| s.laser) {
         draw_laser(frame, stroke, keyframe.t);
     }
-    for event in events {
-        if let InteractionEvent::Drag {
-            t,
-            t1,
-            x0,
-            y0,
-            x1,
-            y1,
-            path,
-            button,
-            label,
-        } = event
-            && button.as_deref() == Some("touch")
-            && !label
-                .as_deref()
-                .is_some_and(|l| l == "long press" || l.starts_with("long press:"))
-            && *t <= keyframe.t
-            && keyframe.t.saturating_sub(*t1) <= 900
-        {
-            let points: Vec<[f32; 2]> = if path.len() >= 2 {
-                path.iter().map(|[x, y]| [x * w, y * h]).collect()
-            } else {
-                vec![[x0 * w, y0 * h], [x1 * w, y1 * h]]
-            };
-            draw_touch_trail(frame, &points, k);
-        }
-    }
     let click = events
         .iter()
         .filter_map(|event| match event {
             InteractionEvent::Click { t, x, y, .. } if t.abs_diff(keyframe.t) <= 600 => {
                 Some((t.abs_diff(keyframe.t), [*x, *y]))
-            }
-            InteractionEvent::Drag {
-                t,
-                t1,
-                x0,
-                y0,
-                label,
-                ..
-            } if label
-                .as_deref()
-                .is_some_and(|l| l == "long press" || l.starts_with("long press:"))
-                && ((*t <= keyframe.t && keyframe.t.saturating_sub(*t1) <= 600)
-                    || t.abs_diff(keyframe.t) <= 600) =>
-            {
-                Some((t1.abs_diff(keyframe.t), [*x0, *y0]))
             }
             _ => None,
         })
@@ -565,69 +523,6 @@ fn draw_click_ripple(frame: &mut RgbaFrame, p: [f32; 2], k: f32) {
     ring(frame, p, r, 1.3 * k, opacity(CLICK_BLUE, 0.8));
     circle(frame, p, 2.0 * k, opacity(WHITE, 0.5));
     circle(frame, p, 1.3 * k, opacity(CLICK_BLUE, 0.9));
-}
-
-/// A finger's path: a thin translucent blue line from a small dot to a slightly larger one where
-/// it lifted (a tap's ring there, when the keyframe has one, stays the only ring).
-fn draw_touch_trail(frame: &mut RgbaFrame, points: &[[f32; 2]], k: f32) {
-    let (Some(&start), Some(&end)) = (points.first(), points.last()) else {
-        return;
-    };
-    polyline(frame, points, 1.5 * k, opacity(WHITE, 0.22));
-    polyline(frame, points, 0.8 * k, opacity(CLICK_BLUE, 0.7));
-    for (point, r) in [(start, 1.3 * k), (end, 2.2 * k)] {
-        circle(frame, point, r + 0.7 * k, opacity(WHITE, 0.5));
-        circle(frame, point, r, opacity(CLICK_BLUE, 0.9));
-    }
-}
-
-/// A round-capped polyline of half-width `radius`, blended once per pixel so a translucent line
-/// doesn't darken where its segments meet.
-fn polyline(frame: &mut RgbaFrame, points: &[[f32; 2]], radius: f32, color: Color) {
-    if points.is_empty() || points.iter().flatten().any(|v| !v.is_finite()) {
-        return;
-    }
-    let reach = radius + 1.0;
-    let (mut lo, mut hi) = ([f32::INFINITY; 2], [f32::NEG_INFINITY; 2]);
-    for p in points {
-        for i in 0..2 {
-            lo[i] = lo[i].min(p[i] - reach);
-            hi[i] = hi[i].max(p[i] + reach);
-        }
-    }
-    let x0 = (lo[0].floor() as i32).max(0);
-    let x1 = (hi[0].ceil() as i32).min(frame.width as i32);
-    let y0 = (lo[1].floor() as i32).max(0);
-    let y1 = (hi[1].ceil() as i32).min(frame.height as i32);
-    let segments: Vec<([f32; 2], [f32; 2])> = if points.len() == 1 {
-        vec![(points[0], points[0])]
-    } else {
-        points.windows(2).map(|w| (w[0], w[1])).collect()
-    };
-    for py in y0..y1 {
-        let y = py as f32 + 0.5;
-        for px in x0..x1 {
-            let x = px as f32 + 0.5;
-            let mut d = f32::INFINITY;
-            for &(a, b) in &segments {
-                if x < a[0].min(b[0]) - reach
-                    || x > a[0].max(b[0]) + reach
-                    || y < a[1].min(b[1]) - reach
-                    || y > a[1].max(b[1]) + reach
-                {
-                    continue;
-                }
-                let ab = [b[0] - a[0], b[1] - a[1]];
-                let len2 = (ab[0] * ab[0] + ab[1] * ab[1]).max(1e-6);
-                let t = (((x - a[0]) * ab[0] + (y - a[1]) * ab[1]) / len2).clamp(0.0, 1.0);
-                d = d.min((x - a[0] - ab[0] * t).hypot(y - a[1] - ab[1] * t));
-            }
-            let coverage = (radius + 0.5 - d).clamp(0.0, 1.0);
-            if coverage > 0.0 {
-                blend(frame, px, py, color, coverage);
-            }
-        }
-    }
 }
 
 pub fn render_contact_sheet(
@@ -1670,38 +1565,6 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[test]
-    fn swipes_leave_a_trail_on_phone_keyframes() {
-        let base = solid(400, 860, [240, 240, 240, 255]);
-        let swipe = InteractionEvent::Drag {
-            t: 3000,
-            t1: 3400,
-            x0: 0.5,
-            y0: 0.8,
-            x1: 0.5,
-            y1: 0.3,
-            label: None,
-            button: Some("touch".into()),
-            path: vec![[0.5, 0.8], [0.52, 0.55], [0.5, 0.3]],
-        };
-        let blue = |frame: &RgbaFrame| {
-            frame
-                .rgba
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .filter(|p| p[2] > 200 && p[0] < 120)
-                .count()
-        };
-        let after =
-            render_annotated_keyframe(&base, &key(1), &[], &[], std::slice::from_ref(&swipe));
-        assert!(blue(&after) > 500, "trail missing");
-        let mut later = key(1);
-        later.t = 6000;
-        let stale = render_annotated_keyframe(&base, &later, &[], &[], &[swipe]);
-        assert_eq!(blue(&stale), 0, "an old swipe should not be drawn");
     }
 
     fn decode_png<R: std::io::BufRead + std::io::Seek>(source: R) -> anyhow::Result<RgbaFrame> {
