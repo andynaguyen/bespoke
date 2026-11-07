@@ -641,11 +641,7 @@ mod tests {
     use crate::annotate::model::{SCALE, TargetFrame, TranscriptSegment, WordTiming};
     use crate::annotate::render::render_synthetic_demo_frame;
 
-    fn generate_demo_bundle(out: Option<PathBuf>) -> Result<(PathBuf, CaptureBundle, String)> {
-        let bundle_dir = out.unwrap_or_else(|| {
-            crate::annotate::handoff::default_captures_dir()
-                .join(format!("{}.scrawl", make_bundle_id()))
-        });
+    fn generate_demo_bundle(bundle_dir: PathBuf) -> Result<(PathBuf, CaptureBundle, String)> {
         let (fw, fh) = (1280_u32, 800_u32);
         let target = TargetInfo {
             mode: CaptureMode::Window,
@@ -817,7 +813,7 @@ mod tests {
     #[test]
     fn artifact_failures_do_not_publish_a_manifest() {
         let root = std::env::temp_dir().join(make_bundle_id());
-        let (_, mut bundle, _) = generate_demo_bundle(Some(root.join("demo.scrawl"))).unwrap();
+        let (_, mut bundle, _) = generate_demo_bundle(root.join("demo.scrawl")).unwrap();
         let frame = RgbaFrame::new(0, 1, 1, vec![20, 30, 40, 255]);
         let mut key = bundle.keyframes[0].clone();
         key.file = "frames/missing/frame.png".into();

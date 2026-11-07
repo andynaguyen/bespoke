@@ -7,11 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::annotate::model::CaptureBundle;
 
-pub fn default_captures_dir() -> PathBuf {
-    match crate::annotate::host::data_dir() {
-        Some(dir) => dir.join("captures"),
-        None => std::env::temp_dir().join("scrawl-captures"),
-    }
+/// The `annotate` folder in Bespoke's data folder. `None` without a running Bespoke, as in tests.
+pub fn annotate_dir() -> Option<PathBuf> {
+    crate::annotate::data_dir(crate::app_handle::AppHandle::try_global()?)
+}
+
+pub fn default_captures_dir() -> Option<PathBuf> {
+    annotate_dir().map(|dir| dir.join("captures"))
 }
 
 pub fn open_path(target: &Path) -> Result<()> {
@@ -22,7 +24,7 @@ pub fn open_path(target: &Path) -> Result<()> {
 
 pub fn resolve_bundle_dir(path_or_id: &Path) -> Result<PathBuf> {
     if path_or_id == Path::new("latest") {
-        return newest_bundle(&default_captures_dir());
+        return newest_bundle(&default_captures_dir().context("No captures folder")?);
     }
     let mut path = path_or_id.to_owned();
     if path.file_name().is_some_and(|name| name == "scrawl.json") {
@@ -34,8 +36,11 @@ pub fn resolve_bundle_dir(path_or_id: &Path) -> Result<PathBuf> {
             path = PathBuf::from(".");
         }
     }
-    if !path.exists() && path.components().count() == 1 {
-        path = default_captures_dir().join(&path);
+    if !path.exists()
+        && path.components().count() == 1
+        && let Some(captures) = default_captures_dir()
+    {
+        path = captures.join(&path);
         if path.extension().is_none() {
             path.set_extension("scrawl");
         }
@@ -443,10 +448,6 @@ pub fn paste_bundle_image_and_text(bundle_dir: &Path) -> Result<()> {
 pub struct Config {
     #[serde(default)]
     pub autocrop: Option<serde_json::Value>,
-    #[serde(default)]
-    pub pill_style: Option<String>,
-    #[serde(default)]
-    pub microphone: Option<crate::annotate::mic::Choice>,
 }
 
 fn log_config_once(message: String) {
@@ -460,11 +461,8 @@ fn log_config_once(message: String) {
     }
 }
 
-pub fn default_config_path() -> PathBuf {
-    match crate::annotate::host::data_dir() {
-        Some(dir) => dir.join("config.json"),
-        None => std::env::temp_dir().join("scrawl-config.json"),
-    }
+pub fn default_config_path() -> Option<PathBuf> {
+    annotate_dir().map(|dir| dir.join("config.json"))
 }
 
 pub fn load_config_from(path: &Path) -> Config {
@@ -771,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    fn one_bad_setting_never_resets_the_others() {
+    fn old_and_unknown_settings_never_reset_the_others() {
         let fixture = Fixture::new();
         let path = fixture.0.join("config.json");
         fs::write(
@@ -781,18 +779,18 @@ mod tests {
         .unwrap();
         let cfg = load_config_from(&path);
         assert_eq!(cfg.autocrop, Some(serde_json::Value::Bool(false)));
-        assert_eq!(cfg.pill_style, None);
     }
 
     #[test]
     fn setting_a_value_keeps_the_other_keys() {
         let fixture = Fixture::new();
         let path = fixture.0.join("config.json");
-        fs::write(&path, r#"{"pillStyle": "glass"}"#).unwrap();
+        fs::write(&path, r#"{"other": "kept"}"#).unwrap();
         set_config_value_in(&path, "autocrop", serde_json::Value::Bool(false)).unwrap();
         let cfg = load_config_from(&path);
         assert_eq!(cfg.autocrop, Some(serde_json::Value::Bool(false)));
-        assert_eq!(cfg.pill_style.as_deref(), Some("glass"));
+        let raw: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(raw["other"], "kept");
         set_config_value_in(&path, "autocrop", serde_json::Value::Null).unwrap();
         assert_eq!(load_config_from(&path).autocrop, None);
     }

@@ -52,54 +52,14 @@ impl AudioRecorder {
         samples: Arc<Mutex<Vec<f32>>>,
         error: Arc<Mutex<Option<String>>>,
     ) -> Result<cpal::Stream> {
-        if let Some(wanted) = crate::annotate::host::host_microphone() {
-            return Self::open_named(wanted.as_deref(), samples, error);
-        }
-        let choice = crate::annotate::mic::choice();
-        if let Some(choice) = &choice {
-            if let Some(device) = crate::annotate::mic::device(&choice.id) {
-                let input = crate::annotate::mic::Input {
-                    id: choice.id.clone(),
-                    name: device_name(&device).unwrap_or_else(|| choice.name.clone()),
-                };
-                crate::annotate::mic::note_pick(&crate::annotate::mic::Pick::Chosen(&input));
-                match Self::open_device(&device, samples.clone(), error.clone()) {
-                    Ok(stream) => {
-                        crate::annotate::capture::annotate_log(format!(
-                            "Microphone: {}",
-                            input.name
-                        ));
-                        return Ok(stream);
-                    }
-                    Err(e) => crate::annotate::capture::annotate_log(format!(
-                        "Microphone: could not open {} ({e:#}); using the default",
-                        input.name
-                    )),
-                }
-            } else {
-                let default = cpal::default_host()
-                    .default_input_device()
-                    .and_then(|device| {
-                        Some(crate::annotate::mic::Input {
-                            id: crate::annotate::mic::device_uid(&device)?,
-                            name: device_name(&device)?,
-                        })
-                    });
-                let inputs = crate::annotate::mic::Inputs {
-                    default: default.as_ref().map(|d| d.id.clone()),
-                    devices: default.into_iter().collect(),
-                };
-                crate::annotate::mic::note_pick(&crate::annotate::mic::Pick::new(
-                    Some(choice),
-                    &inputs,
-                ));
-            }
-        }
-        Self::open_default(samples, error)
+        let wanted = crate::app_handle::AppHandle::try_global().and_then(|app| {
+            crate::managers::audio::preferred_microphone(&crate::settings::get_settings(app))
+        });
+        Self::open_named(wanted.as_deref(), samples, error)
     }
 
-    /// Opens the input the host named, or the system default for `None` or a device that isn't
-    /// connected or won't open.
+    /// Opens the input named on Bespoke's Sound page, or the system default for `None` or a
+    /// device that isn't connected or won't open.
     fn open_named(
         name: Option<&str>,
         samples: Arc<Mutex<Vec<f32>>>,

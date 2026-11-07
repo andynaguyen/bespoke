@@ -12,7 +12,6 @@ pub mod host;
 mod keyframes;
 mod laser_overlay;
 pub mod mcp;
-mod mic;
 mod model;
 mod permissions;
 mod render;
@@ -72,36 +71,25 @@ pub fn data_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
 }
 
 pub fn start(app: &AppHandle, cx: &mut App) {
-    let (Some(data_dir), Ok(log_dir)) = (data_dir(app), crate::portable::app_log_dir(app)) else {
+    if data_dir(app).is_none() || crate::portable::app_log_dir(app).is_err() {
         log::error!("Annotate is off: no data or log directory");
         return;
-    };
+    }
     let ui = app.clone();
-    crate::annotate::host::configure(
-        crate::annotate::host::Paths { data_dir, log_dir },
-        move |missing| {
-            let missing = missing.to_vec();
-            ui.with_ui(move |cx| {
-                if missing.is_empty() {
-                    crate::ui::show_settings(SettingsSection::AnnotateShortcut, cx);
-                } else {
-                    crate::ui::pages::annotate::show_missing_permissions(&missing, cx);
-                }
-            });
-        },
-    );
+    crate::annotate::host::configure(move |missing| {
+        let missing = missing.to_vec();
+        ui.with_ui(move |cx| {
+            if missing.is_empty() {
+                crate::ui::show_settings(SettingsSection::AnnotateShortcut, cx);
+            } else {
+                crate::ui::pages::annotate::show_missing_permissions(&missing, cx);
+            }
+        });
+    });
     follow_captures(app);
     transcribe::init(app);
     sync_shortcuts(&get_settings(app));
     capsule::init(app);
-    let settings = app.clone();
-    crate::annotate::host::on_microphone(move || {
-        crate::managers::audio::preferred_microphone(&get_settings(&settings))
-    });
-    let ui = app.clone();
-    crate::annotate::host::on_inspect(move |dir| {
-        ui.with_ui(move |cx| crate::ui::pages::captures::inspect(dir, cx));
-    });
     crate::annotate::coordinator::start(cx);
     mcp::sync(app);
 }

@@ -66,7 +66,9 @@ impl Policy {
     }
 
     pub fn load() -> Self {
-        Self::load_from(&crate::annotate::handoff::default_config_path())
+        crate::annotate::handoff::default_config_path()
+            .map(|path| Self::load_from(&path))
+            .unwrap_or_default()
     }
 
     pub fn load_from(path: &Path) -> Self {
@@ -397,7 +399,6 @@ static WORKER: std::sync::OnceLock<flume::Sender<()>> = std::sync::OnceLock::new
 
 fn lower_priority() {
     // SAFETY: only changes the calling thread's scheduling class.
-    #[cfg(target_os = "macos")]
     unsafe {
         libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_UTILITY, 0);
     }
@@ -424,7 +425,9 @@ pub fn nudge() {
 
 fn worker(jobs: &flume::Receiver<()>) {
     lower_priority();
-    let captures = crate::annotate::handoff::default_captures_dir();
+    let Some(captures) = crate::annotate::handoff::default_captures_dir() else {
+        return;
+    };
     let mut next_pass = Instant::now() + Duration::from_secs(90);
     let mut last_pass: Option<SystemTime> = None;
     loop {

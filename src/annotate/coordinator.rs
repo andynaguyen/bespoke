@@ -3,10 +3,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, App, Bounds, BoxShadow, Context, Div, Entity, FocusHandle, FontWeight, Image,
-    ImageFormat, IntoElement, KeyDownEvent, Keystroke, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, Render, SharedString, TextRun, Window, WindowBackgroundAppearance, WindowBounds,
-    WindowKind, WindowOptions, div, img, point, prelude::*, px, relative, rgb, rgba, size,
+    App, Bounds, BoxShadow, Context, Div, Entity, FocusHandle, FontWeight, IntoElement,
+    KeyDownEvent, Keystroke, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Render,
+    SharedString, TextRun, Window, WindowBackgroundAppearance, WindowBounds, WindowKind,
+    WindowOptions, div, point, prelude::*, px, rgb, rgba,
 };
 
 mod macos;
@@ -19,21 +19,9 @@ use crate::annotate::capture::{
     region_target, selectable_window_at, shortcut_from_key_and_mods, start_global_input_tap,
 };
 use crate::annotate::laser_overlay::MetalLaserOverlay as LaserOverlay;
-use crate::annotate::model::{CaptureBundle, CaptureMode, TargetInfo, format_clock};
-use crate::annotate::sketch::timeline;
+use crate::annotate::model::{CaptureMode, TargetInfo, format_clock};
 
-const SIDEBAR_BG: u32 = 0x111111;
-const CANVAS_BG: u32 = 0x161616;
-const SURFACE_BG: u32 = 0x1d1d1d;
-const SURFACE_HOVER: u32 = 0x252525;
-const SURFACE_SELECTED: u32 = 0x2e2e2e;
-const LINE_COLOR: u32 = 0x2a2a2a;
 const TEXT_COLOR: u32 = 0xf2f2f2;
-const TEXT_SOFT: u32 = 0xd0d0d0;
-const MUTED_COLOR: u32 = 0x969696;
-const ACCENT_COLOR: u32 = 0x3b5cf6;
-const ACCENT_HOVER: u32 = 0x4b6bff;
-const INK_RED: u32 = 0xff3b30;
 pub(crate) mod motion;
 
 fn tabular_nums() -> gpui::FontFeatures {
@@ -112,9 +100,7 @@ impl SelectionMode {
     }
 
     fn last_used_path() -> Option<PathBuf> {
-        crate::annotate::handoff::default_captures_dir()
-            .parent()
-            .map(|dir| dir.join("last-mode"))
+        crate::annotate::handoff::annotate_dir().map(|dir| dir.join("last-mode"))
     }
 
     fn load_last_used() -> Self {
@@ -226,10 +212,7 @@ pub struct Coordinator {
     animated_window_rect: Option<[f32; 4]>,
     selection_drag: Option<([f32; 2], [f32; 2])>,
     display_rect: [f32; 4],
-    review_bundle: Option<(PathBuf, CaptureBundle)>,
-    review_status: Option<String>,
-    selected_tab: ReviewTab,
-    selected_keyframe: usize,
+    review_dir: Option<PathBuf>,
     completed_dir: Option<PathBuf>,
     last_mode: SelectionMode,
     grants: Option<crate::annotate::permissions::Grants>,
@@ -238,12 +221,6 @@ pub struct Coordinator {
     hold_mods: u64,
     hold_picker: bool,
     clock: Instant,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ReviewTab {
-    ContactSheet,
-    Keyframes,
 }
 
 impl Coordinator {
@@ -265,10 +242,7 @@ impl Coordinator {
             animated_window_rect: None,
             selection_drag: None,
             display_rect: [0.0, 0.0, 1440.0, 900.0],
-            review_bundle: None,
-            review_status: None,
-            selected_tab: ReviewTab::ContactSheet,
-            selected_keyframe: 0,
+            review_dir: None,
             completed_dir: None,
             last_mode: SelectionMode::load_last_used(),
             grants: None,
@@ -297,7 +271,7 @@ impl Coordinator {
     pub fn paste_latest(&mut self, cx: &mut Context<Self>) {
         // Without Accessibility macOS drops the posted ⌘V (it can be turned off after it was
         // granted); bring the Annotate page instead.
-        if !crate::annotate::capture::accessibility_granted() {
+        if !crate::ui::platform::accessibility_granted() {
             annotate_log("Paste shortcut without Accessibility; asking for it");
             self.gate.defer(vec![
                 crate::annotate::permissions::Permission::Accessibility,
@@ -338,7 +312,7 @@ impl Coordinator {
     fn missing_to_record(&mut self) -> Vec<crate::annotate::permissions::Permission> {
         use crate::annotate::permissions::{Permission, missing_to_record};
         let screen = crate::annotate::capture::screen_capture_usable(false);
-        let accessibility = crate::annotate::capture::accessibility_granted();
+        let accessibility = crate::ui::platform::accessibility_granted();
         let missing = missing_to_record(self.grants.as_ref(), screen, accessibility);
         if missing.contains(&Permission::Microphone)
             && let Some(fresh) = crate::annotate::permissions::read_grants()
@@ -599,13 +573,6 @@ impl Coordinator {
             .clone()
     }
 
-    pub fn set_review_bundle(&mut self, bundle: (PathBuf, CaptureBundle), status: Option<String>) {
-        self.review_bundle = Some(bundle);
-        self.review_status = status;
-        self.selected_tab = ReviewTab::ContactSheet;
-        self.selected_keyframe = 0;
-    }
-
     fn sync_picker_overlay(&self) {
         let rect = match self.island_phase {
             IslandPhase::Selecting {
@@ -706,7 +673,7 @@ impl Coordinator {
     }
 
     /// ⌘Q and ⌘, in Scrawl's own windows: a menu bar (accessory) app has no main menu to
-    /// carry them (Ctrl+Q and Ctrl+, on Windows).
+    /// carry them.
     pub fn handle_app_key(&mut self, keystroke: &Keystroke, cx: &mut Context<Self>) -> bool {
         let mods = keystroke.modifiers;
         if !mods.secondary() || (mods.control && mods.platform) || mods.alt || mods.shift {
@@ -1009,7 +976,7 @@ impl Coordinator {
         let entity = cx.entity().clone();
         cx.defer(move |cx| {
             close_picker_window(cx);
-            open_review_window(&entity, cx);
+            inspect_review_dir(&entity, cx);
         });
         cx.notify();
     }
@@ -1024,7 +991,7 @@ impl Coordinator {
             .clone()
             .unwrap_or_else(|| PathBuf::from("latest"));
         self.dismiss_island(cx);
-        if !crate::annotate::capture::accessibility_granted() {
+        if !crate::ui::platform::accessibility_granted() {
             annotate_log("Paste chip without Accessibility; asking for it");
             self.gate.defer(vec![
                 crate::annotate::permissions::Permission::Accessibility,
@@ -1201,10 +1168,7 @@ impl Coordinator {
         }
 
         let entity = cx.entity().clone();
-        cx.defer(move |cx| {
-            close_review_window(cx);
-            open_picker_windows(&entity, cx);
-        });
+        cx.defer(move |cx| open_picker_windows(&entity, cx));
         cx.notify();
     }
 
@@ -1223,6 +1187,11 @@ impl Coordinator {
             self.cancel_recording(cx);
             return;
         }
+        let Some(captures) = crate::annotate::handoff::default_captures_dir() else {
+            annotate_log("No captures folder");
+            self.cancel_recording(cx);
+            return;
+        };
         annotate_log(format!(
             "start_recording_with_target invoked: mode={:?} frame={:?}",
             target.mode, target.frame
@@ -1241,8 +1210,7 @@ impl Coordinator {
         self.hovered_window = None;
         self.animated_window_rect = None;
         let id = crate::annotate::bundle::make_bundle_id();
-        let bundle_dir =
-            crate::annotate::handoff::default_captures_dir().join(format!("{id}.scrawl"));
+        let bundle_dir = captures.join(format!("{id}.scrawl"));
         let _ = std::fs::create_dir_all(&bundle_dir);
         let video_path = bundle_dir.join("recording.mp4");
 
@@ -1311,7 +1279,6 @@ impl Coordinator {
         self.set_island_phase(IslandPhase::Recording);
         let entity = cx.entity().clone();
         cx.defer(move |cx| {
-            close_review_window(cx);
             close_picker_window(cx);
             ensure_pill_open(&entity, cx);
         });
@@ -1391,7 +1358,7 @@ impl Coordinator {
                     frame_count = bundle.keyframes.len();
                     let _ = crate::annotate::handoff::copy_bundle_to_clipboard(&dir);
                     coord.completed_dir = Some(dir.clone());
-                    coord.set_review_bundle((dir, bundle), None);
+                    coord.review_dir = Some(dir);
                 }
                 coord.set_island_phase(IslandPhase::Completed {
                     finished_at: Instant::now(),
@@ -1788,639 +1755,10 @@ fn place_badge(
     ]
 }
 
-pub struct BundleReviewWindow {
-    coordinator: Entity<Coordinator>,
-    focus: FocusHandle,
-    cached_sheet_path: Option<PathBuf>,
-    cached_sheet_image: Option<Arc<Image>>,
-    cached_frames: Vec<Option<Arc<Image>>>,
-}
-
-impl BundleReviewWindow {
-    fn new(coordinator: Entity<Coordinator>, focus: FocusHandle) -> Self {
-        Self {
-            coordinator,
-            focus,
-            cached_sheet_path: None,
-            cached_sheet_image: None,
-            cached_frames: Vec::new(),
-        }
-    }
-
-    fn ensure_images(&mut self, dir: &std::path::Path, bundle: &CaptureBundle) {
-        let sheet_path = dir.join(&bundle.contact_sheet);
-        if self.cached_sheet_path.as_ref() != Some(&sheet_path) {
-            self.cached_sheet_path = Some(sheet_path.clone());
-            self.cached_sheet_image = std::fs::read(&sheet_path)
-                .ok()
-                .map(|bytes| Arc::new(Image::from_bytes(ImageFormat::Png, bytes)));
-            self.cached_frames = bundle
-                .keyframes
-                .iter()
-                .map(|kf| {
-                    let bytes = std::fs::read(dir.join(&kf.file)).ok()?;
-                    Some(Arc::new(Image::from_bytes(ImageFormat::Png, bytes)))
-                })
-                .collect();
-        }
-    }
-}
-
-impl Render for BundleReviewWindow {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let stage_w = (f32::from(window.bounds().size.width) - 320.0 - 44.0).max(320.0);
-        let coord_read = self.coordinator.read(cx);
-        let state = coord_read.review_bundle.clone();
-        let status = coord_read.review_status.clone();
-        let tab = coord_read.selected_tab;
-        let selected_kf = coord_read.selected_keyframe;
-        let shortcut_label = coord_read.shortcut_label();
-
-        let Some((dir, bundle)) = state else {
-            let c_start = self.coordinator.clone();
-            let c_keydown = self.coordinator.clone();
-            return div()
-                .id("annotate-review-empty")
-                .track_focus(&self.focus)
-                .on_key_down(move |event: &KeyDownEvent, window, cx| {
-                    let handled = c_keydown
-                        .update(cx, |coord, cx| coord.handle_app_key(&event.keystroke, cx));
-                    let key = event.keystroke.key.as_str();
-                    if !handled
-                        && (key == "escape"
-                            || (event.keystroke.modifiers.secondary()
-                                && key.eq_ignore_ascii_case("w")))
-                    {
-                        window.remove_window();
-                    } else if !handled {
-                        return;
-                    }
-                    cx.stop_propagation();
-                })
-                .size_full()
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .gap_3()
-                .bg(rgb(CANVAS_BG))
-                .text_color(rgb(TEXT_COLOR))
-                .child(
-                    div()
-                        .text_size(px(16.0))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("Annotate"),
-                )
-                .child(
-                    hint_button("empty-record", "Record", Some(shortcut_label), true).on_click(
-                        move |_, _, cx| {
-                            c_start.update(cx, |coord, cx| coord.record_or_finish(cx));
-                        },
-                    ),
-                )
-                .into_any_element();
-        };
-
-        self.ensure_images(&dir, &bundle);
-
-        let target_label = match (&bundle.target.app, &bundle.target.window_title) {
-            (Some(app), Some(win)) if !win.is_empty() && win != app => {
-                format!("{app} — “{win}”")
-            }
-            (Some(app), _) => app.clone(),
-            _ => format!("Display {}", bundle.target.display_id),
-        };
-        let timeline = timeline(&bundle);
-
-        let c_keydown = self.coordinator.clone();
-        let c_shortcut = self.coordinator.clone();
-        let c_copy = self.coordinator.clone();
-        let c_send = self.coordinator.clone();
-        let c_tab_sheet = self.coordinator.clone();
-        let c_tab_frames = self.coordinator.clone();
-        let copy_dir = dir.clone();
-        let send_dir = dir.clone();
-
-        div()
-            .id("annotate-review-root")
-            .track_focus(&self.focus)
-            .on_key_down(move |event: &KeyDownEvent, window, cx| {
-                let key = event.keystroke.key.as_str();
-                let mods = event.keystroke.modifiers;
-                let handled = c_keydown.update(cx, |coord, cx| {
-                    if coord.handle_app_key(&event.keystroke, cx) {
-                        return true;
-                    }
-                    if let Some(cfg) = shortcut_from_key_and_mods(
-                        key,
-                        mods.platform,
-                        mods.control,
-                        mods.alt,
-                        mods.shift,
-                    ) && coord.telemetry.matches_shortcut(
-                        cfg.key_code as u16,
-                        mods.platform,
-                        mods.control,
-                        mods.alt,
-                        mods.shift,
-                    ) {
-                        coord.telemetry.emit_capture_shortcut();
-                        return true;
-                    }
-                    false
-                });
-                if !handled
-                    && (key == "escape" || (mods.secondary() && key.eq_ignore_ascii_case("w")))
-                {
-                    window.remove_window();
-                } else if !handled {
-                    return;
-                }
-                cx.stop_propagation();
-            })
-            .size_full()
-            .flex()
-            .flex_col()
-            .bg(rgb(CANVAS_BG))
-            .text_color(rgb(TEXT_COLOR))
-            .child(
-                div()
-                    .h(px(48.0))
-                    .pl(px(macos::HEADER_LEAD))
-                    .pr(px(macos::HEADER_TRAIL))
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .gap_4()
-                    .bg(rgb(SIDEBAR_BG))
-                    .border_b_1()
-                    .border_color(rgb(LINE_COLOR))
-                    .map(macos::window_drag_region)
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .items_center()
-                            .gap_3()
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .h(px(28.0))
-                                    .p(px(1.0))
-                                    .flex()
-                                    .items_center()
-                                    .gap(px(2.0))
-                                    .rounded(px(8.0))
-                                    .bg(rgb(CANVAS_BG))
-                                    .border_1()
-                                    .border_color(rgb(LINE_COLOR))
-                                    .child(
-                                        tab_chip(
-                                            "tab-contact-sheet",
-                                            "Contact Sheet",
-                                            tab == ReviewTab::ContactSheet,
-                                        )
-                                        .on_click(
-                                            move |_, _, cx| {
-                                                c_tab_sheet.update(cx, |coord, cx| {
-                                                    coord.selected_tab = ReviewTab::ContactSheet;
-                                                    cx.notify();
-                                                });
-                                            },
-                                        ),
-                                    )
-                                    .child(
-                                        tab_chip(
-                                            "tab-keyframes",
-                                            "Keyframes",
-                                            tab == ReviewTab::Keyframes,
-                                        )
-                                        .on_click(
-                                            move |_, _, cx| {
-                                                c_tab_frames.update(cx, |coord, cx| {
-                                                    coord.selected_tab = ReviewTab::Keyframes;
-                                                    cx.notify();
-                                                });
-                                            },
-                                        ),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .min_w_0()
-                                    .truncate()
-                                    .text_size(px(12.0))
-                                    .text_color(rgb(MUTED_COLOR))
-                                    .child(format!(
-                                        "{} · {} · {} {}",
-                                        target_label,
-                                        format_clock(bundle.duration_ms),
-                                        bundle.keyframes.len(),
-                                        if bundle.keyframes.len() == 1 {
-                                            "keyframe"
-                                        } else {
-                                            "keyframes"
-                                        }
-                                    )),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_none()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                hint_button(
-                                    "btn-shortcut",
-                                    "Shortcut",
-                                    Some(shortcut_label),
-                                    false,
-                                )
-                                .on_click(move |_, _, cx| {
-                                    c_shortcut.update(cx, |coord, _| coord.open_settings());
-                                }),
-                            )
-                            .child(
-                                action_button(
-                                    "btn-reveal",
-                                    &format!("Show in {}", macos::FILE_MANAGER),
-                                    false,
-                                )
-                                .on_click(move |_, _, cx| {
-                                    let _ = crate::annotate::handoff::open_path(&send_dir);
-                                    c_send.update(cx, |coord, cx| {
-                                        coord.review_status =
-                                            Some(format!("Opened in {}", macos::FILE_MANAGER));
-                                        cx.notify();
-                                    });
-                                }),
-                            )
-                            .child(
-                                action_button(
-                                    "btn-copy",
-                                    if status.as_deref() == Some("Copied ✓") {
-                                        "Copied"
-                                    } else {
-                                        "Copy"
-                                    },
-                                    true,
-                                )
-                                .on_click(move |_, _, cx| {
-                                    let res = crate::annotate::handoff::copy_bundle_to_clipboard(
-                                        &copy_dir,
-                                    );
-                                    c_copy.update(cx, |coord, cx| {
-                                        coord.review_status = Some(match res {
-                                            Ok(()) => "Copied ✓".into(),
-                                            Err(e) => format!("Copy failed: {e}"),
-                                        });
-                                        cx.notify();
-                                    });
-                                }),
-                            ),
-                    )
-                    .children(macos::caption_buttons()),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .flex()
-                    .child(
-                        div()
-                            .id("review-stage-scroll")
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .overflow_y_scroll()
-                            .overflow_x_hidden()
-                            .p_5()
-                            .child(match tab {
-                                ReviewTab::ContactSheet => self.render_contact_sheet_stage(stage_w),
-                                ReviewTab::Keyframes => {
-                                    self.render_keyframes_stage(&bundle, selected_kf, stage_w)
-                                }
-                            }),
-                    )
-                    .child(
-                        div()
-                            .id("review-timeline-sidebar")
-                            .w(px(320.0))
-                            .h_full()
-                            .flex_none()
-                            .overflow_y_scroll()
-                            .overflow_x_hidden()
-                            .bg(rgb(SIDEBAR_BG))
-                            .border_l_1()
-                            .border_color(rgb(LINE_COLOR))
-                            .px_4()
-                            .py(px(18.0))
-                            .flex()
-                            .flex_col()
-                            .child(sidebar_heading("Transcript"))
-                            .child(
-                                div()
-                                    .p_3()
-                                    .rounded(px(8.0))
-                                    .bg(rgb(SURFACE_BG))
-                                    .border_1()
-                                    .border_color(rgb(LINE_COLOR))
-                                    .text_size(px(13.0))
-                                    .line_height(relative(1.45))
-                                    .map(|d| {
-                                        let text = bundle.transcript.text.trim();
-                                        if text.is_empty() {
-                                            d.text_color(rgb(MUTED_COLOR)).child("No speech")
-                                        } else {
-                                            d.text_color(rgb(TEXT_COLOR)).child(format!("“{text}”"))
-                                        }
-                                    }),
-                            )
-                            .child(div().mt(px(20.0)).child(sidebar_heading("Timeline")))
-                            .child(
-                                div().mx(px(-8.0)).flex().flex_col().gap(px(1.0)).children(
-                                    timeline
-                                        .into_iter()
-                                        .enumerate()
-                                        .map(|(i, line)| timeline_row(i, &line)),
-                                ),
-                            ),
-                    ),
-            )
-            .into_any_element()
-    }
-}
-
-impl BundleReviewWindow {
-    fn render_contact_sheet_stage(&self, stage_w: f32) -> AnyElement {
-        if let Some(ref image) = self.cached_sheet_image {
-            div()
-                .w_full()
-                .min_w_0()
-                .flex()
-                .justify_center()
-                .child(
-                    img(Arc::clone(image))
-                        .w(px(stage_w))
-                        .rounded(px(10.0))
-                        .border_1()
-                        .border_color(rgb(LINE_COLOR)),
-                )
-                .into_any_element()
-        } else {
-            div()
-                .p_6()
-                .text_color(rgb(MUTED_COLOR))
-                .child("Contact sheet image unavailable.")
-                .into_any_element()
-        }
-    }
-
-    fn render_keyframes_stage(
-        &self,
-        bundle: &CaptureBundle,
-        selected_kf: usize,
-        stage_w: f32,
-    ) -> AnyElement {
-        let card_img_w = (stage_w - 18.0).max(240.0);
-        let cards = bundle
-            .keyframes
-            .iter()
-            .enumerate()
-            .map(|(idx, kf)| {
-                let is_selected = idx == selected_kf;
-                let frame_img = self.cached_frames.get(idx).and_then(Clone::clone);
-                let c_select = self.coordinator.clone();
-                div()
-                    .id(("kf-card", idx))
-                    .p(px(8.0))
-                    .rounded(px(12.0))
-                    .bg(rgb(SURFACE_BG))
-                    .border_1()
-                    .border_color(if is_selected {
-                        rgb(ACCENT_COLOR)
-                    } else {
-                        rgb(LINE_COLOR)
-                    })
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.0))
-                    .cursor_pointer()
-                    .when(!is_selected, |d| d.hover(|s| s.border_color(rgb(0x3a3a3a))))
-                    .on_click(move |_, _, cx| {
-                        c_select.update(cx, |coord, cx| {
-                            coord.selected_keyframe = idx;
-                            cx.notify();
-                        });
-                    })
-                    .when_some(frame_img, |d, image| {
-                        d.child(img(image).w(px(card_img_w)).rounded(px(3.0)))
-                    })
-                    .child(
-                        div()
-                            .px(px(4.0))
-                            .pb(px(2.0))
-                            .flex()
-                            .items_center()
-                            .gap(px(8.0))
-                            .text_size(px(12.5))
-                            .child(
-                                div()
-                                    .h(px(20.0))
-                                    .px(px(7.0))
-                                    .flex()
-                                    .flex_none()
-                                    .items_center()
-                                    .rounded(px(10.0))
-                                    .bg(rgb(CANVAS_BG))
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(11.5))
-                                    .text_color(rgb(TEXT_COLOR))
-                                    .child(format!("#{} · {}", kf.index, format_clock(kf.t))),
-                            )
-                            .child(
-                                div()
-                                    .min_w_0()
-                                    .truncate()
-                                    .text_color(rgb(TEXT_SOFT))
-                                    .child(kf.event.clone()),
-                            ),
-                    )
-                    .when_some(kf.said.clone(), |d, said| {
-                        d.child(
-                            div()
-                                .px(px(4.0))
-                                .pb(px(2.0))
-                                .text_size(px(12.0))
-                                .line_height(relative(1.4))
-                                .text_color(rgb(MUTED_COLOR))
-                                .child(format!("“{said}”")),
-                        )
-                    })
-            })
-            .collect::<Vec<_>>();
-
-        div()
-            .w_full()
-            .flex()
-            .flex_col()
-            .gap_4()
-            .children(cards)
-            .into_any_element()
-    }
-}
-
-fn sidebar_heading(label: &'static str) -> Div {
-    div()
-        .mb(px(8.0))
-        .text_size(px(11.0))
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_color(rgb(MUTED_COLOR))
-        .child(label)
-}
-
-fn split_timeline_line(line: &str) -> (&str, &str, bool) {
-    let (time, rest) = line.split_once(' ').unwrap_or(("", line));
-    if let Some(body) = rest.strip_prefix("✎ ") {
-        (time, body, true)
-    } else {
-        (time, rest.strip_prefix("· ").unwrap_or(rest), false)
-    }
-}
-
-fn timeline_row(index: usize, line: &str) -> gpui::Stateful<Div> {
-    let (time, body, is_mark) = split_timeline_line(line);
-    div()
-        .id(("timeline-row", index))
-        .px(px(8.0))
-        .py(px(6.0))
-        .rounded(px(6.0))
-        .flex()
-        .items_start()
-        .gap(px(10.0))
-        .text_size(px(12.5))
-        .line_height(relative(1.4))
-        .hover(|s| s.bg(rgb(SURFACE_BG)))
-        .child(
-            div()
-                .w(px(32.0))
-                .flex_none()
-                .text_color(rgb(MUTED_COLOR))
-                .child(time.to_string()),
-        )
-        .when(is_mark, |d| {
-            d.child(div().flex_none().text_color(rgb(INK_RED)).child("✎"))
-        })
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_color(if is_mark {
-                    rgb(TEXT_COLOR)
-                } else {
-                    rgb(TEXT_SOFT)
-                })
-                .child(body.to_string()),
-        )
-}
-
-fn tab_chip(id: &'static str, label: &'static str, selected: bool) -> gpui::Stateful<Div> {
-    div()
-        .id(id)
-        .h(px(24.0))
-        .px(px(10.0))
-        .rounded(px(6.0))
-        .flex()
-        .items_center()
-        .text_size(px(12.0))
-        .font_weight(FontWeight::MEDIUM)
-        .when(selected, |d| {
-            d.bg(rgb(SURFACE_SELECTED)).shadow(vec![BoxShadow {
-                color: gpui::hsla(0.0, 0.0, 0.0, 0.25),
-                offset: point(px(0.0), px(1.0)),
-                blur_radius: px(2.0),
-                spread_radius: px(0.0),
-            }])
-        })
-        .text_color(if selected {
-            rgb(TEXT_COLOR)
-        } else {
-            rgb(MUTED_COLOR)
-        })
-        .when(!selected, |d| {
-            d.cursor_pointer().hover(|s| s.text_color(rgb(TEXT_SOFT)))
-        })
-        .child(label)
-}
-
-fn button_base(id: &'static str, primary: bool) -> gpui::Stateful<Div> {
-    div()
-        .id(id)
-        .h(px(28.0))
-        .px(px(12.0))
-        .rounded(px(7.0))
-        .flex()
-        .flex_none()
-        .items_center()
-        .gap(px(6.0))
-        .whitespace_nowrap()
-        .text_size(px(12.5))
-        .font_weight(FontWeight::MEDIUM)
-        .border_1()
-        .border_color(if primary {
-            rgb(ACCENT_COLOR)
-        } else {
-            rgb(LINE_COLOR)
-        })
-        .bg(if primary {
-            rgb(ACCENT_COLOR)
-        } else {
-            rgb(SURFACE_BG)
-        })
-        .text_color(rgb(TEXT_COLOR))
-        .cursor_pointer()
-        .hover(move |s| {
-            if primary {
-                s.bg(rgb(ACCENT_HOVER)).border_color(rgb(ACCENT_HOVER))
-            } else {
-                s.bg(rgb(SURFACE_HOVER))
-            }
-        })
-}
-
-fn action_button(id: &'static str, label: &str, primary: bool) -> gpui::Stateful<Div> {
-    button_base(id, primary).child(SharedString::from(label.to_string()))
-}
-
-fn hint_button(
-    id: &'static str,
-    label: &str,
-    hint: Option<String>,
-    primary: bool,
-) -> gpui::Stateful<Div> {
-    button_base(id, primary)
-        .child(SharedString::from(label.to_string()))
-        .when_some(hint, |d, hint| {
-            d.child(
-                div()
-                    .text_color(if primary {
-                        rgba(0xffffffb3)
-                    } else {
-                        rgb(MUTED_COLOR)
-                    })
-                    .child(hint),
-            )
-        })
-}
-
 fn open_picker_windows(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     close_picker_window(cx);
     let screen = coord_entity.read(cx).display_rect;
     let display = macos::display_at(screen, cx);
-    // Windows wants the display's own origin, or GPUI puts the picker at its default bounds.
     let picker_bounds = Bounds {
         origin: macos::window_origin(display.as_deref()),
         size: macos::layout_size(screen, display.as_deref()),
@@ -2490,67 +1828,12 @@ fn close_picker_window(cx: &mut App) {
     }
 }
 
-fn close_review_window(cx: &mut App) {
-    for handle in cx.windows() {
-        if handle.downcast::<BundleReviewWindow>().is_some() {
-            let _ = handle.update(cx, |_, window, _| window.remove_window());
-        }
+/// Opens the capture shown last, the one just finished or the one Open Latest found, on
+/// Bespoke's Annotate page. Does nothing before there is one.
+fn inspect_review_dir(coord_entity: &Entity<Coordinator>, cx: &mut App) {
+    if let Some(dir) = coord_entity.read(cx).review_dir.clone() {
+        crate::ui::pages::captures::inspect(dir, cx);
     }
-}
-
-/// Opens the review window in front with the keys. A menu bar (accessory) app isn't active when
-/// its menu is used, and the cooperative `NSApp.activate()` may leave the window behind the app
-/// in front, so it activates ignoring other apps once the window exists.
-fn open_review_window(coord_entity: &Entity<Coordinator>, cx: &mut App) {
-    let dir = coord_entity
-        .read(cx)
-        .review_bundle
-        .as_ref()
-        .map(|(dir, _)| dir.clone());
-    if let Some(dir) = dir
-        && crate::annotate::host::inspect(dir)
-    {
-        return;
-    }
-    for handle in cx.windows() {
-        if let Some(review) = handle.downcast::<BundleReviewWindow>() {
-            macos::take_keys(cx);
-            let _ = review.update(cx, |_, window, cx| {
-                window.activate_window();
-                cx.notify();
-            });
-            return;
-        }
-    }
-    let bounds = Bounds::centered(None, size(px(1120.0), px(740.0)), cx);
-    let coord_clone = coord_entity.clone();
-    let _ = cx.open_window(
-        WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            titlebar: Some(gpui::TitlebarOptions {
-                title: cfg!(target_os = "windows").then(|| "Scrawl".into()),
-                appears_transparent: true,
-                traffic_light_position: Some(point(px(16.0), px(16.0))),
-            }),
-            app_id: Some("dev.kitlangton.scrawl".into()),
-            focus: true,
-            show: true,
-            kind: WindowKind::Normal,
-            is_resizable: true,
-            window_background: WindowBackgroundAppearance::Opaque,
-            ..Default::default()
-        },
-        move |window, cx| {
-            macos::decorate_app_window(window);
-            let focus = cx.focus_handle();
-            window.focus(&focus);
-            cx.new(|cx| {
-                cx.observe(&coord_clone, |_, _, cx| cx.notify()).detach();
-                BundleReviewWindow::new(coord_clone, focus)
-            })
-        },
-    );
-    macos::take_keys(cx);
 }
 
 pub fn start(cx: &mut App) {
@@ -2599,14 +1882,14 @@ pub fn start(cx: &mut App) {
                                 });
                             }
                             MenuAction::OpenLatest => {
-                                if let Ok((dir, bundle)) = crate::annotate::handoff::load_bundle(
+                                if let Ok((dir, _)) = crate::annotate::handoff::load_bundle(
                                     std::path::Path::new("latest"),
                                 ) {
                                     loop_coord.update(cx, |coord, cx| {
-                                        coord.set_review_bundle((dir, bundle), None);
+                                        coord.review_dir = Some(dir);
                                         cx.notify();
                                     });
-                                    open_review_window(&loop_coord, cx);
+                                    inspect_review_dir(&loop_coord, cx);
                                 }
                             }
                         }
@@ -2768,22 +2051,6 @@ mod tests {
 
         let clipped = clip_rect([-300.0, -50.0, 400.0, 200.0], screen);
         assert_eq!(clipped, [0.0, 0.0, 100.0, 150.0]);
-    }
-
-    #[test]
-    fn timeline_lines_split_into_time_and_body() {
-        assert_eq!(
-            split_timeline_line("0:04 ✎ Circle around button — frame #2"),
-            ("0:04", "Circle around button — frame #2", true)
-        );
-        assert_eq!(
-            split_timeline_line("0:05 · Clicked Save"),
-            ("0:05", "Clicked Save", false)
-        );
-        assert_eq!(
-            split_timeline_line("0:01 “hello”"),
-            ("0:01", "“hello”", false)
-        );
     }
 
     #[test]

@@ -186,7 +186,9 @@ fn install_once() -> Attempt {
     ));
     match current().state {
         State::Ready => {
-            transcribe_pending(&crate::annotate::handoff::default_captures_dir());
+            if let Some(captures) = crate::annotate::handoff::default_captures_dir() {
+                transcribe_pending(&captures);
+            }
             Attempt::Done
         }
         State::Unavailable => Attempt::Done,

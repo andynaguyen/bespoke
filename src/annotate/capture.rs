@@ -80,7 +80,6 @@ impl CandidateBuffer {
         self.interval *= 2;
     }
 
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn drop_since(&mut self, t_ms: u64) {
         let mut index = 0;
         self.frames.retain(|(frame, _)| {
@@ -182,36 +181,19 @@ impl ShortcutConfig {
 }
 
 pub fn shortcut_label(carbon_modifiers: u32, key: &str) -> String {
-    let held = |bit: u32| carbon_modifiers & bit != 0;
-    if cfg!(target_os = "windows") {
-        let mut parts = Vec::new();
-        for (bit, name) in [
-            (CARBON_CONTROL_KEY, "Ctrl"),
-            (CARBON_CMD_KEY, "Win"),
-            (CARBON_OPTION_KEY, "Alt"),
-            (CARBON_SHIFT_KEY, "Shift"),
-        ] {
-            if held(bit) {
-                parts.push(name);
-            }
+    let mut label = String::new();
+    for (bit, glyph) in [
+        (CARBON_CONTROL_KEY, '⌃'),
+        (CARBON_OPTION_KEY, '⌥'),
+        (CARBON_SHIFT_KEY, '⇧'),
+        (CARBON_CMD_KEY, '⌘'),
+    ] {
+        if carbon_modifiers & bit != 0 {
+            label.push(glyph);
         }
-        parts.push(key);
-        parts.join("+")
-    } else {
-        let mut label = String::new();
-        for (bit, glyph) in [
-            (CARBON_CONTROL_KEY, '⌃'),
-            (CARBON_OPTION_KEY, '⌥'),
-            (CARBON_SHIFT_KEY, '⇧'),
-            (CARBON_CMD_KEY, '⌘'),
-        ] {
-            if held(bit) {
-                label.push(glyph);
-            }
-        }
-        label.push_str(key);
-        label
     }
+    label.push_str(key);
+    label
 }
 
 pub fn annotate_log(msg: impl AsRef<str>) {
@@ -222,18 +204,17 @@ pub fn annotate_log(msg: impl AsRef<str>) {
         .as_millis();
     let line = format!("[{ts}] {}\n", msg.as_ref());
     eprint!("{line}");
-    let Some(dir) = log_dir() else {
+    // Without a running Bespoke, as in tests, the line goes to stderr only.
+    let Some(dir) = crate::app_handle::AppHandle::try_global()
+        .and_then(|app| crate::portable::app_log_dir(app).ok())
+    else {
         return;
     };
     let _ = std::fs::create_dir_all(&dir);
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(dir.join(if crate::annotate::host::log_dir().is_some() {
-            "annotate.log"
-        } else {
-            "scrawl.log"
-        }))
+        .open(dir.join("annotate.log"))
     {
         let _ = f.write_all(line.as_bytes());
     }
@@ -297,11 +278,6 @@ pub fn shortcut_matches(
     }
     let is_key = keycode == layout_code || keycode == kind.ansi_code();
     cfg.is_default_for(kind) && is_key && alt && (shift || (ctrl && cmd))
-}
-
-#[cfg_attr(target_os = "macos", allow(dead_code))]
-pub fn layout_default_keycode(kind: ShortcutKind) -> u16 {
-    key_code_for_char(kind.default_char()).unwrap_or(kind.ansi_code())
 }
 
 fn clean_label(input: &str) -> String {
@@ -393,7 +369,6 @@ pub fn capture_size(target: &TargetInfo, long_edge: f64) -> (u32, u32) {
 pub(crate) struct Sampler {
     pub target: TargetInfo,
     pub video_output_path: Option<PathBuf>,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub excluded_window_ids: Arc<Mutex<Vec<u32>>>,
     pub started_at: Instant,
     pub stopping: Arc<AtomicBool>,
@@ -539,13 +514,9 @@ pub struct SharedCaptureTelemetry {
     pub window_log_request: Arc<AtomicBool>,
     pub ui_sender: flume::Sender<LiveOverlayEvent>,
     pub passthrough_window_ids: Mutex<Vec<u32>>,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_port: AtomicU64,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_run_loop: AtomicU64,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_starting: AtomicBool,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     tap_tried_ms: AtomicU64,
     tap_live: AtomicBool,
     escape_pressed: AtomicBool,
@@ -774,12 +745,9 @@ impl SharedCaptureTelemetry {
         if !self.contains_screen_point(screen_x, screen_y) {
             return;
         }
-        #[cfg(target_os = "macos")]
-        {
-            let raw = objc2::rc::autoreleasepool(|_| crate::annotate::windows::raw_windows());
-            if crate::annotate::windows::system_prompt_at(&raw, screen_x, screen_y) {
-                return;
-            }
+        let raw = objc2::rc::autoreleasepool(|_| crate::annotate::windows::raw_windows());
+        if crate::annotate::windows::system_prompt_at(&raw, screen_x, screen_y) {
+            return;
         }
         let (nx, ny, _, _) = self.normalize_point(screen_x, screen_y);
         self.window_log_request.store(true, Ordering::Release);
@@ -1484,9 +1452,7 @@ mod tests {
                 display_id: 2,
                 frame,
             };
-            if cfg!(target_os = "macos") {
-                assert_eq!(capture_size(&target, 2560.0), size, "{rect:?}");
-            }
+            assert_eq!(capture_size(&target, 2560.0), size, "{rect:?}");
             telemetry.reset_for_session(frame);
             assert!(telemetry.contains_screen_point(point[0], point[1]));
             assert!(!telemetry.contains_screen_point(864.0, 558.0));
@@ -1677,15 +1643,8 @@ mod tests {
         assert_eq!(capture_size(&display, CANDIDATE_EDGE), (480, 310));
         let region = target(CaptureMode::Region, 480.0, 320.0);
         assert_eq!(capture_size(&region, CANDIDATE_EDGE), (480, 320));
-        if cfg!(target_os = "windows") {
-            assert_eq!(capture_size(&display, 2560.0), (1728, 1116));
-            assert_eq!(capture_size(&region, 1280.0), (480, 320));
-            let wide = target(CaptureMode::Display, 3440.0, 1440.0);
-            assert_eq!(capture_size(&wide, 2560.0), (2560, 1072));
-        } else {
-            assert_eq!(capture_size(&display, 2560.0), (2560, 1654));
-            assert_eq!(capture_size(&region, 1280.0), (960, 640));
-        }
+        assert_eq!(capture_size(&display, 2560.0), (2560, 1654));
+        assert_eq!(capture_size(&region, 1280.0), (960, 640));
 
         let external = |mode, width, height| TargetInfo {
             frame: crate::annotate::screens::with_scale([-1920.0, 37.0, width, height], 1.0),

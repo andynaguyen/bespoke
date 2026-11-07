@@ -170,9 +170,9 @@ impl Settings {
     }
 
     pub fn configured() -> Option<Self> {
-        let config = crate::annotate::handoff::load_config_from(
-            &crate::annotate::handoff::default_config_path(),
-        );
+        let config = crate::annotate::handoff::default_config_path()
+            .map(|path| crate::annotate::handoff::load_config_from(&path))
+            .unwrap_or_default();
         Self::from_config(config.autocrop.as_ref())
     }
 }

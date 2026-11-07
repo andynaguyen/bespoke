@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Div, Window};
+use gpui::{App, Window};
 use objc2::msg_send;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -13,9 +13,6 @@ use objc2_foundation::MainThreadMarker;
 use super::{LaserOverlay, MenuAction};
 use crate::annotate::capture::SharedCaptureTelemetry;
 
-pub(super) const FILE_MANAGER: &str = "Finder";
-pub(super) const HEADER_LEAD: f32 = 78.0;
-pub(super) const HEADER_TRAIL: f32 = 16.0;
 pub(super) fn points_per_pixel(_window: &Window) -> f32 {
     1.0
 }
@@ -71,19 +68,6 @@ pub(super) fn window_origin(
     gpui::Point::default()
 }
 
-pub(super) fn window_drag_region(region: Div) -> Div {
-    use gpui::{InteractiveElement, MouseButton};
-    region.on_mouse_down(MouseButton::Left, |_, window, _| {
-        window.start_window_move();
-    })
-}
-
-pub(super) fn caption_buttons() -> Option<AnyElement> {
-    None
-}
-
-pub(super) fn decorate_app_window(_window: &mut Window) {}
-
 static PREVIOUS_FRONT_APP: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn remember_front_app() {
@@ -129,16 +113,17 @@ pub(super) fn focus_picker_soon(cx: &mut App) {
     .detach();
 }
 
-/// Run (deferred) after any window closes: once neither a picker nor a review window is left,
+/// Run (deferred) after any window closes: once no picker is left,
 /// the app that was in front before gets the keys back. `NSApp.deactivate()` isn't enough: a
 /// menu bar (accessory) app stays frontmost with no windows, and keys go nowhere. Deferred, a
 /// picker replacing another one is open again by the time this looks.
 pub(super) fn hand_back_keys(cx: &mut App) {
     use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication};
-    if cx.windows().iter().any(|handle| {
-        handle.downcast::<super::TargetPickerWindow>().is_some()
-            || handle.downcast::<super::BundleReviewWindow>().is_some()
-    }) {
+    if cx
+        .windows()
+        .iter()
+        .any(|handle| handle.downcast::<super::TargetPickerWindow>().is_some())
+    {
         return;
     }
     let previous = PREVIOUS_FRONT_APP.swap(0, std::sync::atomic::Ordering::AcqRel);

@@ -662,44 +662,6 @@ pub fn describe_event(event: &InteractionEvent) -> String {
     }
 }
 
-pub fn timeline(bundle: &CaptureBundle) -> Vec<String> {
-    let mut items: Vec<(u64, String)> = bundle
-        .transcript
-        .segments
-        .iter()
-        .map(|s| (s.t0, format!("{} “{}”", format_clock(s.t0), s.text)))
-        .collect();
-    for mark in &bundle.marks {
-        let frame = bundle.keyframes.iter().find(|k| {
-            k.mark_id.as_deref() == Some(mark.id.as_str())
-                || mark.frame.as_deref() == Some(k.file.as_str())
-        });
-        let suffix = frame
-            .map(|k| format!(" — frame #{}", k.index))
-            .unwrap_or_default();
-        items.push((
-            mark.t0,
-            format!(
-                "{} ✎ {}{suffix}",
-                format_clock(mark.t0),
-                describe_mark(mark)
-            ),
-        ));
-    }
-    for event in settled_events(&bundle.events) {
-        items.push((
-            event.timestamp_ms(),
-            format!(
-                "{} · {}",
-                format_clock(event.timestamp_ms()),
-                describe_event(&event)
-            ),
-        ));
-    }
-    items.sort_by_key(|item| item.0);
-    items.into_iter().map(|item| item.1).collect()
-}
-
 pub fn target_label(target: &TargetInfo) -> String {
     let mut label = target.app.clone().unwrap_or_else(|| "Display".into());
     if let Some(title) = &target.window_title
@@ -1915,11 +1877,6 @@ mod tests {
             cursor: Vec::new(),
             autocrop: None,
         };
-        let tl = timeline(&bundle).join("\n");
-        assert!(tl.find("0:03 “").unwrap() < tl.find("0:04 · pressed").unwrap());
-        assert!(tl.find("0:04 · pressed").unwrap() < tl.find("0:05 ✎").unwrap());
-        assert!(tl.contains("— frame #1"));
-
         let summary = summary_markdown(&bundle, std::path::Path::new("/recordings/test"));
         assert!(summary.starts_with("[Bespoke annotation 0:14 · App “Window” · /recordings/test]"));
         assert!(summary.contains("Note: Simplify it."));

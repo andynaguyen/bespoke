@@ -29,13 +29,6 @@ pub(super) const KEY_SOURCE: &str = "the key tap";
 pub(super) const NO_KEY_SOURCE: &str =
     "nowhere (Accessibility off; the record shortcut still works)";
 
-pub fn log_dir() -> Option<PathBuf> {
-    if let Some(dir) = crate::annotate::host::log_dir() {
-        return Some(dir.to_path_buf());
-    }
-    dirs::home_dir().map(|home| home.join("Library/Logs/Scrawl"))
-}
-
 pub fn main_display_id() -> u32 {
     unsafe { CGMainDisplayID() }
 }
@@ -150,7 +143,6 @@ unsafe extern "C" {
     fn CGDisplayPixelsHigh(display: u32) -> usize;
     fn CGPreflightScreenCaptureAccess() -> bool;
     fn CGRequestScreenCaptureAccess() -> bool;
-    fn AXIsProcessTrusted() -> bool;
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
@@ -362,12 +354,6 @@ pub fn screen_capture_probe() -> Result<(u32, u32), String> {
 
 pub fn request_screen_capture() -> bool {
     unsafe { CGRequestScreenCaptureAccess() }
-}
-
-/// Whether ⌥⇧V may post ⌘V into the app in front (System Settings › Accessibility). Unlike
-/// Screen Recording, a grant shows up here while Scrawl runs.
-pub fn accessibility_granted() -> bool {
-    unsafe { AXIsProcessTrusted() }
 }
 
 /// The ⌃⌥⇧⌘ modifier flags held right now (as `CGEventFlags` bits). Reading modifier state
@@ -1132,7 +1118,7 @@ fn sck_lists_windows(ids: &[u32]) -> Vec<u32> {
 /// hold up input), and re-enables it if macOS turned it off. Returns whether it is delivering.
 /// Called every 500 ms from the HID poller.
 fn check_key_tap(telemetry: &Arc<SharedCaptureTelemetry>) -> bool {
-    let trusted = accessibility_granted();
+    let trusted = crate::ui::platform::accessibility_granted();
     let tap = telemetry.tap_port.load(Ordering::Acquire) as *mut c_void;
     if !trusted && !tap.is_null() {
         stop_key_tap(telemetry);
@@ -1323,7 +1309,11 @@ fn spawn_key_tap(telemetry: Arc<SharedCaptureTelemetry>) {
             };
             annotate_log(format!(
                 "key tap: CGEventTapCreate -> {tap:p} (Accessibility {})",
-                if accessibility_granted() { "on" } else { "off" }
+                if crate::ui::platform::accessibility_granted() {
+                    "on"
+                } else {
+                    "off"
+                }
             ));
             let source = if tap.is_null() {
                 ptr::null_mut()

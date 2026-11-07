@@ -5,12 +5,6 @@ use crate::annotate::capture::{SharedCaptureTelemetry, ShortcutConfig, ShortcutK
 use crate::annotate::coordinator::MenuAction;
 use crate::annotate::model::CaptureBundle;
 
-pub struct Paths {
-    pub data_dir: PathBuf,
-    pub log_dir: PathBuf,
-}
-
-static PATHS: OnceLock<Paths> = OnceLock::new();
 static OPEN_SETTINGS: OnceLock<Box<dyn Fn(&[Permission]) + Send + Sync>> = OnceLock::new();
 static ON_CAPTURE: OnceLock<Box<dyn Fn(Finished) + Send + Sync>> = OnceLock::new();
 static TELEMETRY: OnceLock<Arc<SharedCaptureTelemetry>> = OnceLock::new();
@@ -19,17 +13,8 @@ static PENDING_SHORTCUTS: Mutex<Option<(ShortcutConfig, ShortcutConfig)>> = Mute
 
 /// `open_settings` opens the host's Annotate settings. It gets the permissions that held back a
 /// recording, or none when the user asked for the settings.
-pub fn configure(paths: Paths, open_settings: impl Fn(&[Permission]) + Send + Sync + 'static) {
-    let _ = PATHS.set(paths);
+pub fn configure(open_settings: impl Fn(&[Permission]) + Send + Sync + 'static) {
     let _ = OPEN_SETTINGS.set(Box::new(open_settings));
-}
-
-pub(crate) fn data_dir() -> Option<&'static Path> {
-    PATHS.get().map(|paths| paths.data_dir.as_path())
-}
-
-pub(crate) fn log_dir() -> Option<&'static Path> {
-    PATHS.get().map(|paths| paths.log_dir.as_path())
 }
 
 pub(crate) fn open_settings(missing: &[Permission]) {
@@ -147,7 +132,7 @@ fn named_key(name: &str) -> Option<(u32, String)> {
 pub use crate::annotate::handoff::{Capture, KeyframeRow};
 
 pub fn recent_captures(limit: usize) -> Vec<Capture> {
-    Capture::recent(&captures_dir(), limit)
+    captures_dir().map_or_else(Vec::new, |dir| Capture::recent(&dir, limit))
 }
 
 pub fn copy_capture(dir: &Path) -> Result<(), String> {
@@ -158,23 +143,8 @@ pub fn reveal_capture(dir: &Path) {
     let _ = crate::annotate::handoff::open_path(dir);
 }
 
-static ON_INSPECT: OnceLock<Box<dyn Fn(PathBuf) + Send + Sync>> = OnceLock::new();
-
-pub fn on_inspect(inspect: impl Fn(PathBuf) + Send + Sync + 'static) {
-    let _ = ON_INSPECT.set(Box::new(inspect));
-}
-
-pub(crate) fn inspect(dir: PathBuf) -> bool {
-    match ON_INSPECT.get() {
-        Some(inspect) => {
-            inspect(dir);
-            true
-        }
-        None => false,
-    }
-}
-
-pub fn captures_dir() -> PathBuf {
+/// `None` without a running Bespoke, as in tests.
+pub fn captures_dir() -> Option<PathBuf> {
     crate::annotate::handoff::default_captures_dir()
 }
 
@@ -229,14 +199,16 @@ pub(crate) fn captured(dir: &Path, bundle: &CaptureBundle) {
 
 /// The newest capture on disk, found without reading every capture's manifest.
 pub fn newest_capture() -> Option<Finished> {
-    Capture::newest(&captures_dir()).map(|capture| capture.finished())
+    Capture::newest(&captures_dir()?).map(|capture| capture.finished())
 }
 
 pub fn finished_captures() -> Vec<Finished> {
-    Capture::recent(&captures_dir(), usize::MAX)
-        .iter()
-        .map(Capture::finished)
-        .collect()
+    captures_dir().map_or_else(Vec::new, |dir| {
+        Capture::recent(&dir, usize::MAX)
+            .iter()
+            .map(Capture::finished)
+            .collect()
+    })
 }
 
 pub use crate::annotate::capsule_link::{
@@ -284,43 +256,29 @@ pub use crate::annotate::permissions::{Grants, Permission, Status as PermissionS
 pub use crate::annotate::retention::Preset as Retention;
 pub use crate::annotate::speech_model::{State as SpeechState, Status as SpeechStatus};
 
-static MICROPHONE: OnceLock<Box<dyn Fn() -> Option<String> + Send + Sync>> = OnceLock::new();
-
-/// Lets the host pick the microphone each recording opens, by device name, with `None` for the
-/// system default. Once set, it replaces the microphone saved in `config.json`, so the host's
-/// own microphone setting drives Annotate too.
-pub fn on_microphone(pick: impl Fn() -> Option<String> + Send + Sync + 'static) {
-    let _ = MICROPHONE.set(Box::new(pick));
-}
-
-/// The host's pick for the next recording: `None` when no host hook is set, `Some(None)` for
-/// the system default.
-pub(crate) fn host_microphone() -> Option<Option<String>> {
-    MICROPHONE.get().map(|pick| pick())
-}
-
 pub fn retention() -> Option<Retention> {
     crate::annotate::retention::Policy::load().preset()
 }
 
 pub fn set_retention(preset: Retention) {
-    if let Err(error) = preset
-        .policy()
-        .save_to(&crate::annotate::handoff::default_config_path())
-    {
+    let saved = crate::annotate::handoff::default_config_path()
+        .ok_or_else(|| anyhow::anyhow!("No config.json"))
+        .and_then(|path| preset.policy().save_to(&path));
+    if let Err(error) = saved {
         crate::annotate::capture::annotate_log(format!("Saving retention failed: {error:#}"));
     }
     crate::annotate::retention::nudge();
 }
 
 pub fn captures_size() -> String {
-    crate::annotate::retention::format_bytes(crate::annotate::retention::captures_size(
-        &crate::annotate::handoff::default_captures_dir(),
-    ))
+    let size = captures_dir().map_or(0, |dir| crate::annotate::retention::captures_size(&dir));
+    crate::annotate::retention::format_bytes(size)
 }
 
 pub fn show_captures() {
-    let dir = crate::annotate::handoff::default_captures_dir();
+    let Some(dir) = captures_dir() else {
+        return;
+    };
     let _ = std::fs::create_dir_all(&dir);
     let _ = crate::annotate::handoff::open_path(&dir);
 }
