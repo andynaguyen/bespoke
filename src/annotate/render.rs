@@ -43,7 +43,7 @@ pub fn save_png(frame: &RgbaFrame, path: &Path) -> anyhow::Result<()> {
 
 fn solid(width: u32, height: u32, color: Color) -> RgbaFrame {
     let mut rgba = vec![0; width as usize * height as usize * 4];
-    for p in rgba.chunks_exact_mut(4) {
+    for p in rgba.as_chunks_mut::<4>().0.iter_mut() {
         p.copy_from_slice(&color);
     }
     RgbaFrame::new(0, width, height, rgba)
@@ -108,8 +108,10 @@ fn rounded(frame: &mut RgbaFrame, rect: [f32; 4], radius: f32, color: Color) {
                 (left, left)
             };
         let row = py as usize * frame.width as usize * 4;
-        for pixel in
-            frame.rgba[row + start as usize * 4..row + end as usize * 4].chunks_exact_mut(4)
+        for pixel in frame.rgba[row + start as usize * 4..row + end as usize * 4]
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
         {
             pixel.copy_from_slice(&color);
         }
@@ -1693,7 +1695,9 @@ mod tests {
         let blue = |frame: &RgbaFrame| {
             frame
                 .rgba
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|p| p[2] > 200 && p[0] < 120)
                 .count()
         };
@@ -1724,7 +1728,7 @@ mod tests {
         match info.color_type {
             png::ColorType::Rgba => rgba.extend_from_slice(data),
             png::ColorType::Rgb => {
-                for p in data.chunks_exact(3) {
+                for p in data.as_chunks::<3>().0.iter() {
                     rgba.extend_from_slice(&[p[0], p[1], p[2], 255]);
                 }
             }
@@ -1734,7 +1738,7 @@ mod tests {
                 }
             }
             png::ColorType::GrayscaleAlpha => {
-                for p in data.chunks_exact(2) {
+                for p in data.as_chunks::<2>().0.iter() {
                     rgba.extend_from_slice(&[p[0], p[0], p[0], p[1]]);
                 }
             }
@@ -1810,7 +1814,9 @@ mod tests {
             render_annotated_keyframe(&base, &key(1), std::slice::from_ref(&stroke), &[], &[]);
         let red = result
             .rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .enumerate()
             .filter(|(i, p)| i / 320 > 100 && p[0] == 255 && p[3] == 255)
             .count();
@@ -1825,7 +1831,13 @@ mod tests {
         };
         let result = render_annotated_keyframe(&base, &key(1), &[future], &[], &[]);
         assert_eq!(&result.rgba[100 * 320 * 4..], &base.rgba[100 * 320 * 4..]);
-        assert!(base.rgba.chunks_exact(4).all(|p| p == [20, 20, 20, 255]));
+        assert!(
+            base.rgba
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .all(|p| *p == [20, 20, 20, 255])
+        );
     }
 
     #[test]
@@ -1867,7 +1879,9 @@ mod tests {
         let red_rows = |rows: std::ops::Range<usize>| {
             rows.filter(|y| {
                 result.rgba[y * 320 * 4..(y + 1) * 320 * 4]
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .any(|p| p[0] == 255 && p[1] < 80)
             })
             .count()
@@ -1882,8 +1896,10 @@ mod tests {
         let mut found: Option<[usize; 4]> = None;
         for (i, (a, b)) in frame
             .rgba
-            .chunks_exact(4)
-            .zip(base.rgba.chunks_exact(4))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(base.rgba.as_chunks::<4>().0.iter())
             .enumerate()
         {
             if a != b {
@@ -1965,7 +1981,9 @@ mod tests {
         let w = sheet.width as usize;
         let white: Vec<(usize, usize)> = sheet
             .rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .enumerate()
             .filter(|(_, p)| p[0] > 240 && p[1] > 240 && p[2] > 240)
             .map(|(i, _)| (i % w, i / w))
@@ -2019,8 +2037,8 @@ mod tests {
                     let mut sum_x = 0usize;
                     let mut sum_y = 0usize;
                     let mut n_px = 0usize;
-                    for (idx, p) in sheet.rgba.chunks_exact(4).enumerate() {
-                        if p == color {
+                    for (idx, p) in sheet.rgba.as_chunks::<4>().0.iter().enumerate() {
+                        if *p == color {
                             sum_x += idx % sheet.width as usize;
                             sum_y += idx / sheet.width as usize;
                             n_px += 1;
@@ -2066,7 +2084,7 @@ mod tests {
         let h = sheet.height as usize;
         let pad = SHEET_PAD as usize;
         assert_eq!(sheet.rgba.len(), w * h * 4);
-        assert!(sheet.rgba.chunks_exact(4).all(|p| p[3] == 255));
+        assert!(sheet.rgba.as_chunks::<4>().0.iter().all(|p| p[3] == 255));
 
         let is_card = |p: &[u8]| p != SHEET_BG;
         let mut content_rows = 0usize;
@@ -2128,7 +2146,9 @@ mod tests {
     fn portrait_frames_scale_without_smearing_lower_rows() {
         let mut frame = solid(100, 400, [200, 0, 0, 255]);
         frame.rgba[200 * 100 * 4..]
-            .chunks_exact_mut(4)
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
             .for_each(|p| p.copy_from_slice(&[0, 0, 200, 255]));
         let mut sheet = solid(100, 400, [0, 0, 0, 255]);
         blit_scaled(&mut sheet, &frame, [0.0, 0.0, 100.0, 400.0], 0.0);

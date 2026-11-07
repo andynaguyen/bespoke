@@ -968,7 +968,13 @@ mod tests {
             else {
                 return;
             };
-            let max_alpha = pixels.chunks_exact(4).map(|p| p[3]).max().unwrap_or(0);
+            let max_alpha = pixels
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|p| p[3])
+                .max()
+                .unwrap_or(0);
             let mid = ((size / 2 * size + size / 2) * 4 + 3) as usize;
             if age >= crate::annotate::sketch::PIN_PULSE_MS {
                 assert_eq!(max_alpha, 0, "pulse still showing at {age} ms");

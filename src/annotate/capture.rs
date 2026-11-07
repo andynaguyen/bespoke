@@ -956,7 +956,7 @@ impl SharedCaptureTelemetry {
             .take()
             && !laser.pts.is_empty()
         {
-            if let Some(last) = laser.pts.chunks_exact(3).last() {
+            if let Some(last) = laser.pts.as_chunks::<3>().0.last() {
                 let lx = last[0] as f32 / SCALE as f32;
                 let ly = last[1] as f32 / SCALE as f32;
                 laser.t1 = laser.t0.saturating_add(last[2].max(0) as u64);
@@ -1061,7 +1061,9 @@ fn ink_span_pt(stroke: &Stroke) -> f32 {
     };
     stroke
         .pts
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|p| {
             let dx = (p[0] - first[0]) as f32 / SCALE as f32 * stroke.fw as f32;
             let dy = (p[1] - first[1]) as f32 / SCALE as f32 * stroke.fh as f32;
@@ -1082,14 +1084,16 @@ fn drew_before(ink: &Stroke, t_ms: u64) -> bool {
 /// The part of live ink drawn before `t_ms`.
 fn ink_before(mut stroke: Stroke, t_ms: u64) -> Stroke {
     let t0 = stroke.t0;
-    let at = |p: &[i32]| t0.saturating_add(p[2].max(0) as u64);
+    let at = |p: &[i32; 3]| t0.saturating_add(p[2].max(0) as u64);
     let keep = stroke
         .pts
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .take_while(|p| at(p) < t_ms)
         .count();
     stroke.pts.truncate(keep * 3);
-    if let Some(last) = stroke.pts.chunks_exact(3).last() {
+    if let Some(last) = stroke.pts.as_chunks::<3>().0.last() {
         stroke.t1 = at(last);
     }
     stroke
@@ -1133,7 +1137,7 @@ fn track_shift_ink(
             pts: Vec::new(),
         });
         let dt = t_ms.saturating_sub(stroke.t0) as i32;
-        let should_push = stroke.pts.chunks_exact(3).last().is_none_or(|prev| {
+        let should_push = stroke.pts.as_chunks::<3>().0.last().is_none_or(|prev| {
             let dx = (sx - prev[0]) as f32 / SCALE as f32 * fw as f32;
             let dy = (sy - prev[1]) as f32 / SCALE as f32 * fh as f32;
             dx.hypot(dy) >= 1.5

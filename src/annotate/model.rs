@@ -175,14 +175,18 @@ pub struct Stroke {
 impl Stroke {
     pub fn normalized_points(&self) -> Vec<[f32; 2]> {
         self.pts
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|c| [c[0] as f32 / SCALE as f32, c[1] as f32 / SCALE as f32])
             .collect()
     }
 
     pub fn timed_points(&self) -> Vec<(f32, f32, u64)> {
         self.pts
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|c| {
                 (
                     c[0] as f32 / SCALE as f32,

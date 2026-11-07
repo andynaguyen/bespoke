@@ -81,7 +81,7 @@ fn luma_grid(frame: &RgbaFrame) -> LumaGrid {
     let lines = frame.rgba.chunks_exact(width.max(1) * 4).take(height);
     for (y, line) in lines.enumerate().step_by(step) {
         let row = y * rows / height * columns;
-        for (p, &x) in line.chunks_exact(4).step_by(step).zip(&cell_x) {
+        for (p, &x) in line.as_chunks::<4>().0.iter().step_by(step).zip(&cell_x) {
             sums[row + x] += (54 * p[0] as u32 + 183 * p[1] as u32 + 19 * p[2] as u32) >> 8;
             counts[row + x] += 1;
         }
