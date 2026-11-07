@@ -5,7 +5,7 @@ use std::process::Command;
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use serde::{Deserialize, Serialize};
 
-use crate::annotate::model::ScrawlBundle;
+use crate::annotate::model::CaptureBundle;
 
 pub fn default_captures_dir() -> PathBuf {
     match crate::annotate::host::data_dir() {
@@ -78,7 +78,7 @@ fn newest_bundle(captures: &Path) -> Result<PathBuf> {
         if path.extension().is_some_and(|ext| ext == "scrawl") && path.is_dir() {
             let created = fs::read(path.join("scrawl.json"))
                 .ok()
-                .and_then(|bytes| serde_json::from_slice::<ScrawlBundle>(&bytes).ok())
+                .and_then(|bytes| serde_json::from_slice::<CaptureBundle>(&bytes).ok())
                 .map(|bundle| bundle.created_at_ms)
                 .unwrap_or_else(|| {
                     entry
@@ -100,7 +100,7 @@ fn newest_bundle(captures: &Path) -> Result<PathBuf> {
         .map_err(Into::into)
 }
 
-pub fn load_bundle(bundle_dir: &Path) -> Result<(PathBuf, ScrawlBundle)> {
+pub fn load_bundle(bundle_dir: &Path) -> Result<(PathBuf, CaptureBundle)> {
     let directory = resolve_bundle_dir(bundle_dir)?;
     let path = directory.join("scrawl.json");
     let bundle = serde_json::from_slice(
@@ -112,7 +112,7 @@ pub fn load_bundle(bundle_dir: &Path) -> Result<(PathBuf, ScrawlBundle)> {
 
 pub struct Capture {
     dir: PathBuf,
-    bundle: ScrawlBundle,
+    bundle: CaptureBundle,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -455,7 +455,7 @@ fn log_config_once(message: String) {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     if !seen.contains(&message) {
-        crate::annotate::capture::scrawl_log(&message);
+        crate::annotate::capture::annotate_log(&message);
         seen.push(message);
     }
 }
@@ -541,7 +541,7 @@ mod tests {
         fn new() -> Self {
             static COUNTER: AtomicU64 = AtomicU64::new(0);
             let path = std::env::temp_dir().join(format!(
-                "scrawl-handoff-{}-{}-{}",
+                "annotate-handoff-{}-{}-{}",
                 std::process::id(),
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)

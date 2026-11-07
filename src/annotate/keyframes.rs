@@ -1274,6 +1274,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::match_overlapping_arm)] // arms are tried in order
     fn long_talk_over_a_changing_screen_gets_more_than_one_frame() {
         let gray = |t: u64| match t {
             ..30_000 => 20,
@@ -1308,6 +1309,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::match_overlapping_arm)] // arms are tried in order
     fn a_long_lead_in_is_split_near_its_middle() {
         let gray = |t: u64| match t {
             ..30_000 => 20,

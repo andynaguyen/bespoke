@@ -9,7 +9,6 @@ const SAMPLE_RATE: u32 = 16_000;
 #[derive(Clone, Debug)]
 pub struct RecordedAudio {
     pub sample_count: usize,
-    pub duration_ms: u64,
     pub wav_bytes: Vec<u8>,
 }
 
@@ -22,22 +21,20 @@ pub struct AudioRecorder {
 
 impl AudioRecorder {
     pub fn start() -> Result<Self> {
-        let started = std::time::Instant::now();
         let samples = Arc::new(Mutex::new(Vec::new()));
         let error = Arc::new(Mutex::new(None));
         let (stop_sender, stop_receiver) = std::sync::mpsc::channel();
         let worker_samples = Arc::clone(&samples);
         let worker_error = Arc::clone(&error);
         let worker = std::thread::Builder::new()
-            .name("scrawl-audio".into())
+            .name("annotate-audio".into())
             .spawn(move || {
                 let stream =
                     Self::open_stream(worker_samples, worker_error).inspect_err(|error| {
-                        crate::annotate::capture::scrawl_log(format!(
+                        crate::annotate::capture::annotate_log(format!(
                             "Microphone startup failed: {error:#}"
                         ));
                     })?;
-                crate::annotate::coordinator::start_metric("audio_ready_ms", started);
                 let _ = stop_receiver.recv();
                 drop(stream);
                 Ok(())
@@ -68,10 +65,13 @@ impl AudioRecorder {
                 crate::annotate::mic::note_pick(&crate::annotate::mic::Pick::Chosen(&input));
                 match Self::open_device(&device, samples.clone(), error.clone()) {
                     Ok(stream) => {
-                        crate::annotate::capture::scrawl_log(format!("Microphone: {}", input.name));
+                        crate::annotate::capture::annotate_log(format!(
+                            "Microphone: {}",
+                            input.name
+                        ));
                         return Ok(stream);
                     }
-                    Err(e) => crate::annotate::capture::scrawl_log(format!(
+                    Err(e) => crate::annotate::capture::annotate_log(format!(
                         "Microphone: could not open {} ({e:#}); using the default",
                         input.name
                     )),
@@ -116,14 +116,14 @@ impl AudioRecorder {
         match device {
             Some(device) => match Self::open_device(&device, samples.clone(), error.clone()) {
                 Ok(stream) => {
-                    crate::annotate::capture::scrawl_log(format!("Microphone: {name}"));
+                    crate::annotate::capture::annotate_log(format!("Microphone: {name}"));
                     return Ok(stream);
                 }
-                Err(e) => crate::annotate::capture::scrawl_log(format!(
+                Err(e) => crate::annotate::capture::annotate_log(format!(
                     "Microphone: could not open {name} ({e:#}); using the default"
                 )),
             },
-            None => crate::annotate::capture::scrawl_log(format!(
+            None => crate::annotate::capture::annotate_log(format!(
                 "Microphone: {name} isn't connected; using the default"
             )),
         }
@@ -138,7 +138,7 @@ impl AudioRecorder {
             .default_input_device()
             .context("No microphone is available")?;
         let stream = Self::open_device(&device, samples, error)?;
-        crate::annotate::capture::scrawl_log(format!(
+        crate::annotate::capture::annotate_log(format!(
             "Microphone: {} (default)",
             device_name(&device).unwrap_or_default()
         ));
@@ -152,7 +152,7 @@ impl AudioRecorder {
     ) -> Result<cpal::Stream> {
         let supported = device.default_input_config()?;
         let config = supported.config();
-        crate::annotate::capture::scrawl_log(format!(
+        crate::annotate::capture::annotate_log(format!(
             "Microphone: {} Hz, {} ch, {:?}",
             config.sample_rate.0,
             config.channels,
@@ -212,16 +212,14 @@ impl AudioRecorder {
             if samples_16k.is_empty() {
                 bail!("Microphone capture failed: {error}");
             }
-            crate::annotate::capture::scrawl_log(format!(
+            crate::annotate::capture::annotate_log(format!(
                 "Microphone: {error}; keeping what it heard"
             ));
         }
         let sample_count = samples_16k.len();
-        let duration_ms = sample_count as u64 * 1_000 / SAMPLE_RATE as u64;
         let wav_bytes = encode_wav_16k(&samples_16k)?;
         Ok(RecordedAudio {
             sample_count,
-            duration_ms,
             wav_bytes,
         })
     }

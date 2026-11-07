@@ -662,7 +662,7 @@ pub fn describe_event(event: &InteractionEvent) -> String {
     }
 }
 
-pub fn timeline(bundle: &ScrawlBundle) -> Vec<String> {
+pub fn timeline(bundle: &CaptureBundle) -> Vec<String> {
     let mut items: Vec<(u64, String)> = bundle
         .transcript
         .segments
@@ -711,7 +711,7 @@ pub fn target_label(target: &TargetInfo) -> String {
     label
 }
 
-pub fn summary_markdown(bundle: &ScrawlBundle, bundle_dir: &std::path::Path) -> String {
+pub fn summary_markdown(bundle: &CaptureBundle, bundle_dir: &std::path::Path) -> String {
     let mut out = format!(
         "[Bespoke annotation {} · {} · {}]\n",
         format_clock(bundle.duration_ms),
@@ -1861,7 +1861,7 @@ mod tests {
         let strokes = vec![stroke(&[[0.5, 0.5]], 5000)];
         let mut marks = marks_of(&strokes);
         marks[0].frame = Some("frames/frame-01.png".into());
-        let bundle = ScrawlBundle {
+        let bundle = CaptureBundle {
             version: 1,
             id: "test".into(),
             created_at_ms: 0,

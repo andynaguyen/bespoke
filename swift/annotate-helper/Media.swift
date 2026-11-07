@@ -249,7 +249,7 @@ enum Transcriber {
     cuts.append(durationMs)
     guard cuts.count > 2 else { return nil }
 
-    let dir = FileManager.default.temporaryDirectory.appending(path: "scrawl-wav-\(UUID().uuidString)")
+    let dir = FileManager.default.temporaryDirectory.appending(path: "annotate-wav-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     var files: [(offsetMs: Int, url: URL)] = []
     for idx in 0..<(cuts.count - 1) {

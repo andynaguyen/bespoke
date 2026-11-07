@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::annotate::capture::{SharedCaptureTelemetry, ShortcutConfig, ShortcutKind};
 use crate::annotate::coordinator::MenuAction;
-use crate::annotate::model::ScrawlBundle;
+use crate::annotate::model::CaptureBundle;
 
 pub struct Paths {
     pub data_dir: PathBuf,
@@ -188,7 +188,7 @@ pub struct Finished {
 }
 
 impl Finished {
-    pub(crate) fn of(dir: &Path, bundle: &ScrawlBundle) -> Self {
+    pub(crate) fn of(dir: &Path, bundle: &CaptureBundle) -> Self {
         Self {
             dir: dir.to_path_buf(),
             created_at_ms: bundle.created_at_ms,
@@ -221,7 +221,7 @@ pub fn on_capture(record: impl Fn(Finished) + Send + Sync + 'static) {
     let _ = ON_CAPTURE.set(Box::new(record));
 }
 
-pub(crate) fn captured(dir: &Path, bundle: &ScrawlBundle) {
+pub(crate) fn captured(dir: &Path, bundle: &CaptureBundle) {
     if let Some(record) = ON_CAPTURE.get() {
         record(Finished::of(dir, bundle));
     }
@@ -280,7 +280,6 @@ pub fn on_capsule(open: impl Fn(CapsuleLink) + Send + Sync + 'static) {
     crate::annotate::capsule_link::set_host(open);
 }
 
-pub use crate::annotate::mic::{Input as Microphone, Inputs as Microphones};
 pub use crate::annotate::permissions::{Grants, Permission, Status as PermissionStatus};
 pub use crate::annotate::retention::Preset as Retention;
 pub use crate::annotate::speech_model::{State as SpeechState, Status as SpeechStatus};
@@ -300,33 +299,6 @@ pub(crate) fn host_microphone() -> Option<Option<String>> {
     MICROPHONE.get().map(|pick| pick())
 }
 
-pub fn microphones() -> Microphones {
-    crate::annotate::mic::inputs()
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MicrophoneChoice {
-    Default,
-    Device { id: String, name: String },
-}
-
-pub fn microphone_choice() -> MicrophoneChoice {
-    match crate::annotate::mic::choice_in(&crate::annotate::handoff::default_config_path()) {
-        Some(choice) => MicrophoneChoice::Device {
-            id: choice.id,
-            name: choice.name,
-        },
-        None => MicrophoneChoice::Default,
-    }
-}
-
-pub fn set_microphone(id: &str, inputs: &Microphones) {
-    let path = crate::annotate::handoff::default_config_path();
-    if let Err(error) = crate::annotate::mic::save_in(&path, id, inputs) {
-        crate::annotate::capture::scrawl_log(format!("Saving microphone failed: {error:#}"));
-    }
-}
-
 pub fn retention() -> Option<Retention> {
     crate::annotate::retention::Policy::load().preset()
 }
@@ -336,7 +308,7 @@ pub fn set_retention(preset: Retention) {
         .policy()
         .save_to(&crate::annotate::handoff::default_config_path())
     {
-        crate::annotate::capture::scrawl_log(format!("Saving retention failed: {error:#}"));
+        crate::annotate::capture::annotate_log(format!("Saving retention failed: {error:#}"));
     }
     crate::annotate::retention::nudge();
 }
@@ -386,9 +358,7 @@ pub fn ensure_speech_model() -> u32 {
     crate::annotate::speech_model::ensure()
 }
 
-pub use crate::annotate::model::{
-    MissingTranscript, TranscriptData, TranscriptSegment, WordTiming,
-};
+pub use crate::annotate::model::{TranscriptData, TranscriptSegment, WordTiming};
 
 type Transcriber = Box<dyn Fn(&Path) -> anyhow::Result<TranscriptData> + Send + Sync>;
 
@@ -419,13 +389,13 @@ pub fn apple_speech(wav: &Path, contextual_strings: &[String]) -> anyhow::Result
 /// off. Later calls return without a prompt.
 pub fn request_screen_capture() {
     let granted = crate::annotate::capture::request_screen_capture();
-    crate::annotate::capture::scrawl_log(format!(
+    crate::annotate::capture::annotate_log(format!(
         "screen recording: asked macOS, CGRequestScreenCaptureAccess -> {granted}"
     ));
 }
 
 pub fn open_permission_settings(permission: Permission) {
-    crate::annotate::capture::scrawl_log(format!(
+    crate::annotate::capture::annotate_log(format!(
         "permission settings: opening for {permission:?}"
     ));
     if permission.draggable() {
@@ -451,7 +421,7 @@ pub fn open_permission_settings(permission: Permission) {
                 return;
             }
             Err(error) => {
-                crate::annotate::capture::scrawl_log(format!("permission panel: {error:#}"));
+                crate::annotate::capture::annotate_log(format!("permission panel: {error:#}"));
             }
         }
     }

@@ -9,9 +9,6 @@ use serde::Deserialize;
 use crate::annotate::model::{RgbaFrame, TranscriptData, TranscriptSegment, WordTiming};
 
 pub fn path() -> Result<PathBuf> {
-    if let Some(path) = std::env::var_os("SCRAWL_HELPER") {
-        return Ok(PathBuf::from(path));
-    }
     let raw_exe = std::env::current_exe().context("Could not locate the app binary")?;
     let exe = std::fs::canonicalize(&raw_exe).unwrap_or(raw_exe);
     exe.ancestors()
@@ -190,7 +187,7 @@ pub fn frames(movie: &Path, times: &[u64], max_edge: u32) -> Result<Vec<RgbaFram
         return Ok(Vec::new());
     }
     let dir = std::env::temp_dir().join(format!(
-        "scrawl-frames-{}",
+        "annotate-frames-{}",
         crate::annotate::bundle::make_bundle_id()
     ));
     let at = times

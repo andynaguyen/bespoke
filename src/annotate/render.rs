@@ -635,7 +635,7 @@ fn polyline(frame: &mut RgbaFrame, points: &[[f32; 2]], radius: f32, color: Colo
 }
 
 pub fn render_contact_sheet(
-    bundle: &ScrawlBundle,
+    bundle: &CaptureBundle,
     annotated_frames: &[(Keyframe, RgbaFrame)],
 ) -> RgbaFrame {
     render_contact_sheet_for_duration(bundle.duration_ms, annotated_frames)
@@ -650,6 +650,7 @@ const SHEET_CHIP_K: f32 = 0.9;
 const SHEET_MAX_EDGE: f32 = 1600.0;
 const SHEET_MAX_PIXELS: f32 = 1_560_000.0;
 
+#[allow(clippy::single_range_in_vec_init)] // each range is one row of the sheet
 fn plan_contact_sheet_rows(aspects: &[f32]) -> Vec<std::ops::Range<usize>> {
     let n = aspects.len();
     if n == 0 {
@@ -676,6 +677,7 @@ fn plan_contact_sheet_rows(aspects: &[f32]) -> Vec<std::ops::Range<usize>> {
     let mut best_cost = f32::INFINITY;
     let mut current = Vec::with_capacity(n);
 
+    #[allow(clippy::too_many_arguments)]
     fn search(
         idx: usize,
         n: usize,
@@ -1596,8 +1598,8 @@ mod tests {
         }
     }
 
-    fn bundle() -> ScrawlBundle {
-        ScrawlBundle {
+    fn bundle() -> CaptureBundle {
+        CaptureBundle {
             version: 1,
             id: "render-test".into(),
             created_at_ms: 0,
@@ -1695,7 +1697,8 @@ mod tests {
                 .filter(|p| p[2] > 200 && p[0] < 120)
                 .count()
         };
-        let after = render_annotated_keyframe(&base, &key(1), &[], &[], &[swipe.clone()]);
+        let after =
+            render_annotated_keyframe(&base, &key(1), &[], &[], std::slice::from_ref(&swipe));
         assert!(blue(&after) > 500, "trail missing");
         let mut later = key(1);
         later.t = 6000;
@@ -1803,7 +1806,8 @@ mod tests {
             laser: false,
             pts: vec![1500, 6000, 0, 5000, 6000, 200, 8500, 6000, 400],
         };
-        let result = render_annotated_keyframe(&base, &key(1), &[stroke.clone()], &[], &[]);
+        let result =
+            render_annotated_keyframe(&base, &key(1), std::slice::from_ref(&stroke), &[], &[]);
         let red = result
             .rgba
             .chunks_exact(4)

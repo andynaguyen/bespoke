@@ -8,7 +8,7 @@ use crate::annotate::audio::RecordedAudio;
 use crate::annotate::capture::write_bundle_artifacts;
 use crate::annotate::keyframes::select_keyframes;
 use crate::annotate::model::{
-    CaptureMode, InteractionEvent, Mark, RgbaFrame, ScrawlBundle, Stroke, TargetInfo,
+    CaptureBundle, CaptureMode, InteractionEvent, Mark, RgbaFrame, Stroke, TargetInfo,
     TranscriptData, keyframe_budget,
 };
 use crate::annotate::render::render_contact_sheet;
@@ -180,10 +180,6 @@ pub struct SourceExtras {
 
 pub type FullFrames = Box<dyn Fn(&[u64]) -> Result<Vec<RgbaFrame>>>;
 
-pub fn movie_keyframes(movie: PathBuf, offset_ms: u64) -> FullFrames {
-    movie_keyframes_with_cache(movie, offset_ms, Vec::new())
-}
-
 fn movie_keyframes_with_cache(
     movie: PathBuf,
     offset_ms: u64,
@@ -237,7 +233,7 @@ pub fn finalize_capture_bundle(
     recorded_audio: Option<RecordedAudio>,
     note: Option<String>,
     activity: windows::ActivityLog,
-) -> Result<(PathBuf, ScrawlBundle, String)> {
+) -> Result<(PathBuf, CaptureBundle, String)> {
     let started_at = activity
         .stop_started
         .unwrap_or_else(std::time::Instant::now);
@@ -341,7 +337,7 @@ pub fn finalize_capture_bundle(
     )
 }
 
-fn mark_transcript_pending(bundle_dir: &Path, bundle: &ScrawlBundle) {
+fn mark_transcript_pending(bundle_dir: &Path, bundle: &CaptureBundle) {
     if bundle.transcript.missing.as_ref().is_some_and(|m| m.retry) {
         speech_model::mark_pending(bundle_dir);
     }
@@ -359,13 +355,12 @@ pub fn build_bundle_from_parts(
     video_path: Option<PathBuf>,
     note: Option<String>,
     extras: SourceExtras,
-) -> Result<(PathBuf, ScrawlBundle, String)> {
+) -> Result<(PathBuf, CaptureBundle, String)> {
     let total_started = extras
         .timings
         .started_at
         .unwrap_or_else(std::time::Instant::now);
     let mut marks = marks_of(&strokes);
-    let bench = std::env::var_os("SCRAWL_BENCH").is_some();
     let started = std::time::Instant::now();
     let selected = select_keyframes(
         &frames,
@@ -396,7 +391,7 @@ pub fn build_bundle_from_parts(
         let id = bundle_dir
             .file_stem()
             .and_then(|s| s.to_str())
-            .unwrap_or("scrawl-bundle")
+            .unwrap_or("capture")
             .to_string();
         let video_rel = video_path.and_then(|p| {
             p.exists()
@@ -407,7 +402,7 @@ pub fn build_bundle_from_parts(
             .join("audio.wav")
             .exists()
             .then(|| "audio.wav".to_string());
-        let bundle = ScrawlBundle {
+        let bundle = CaptureBundle {
             version: 1,
             id,
             created_at_ms: now_epoch_ms(),
@@ -481,7 +476,7 @@ pub fn build_bundle_from_parts(
             format!("write {write_ms}ms"),
             format!("total {total_ms}ms"),
         ]);
-        capture::scrawl_log(format!("finish timings: {}", parts.join(" · ")));
+        capture::annotate_log(format!("finish timings: {}", parts.join(" · ")));
         mark_transcript_pending(bundle_dir, &bundle);
         return Ok((bundle_dir.to_path_buf(), bundle, summary));
     }
@@ -498,14 +493,14 @@ pub fn build_bundle_from_parts(
                     let total = selected.len();
                     let (merged, matched) = merge_full_keyframes(selected, full);
                     if matched < total {
-                        capture::scrawl_log(format!(
+                        capture::annotate_log(format!(
                             "Full-quality keyframes: decoded {matched} of {total}"
                         ));
                     }
                     merged
                 }
                 Err(error) => {
-                    capture::scrawl_log(format!("Full-quality keyframes failed: {error:#}"));
+                    capture::annotate_log(format!("Full-quality keyframes failed: {error:#}"));
                     selected
                 }
             }
@@ -538,7 +533,7 @@ pub fn build_bundle_from_parts(
     let id = bundle_dir
         .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("scrawl-bundle")
+        .unwrap_or("capture")
         .to_string();
 
     let video_rel = video_path.and_then(|p| {
@@ -551,7 +546,7 @@ pub fn build_bundle_from_parts(
         .exists()
         .then(|| "audio.wav".to_string());
 
-    let bundle = ScrawlBundle {
+    let bundle = CaptureBundle {
         version: 1,
         id,
         created_at_ms: now_epoch_ms(),
@@ -634,18 +629,7 @@ pub fn build_bundle_from_parts(
         format!("write {write_ms}ms"),
         format!("total {total_ms}ms"),
     ]);
-    capture::scrawl_log(format!("finish timings: {}", parts.join(" · ")));
-    if bench {
-        for (name, elapsed) in [
-            ("selection_ms", selected_at - started),
-            ("annotation_ms", annotated_at - selected_at),
-            ("contact_sheet_ms", rendered_at - annotated_at),
-            ("artifacts_ms", finished - rendered_at),
-            ("pipeline_ms", finished - started),
-        ] {
-            eprintln!("BENCH {name}={:.3}", elapsed.as_secs_f64() * 1000.0);
-        }
-    }
+    capture::annotate_log(format!("finish timings: {}", parts.join(" · ")));
 
     mark_transcript_pending(bundle_dir, &bundle);
     Ok((bundle_dir.to_path_buf(), bundle, summary))
@@ -657,7 +641,7 @@ mod tests {
     use crate::annotate::model::{SCALE, TargetFrame, TranscriptSegment, WordTiming};
     use crate::annotate::render::render_synthetic_demo_frame;
 
-    fn generate_demo_bundle(out: Option<PathBuf>) -> Result<(PathBuf, ScrawlBundle, String)> {
+    fn generate_demo_bundle(out: Option<PathBuf>) -> Result<(PathBuf, CaptureBundle, String)> {
         let bundle_dir = out.unwrap_or_else(|| {
             crate::annotate::handoff::default_captures_dir()
                 .join(format!("{}.scrawl", make_bundle_id()))

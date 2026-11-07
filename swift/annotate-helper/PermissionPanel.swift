@@ -844,7 +844,7 @@ extension PermissionPanel {
         let front = NSWorkspace.shared.frontmostApplication
         let ours = front?.bundleIdentifier == settingsBundleID
           || front?.processIdentifier == ProcessInfo.processInfo.processIdentifier
-          || front.map(isScrawl) ?? false
+          || front.map(isHostApp) ?? false
           || panelModel.dragging
         let alpha: CGFloat = ours ? 1 : 0
         if panel.alphaValue != alpha, !isFading {
@@ -860,7 +860,7 @@ extension PermissionPanel {
 
     private var isFading = false
 
-    private func isScrawl(_ app: NSRunningApplication) -> Bool {
+    private func isHostApp(_ app: NSRunningApplication) -> Bool {
       var url = app.executableURL?.resolvingSymlinksInPath() ?? app.bundleURL
       while let current = url, current.path != "/" {
         if current.pathExtension.lowercased() == "app" {

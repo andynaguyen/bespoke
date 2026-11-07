@@ -40,7 +40,7 @@ pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> Transcri
         };
     };
     let transcript = run(wav).unwrap_or_else(|error| {
-        crate::annotate::capture::scrawl_log(format!("Transcription failed: {error:#}"));
+        crate::annotate::capture::annotate_log(format!("Transcription failed: {error:#}"));
         TranscriptData {
             source: "offline".into(),
             missing: Some(crate::annotate::model::MissingTranscript {
@@ -51,7 +51,7 @@ pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> Transcri
         }
     });
     if let Some(missing) = &transcript.missing {
-        crate::annotate::capture::scrawl_log(format!("No transcript: {}", missing.reason));
+        crate::annotate::capture::annotate_log(format!("No transcript: {}", missing.reason));
         if missing.retry {
             crate::annotate::speech_model::ensure();
         }

@@ -76,43 +76,6 @@ pub fn choice_in(path: &std::path::Path) -> Option<Choice> {
         .filter(|c| !c.id.trim().is_empty())
 }
 
-pub fn save_in(path: &std::path::Path, id: &str, inputs: &Inputs) -> anyhow::Result<()> {
-    let value = if id == "default" {
-        serde_json::Value::Null
-    } else if let Some(input) = inputs.find(id) {
-        serde_json::to_value(Choice {
-            id: input.id.clone(),
-            name: input.name.clone(),
-        })?
-    } else {
-        return Ok(());
-    };
-    crate::annotate::handoff::set_config_value_in(path, "microphone", value)
-}
-
-pub fn inputs() -> Inputs {
-    use cpal::traits::{DeviceTrait, HostTrait};
-    let host = cpal::default_host();
-    let uids = coreaudio::uids_by_name();
-    let devices = host
-        .input_devices()
-        .map(|devices| {
-            devices
-                .filter_map(|device| {
-                    let name = device.name().ok()?;
-                    let id = uids.get(&name)?.clone();
-                    Some(Input { id, name })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let default = host
-        .default_input_device()
-        .and_then(|device| device.name().ok())
-        .and_then(|name| uids.get(&name).cloned());
-    Inputs { devices, default }
-}
-
 pub fn device(id: &str) -> Option<cpal::Device> {
     use cpal::traits::{DeviceTrait, HostTrait};
     let uids = coreaudio::uids_by_name();
@@ -237,7 +200,7 @@ pub fn note_pick(pick: &Pick) {
     match (pick, pick.note()) {
         (Pick::Missing { wanted, .. }, Some(note)) => {
             if warned.as_deref() != Some(wanted.id.as_str()) {
-                crate::annotate::capture::scrawl_log(format!("Microphone: {note}"));
+                crate::annotate::capture::annotate_log(format!("Microphone: {note}"));
                 *warned = Some(wanted.id.clone());
             }
         }
@@ -307,53 +270,5 @@ mod tests {
             Pick::new(Some(&wanted), &none).note().unwrap(),
             "AirPods Pro isn't connected, and there's no other microphone."
         );
-    }
-
-    #[test]
-    fn the_choice_round_trips_through_the_config_keeping_other_keys() {
-        let dir = std::env::temp_dir().join(format!(
-            "scrawl-mic-{}-{}",
-            std::process::id(),
-            crate::annotate::bundle::now_epoch_ms()
-        ));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("config.json");
-        std::fs::write(&path, r#"{"pillStyle":"glass"}"#).unwrap();
-        let inputs = inputs();
-        assert_eq!(choice_in(&path), None);
-
-        save_in(&path, "usb-1", &inputs).unwrap();
-        assert_eq!(
-            choice_in(&path),
-            Some(Choice {
-                id: "usb-1".into(),
-                name: "Shure MV7".into()
-            })
-        );
-        save_in(&path, "airpods", &inputs).unwrap();
-        assert_eq!(
-            choice_in(&path).unwrap().id,
-            "usb-1",
-            "can't name it, so no change"
-        );
-        save_in(&path, "default", &inputs).unwrap();
-        let config: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(config.get("microphone"), None);
-        assert_eq!(config["pillStyle"], "glass");
-        assert_eq!(choice_in(&path), None);
-
-        std::fs::write(&path, r#"{"microphone":{"id":"","name":"x"}}"#).unwrap();
-        assert_eq!(choice_in(&path), None, "an empty id is the default");
-        std::fs::write(&path, r#"{"microphone":42,"pillStyle":"kept"}"#).unwrap();
-        assert_eq!(choice_in(&path), None);
-        assert_eq!(
-            crate::annotate::handoff::load_config_from(&path)
-                .pill_style
-                .as_deref(),
-            Some("kept"),
-            "a bad microphone value never drops the rest"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

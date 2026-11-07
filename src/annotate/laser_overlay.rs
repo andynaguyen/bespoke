@@ -786,15 +786,11 @@ fn encode_overlay(
     );
     let segment_buffer = device.new_buffer_with_data(
         segments.as_ptr().cast(),
-        (segments.len() * size_of::<PathSegment>()) as u64,
+        std::mem::size_of_val(segments) as u64,
         MTLResourceOptions::StorageModeShared,
     );
     enc.set_fragment_buffer(1, Some(&segment_buffer), 0);
-    enc.set_fragment_bytes(
-        2,
-        (pins.len() * size_of::<PinMarker>()) as u64,
-        pins.as_ptr().cast(),
-    );
+    enc.set_fragment_bytes(2, std::mem::size_of_val(pins) as u64, pins.as_ptr().cast());
     let tiles = bin_segments(
         &segments[..uniforms.segment_count as usize],
         uniforms.tile_cols,

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 
-use crate::annotate::capture::scrawl_log;
+use crate::annotate::capture::annotate_log;
 
 pub const PINNED: &str = ".pinned";
 pub const MEDIA_CLEANED: &str = ".media-cleaned";
@@ -344,7 +344,7 @@ pub fn apply(actions: &[Action], policy: &Policy, trasher: Trasher) -> Report {
         };
         if let Err(error) = result {
             report.errors += 1;
-            scrawl_log(format!("retention: {}: {error:#}", bundle.display()));
+            annotate_log(format!("retention: {}: {error:#}", bundle.display()));
         }
     }
     report
@@ -382,7 +382,7 @@ pub fn run_pass(
     sweep_leftovers(captures, now);
     let report = apply(&actions, policy, &trash);
     if report != Report::default() {
-        scrawl_log(format!(
+        annotate_log(format!(
             "retention: media of {} bundle(s) and {} whole bundle(s) to the Trash, {} freed, {} error(s)",
             report.media_trashed,
             report.bundles_trashed,
@@ -412,7 +412,7 @@ pub fn start() {
         return;
     }
     let _ = std::thread::Builder::new()
-        .name("scrawl-retention".into())
+        .name("annotate-retention".into())
         .spawn(move || worker(&receiver));
 }
 
@@ -447,7 +447,7 @@ fn worker(jobs: &flume::Receiver<()>) {
             }
             let policy = Policy::load();
             let (actions, report) = run_pass(&captures, &policy, false, Duration::ZERO);
-            scrawl_log(format!(
+            annotate_log(format!(
                 "retention: pass over {} ({} action(s), policy {:?}/{:?} days), {} now",
                 captures.display(),
                 actions.len(),
@@ -471,7 +471,7 @@ mod tests {
     impl TempDir {
         fn new(tag: &str) -> Self {
             let dir = std::env::temp_dir().join(format!(
-                "scrawl-retention-{tag}-{}-{}",
+                "annotate-retention-{tag}-{}-{}",
                 std::process::id(),
                 crate::annotate::bundle::make_bundle_id()
             ));

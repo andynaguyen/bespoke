@@ -368,7 +368,7 @@ impl WindowLogger {
         let stop = Arc::clone(&stopping);
         let dock = dock_rect(frame);
         let worker = thread::Builder::new()
-            .name("scrawl-window-log".into())
+            .name("annotate-window-log".into())
             .spawn(move || run(frame, dock, started_at, &request, &stop))
             .ok();
         Self { stopping, worker }
@@ -385,7 +385,7 @@ impl WindowLogger {
             })
             .unwrap_or_default();
         if log.snapshot_calls > 0 {
-            crate::annotate::capture::scrawl_log(format!(
+            crate::annotate::capture::annotate_log(format!(
                 "Window log: {} snapshots taken, {} stored, {:.2} ms each; {} cursor samples",
                 log.snapshot_calls,
                 log.windows.len(),
@@ -482,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn clicks_on_scrawl_windows_are_found_through_the_ink_overlay() {
+    fn clicks_on_own_windows_are_found_through_the_ink_overlay() {
         let window = |id, pid, bounds| RawWindow {
             id,
             pid,

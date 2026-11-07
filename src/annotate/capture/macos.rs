@@ -17,7 +17,7 @@ use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
 use super::{
     CANDIDATE_EDGE, CANDIDATE_EDGE_NO_VIDEO, CARBON_CMD_KEY, CARBON_CONTROL_KEY, CARBON_OPTION_KEY,
     CARBON_SHIFT_KEY, FRAME_SAMPLE_INTERVAL, LiveOverlayEvent, Sampler, SharedCaptureTelemetry,
-    ShortcutConfig, capture_size, clean_label, pick_display, poll_clicks, scrawl_log,
+    ShortcutConfig, annotate_log, capture_size, clean_label, pick_display, poll_clicks,
     track_shift_ink,
 };
 use crate::annotate::model::{CaptureMode, InteractionEvent, RgbaFrame, TargetInfo};
@@ -86,10 +86,10 @@ unsafe extern "C" {
         key_action: u16,
         modifier_state: u32,
         keyboard_type: u32,
-        options: isize,
+        options: u32,
         dead_key_state: *mut u32,
-        max_length: isize,
-        actual_length: *mut isize,
+        max_length: usize,
+        actual_length: *mut usize,
         output: *mut u16,
     ) -> i32;
     fn LMGetKbdType() -> u8;
@@ -190,7 +190,7 @@ fn translate_keycode_with(layout: *const u8, key_code: u16, modifier_state: u32)
     }
     let mut dead_key_state = 0_u32;
     let mut output = [0_u16; 4];
-    let mut length = 0_isize;
+    let mut length = 0_usize;
     let status = unsafe {
         UCKeyTranslate(
             layout,
@@ -200,13 +200,13 @@ fn translate_keycode_with(layout: *const u8, key_code: u16, modifier_state: u32)
             u32::from(LMGetKbdType()),
             0,
             &raw mut dead_key_state,
-            output.len() as isize,
+            output.len(),
             &raw mut length,
             output.as_mut_ptr(),
         )
     };
     if status == 0 && length > 0 {
-        String::from_utf16(&output[..length as usize])
+        String::from_utf16(&output[..length])
             .ok()?
             .chars()
             .next()
@@ -247,7 +247,7 @@ pub fn init_keyboard_layout_map() -> &'static std::collections::HashMap<char, u1
             unsafe { CFRelease(source) };
         }
         let _ = LAYOUT_KEY_CHARS.set(chars);
-        scrawl_log(format!(
+        annotate_log(format!(
             "keyboard layout resolved: 's'={:?} 'z'={:?}",
             map.get(&'s'),
             map.get(&'z')
@@ -320,7 +320,7 @@ pub fn screen_capture_usable(probe: bool) -> bool {
     }
     let started = Instant::now();
     let result = screen_capture_probe();
-    scrawl_log(format!(
+    annotate_log(format!(
         "screen probe after a grant, without relaunching: {} in {} ms",
         match &result {
             Ok((w, h)) => format!("captured {w}x{h}"),
@@ -735,7 +735,6 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         started_at,
         &thread_offset,
     );
-    crate::annotate::coordinator::start_metric("sck_ready_ms", started_at);
     let shot_edge = if video_path.is_some() {
         CANDIDATE_EDGE
     } else {
@@ -770,7 +769,7 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
                 if let Some(ref stream) = stream
                     && let Err(error) = stream.update_content_filter(&new_filter)
                 {
-                    scrawl_log(format!("Recording filter update failed: {error:?}"));
+                    annotate_log(format!("Recording filter update failed: {error:?}"));
                 }
                 filter_and_config = Some((new_filter, sck_config(&sampler_target, shot_edge)));
             }
@@ -839,7 +838,7 @@ fn finish_sck_recording(stream: &SCStream, recording: &SckRecording) -> bool {
     let detached = stream.remove_recording_output(&recording.output);
     if let Err(error) = &detached {
         // A stream the system already stopped still reports its output's own result.
-        scrawl_log(format!("Detaching the recording output failed: {error:?}"));
+        annotate_log(format!("Detaching the recording output failed: {error:?}"));
         stop_sck_stream(stream);
     }
     let wait = if detached.is_ok() {
@@ -850,12 +849,12 @@ fn finish_sck_recording(stream: &SCStream, recording: &SckRecording) -> bool {
     let complete = match recording.finished.recv_timeout(wait) {
         Ok(Ok(())) => true,
         Ok(Err(error)) => {
-            scrawl_log(format!("Recording output failed: {error}"));
+            annotate_log(format!("Recording output failed: {error}"));
             false
         }
         Err(_) => {
             // The file may still be whole; the size check in `stop` decides.
-            scrawl_log(format!(
+            annotate_log(format!(
                 "Recording output didn't report finishing within {}s",
                 wait.as_secs()
             ));
@@ -874,18 +873,18 @@ fn stop_sck_stream(stream: &SCStream) {
     let stream = stream.clone();
     let (sender, receiver) = mpsc::sync_channel(1);
     let spawned = thread::Builder::new()
-        .name("scrawl-stream-stop".into())
+        .name("annotate-stream-stop".into())
         .spawn(move || {
             let _ = sender.send(stream.stop_capture());
         });
     if let Err(error) = spawned {
-        scrawl_log(format!("Could not start the stream stop: {error}"));
+        annotate_log(format!("Could not start the stream stop: {error}"));
         return;
     }
     match receiver.recv_timeout(STREAM_STOP_TIMEOUT) {
         Ok(Ok(())) => {}
-        Ok(Err(error)) => scrawl_log(format!("Stopping the capture stream failed: {error:?}")),
-        Err(_) => scrawl_log(format!(
+        Ok(Err(error)) => annotate_log(format!("Stopping the capture stream failed: {error:?}")),
+        Err(_) => annotate_log(format!(
             "The capture stream didn't stop within {}s",
             STREAM_STOP_TIMEOUT.as_secs()
         )),
@@ -899,7 +898,7 @@ fn build_sck_filter_and_config(
     let content = match SCShareableContent::get() {
         Ok(c) => c,
         Err(err) => {
-            scrawl_log(format!(
+            annotate_log(format!(
                 "SCShareableContent::get() failed: {err:?} (screen recording granted: {})",
                 screen_capture_granted()
             ));
@@ -992,8 +991,8 @@ fn setup_sck_capture(
         return (None, None, None, None);
     };
 
-    if let Some(video_path) = video_output_path {
-        if let Ok(rec_cfg_builder) = SCRecordingOutputConfiguration::new()
+    if let Some(video_path) = video_output_path
+        && let Ok(rec_cfg_builder) = SCRecordingOutputConfiguration::new()
             && let Ok(rec_cfg) = rec_cfg_builder.with_output_url(&video_path).map(|c| {
                 c.with_video_codec(SCRecordingOutputCodec::H264)
                     .with_output_file_type(SCRecordingOutputFileType::MP4)
@@ -1008,21 +1007,20 @@ fn setup_sck_capture(
                 .add_output_handler(|_: CMSampleBuffer, _| {}, SCStreamOutputType::Screen)
                 .is_ok()
             && stream.add_recording_output(&rec_output).is_ok()
-        {
-            let before = started_at.elapsed();
-            if stream.start_capture().is_ok() {
-                let after = started_at.elapsed();
-                video_offset_ms.store(((before + after) / 2).as_millis() as u64, Ordering::Release);
-                return (
-                    Some(stream),
-                    Some(SckRecording {
-                        output: rec_output,
-                        finished,
-                    }),
-                    Some(video_path),
-                    Some(filter),
-                );
-            }
+    {
+        let before = started_at.elapsed();
+        if stream.start_capture().is_ok() {
+            let after = started_at.elapsed();
+            video_offset_ms.store(((before + after) / 2).as_millis() as u64, Ordering::Release);
+            return (
+                Some(stream),
+                Some(SckRecording {
+                    output: rec_output,
+                    finished,
+                }),
+                Some(video_path),
+                Some(filter),
+            );
         }
     }
 
@@ -1100,7 +1098,7 @@ impl SystemPrompts {
         let ids = crate::annotate::windows::system_prompts_over(&raw, frame);
         let appeared = ids.iter().any(|id| !self.ids.contains(id));
         if appeared {
-            scrawl_log(format!("system prompt over the capture: windows {ids:?}"));
+            annotate_log(format!("system prompt over the capture: windows {ids:?}"));
         } else {
             self.clear_until_ms = elapsed.as_millis() as u64;
         }
@@ -1160,7 +1158,7 @@ fn check_key_tap(telemetry: &Arc<SharedCaptureTelemetry>) -> bool {
             }
         };
     if telemetry.tap_live.swap(live, Ordering::AcqRel) != live {
-        scrawl_log(if live {
+        annotate_log(if live {
             "key tap live"
         } else if !trusted {
             "key tap off: Accessibility is off"
@@ -1184,7 +1182,7 @@ fn check_key_tap(telemetry: &Arc<SharedCaptureTelemetry>) -> bool {
 pub fn start_global_input_tap(telemetry: Arc<SharedCaptureTelemetry>) {
     let live = install_mouse_monitor(Arc::clone(&telemetry));
     telemetry.mouse_live.store(live, Ordering::Release);
-    scrawl_log(format!(
+    annotate_log(format!(
         "mouse monitor {}",
         if live {
             "installed"
@@ -1193,7 +1191,7 @@ pub fn start_global_input_tap(telemetry: Arc<SharedCaptureTelemetry>) {
         }
     ));
     let _ = thread::Builder::new()
-        .name("scrawl-hid-poller".into())
+        .name("annotate-hid-poller".into())
         .spawn(move || run_global_hid_poller(telemetry));
 }
 
@@ -1287,7 +1285,7 @@ fn mouse_event(telemetry: &SharedCaptureTelemetry, event: EventRef) {
 }
 
 fn stop_key_tap(telemetry: &SharedCaptureTelemetry) {
-    scrawl_log("Accessibility is off; stopping the key tap");
+    annotate_log("Accessibility is off; stopping the key tap");
     let tap = telemetry.tap_port.swap(0, Ordering::AcqRel) as *mut c_void;
     if !tap.is_null() {
         unsafe { CGEventTapEnable(tap, false) };
@@ -1307,7 +1305,7 @@ fn stop_key_tap(telemetry: &SharedCaptureTelemetry) {
 fn spawn_key_tap(telemetry: Arc<SharedCaptureTelemetry>) {
     let starting = Arc::clone(&telemetry);
     let spawned = thread::Builder::new()
-        .name("scrawl-key-tap".into())
+        .name("annotate-key-tap".into())
         .spawn(move || {
             let mask = 1_u64 << EVENT_KEY_DOWN;
             let user_info = Arc::into_raw(Arc::clone(&telemetry))
@@ -1323,7 +1321,7 @@ fn spawn_key_tap(telemetry: Arc<SharedCaptureTelemetry>) {
                     user_info,
                 )
             };
-            scrawl_log(format!(
+            annotate_log(format!(
                 "key tap: CGEventTapCreate -> {tap:p} (Accessibility {})",
                 if accessibility_granted() { "on" } else { "off" }
             ));
@@ -1409,32 +1407,32 @@ unsafe extern "C" fn key_tap_callback(
     let t_ms = telemetry.elapsed_ms();
     if cmd && !ctrl && !alt && !shift && (keycode == layout_z_keycode() || keycode == KEY_Z) {
         let _ = telemetry.ui_sender.try_send(LiveOverlayEvent::UndoStroke);
-    } else if cmd || ctrl {
-        if let Some(key_name) = shortcut_key_name(keycode) {
-            let mut chord = String::new();
-            if ctrl {
-                chord.push('⌃');
-            }
-            if alt {
-                chord.push('⌥');
-            }
-            if shift {
-                chord.push('⇧');
-            }
-            if cmd {
-                chord.push('⌘');
-            }
-            chord.push_str(&key_name);
-            telemetry.window_log_request.store(true, Ordering::Release);
-            telemetry
-                .events
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .push(InteractionEvent::Key {
-                    t: t_ms,
-                    shortcut: chord,
-                });
+    } else if (cmd || ctrl)
+        && let Some(key_name) = shortcut_key_name(keycode)
+    {
+        let mut chord = String::new();
+        if ctrl {
+            chord.push('⌃');
         }
+        if alt {
+            chord.push('⌥');
+        }
+        if shift {
+            chord.push('⇧');
+        }
+        if cmd {
+            chord.push('⌘');
+        }
+        chord.push_str(&key_name);
+        telemetry.window_log_request.store(true, Ordering::Release);
+        telemetry
+            .events
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(InteractionEvent::Key {
+                t: t_ms,
+                shortcut: chord,
+            });
     }
     event
 }
@@ -1535,7 +1533,7 @@ fn run_global_hid_poller(telemetry: Arc<SharedCaptureTelemetry>) {
         let mod_mask =
             (u8::from(cmd) << 3) | (u8::from(ctrl) << 2) | (u8::from(alt) << 1) | u8::from(shift);
         if mod_mask != prev_mod_mask {
-            scrawl_log(format!(
+            annotate_log(format!(
                 "hid_poller: cmd={cmd} ctrl={ctrl} alt={alt} shift={shift}"
             ));
             prev_mod_mask = mod_mask;
@@ -1567,7 +1565,7 @@ fn run_global_hid_poller(telemetry: Arc<SharedCaptureTelemetry>) {
             buttons,
             (loc.x, loc.y),
             shift && !cmd && !ctrl && !alt,
-            |x, y| telemetry.on_scrawl_window(x, y),
+            |x, y| telemetry.on_own_window(x, y),
         );
 
         let pure_shift = shift && !cmd && !ctrl && !alt && !await_shift_release;

@@ -163,7 +163,7 @@ pub(super) fn hand_back_keys(cx: &mut App) {
 pub(super) fn open_overlay(
     telemetry: Arc<SharedCaptureTelemetry>,
     on: Option<[f64; 4]>,
-    _cx: &mut gpui::Context<super::ScrawlCoordinator>,
+    _cx: &mut gpui::Context<super::Coordinator>,
 ) -> Result<LaserOverlay, String> {
     LaserOverlay::open(telemetry, on)
 }

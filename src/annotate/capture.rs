@@ -136,8 +136,6 @@ pub enum ShortcutKind {
 }
 
 impl ShortcutKind {
-    pub const ALL: [Self; 2] = [Self::Record, Self::Paste];
-
     pub fn default_config(self) -> ShortcutConfig {
         match self {
             Self::Record => ShortcutConfig::default_record(),
@@ -156,13 +154,6 @@ impl ShortcutKind {
         match self {
             Self::Record => KEY_S,
             Self::Paste => KEY_V,
-        }
-    }
-
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Record => "Record",
-            Self::Paste => "Paste last capture",
         }
     }
 }
@@ -187,10 +178,6 @@ impl ShortcutConfig {
     pub fn is_default_for(&self, kind: ShortcutKind) -> bool {
         self.carbon_modifiers == CARBON_OPTION_KEY | CARBON_SHIFT_KEY
             && shortcut_parts(&self.label).1 == kind.default_char().to_ascii_uppercase().to_string()
-    }
-
-    pub fn key_label(&self) -> &str {
-        shortcut_parts(&self.label).1
     }
 }
 
@@ -227,7 +214,7 @@ pub fn shortcut_label(carbon_modifiers: u32, key: &str) -> String {
     }
 }
 
-pub fn scrawl_log(msg: impl AsRef<str>) {
+pub fn annotate_log(msg: impl AsRef<str>) {
     use std::io::Write;
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -443,7 +430,7 @@ impl ScreenCaptureSession {
         let thread_offset = Arc::clone(&video_offset_ms);
         let sampler_target = target;
         let sampler_thread = thread::Builder::new()
-            .name("scrawl-frame-sampler".into())
+            .name("annotate-frame-sampler".into())
             .spawn(move || {
                 macos::run_sampler(Sampler {
                     target: sampler_target,
@@ -525,6 +512,12 @@ impl Drop for ScreenCaptureSession {
     }
 }
 
+/// Where a drag began: time, x and y as fractions of the target, the label of what was under
+/// the pointer, and the target then.
+type DragStart = (u64, f32, f32, Option<String>, TargetFrame);
+/// A ⇧-press waiting for its release: time, x and y in screen points, and the target then.
+type ShiftPress = (u64, f64, f64, TargetFrame);
+
 pub struct SharedCaptureTelemetry {
     pub active: AtomicBool,
     pub selecting: AtomicBool,
@@ -559,8 +552,8 @@ pub struct SharedCaptureTelemetry {
     pub start_glow: AtomicBool,
     mouse_live: AtomicBool,
     last_shortcut_ms: AtomicU64,
-    drag_start: Mutex<Option<(u64, f32, f32, Option<String>, TargetFrame)>>,
-    shift_press: Mutex<Option<(u64, f64, f64, TargetFrame)>>,
+    drag_start: Mutex<Option<DragStart>>,
+    shift_press: Mutex<Option<ShiftPress>>,
 }
 
 impl SharedCaptureTelemetry {
@@ -621,7 +614,7 @@ impl SharedCaptureTelemetry {
                 .compare_exchange(prev, now_ms, Ordering::AcqRel, Ordering::Acquire)
                 .is_ok()
         {
-            scrawl_log("emit_capture_shortcut");
+            annotate_log("emit_capture_shortcut");
             let _ = self.ui_sender.try_send(LiveOverlayEvent::CaptureShortcut);
         }
     }
@@ -641,7 +634,7 @@ impl SharedCaptureTelemetry {
                 .compare_exchange(prev, now_ms, Ordering::AcqRel, Ordering::Acquire)
                 .is_ok()
         {
-            scrawl_log("emit_paste_shortcut -> sending PasteLatestShortcut");
+            annotate_log("emit_paste_shortcut -> sending PasteLatestShortcut");
             let _ = self
                 .ui_sender
                 .try_send(LiveOverlayEvent::PasteLatestShortcut);
@@ -748,7 +741,7 @@ impl SharedCaptureTelemetry {
         } else {
             macos::NO_KEY_SOURCE
         };
-        scrawl_log(format!("session clicks from {clicks}, keys from {keys}"));
+        annotate_log(format!("session clicks from {clicks}, keys from {keys}"));
     }
 
     pub fn take_escape(&self) -> bool {
@@ -924,7 +917,7 @@ impl SharedCaptureTelemetry {
         true
     }
 
-    fn on_scrawl_window(&self, x: f64, y: f64) -> bool {
+    fn on_own_window(&self, x: f64, y: f64) -> bool {
         let passthrough = self
             .passthrough_window_ids
             .lock()
@@ -1197,7 +1190,7 @@ pub fn is_frontmost_terminal() -> bool {
 
 pub fn write_bundle_artifacts(
     out_dir: &Path,
-    bundle: &crate::annotate::model::ScrawlBundle,
+    bundle: &crate::annotate::model::CaptureBundle,
     annotated_frames: &[(crate::annotate::model::Keyframe, RgbaFrame)],
     contact_sheet: &RgbaFrame,
     summary_md: &str,
@@ -1292,7 +1285,7 @@ mod tests {
         });
         assert!(!telemetry.mouse_live.load(Ordering::Acquire));
         let mut prev = [false; 2];
-        let not_scrawl = |_: f64, _: f64| false;
+        let not_ours = |_: f64, _: f64| false;
         let composer = (778.0, 1050.0);
         poll_clicks(
             &telemetry,
@@ -1300,7 +1293,7 @@ mod tests {
             [true, false],
             composer,
             true,
-            not_scrawl,
+            not_ours,
         );
         poll_clicks(
             &telemetry,
@@ -1308,7 +1301,7 @@ mod tests {
             [false, false],
             composer,
             true,
-            not_scrawl,
+            not_ours,
         );
         poll_clicks(
             &telemetry,
@@ -1316,7 +1309,7 @@ mod tests {
             [true, false],
             composer,
             false,
-            not_scrawl,
+            not_ours,
         );
         poll_clicks(
             &telemetry,
@@ -1324,7 +1317,7 @@ mod tests {
             [true, false],
             composer,
             false,
-            not_scrawl,
+            not_ours,
         );
         poll_clicks(
             &telemetry,
@@ -1332,7 +1325,7 @@ mod tests {
             [false, false],
             composer,
             false,
-            not_scrawl,
+            not_ours,
         );
         let stop = (860.0, 20.0);
         poll_clicks(&telemetry, &mut prev, [true, false], stop, false, |_, _| {
@@ -1353,7 +1346,7 @@ mod tests {
             [true, false],
             composer,
             false,
-            not_scrawl,
+            not_ours,
         );
         poll_clicks(
             &telemetry,
@@ -1361,7 +1354,7 @@ mod tests {
             [false, false],
             composer,
             false,
-            not_scrawl,
+            not_ours,
         );
 
         let (events, _) = telemetry.finish_session();

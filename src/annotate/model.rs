@@ -25,7 +25,7 @@ pub fn format_clock(ms: u64) -> String {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ScrawlBundle {
+pub struct CaptureBundle {
     pub version: u32,
     pub id: String,
     pub created_at_ms: u64,
@@ -80,18 +80,6 @@ pub struct KeyframeCrop {
     pub reason: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub apps: Vec<String>,
-}
-
-impl KeyframeCrop {
-    pub fn rect(&self, frame: &TargetFrame) -> [f32; 4] {
-        let (w, h) = (frame.width.max(1.0), frame.height.max(1.0));
-        [
-            (self.x / w) as f32,
-            (self.y / h) as f32,
-            ((self.x + self.width) / w) as f32,
-            ((self.y + self.height) / h) as f32,
-        ]
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -185,27 +173,6 @@ pub struct Stroke {
 }
 
 impl Stroke {
-    pub fn rebase(&mut self, ms: u64) -> bool {
-        if self.t1 < ms {
-            self.pts.clear();
-            return false;
-        }
-        let lost = ms.saturating_sub(self.t0) as i64;
-        self.t0 = self.t0.saturating_sub(ms);
-        self.t1 = self.t1.saturating_sub(ms);
-        if lost > 0 {
-            let mut kept = Vec::with_capacity(self.pts.len());
-            for chunk in self.pts.chunks_exact(3) {
-                let dt = i64::from(chunk[2]) - lost;
-                if dt >= 0 {
-                    kept.extend_from_slice(&[chunk[0], chunk[1], dt as i32]);
-                }
-            }
-            self.pts = kept;
-        }
-        !self.pts.is_empty()
-    }
-
     pub fn normalized_points(&self) -> Vec<[f32; 2]> {
         self.pts
             .chunks_exact(3)
@@ -318,30 +285,6 @@ pub enum InteractionEvent {
 }
 
 impl InteractionEvent {
-    pub fn rebase(&mut self, ms: u64) -> bool {
-        match self {
-            Self::Drag { t, t1, .. } => {
-                if *t1 < ms {
-                    return false;
-                }
-                *t = t.saturating_sub(ms);
-                *t1 -= ms;
-                true
-            }
-            Self::Click { t, .. }
-            | Self::Scroll { t, .. }
-            | Self::Point { t, .. }
-            | Self::Key { t, .. }
-            | Self::AppChange { t, .. } => {
-                if *t < ms {
-                    return false;
-                }
-                *t -= ms;
-                true
-            }
-        }
-    }
-
     pub fn timestamp_ms(&self) -> u64 {
         match self {
             Self::Click { t, .. }
@@ -399,83 +342,6 @@ impl RgbaFrame {
             height,
             rgba,
             badge_top_right: false,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stroke_and_event_rebase_shift_dt_and_drop_pre_offset_items() {
-        let mut before = Stroke {
-            t0: 100,
-            t1: 400,
-            fw: 100,
-            fh: 100,
-            on: None,
-            pin: None,
-            laser: false,
-            pts: vec![10, 20, 0, 30, 40, 300],
-        };
-        assert!(!before.rebase(500));
-
-        let mut spanning = Stroke {
-            t0: 300,
-            t1: 700,
-            fw: 100,
-            fh: 100,
-            on: None,
-            pin: None,
-            laser: false,
-            pts: vec![10, 20, 0, 20, 30, 150, 30, 40, 200, 50, 60, 400],
-        };
-        assert!(spanning.rebase(500));
-        assert_eq!(spanning.t0, 0);
-        assert_eq!(spanning.t1, 200);
-        assert_eq!(spanning.pts, vec![30, 40, 0, 50, 60, 200]);
-
-        let mut after = Stroke {
-            t0: 800,
-            t1: 1_000,
-            fw: 100,
-            fh: 100,
-            on: None,
-            pin: None,
-            laser: false,
-            pts: vec![10, 20, 0, 50, 60, 200],
-        };
-        assert!(after.rebase(500));
-        assert_eq!(after.t0, 300);
-        assert_eq!(after.t1, 500);
-        assert_eq!(after.pts, vec![10, 20, 0, 50, 60, 200]);
-
-        let mut early_click = InteractionEvent::Click {
-            t: 450,
-            x: 0.5,
-            y: 0.5,
-            button: None,
-            label: None,
-            role: None,
-        };
-        assert!(!early_click.rebase(500));
-
-        let mut spanning_drag = InteractionEvent::Drag {
-            t: 400,
-            t1: 650,
-            x0: 0.2,
-            y0: 0.2,
-            x1: 0.8,
-            y1: 0.8,
-            label: None,
-            button: None,
-            path: Vec::new(),
-        };
-        assert!(spanning_drag.rebase(500));
-        assert_eq!(spanning_drag.timestamp_ms(), 0);
-        if let InteractionEvent::Drag { t, t1, .. } = spanning_drag {
-            assert_eq!((t, t1), (0, 150));
         }
     }
 }

@@ -14,12 +14,12 @@ use macos::{install_status_bar, reduce_motion};
 
 use crate::annotate::audio::AudioRecorder;
 use crate::annotate::capture::{
-    LiveOverlayEvent, ScreenCaptureSession, SharedCaptureTelemetry, current_mouse_screen,
-    discover_target, list_selectable_windows, record_external_frontmost_app, region_target,
-    scrawl_log, selectable_window_at, shortcut_from_key_and_mods, start_global_input_tap,
+    LiveOverlayEvent, ScreenCaptureSession, SharedCaptureTelemetry, annotate_log,
+    current_mouse_screen, discover_target, list_selectable_windows, record_external_frontmost_app,
+    region_target, selectable_window_at, shortcut_from_key_and_mods, start_global_input_tap,
 };
 use crate::annotate::laser_overlay::MetalLaserOverlay as LaserOverlay;
-use crate::annotate::model::{CaptureMode, ScrawlBundle, TargetInfo, format_clock};
+use crate::annotate::model::{CaptureBundle, CaptureMode, TargetInfo, format_clock};
 use crate::annotate::sketch::timeline;
 
 const SIDEBAR_BG: u32 = 0x111111;
@@ -87,7 +87,6 @@ pub enum MenuAction {
     ToggleCapture,
     ChooseTarget,
     OpenLatest,
-    Settings,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -210,7 +209,7 @@ impl ActiveRecording {
     }
 }
 
-pub struct ScrawlCoordinator {
+pub struct Coordinator {
     telemetry: Arc<SharedCaptureTelemetry>,
     active_recording: Option<ActiveRecording>,
     picker_metal_overlay: Option<LaserOverlay>,
@@ -227,7 +226,7 @@ pub struct ScrawlCoordinator {
     animated_window_rect: Option<[f32; 4]>,
     selection_drag: Option<([f32; 2], [f32; 2])>,
     display_rect: [f32; 4],
-    review_bundle: Option<(PathBuf, ScrawlBundle)>,
+    review_bundle: Option<(PathBuf, CaptureBundle)>,
     review_status: Option<String>,
     selected_tab: ReviewTab,
     selected_keyframe: usize,
@@ -247,7 +246,7 @@ pub enum ReviewTab {
     Keyframes,
 }
 
-impl ScrawlCoordinator {
+impl Coordinator {
     fn new(telemetry: Arc<SharedCaptureTelemetry>) -> Self {
         Self {
             telemetry,
@@ -299,7 +298,7 @@ impl ScrawlCoordinator {
         // Without Accessibility macOS drops the posted ⌘V (it can be turned off after it was
         // granted); bring the Annotate page instead.
         if !crate::annotate::capture::accessibility_granted() {
-            scrawl_log("Paste shortcut without Accessibility; asking for it");
+            annotate_log("Paste shortcut without Accessibility; asking for it");
             self.gate.defer(vec![
                 crate::annotate::permissions::Permission::Accessibility,
             ]);
@@ -311,7 +310,7 @@ impl ScrawlCoordinator {
         }
         std::thread::spawn(move || {
             if let Err(err) = crate::annotate::handoff::paste_bundle_image_and_text(&dir) {
-                scrawl_log(format!("paste_bundle_image_and_text error: {err}"));
+                annotate_log(format!("paste_bundle_image_and_text error: {err}"));
             }
         });
     }
@@ -355,7 +354,7 @@ impl ScrawlCoordinator {
         if missing.is_empty() {
             return true;
         }
-        scrawl_log(format!(
+        annotate_log(format!(
             "Not recording: {missing:?} off; opening the Annotate page"
         ));
         self.gate.defer(missing);
@@ -400,7 +399,7 @@ impl ScrawlCoordinator {
             // macOS's permission prompts and take the clicks meant for them.
             let missing = self.missing_to_record();
             if !self.gate.press(missing) {
-                scrawl_log("Shortcut held back: a required permission is off");
+                annotate_log("Shortcut held back: a required permission is off");
                 return;
             }
             self.hold_mods = crate::annotate::capture::modifier_flags();
@@ -434,7 +433,7 @@ impl ScrawlCoordinator {
     fn apply_switcher(&mut self, action: crate::annotate::hold::Action, cx: &mut Context<Self>) {
         use crate::annotate::hold::Action;
         if action != Action::None {
-            scrawl_log(format!("switcher -> {action:?}"));
+            annotate_log(format!("switcher -> {action:?}"));
         }
         match action {
             Action::None => {}
@@ -562,7 +561,7 @@ impl ScrawlCoordinator {
             cx.notify();
             return;
         }
-        scrawl_log(format!("switch_recording -> {mode:?}"));
+        annotate_log(format!("switch_recording -> {mode:?}"));
         let Some((_, overlay)) = self.discard_recording() else {
             return;
         };
@@ -600,7 +599,7 @@ impl ScrawlCoordinator {
             .clone()
     }
 
-    pub fn set_review_bundle(&mut self, bundle: (PathBuf, ScrawlBundle), status: Option<String>) {
+    pub fn set_review_bundle(&mut self, bundle: (PathBuf, CaptureBundle), status: Option<String>) {
         self.review_bundle = Some(bundle);
         self.review_status = status;
         self.selected_tab = ReviewTab::ContactSheet;
@@ -639,8 +638,7 @@ impl ScrawlCoordinator {
     }
 
     pub fn set_selection_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
-        if let IslandPhase::Selecting { mode: prev_mode } = self.island_phase {
-            if prev_mode != mode {}
+        if let IslandPhase::Selecting { mode: _prev_mode } = self.island_phase {
             self.island_phase = IslandPhase::Selecting { mode };
             self.selection_drag = None;
             if let Some(pos) = current_mouse_screen().or(self.selection_pointer) {
@@ -861,7 +859,7 @@ impl ScrawlCoordinator {
         if (0..4).all(|k| (frame[k] - current[k]).abs() < 1.0) {
             return;
         }
-        scrawl_log(format!("picker follows the pointer to display {frame:?}"));
+        annotate_log(format!("picker follows the pointer to display {frame:?}"));
         self.display_rect = frame.map(|v| v as f32);
         if let Some(ref mut overlay) = self.picker_metal_overlay {
             overlay.move_to(frame);
@@ -909,7 +907,7 @@ impl ScrawlCoordinator {
                 self.native_pill = Some(pill);
             }
             Err(err) => {
-                scrawl_log(format!("NativePill::open error: {err}"));
+                annotate_log(format!("NativePill::open error: {err}"));
             }
         }
     }
@@ -1027,7 +1025,7 @@ impl ScrawlCoordinator {
             .unwrap_or_else(|| PathBuf::from("latest"));
         self.dismiss_island(cx);
         if !crate::annotate::capture::accessibility_granted() {
-            scrawl_log("Paste chip without Accessibility; asking for it");
+            annotate_log("Paste chip without Accessibility; asking for it");
             self.gate.defer(vec![
                 crate::annotate::permissions::Permission::Accessibility,
             ]);
@@ -1035,7 +1033,7 @@ impl ScrawlCoordinator {
         }
         std::thread::spawn(move || {
             if let Err(err) = crate::annotate::handoff::paste_bundle_at_target(&dir, click_target) {
-                scrawl_log(format!("paste_bundle_at_target error: {err}"));
+                annotate_log(format!("paste_bundle_at_target error: {err}"));
             }
         });
     }
@@ -1118,11 +1116,10 @@ impl ScrawlCoordinator {
         if self.is_recording() || self.is_processing() {
             return;
         }
-        scrawl_log(format!(
+        annotate_log(format!(
             "open_picker invoked (mode: {mode:?}, hold: {hold})"
         ));
         self.hold_picker = hold;
-        let started = Instant::now();
         self.selectable_windows.clear();
         self.hovered_window = None;
         self.animated_window_rect = None;
@@ -1171,7 +1168,6 @@ impl ScrawlCoordinator {
                 }
                 coord.selectable_windows = windows;
                 coord.sync_picker_overlay();
-                start_metric("picker_ready_ms", started);
                 cx.notify();
             });
         })
@@ -1187,7 +1183,7 @@ impl ScrawlCoordinator {
         if self.picker_metal_overlay.is_none() {
             let [x, y, w, h] = self.display_rect.map(f64::from);
             let overlay = macos::open_overlay(Arc::clone(&self.telemetry), Some([x, y, w, h]), cx)
-                .map_err(|error| scrawl_log(format!("Metal overlay failed: {error}")))
+                .map_err(|error| annotate_log(format!("Metal overlay failed: {error}")))
                 .ok();
             if let Some(ref ov) = overlay {
                 self.telemetry
@@ -1208,10 +1204,8 @@ impl ScrawlCoordinator {
         cx.defer(move |cx| {
             close_review_window(cx);
             open_picker_windows(&entity, cx);
-            start_metric("picker_open_ms", started);
         });
         cx.notify();
-        start_metric("picker_prep_ms", started);
     }
 
     pub fn start_recording_full_screen(&mut self, cx: &mut Context<Self>) {
@@ -1229,8 +1223,7 @@ impl ScrawlCoordinator {
             self.cancel_recording(cx);
             return;
         }
-        let started = Instant::now();
-        scrawl_log(format!(
+        annotate_log(format!(
             "start_recording_with_target invoked: mode={:?} frame={:?}",
             target.mode, target.frame
         ));
@@ -1248,16 +1241,13 @@ impl ScrawlCoordinator {
         self.hovered_window = None;
         self.animated_window_rect = None;
         let id = crate::annotate::bundle::make_bundle_id();
-        let root = std::env::var_os("SCRAWL_BENCH_START")
-            .map(PathBuf::from)
-            .unwrap_or_else(crate::annotate::handoff::default_captures_dir);
-        let bundle_dir = root.join(format!("{id}.scrawl"));
+        let bundle_dir =
+            crate::annotate::handoff::default_captures_dir().join(format!("{id}.scrawl"));
         let _ = std::fs::create_dir_all(&bundle_dir);
         let video_path = bundle_dir.join("recording.mp4");
 
         self.telemetry.set_capture_mode(target.mode);
         self.telemetry.reset_for_session(target.frame);
-        let stage = Instant::now();
         let f = target.frame;
         let target_rect = [f.x, f.y, f.width, f.height];
         if let Some(ref pill) = self.native_pill {
@@ -1269,7 +1259,7 @@ impl ScrawlCoordinator {
         });
         let metal_overlay = metal_overlay.or_else(|| {
             let ov = macos::open_overlay(Arc::clone(&self.telemetry), Some(target_rect), cx)
-                .map_err(|error| scrawl_log(format!("Metal overlay failed: {error}")))
+                .map_err(|error| annotate_log(format!("Metal overlay failed: {error}")))
                 .ok();
             if let Some(ref o) = ov {
                 self.telemetry
@@ -1285,17 +1275,12 @@ impl ScrawlCoordinator {
             }
             ov
         });
-        start_metric("metal_open_ms", stage);
-        let stage = Instant::now();
         let audio_recorder = AudioRecorder::start().ok();
-        start_metric("audio_start_ms", stage);
-        let stage = Instant::now();
         let screen_session = ScreenCaptureSession::start(
             target.clone(),
             Some(video_path),
             Arc::clone(&self.telemetry.excluded_window_ids),
         );
-        start_metric("sck_start_ms", stage);
         let window_log = (target.mode == CaptureMode::Display).then(|| {
             let started_at = *self
                 .telemetry
@@ -1320,7 +1305,6 @@ impl ScrawlCoordinator {
             _metal_overlay: metal_overlay,
         });
         self.present_recording_island(cx);
-        start_metric("recording_start_ms", started);
     }
 
     fn present_recording_island(&mut self, cx: &mut Context<Self>) {
@@ -1335,14 +1319,14 @@ impl ScrawlCoordinator {
     }
 
     pub fn cancel_recording(&mut self, cx: &mut Context<Self>) {
-        scrawl_log("cancel_recording invoked");
+        annotate_log("cancel_recording invoked");
         crate::annotate::host::cancelled();
         self.discard_recording();
         self.dismiss_island(cx);
     }
 
     pub fn finish_recording(&mut self, cx: &mut Context<Self>) {
-        scrawl_log("finish_recording invoked");
+        annotate_log("finish_recording invoked");
         let Some(rec) = self.active_recording.take() else {
             return;
         };
@@ -1471,7 +1455,7 @@ fn camera_cursor_badge(x: f32, y: f32) -> Div {
 }
 
 pub struct TargetPickerWindow {
-    coordinator: Entity<ScrawlCoordinator>,
+    coordinator: Entity<Coordinator>,
     focus: FocusHandle,
 }
 
@@ -1569,7 +1553,7 @@ impl Render for TargetPickerWindow {
         });
 
         let mut root = div()
-            .id("scrawl-target-picker")
+            .id("annotate-target-picker")
             .track_focus(&self.focus)
             .size_full()
             .relative()
@@ -1805,7 +1789,7 @@ fn place_badge(
 }
 
 pub struct BundleReviewWindow {
-    coordinator: Entity<ScrawlCoordinator>,
+    coordinator: Entity<Coordinator>,
     focus: FocusHandle,
     cached_sheet_path: Option<PathBuf>,
     cached_sheet_image: Option<Arc<Image>>,
@@ -1813,7 +1797,7 @@ pub struct BundleReviewWindow {
 }
 
 impl BundleReviewWindow {
-    fn new(coordinator: Entity<ScrawlCoordinator>, focus: FocusHandle) -> Self {
+    fn new(coordinator: Entity<Coordinator>, focus: FocusHandle) -> Self {
         Self {
             coordinator,
             focus,
@@ -1823,7 +1807,7 @@ impl BundleReviewWindow {
         }
     }
 
-    fn ensure_images(&mut self, dir: &std::path::Path, bundle: &ScrawlBundle) {
+    fn ensure_images(&mut self, dir: &std::path::Path, bundle: &CaptureBundle) {
         let sheet_path = dir.join(&bundle.contact_sheet);
         if self.cached_sheet_path.as_ref() != Some(&sheet_path) {
             self.cached_sheet_path = Some(sheet_path.clone());
@@ -1856,7 +1840,7 @@ impl Render for BundleReviewWindow {
             let c_start = self.coordinator.clone();
             let c_keydown = self.coordinator.clone();
             return div()
-                .id("scrawl-review-empty")
+                .id("annotate-review-empty")
                 .track_focus(&self.focus)
                 .on_key_down(move |event: &KeyDownEvent, window, cx| {
                     let handled = c_keydown
@@ -1918,7 +1902,7 @@ impl Render for BundleReviewWindow {
         let send_dir = dir.clone();
 
         div()
-            .id("scrawl-review-root")
+            .id("annotate-review-root")
             .track_focus(&self.focus)
             .on_key_down(move |event: &KeyDownEvent, window, cx| {
                 let key = event.keystroke.key.as_str();
@@ -2197,7 +2181,7 @@ impl BundleReviewWindow {
 
     fn render_keyframes_stage(
         &self,
-        bundle: &ScrawlBundle,
+        bundle: &CaptureBundle,
         selected_kf: usize,
         stage_w: f32,
     ) -> AnyElement {
@@ -2432,7 +2416,7 @@ fn hint_button(
         })
 }
 
-fn open_picker_windows(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
+fn open_picker_windows(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     close_picker_window(cx);
     let screen = coord_entity.read(cx).display_rect;
     let display = macos::display_at(screen, cx);
@@ -2491,7 +2475,7 @@ fn open_picker_windows(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
     ensure_pill_open(coord_entity, cx);
 }
 
-fn ensure_pill_open(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
+fn ensure_pill_open(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     coord_entity.update(cx, |coord, _| {
         coord.ensure_native_pill();
         coord.sync_native_pill();
@@ -2517,7 +2501,7 @@ fn close_review_window(cx: &mut App) {
 /// Opens the review window in front with the keys. A menu bar (accessory) app isn't active when
 /// its menu is used, and the cooperative `NSApp.activate()` may leave the window behind the app
 /// in front, so it activates ignoring other apps once the window exists.
-fn open_review_window(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
+fn open_review_window(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     let dir = coord_entity
         .read(cx)
         .review_bundle
@@ -2569,17 +2553,8 @@ fn open_review_window(coord_entity: &Entity<ScrawlCoordinator>, cx: &mut App) {
     macos::take_keys(cx);
 }
 
-pub(crate) fn start_metric(name: &str, started: Instant) {
-    if std::env::var_os("SCRAWL_BENCH_START").is_some() {
-        eprintln!(
-            "START_METRIC {name}={:.6}",
-            started.elapsed().as_secs_f64() * 1_000.0
-        );
-    }
-}
-
 pub fn start(cx: &mut App) {
-    scrawl_log(format!("start pid={}", std::process::id()));
+    annotate_log(format!("start pid={}", std::process::id()));
     cx.on_window_closed(|cx| cx.defer(macos::hand_back_keys))
         .detach();
     let (ui_sender, ui_receiver) = flume::unbounded();
@@ -2598,7 +2573,7 @@ pub fn start(cx: &mut App) {
             }
         });
     }
-    let coordinator = cx.new(|_| ScrawlCoordinator::new(telemetry));
+    let coordinator = cx.new(|_| Coordinator::new(telemetry));
 
     let loop_coord = coordinator.clone();
     cx.spawn(async move |cx| {
@@ -2633,9 +2608,6 @@ pub fn start(cx: &mut App) {
                                     });
                                     open_review_window(&loop_coord, cx);
                                 }
-                            }
-                            MenuAction::Settings => {
-                                loop_coord.update(cx, |coord, _| coord.open_settings());
                             }
                         }
                     }
