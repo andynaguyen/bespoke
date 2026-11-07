@@ -566,9 +566,7 @@ impl Coordinator {
         let rec = self.active_recording.take()?;
         let _ = self.telemetry.finish_session();
         let CaptureSource::Screen { session, audio, .. } = rec.source;
-        if let Some(audio) = audio {
-            let _ = audio.stop();
-        }
+        drop(audio);
         // Stopping waits for the video to finish writing, which would hold up the UI, and the
         // bundle is deleted either way.
         let bundle_dir = rec.bundle_dir;
@@ -1262,18 +1260,15 @@ impl Coordinator {
             }
             ov
         });
+        let started_at = self.telemetry.session_start();
         let audio_recorder = AudioRecorder::start().ok();
         let screen_session = ScreenCaptureSession::start(
             target.clone(),
             Some(video_path),
             Arc::clone(&self.telemetry.excluded_window_ids),
+            started_at,
         );
         let window_log = (target.mode == CaptureMode::Display).then(|| {
-            let started_at = *self
-                .telemetry
-                .started_at
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
             crate::annotate::windows::WindowLogger::start(
                 target.frame,
                 started_at,
@@ -1334,6 +1329,7 @@ impl Coordinator {
                         windows: window_log,
                     } = source;
                     let stop_started = Instant::now();
+                    let started_at = screen_session.started_at();
                     let (recording, recorded_audio, mut activity) = std::thread::scope(|s| {
                         let screen_handle = s.spawn(|| screen_session.stop());
                         let win_handle = s.spawn(|| {
@@ -1341,7 +1337,7 @@ impl Coordinator {
                                 .map(crate::annotate::windows::WindowLogger::stop)
                                 .unwrap_or_default()
                         });
-                        let audio = audio_recorder.and_then(|r| r.stop().ok());
+                        let audio = audio_recorder.and_then(|r| r.stop(started_at).ok());
                         (
                             screen_handle.join().unwrap(),
                             audio,

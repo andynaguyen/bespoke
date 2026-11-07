@@ -477,12 +477,14 @@ pub struct ScreenCaptureSession {
 }
 
 impl ScreenCaptureSession {
+    /// Starts recording `target`. Frame and video times count from `started_at`, the clock
+    /// the capture's clicks, keys and ink use.
     pub fn start(
         target: TargetInfo,
         video_output_path: Option<PathBuf>,
         excluded_window_ids: Arc<Mutex<Vec<u32>>>,
+        started_at: Instant,
     ) -> Self {
-        let started_at = Instant::now();
         let stopping = Arc::new(AtomicBool::new(false));
         let urgent_snapshot = Arc::new(AtomicBool::new(true));
         let frames = Arc::new(Mutex::new(CandidateBuffer::new(CANDIDATE_BUDGET_BYTES)));
@@ -529,6 +531,10 @@ impl ScreenCaptureSession {
 
     pub fn elapsed_ms(&self) -> u64 {
         self.started_at.elapsed().as_millis() as u64
+    }
+
+    pub fn started_at(&self) -> Instant {
+        self.started_at
     }
 
     pub fn stop(mut self) -> ScreenRecording {
@@ -821,11 +827,15 @@ impl SharedCaptureTelemetry {
     }
 
     pub fn elapsed_ms(&self) -> u64 {
-        self.started_at
+        self.session_start().elapsed().as_millis() as u64
+    }
+
+    /// When the current session's clock started: every time in a capture counts from here.
+    pub fn session_start(&self) -> Instant {
+        *self
+            .started_at
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .elapsed()
-            .as_millis() as u64
     }
 
     pub fn contains_screen_point(&self, screen_x: f64, screen_y: f64) -> bool {
