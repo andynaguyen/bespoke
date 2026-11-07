@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use crate::annotate::audio::RecordedAudio;
 use crate::annotate::model::{TranscriptData, TranscriptSegment, WordTiming};
 
 use crate::app_handle::AppHandle;
@@ -21,8 +20,8 @@ const QUIET_SPAN: usize = SAMPLE_RATE / 20;
 /// there would leave a sliver of silence, where Whisper tends to invent text.
 const MIN_TAIL: usize = 2 * SAMPLE_RATE;
 
-pub fn transcribe(wav: Option<&Path>, audio: Option<&RecordedAudio>) -> TranscriptData {
-    let (Some(wav), Some(_)) = (wav, audio.filter(|audio| audio.sample_count > 0)) else {
+pub fn transcribe(wav: Option<&Path>, audio: Option<&[f32]>) -> TranscriptData {
+    let (Some(wav), Some(_)) = (wav, audio.filter(|audio| !audio.is_empty())) else {
         return TranscriptData {
             source: "none".into(),
             ..Default::default()

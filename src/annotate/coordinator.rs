@@ -1337,7 +1337,13 @@ impl Coordinator {
                                 .map(crate::annotate::windows::WindowLogger::stop)
                                 .unwrap_or_default()
                         });
-                        let audio = audio_recorder.and_then(|r| r.stop(started_at).ok());
+                        let audio = audio_recorder.and_then(|r| {
+                            r.stop(started_at)
+                                .inspect_err(|error| {
+                                    annotate_log(format!("No narration: {error:#}"));
+                                })
+                                .ok()
+                        });
                         (
                             screen_handle.join().unwrap(),
                             audio,

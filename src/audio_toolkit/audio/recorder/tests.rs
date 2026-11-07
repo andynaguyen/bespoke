@@ -434,3 +434,42 @@ fn a_recording_starts_where_its_backlog_was_heard() {
     let start = same_rate.recording_start.lock().unwrap().unwrap();
     assert_eq!(start.leading_samples, 0);
 }
+
+#[test]
+fn a_device_lost_partway_keeps_what_it_heard() {
+    let (mut producer, consumer) = RingBuffer::<f32>::new(16_000);
+    let transport = Arc::new(CaptureTransportState::default());
+    let stream_error = Arc::new(AtomicBool::new(false));
+    let (cmd_tx, cmd_rx) = mpsc::channel();
+    let worker_transport = Arc::clone(&transport);
+    let worker = thread::spawn(move || {
+        run_consumer(
+            CaptureProcessor::new(16_000, None, None, None, Instant::now()),
+            consumer,
+            cmd_rx,
+            worker_transport,
+            stream_error,
+        );
+    });
+
+    let (ready_tx, ready_rx) = mpsc::channel();
+    cmd_tx
+        .send(Cmd::Start(VadPolicy::Disabled, Instant::now(), ready_tx))
+        .expect("start");
+    for _ in 0..4_800 {
+        producer.push(0.25).expect("ring has room");
+    }
+    ready_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("the heard samples are captured");
+    // The device is gone: nothing writes to the ring or acknowledges the pause again.
+    let (reply_tx, reply_rx) = mpsc::channel();
+    cmd_tx.send(Cmd::Stop(reply_tx)).expect("stop");
+
+    let samples = reply_rx
+        .recv_timeout(Duration::from_secs(3))
+        .expect("pause timeout still returns captured samples");
+    assert!(samples.len() >= 4_800, "{}", samples.len());
+    assert!(samples[..4_800].iter().all(|&s| s == 0.25));
+    worker.join().expect("consumer exits after pause timeout");
+}

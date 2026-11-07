@@ -4,7 +4,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 
 use super::{autocrop, capture, helper, model, render, speech_model, transcribe, windows};
-use crate::annotate::audio::RecordedAudio;
 use crate::annotate::capture::write_bundle_artifacts;
 use crate::annotate::keyframes::select_keyframes;
 use crate::annotate::model::{
@@ -230,7 +229,7 @@ pub fn finalize_capture_bundle(
     recording: capture::ScreenRecording,
     strokes: Vec<Stroke>,
     events: Vec<InteractionEvent>,
-    recorded_audio: Option<RecordedAudio>,
+    recorded_audio: Option<Vec<f32>>,
     note: Option<String>,
     activity: windows::ActivityLog,
 ) -> Result<(PathBuf, CaptureBundle, String)> {
@@ -244,12 +243,13 @@ pub fn finalize_capture_bundle(
         duration_ms,
         video_offset_ms,
     } = recording;
-    if let Some(ref audio) = recorded_audio {
-        let wav_path = bundle_dir.join("audio.wav");
-        let _ = std::fs::create_dir_all(bundle_dir);
-        let _ = std::fs::write(&wav_path, &audio.wav_bytes);
-    }
     let wav_path = bundle_dir.join("audio.wav");
+    if let Some(ref audio) = recorded_audio {
+        let _ = std::fs::create_dir_all(bundle_dir);
+        if let Err(error) = crate::audio_toolkit::save_wav_file(&wav_path, audio) {
+            capture::annotate_log(format!("Could not write audio.wav: {error:#}"));
+        }
+    }
     let has_wav = wav_path.exists();
     let crop_settings = (target.mode == CaptureMode::Display)
         .then(autocrop::Settings::configured)
@@ -259,7 +259,7 @@ pub fn finalize_capture_bundle(
             let t0 = std::time::Instant::now();
             let tr = transcribe::transcribe(
                 has_wav.then_some(wav_path.as_path()),
-                recorded_audio.as_ref(),
+                recorded_audio.as_deref(),
             );
             (tr, t0.elapsed().as_millis() as u64)
         });
