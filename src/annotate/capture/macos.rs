@@ -780,17 +780,11 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
 /// already waits for that report, but gives up after 3 s (the bridge's `terminalGrace`), and a
 /// long recording can take longer to write out.
 const RECORDING_FINISH_TIMEOUT: Duration = Duration::from_secs(30);
-/// How long the recording output gets to report its end when detaching it failed. That happens
-/// when the system already stopped the stream, and the output then reports on its own.
 const DETACH_FAILED_TIMEOUT: Duration = Duration::from_secs(2);
 /// How long `stop_capture` gets before the stop is given up on: the capture service can stop
 /// answering.
 const STREAM_STOP_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// A screen recording in progress: the stream, the output writing `path`, and what the
-/// output's delegate reports. `started` turns true when the output writes its first frame, and
-/// `finished` gets `Ok` once the MP4 is complete or `Err` with ScreenCaptureKit's message if
-/// writing it failed.
 struct SckRecording {
     stream: SCStream,
     output: SCRecordingOutput,
@@ -800,11 +794,10 @@ struct SckRecording {
 }
 
 impl SckRecording {
-    /// Ends the recording and returns its MP4 if the file is complete. The output is detached
-    /// while the stream keeps running (its frame handler keeps it alive), and the stream stops
-    /// only after the output reports that it finished or failed. Stopping the stream while a
-    /// detached output is still exporting can make the export run twice and abort, losing the
-    /// file.
+    /// The output is detached while the stream keeps running (its frame handler keeps it
+    /// alive), and the stream stops only after the output reports that it finished or failed.
+    /// Stopping the stream while a detached output is still exporting can make the export run
+    /// twice and abort, losing the file.
     fn finish(self) -> Option<PathBuf> {
         let detached = self.stream.remove_recording_output(&self.output);
         if let Err(error) = &detached {
@@ -846,7 +839,7 @@ impl SckRecording {
 }
 
 /// Whether the MP4 at `path` has its `moov` box, which a writer adds only when it finishes the
-/// file. Walks the top-level boxes rather than reading the whole movie.
+/// file.
 fn mp4_has_movie_box(path: &Path) -> bool {
     use std::io::{Read, Seek, SeekFrom};
     let Ok(mut file) = std::fs::File::open(path) else {
@@ -1046,8 +1039,6 @@ fn setup_sck_capture(
     (None, Some(filter))
 }
 
-/// Sets `started` when the recording output writes its first frame, and reports its end on
-/// `sender`: `Ok` when it finished, `Err` when it failed.
 fn recording_callbacks(
     started: Arc<AtomicBool>,
     sender: mpsc::Sender<Result<(), String>>,
@@ -1659,12 +1650,8 @@ mod tests {
     use super::*;
     use crate::annotate::model::TargetFrame;
 
-    /// Records the main display for 2 s and ends it the way a capture does: the MP4 must be
-    /// complete when `SckRecording::finish` returns. Needs Screen Recording for the process
-    /// that runs the test. Run with
-    /// `cargo test recording_ends_with_a_complete_mp4 -- --ignored --nocapture`.
     #[test]
-    #[ignore = "records the screen"]
+    #[ignore = "records the screen; needs Screen Recording for the process that runs the test"]
     fn recording_ends_with_a_complete_mp4() {
         let target = TargetInfo {
             mode: CaptureMode::Display,
@@ -1696,7 +1683,6 @@ mod tests {
         let started = Instant::now();
         let video = recording.finish().expect("output failed");
         println!("finished in {:?}", started.elapsed());
-        // An aborted export has no `moov` box.
         assert!(mp4_has_movie_box(&video), "MP4 has no moov box");
         std::fs::remove_file(video).unwrap();
     }
@@ -1711,48 +1697,54 @@ mod tests {
         out
     }
 
-    #[test]
-    fn a_finished_mp4_has_its_movie_box() {
+    fn file_has_movie_box(bytes: &[u8]) -> bool {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("movie.mp4");
+        std::fs::write(&path, bytes).unwrap();
+        mp4_has_movie_box(&path)
+    }
+
+    #[test]
+    fn a_finished_mp4_has_its_movie_box() {
         let finished = [
             mp4_box(b"ftyp", b"isom"),
             mp4_box(b"mdat", &[0; 64]),
             mp4_box(b"moov", &[0; 8]),
         ]
         .concat();
-        std::fs::write(&path, &finished).unwrap();
-        assert!(mp4_has_movie_box(&path));
+        assert!(file_has_movie_box(&finished));
+    }
 
-        // A large `mdat` uses the 64-bit size form.
+    #[test]
+    fn a_movie_box_after_a_64_bit_sized_mdat_is_found() {
         let mut large = mp4_box(b"ftyp", b"isom");
         large.extend_from_slice(&1_u32.to_be_bytes());
         large.extend_from_slice(b"mdat");
         large.extend_from_slice(&(16_u64 + 32).to_be_bytes());
         large.extend_from_slice(&[0; 32]);
         large.extend(mp4_box(b"moov", &[]));
-        std::fs::write(&path, &large).unwrap();
-        assert!(mp4_has_movie_box(&path));
+        assert!(file_has_movie_box(&large));
     }
 
     #[test]
-    fn an_aborted_mp4_has_no_movie_box() {
+    fn an_mp4_cut_off_inside_its_mdat_has_no_movie_box() {
+        let mut cut_off = mp4_box(b"ftyp", b"isom");
+        cut_off.extend_from_slice(&4096_u32.to_be_bytes());
+        cut_off.extend_from_slice(b"mdat");
+        cut_off.extend_from_slice(&[0; 64]);
+        assert!(!file_has_movie_box(&cut_off));
+    }
+
+    #[test]
+    fn moov_bytes_inside_the_mdat_are_not_a_movie_box() {
+        let mut media_says_moov = mp4_box(b"ftyp", b"isom");
+        media_says_moov.extend(mp4_box(b"mdat", b"....moov...."));
+        assert!(!file_has_movie_box(&media_says_moov));
+    }
+
+    #[test]
+    fn a_missing_file_has_no_movie_box() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("movie.mp4");
-        // The writer stopped inside `mdat`, before the size it promised.
-        let mut aborted = mp4_box(b"ftyp", b"isom");
-        aborted.extend_from_slice(&4096_u32.to_be_bytes());
-        aborted.extend_from_slice(b"mdat");
-        aborted.extend_from_slice(&[0; 64]);
-        std::fs::write(&path, &aborted).unwrap();
-        assert!(!mp4_has_movie_box(&path));
-
-        // `moov` bytes inside the media data don't count.
-        let mut fake = mp4_box(b"ftyp", b"isom");
-        fake.extend(mp4_box(b"mdat", b"....moov...."));
-        std::fs::write(&path, &fake).unwrap();
-        assert!(!mp4_has_movie_box(&path));
-
         assert!(!mp4_has_movie_box(&dir.path().join("missing.mp4")));
     }
 

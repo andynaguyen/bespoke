@@ -73,14 +73,18 @@ fn build_annotate_helper() {
 
 /// screencapturekit's Swift bridge needs the Swift runtime, which macOS ships in
 /// `/usr/lib/swift`. Debug builds also look in Xcode's toolchain for its back-deployment
-/// libraries. Release builds leave those paths out, because they name a folder on the machine
-/// that built the app.
+/// libraries.
 fn link_swift_runtime() {
+    println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
+    if std::env::var("PROFILE").as_deref() == Ok("debug") {
+        link_build_machine_xcode_runtime_in_debug_builds();
+    }
+}
+
+fn link_build_machine_xcode_runtime_in_debug_builds() {
     use std::process::Command;
 
-    println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
-    if std::env::var("PROFILE").as_deref() == Ok("debug")
-        && let Ok(output) = Command::new("xcode-select").arg("-p").output()
+    if let Ok(output) = Command::new("xcode-select").arg("-p").output()
         && output.status.success()
         && let Ok(developer_dir) = String::from_utf8(output.stdout)
     {
