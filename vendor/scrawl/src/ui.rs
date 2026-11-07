@@ -571,11 +571,16 @@ impl ScrawlCoordinator {
         let rec = self.active_recording.take()?;
         let _ = self.telemetry.finish_session();
         let CaptureSource::Screen { session, audio, .. } = rec.source;
-        let _ = session.stop();
         if let Some(audio) = audio {
             let _ = audio.stop();
         }
-        let _ = std::fs::remove_dir_all(rec.bundle_dir);
+        // Stopping waits for the video to finish writing, which would hold up the UI, and the
+        // bundle is deleted either way.
+        let bundle_dir = rec.bundle_dir;
+        std::thread::spawn(move || {
+            let _ = session.stop();
+            let _ = std::fs::remove_dir_all(bundle_dir);
+        });
         Some((rec.target, rec._metal_overlay))
     }
 

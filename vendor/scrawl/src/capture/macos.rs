@@ -2,14 +2,15 @@ use std::ffi::c_void;
 use std::path::PathBuf;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use screencapturekit::prelude::*;
 use screencapturekit::recording_output::{
-    SCRecordingOutput, SCRecordingOutputCodec, SCRecordingOutputConfiguration,
-    SCRecordingOutputFileType,
+    RecordingCallbacks, SCRecordingOutput, SCRecordingOutputCodec,
+    SCRecordingOutputConfiguration, SCRecordingOutputFileType,
 };
 use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
 
@@ -802,13 +803,90 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         }
         thread::park_timeout(Duration::from_millis(30));
     }
-    if let Some(stream) = stream {
-        let _ = stream.stop_capture();
-        if let Some(ref output) = recording_output {
-            let _ = stream.remove_recording_output(output);
+    match (stream, recording_output) {
+        (Some(stream), Some(recording)) => finish_sck_recording(&stream, &recording)
+            .then_some(video_path)
+            .flatten(),
+        (Some(stream), None) => {
+            stop_sck_stream(&stream);
+            video_path
         }
+        (None, _) => video_path,
     }
-    video_path
+}
+
+/// How long the recording output gets to finish writing its MP4 once it is detached.
+const RECORDING_FINISH_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long `stop_capture` gets before the stop is given up on: the capture service can stop
+/// answering.
+const STREAM_STOP_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The recording output and the channel its delegate reports on: `Ok` once the MP4 is
+/// complete, `Err` with ScreenCaptureKit's message if writing it failed.
+struct SckRecording {
+    output: SCRecordingOutput,
+    finished: Receiver<Result<(), String>>,
+}
+
+/// Ends a recording so its MP4 is complete, and returns whether it is. The output is detached
+/// while the stream keeps running (its frame handler keeps it alive), and the stream stops
+/// only after the output reports that it finished or failed. Stopping the stream while a
+/// detached output is still exporting can make the export run twice and abort, losing the file.
+fn finish_sck_recording(stream: &SCStream, recording: &SckRecording) -> bool {
+    let detached = stream.remove_recording_output(&recording.output);
+    if let Err(error) = &detached {
+        // A stream the system already stopped still reports its output's own result.
+        scrawl_log(format!("Detaching the recording output failed: {error:?}"));
+        stop_sck_stream(stream);
+    }
+    let wait = if detached.is_ok() {
+        RECORDING_FINISH_TIMEOUT
+    } else {
+        Duration::from_secs(2)
+    };
+    let complete = match recording.finished.recv_timeout(wait) {
+        Ok(Ok(())) => true,
+        Ok(Err(error)) => {
+            scrawl_log(format!("Recording output failed: {error}"));
+            false
+        }
+        Err(_) => {
+            // The file may still be whole; the size check in `stop` decides.
+            scrawl_log(format!(
+                "Recording output didn't report finishing within {}s",
+                wait.as_secs()
+            ));
+            true
+        }
+    };
+    if detached.is_ok() {
+        stop_sck_stream(stream);
+    }
+    complete
+}
+
+/// Stops the stream, giving up after `STREAM_STOP_TIMEOUT`. A stop that never returns leaves
+/// its thread blocked inside ScreenCaptureKit.
+fn stop_sck_stream(stream: &SCStream) {
+    let stream = stream.clone();
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let spawned = thread::Builder::new()
+        .name("scrawl-stream-stop".into())
+        .spawn(move || {
+            let _ = sender.send(stream.stop_capture());
+        });
+    if let Err(error) = spawned {
+        scrawl_log(format!("Could not start the stream stop: {error}"));
+        return;
+    }
+    match receiver.recv_timeout(STREAM_STOP_TIMEOUT) {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => scrawl_log(format!("Stopping the capture stream failed: {error:?}")),
+        Err(_) => scrawl_log(format!(
+            "The capture stream didn't stop within {}s",
+            STREAM_STOP_TIMEOUT.as_secs()
+        )),
+    }
 }
 
 fn build_sck_filter_and_config(
@@ -903,7 +981,7 @@ fn setup_sck_capture(
     video_offset_ms: &AtomicU64,
 ) -> (
     Option<SCStream>,
-    Option<SCRecordingOutput>,
+    Option<SckRecording>,
     Option<PathBuf>,
     Option<SCContentFilter>,
 ) {
@@ -917,8 +995,15 @@ fn setup_sck_capture(
                 c.with_video_codec(SCRecordingOutputCodec::H264)
                     .with_output_file_type(SCRecordingOutputFileType::MP4)
             })
-            && let Some(rec_output) = SCRecordingOutput::new(&rec_cfg)
-            && let Ok(stream) = SCStream::new(&filter, &config)
+            && let (sender, finished) = mpsc::channel()
+            && let Some(rec_output) =
+                SCRecordingOutput::new_with_delegate(&rec_cfg, recording_callbacks(sender))
+            && let Ok(mut stream) = SCStream::new(&filter, &config)
+            // While a frame handler is attached, detaching the recording output never stops
+            // the stream on its own (`finish_sck_recording`).
+            && stream
+                .add_output_handler(|_: CMSampleBuffer, _| {}, SCStreamOutputType::Screen)
+                .is_ok()
             && stream.add_recording_output(&rec_output).is_ok()
         {
             let before = started_at.elapsed();
@@ -927,7 +1012,10 @@ fn setup_sck_capture(
                 video_offset_ms.store(((before + after) / 2).as_millis() as u64, Ordering::Release);
                 return (
                     Some(stream),
-                    Some(rec_output),
+                    Some(SckRecording {
+                        output: rec_output,
+                        finished,
+                    }),
                     Some(video_path),
                     Some(filter),
                 );
@@ -936,6 +1024,18 @@ fn setup_sck_capture(
     }
 
     (None, None, None, Some(filter))
+}
+
+/// Reports the recording output's end on `sender`: `Ok` when it finished, `Err` when it failed.
+fn recording_callbacks(sender: mpsc::Sender<Result<(), String>>) -> RecordingCallbacks {
+    let fail = sender.clone();
+    RecordingCallbacks::new()
+        .on_fail(move |error| {
+            let _ = fail.send(Err(error));
+        })
+        .on_finish(move || {
+            let _ = sender.send(Ok(()));
+        })
 }
 
 fn capture_sck_frame(
@@ -1529,6 +1629,53 @@ fn ansi_key_char(keycode: u16) -> Option<char> {
 mod tests {
     use super::*;
     use crate::model::TargetFrame;
+
+    /// Records the main display for 2 s and ends it the way a capture does: the MP4 must be
+    /// complete when `finish_sck_recording` returns. Needs Screen Recording for the process
+    /// that runs the test. Run with
+    /// `cargo test -p scrawl recording_ends_with_a_complete_mp4 -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "records the screen"]
+    fn recording_ends_with_a_complete_mp4() {
+        let target = TargetInfo {
+            mode: CaptureMode::Display,
+            app: None,
+            bundle_id: None,
+            window_title: None,
+            window_id: None,
+            display_id: main_display_id(),
+            frame: TargetFrame {
+                x: 0.0,
+                y: 0.0,
+                width: 1280.0,
+                height: 800.0,
+                scale: 2.0,
+            },
+        };
+        let path = std::env::temp_dir().join(format!("{}.mp4", crate::make_bundle_id()));
+        let (stream, recording, video, _) = setup_sck_capture(
+            &target,
+            Some(path.clone()),
+            &[],
+            Instant::now(),
+            &AtomicU64::new(0),
+        );
+        let (Some(stream), Some(recording), Some(video)) = (stream, recording, video) else {
+            panic!("could not start recording (is Screen Recording granted?)");
+        };
+        thread::sleep(Duration::from_secs(2));
+        let started = Instant::now();
+        assert!(finish_sck_recording(&stream, &recording), "output failed");
+        println!("finished in {:?}", started.elapsed());
+        let bytes = std::fs::read(&video).unwrap();
+        // A finished MP4 has its `moov` atom; an aborted export doesn't.
+        assert!(
+            bytes.windows(4).any(|w| w == b"moov"),
+            "MP4 has no moov atom ({} bytes)",
+            bytes.len()
+        );
+        std::fs::remove_file(video).unwrap();
+    }
 
     #[test]
     fn shortcut_keys_are_named_by_the_layout_not_their_qwerty_position() {

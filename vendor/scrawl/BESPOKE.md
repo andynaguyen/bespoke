@@ -42,6 +42,15 @@ Bundles keep Scrawl's format (`.scrawl` folders with `scrawl.json` and `summary.
 - Transcription: `host::on_transcribe` lets Bespoke transcribe a capture with the model picked on its Models page. `transcribe::run` calls it when one is registered and Apple Speech otherwise, and `speech_model::transcribe_again` goes through `run` too. `host::apple_speech` runs Apple Speech for Bespoke, which lists it as a model. The helper's `transcribe` takes `--contextual-strings` (a JSON array, Bespoke's dictionary) and passes them to `SpeechAnalyzer` in an `AnalysisContext`. `host::on_speech_status` reports each change in Apple's speech model, and `host::ensure_speech_model` starts its install from Bespoke's Models page. `speech_model::ensure` returns the number of the attempt that answers the call. A call while the worker waits to retry starts the next attempt at once, where upstream slept through it.
 - `build.rs` builds the helper into `target/<profile>/`. `scripts/install-local.sh` copies it into `Bespoke.app` and signs it.
 
+## Ported from later upstream commits
+
+- `sketch.rs`: one-stroke arrows and flat or tailed circles count as marks (`6ea38e37098cb1a0014fdf8c6b23e1fc829a30e9`, `2a6428009ec5398d7a524deee613d51ee1c844c6`).
+- Clicks: a ⇧-click pin shows live as a 350 ms ring pulse (`sketch::pin_pulse`) instead of a disc that stays for the whole recording, and keyframes mark clicks with a thin ring and a small dot (`8a8d4044a7f7a4ab51a874a81014b07441758281`, the `sketch.rs` part of `cb3567c54986bf46eca3ce6f60f6b5f4074707b4`).
+- `render.rs`: the keyframe badge is the number alone in a small white chip (`c6651edaf12c0a41ed86954985524aa2cd3141ec`). The numbered discs on marks stay, because Bespoke has no `scrawl zoom --mark`.
+- `laser_overlay.rs`: one pipeline per pair of `has_ink` and `skip_clear` function constants, so a frame runs only the shader work it needs (`da5694c7da63c4a41d6ba6f44d8e13c9612db587`), and a frame identical to the one on screen isn't drawn (`1e3e34859a1f3a96cdce11a5a10d32b3b664f24a`, tests from `9d6e806`). The library still compiles from source at launch.
+
+`capture/macos.rs` (not from upstream, which still stops the stream first): `finish_sck_recording` detaches the recording output, waits up to 30 s for its delegate to report the MP4 finished or failed, then stops the stream within 10 s. A no-op frame handler keeps the stream running while the output finishes. A failed output drops the video. `discard_recording` in `ui.rs` runs the stop on its own thread, since the bundle is deleted anyway. `recording_ends_with_a_complete_mp4` (ignored) checks it on a real recording and needs Screen Recording for the process that runs it.
+
 To see every change, diff `src/` and `helper/` against upstream at that commit.
 
 Run its tests from Bespoke's root with `cargo test -p scrawl`, so they use Bespoke's `Cargo.lock`.
