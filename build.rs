@@ -71,13 +71,16 @@ fn build_annotate_helper() {
     std::fs::copy(&built, dest).expect("Could not place Annotate's helper");
 }
 
-/// screencapturekit's Swift bridge needs the Swift runtime, from the OS or, for older
-/// back-deployment libraries, from Xcode's toolchain.
+/// screencapturekit's Swift bridge needs the Swift runtime, which macOS ships in
+/// `/usr/lib/swift`. Debug builds also look in Xcode's toolchain for its back-deployment
+/// libraries. Release builds leave those paths out, because they name a folder on the machine
+/// that built the app.
 fn link_swift_runtime() {
     use std::process::Command;
 
     println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
-    if let Ok(output) = Command::new("xcode-select").arg("-p").output()
+    if std::env::var("PROFILE").as_deref() == Ok("debug")
+        && let Ok(output) = Command::new("xcode-select").arg("-p").output()
         && output.status.success()
         && let Ok(developer_dir) = String::from_utf8(output.stdout)
     {
