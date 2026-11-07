@@ -40,6 +40,11 @@ impl FrameResampler {
         }
     }
 
+    /// How many output samples of filter delay come before the first input sample's output.
+    pub fn output_delay(&self) -> usize {
+        self.resampler.as_ref().map_or(0, |r| r.output_delay())
+    }
+
     pub fn push(&mut self, mut src: &[f32], mut emit: impl FnMut(&[f32])) {
         if self.resampler.is_none() {
             self.emit_frames(src, &mut emit);

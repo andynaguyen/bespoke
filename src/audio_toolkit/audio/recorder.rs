@@ -63,6 +63,16 @@ impl VadConfig {
     }
 }
 
+/// Where a recording's audio begins: when its first sample was heard, and how many samples of
+/// resampler delay come before that sample in what `AudioRecorder::stop` returns. `heard_at`
+/// is late by up to one device buffer, since it counts back from when the worker saw the
+/// samples, not from when the device captured them.
+#[derive(Clone, Copy, Debug)]
+pub struct RecordingStart {
+    pub heard_at: Instant,
+    pub leading_samples: usize,
+}
+
 pub type AudioFrameCallback = Arc<dyn Fn(&[f32]) + Send + Sync + 'static>;
 pub type LevelCallback = Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>;
 
@@ -81,6 +91,7 @@ pub struct AudioRecorder {
     selected_channel: Option<usize>,
     config_cache: Arc<Mutex<Option<(String, cpal::SupportedStreamConfig)>>>,
     stream_error: Arc<AtomicBool>,
+    recording_start: Arc<Mutex<Option<RecordingStart>>>,
 }
 
 impl Default for AudioRecorder {
@@ -101,7 +112,13 @@ impl AudioRecorder {
             selected_channel: None,
             config_cache: Arc::new(Mutex::new(None)),
             stream_error: Arc::new(AtomicBool::new(false)),
+            recording_start: Arc::default(),
         }
+    }
+
+    /// Where the latest recording's audio begins, once `start` has run.
+    pub fn recording_start(&self) -> Option<RecordingStart> {
+        *self.recording_start.lock().unwrap()
     }
 
     pub fn with_vad(
@@ -181,6 +198,7 @@ impl AudioRecorder {
         let selected_channel = self.selected_channel;
         let config_cache = Arc::clone(&self.config_cache);
         let stream_error = Arc::clone(&self.stream_error);
+        let recording_start = Arc::clone(&self.recording_start);
 
         let worker = std::thread::spawn(move || {
             let transport = Arc::new(CaptureTransportState::default());
@@ -306,6 +324,7 @@ impl AudioRecorder {
                         stream_running_at,
                     );
                     processor.frame_observer = frame_observer;
+                    processor.recording_start = recording_start;
                     run_consumer(
                         processor,
                         sample_consumer,
@@ -680,6 +699,7 @@ struct CaptureProcessor {
     capture_ready_tx: Option<mpsc::Sender<()>>,
     total_dropped_samples: u64,
     overrun_warning_logged: bool,
+    recording_start: Arc<Mutex<Option<RecordingStart>>>,
 }
 
 impl CaptureProcessor {
@@ -730,7 +750,20 @@ impl CaptureProcessor {
             capture_ready_tx: None,
             total_dropped_samples: 0,
             overrun_warning_logged: false,
+            recording_start: Arc::default(),
         }
+    }
+
+    /// Records where the recording that just began starts: `backlog_samples` already wait in
+    /// the ring, so its first sample was heard that long ago.
+    fn note_recording_start(&self, backlog_samples: usize) {
+        let backlog =
+            Duration::from_secs_f64(backlog_samples as f64 / f64::from(self.in_sample_rate));
+        let now = Instant::now();
+        *self.recording_start.lock().unwrap() = Some(RecordingStart {
+            heard_at: now.checked_sub(backlog).unwrap_or(now),
+            leading_samples: self.frame_resampler.output_delay(),
+        });
     }
 
     fn begin_recording(&mut self, policy: VadPolicy, ready_tx: mpsc::Sender<()>) {
@@ -907,6 +940,7 @@ fn run_consumer(
                         );
                         transport.overrun_samples.store(0, Ordering::Release);
                         processor.begin_recording(policy, ready_tx);
+                        processor.note_recording_start(sample_consumer.slots());
                         recording = true;
                     }
                     Cmd::Stop(reply_tx) => {

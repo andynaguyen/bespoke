@@ -415,3 +415,22 @@ fn does_not_match_other_errors_for_no_device() {
     assert!(!is_no_input_device_error("permission denied"));
     assert!(!is_no_input_device_error("device not found"));
 }
+
+#[test]
+fn a_recording_starts_where_its_backlog_was_heard() {
+    let processor = CaptureProcessor::new(48_000, None, None, None, Instant::now());
+    let before = Instant::now();
+    processor.note_recording_start(4_800);
+    let start = processor.recording_start.lock().unwrap().unwrap();
+    let back = before.saturating_duration_since(start.heard_at);
+    assert!(
+        back <= Duration::from_millis(100) && back >= Duration::from_millis(90),
+        "{back:?}"
+    );
+    assert!(start.leading_samples > 0);
+
+    let same_rate = CaptureProcessor::new(16_000, None, None, None, Instant::now());
+    same_rate.note_recording_start(0);
+    let start = same_rate.recording_start.lock().unwrap().unwrap();
+    assert_eq!(start.leading_samples, 0);
+}
