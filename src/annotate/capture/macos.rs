@@ -1,5 +1,5 @@
 use std::ffi::c_void;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver};
@@ -696,14 +696,14 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
-    let (stream, recording_output, video_path, filter) = setup_sck_capture(
+    let (recording, filter) = setup_sck_capture(
         &sampler_target,
         video_output_path,
         &initial_excluded,
         started_at,
         &thread_offset,
     );
-    let shot_edge = if video_path.is_some() {
+    let shot_edge = if recording.is_some() {
         CANDIDATE_EDGE
     } else {
         CANDIDATE_EDGE_NO_VIDEO
@@ -734,8 +734,8 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
             if let Some((new_filter, _)) =
                 build_sck_filter_and_config(&sampler_target, &cur_excluded)
             {
-                if let Some(ref stream) = stream
-                    && let Err(error) = stream.update_content_filter(&new_filter)
+                if let Some(ref recording) = recording
+                    && let Err(error) = recording.stream.update_content_filter(&new_filter)
                 {
                     annotate_log(format!("Recording filter update failed: {error:?}"));
                 }
@@ -773,66 +773,118 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         }
         thread::park_timeout(Duration::from_millis(30));
     }
-    match (stream, recording_output) {
-        (Some(stream), Some(recording)) => finish_sck_recording(&stream, &recording)
-            .then_some(video_path)
-            .flatten(),
-        (Some(stream), None) => {
-            stop_sck_stream(&stream);
-            video_path
-        }
-        (None, _) => video_path,
-    }
+    recording.and_then(SckRecording::finish)
 }
 
-/// How long the recording output gets to finish writing its MP4 once it is detached.
+/// How long the recording output gets to report its end once it is detached. The detach itself
+/// already waits for that report, but gives up after 3 s (the bridge's `terminalGrace`), and a
+/// long recording can take longer to write out.
 const RECORDING_FINISH_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long the recording output gets to report its end when detaching it failed. That happens
+/// when the system already stopped the stream, and the output then reports on its own.
+const DETACH_FAILED_TIMEOUT: Duration = Duration::from_secs(2);
 /// How long `stop_capture` gets before the stop is given up on: the capture service can stop
 /// answering.
 const STREAM_STOP_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// The recording output and the channel its delegate reports on: `Ok` once the MP4 is
-/// complete, `Err` with ScreenCaptureKit's message if writing it failed.
+/// A screen recording in progress: the stream, the output writing `path`, and what the
+/// output's delegate reports. `started` turns true when the output writes its first frame, and
+/// `finished` gets `Ok` once the MP4 is complete or `Err` with ScreenCaptureKit's message if
+/// writing it failed.
 struct SckRecording {
+    stream: SCStream,
     output: SCRecordingOutput,
+    path: PathBuf,
+    started: Arc<AtomicBool>,
     finished: Receiver<Result<(), String>>,
 }
 
-/// Ends a recording so its MP4 is complete, and returns whether it is. The output is detached
-/// while the stream keeps running (its frame handler keeps it alive), and the stream stops
-/// only after the output reports that it finished or failed. Stopping the stream while a
-/// detached output is still exporting can make the export run twice and abort, losing the file.
-fn finish_sck_recording(stream: &SCStream, recording: &SckRecording) -> bool {
-    let detached = stream.remove_recording_output(&recording.output);
-    if let Err(error) = &detached {
-        // A stream the system already stopped still reports its output's own result.
-        annotate_log(format!("Detaching the recording output failed: {error:?}"));
-        stop_sck_stream(stream);
-    }
-    let wait = if detached.is_ok() {
-        RECORDING_FINISH_TIMEOUT
-    } else {
-        Duration::from_secs(2)
-    };
-    let complete = match recording.finished.recv_timeout(wait) {
-        Ok(Ok(())) => true,
-        Ok(Err(error)) => {
-            annotate_log(format!("Recording output failed: {error}"));
+impl SckRecording {
+    /// Ends the recording and returns its MP4 if the file is complete. The output is detached
+    /// while the stream keeps running (its frame handler keeps it alive), and the stream stops
+    /// only after the output reports that it finished or failed. Stopping the stream while a
+    /// detached output is still exporting can make the export run twice and abort, losing the
+    /// file.
+    fn finish(self) -> Option<PathBuf> {
+        let detached = self.stream.remove_recording_output(&self.output);
+        if let Err(error) = &detached {
+            annotate_log(format!("Detaching the recording output failed: {error:?}"));
+            stop_sck_stream(&self.stream);
+        }
+        // An output detached before its first frame writes no movie and never reports an end.
+        // The detach waited 500 ms for a late start (the bridge's `startGrace`).
+        let complete = if !self.started.load(Ordering::Acquire) {
+            annotate_log("Recording output never started");
             false
+        } else {
+            let wait = if detached.is_ok() {
+                RECORDING_FINISH_TIMEOUT
+            } else {
+                DETACH_FAILED_TIMEOUT
+            };
+            match self.finished.recv_timeout(wait) {
+                Ok(Ok(())) => true,
+                Ok(Err(error)) => {
+                    annotate_log(format!("Recording output failed: {error}"));
+                    false
+                }
+                Err(_) => {
+                    let whole = mp4_has_movie_box(&self.path);
+                    annotate_log(format!(
+                        "Recording output didn't report finishing within {}s; keeping the MP4: {whole}",
+                        wait.as_secs()
+                    ));
+                    whole
+                }
+            }
+        };
+        if detached.is_ok() {
+            stop_sck_stream(&self.stream);
         }
-        Err(_) => {
-            // The file may still be whole; the size check in `stop` decides.
-            annotate_log(format!(
-                "Recording output didn't report finishing within {}s",
-                wait.as_secs()
-            ));
-            true
-        }
-    };
-    if detached.is_ok() {
-        stop_sck_stream(stream);
+        complete.then_some(self.path)
     }
-    complete
+}
+
+/// Whether the MP4 at `path` has its `moov` box, which a writer adds only when it finishes the
+/// file. Walks the top-level boxes rather than reading the whole movie.
+fn mp4_has_movie_box(path: &Path) -> bool {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let Ok(len) = file.metadata().map(|m| m.len()) else {
+        return false;
+    };
+    let mut at = 0_u64;
+    while at + 8 <= len {
+        let mut header = [0_u8; 16];
+        if file.seek(SeekFrom::Start(at)).is_err() || file.read_exact(&mut header[..8]).is_err() {
+            return false;
+        }
+        if &header[4..8] == b"moov" {
+            return true;
+        }
+        let size = match u32::from_be_bytes([header[0], header[1], header[2], header[3]]) {
+            // The box runs to the end of the file.
+            0 => return false,
+            // A 64-bit size follows the type.
+            1 => {
+                if file.read_exact(&mut header[8..16]).is_err() {
+                    return false;
+                }
+                u64::from_be_bytes([
+                    header[8], header[9], header[10], header[11], header[12], header[13],
+                    header[14], header[15],
+                ])
+            }
+            size => u64::from(size),
+        };
+        if size < 8 {
+            return false;
+        }
+        at = at.saturating_add(size);
+    }
+    false
 }
 
 /// Stops the stream, giving up after `STREAM_STOP_TIMEOUT`. A stop that never returns leaves
@@ -949,14 +1001,9 @@ fn setup_sck_capture(
     excluded_window_ids: &[u32],
     started_at: Instant,
     video_offset_ms: &AtomicU64,
-) -> (
-    Option<SCStream>,
-    Option<SckRecording>,
-    Option<PathBuf>,
-    Option<SCContentFilter>,
-) {
+) -> (Option<SckRecording>, Option<SCContentFilter>) {
     let Some((filter, config)) = build_sck_filter_and_config(target, excluded_window_ids) else {
-        return (None, None, None, None);
+        return (None, None);
     };
 
     if let Some(video_path) = video_output_path
@@ -966,11 +1013,14 @@ fn setup_sck_capture(
                     .with_output_file_type(SCRecordingOutputFileType::MP4)
             })
             && let (sender, finished) = mpsc::channel()
-            && let Some(rec_output) =
-                SCRecordingOutput::new_with_delegate(&rec_cfg, recording_callbacks(sender))
+            && let started = Arc::new(AtomicBool::new(false))
+            && let Some(rec_output) = SCRecordingOutput::new_with_delegate(
+                &rec_cfg,
+                recording_callbacks(Arc::clone(&started), sender),
+            )
             && let Ok(mut stream) = SCStream::new(&filter, &config)
             // While a frame handler is attached, detaching the recording output never stops
-            // the stream on its own (`finish_sck_recording`).
+            // the stream on its own (`SckRecording::finish`).
             && stream
                 .add_output_handler(|_: CMSampleBuffer, _| {}, SCStreamOutputType::Screen)
                 .is_ok()
@@ -981,24 +1031,30 @@ fn setup_sck_capture(
             let after = started_at.elapsed();
             video_offset_ms.store(((before + after) / 2).as_millis() as u64, Ordering::Release);
             return (
-                Some(stream),
                 Some(SckRecording {
+                    stream,
                     output: rec_output,
+                    path: video_path,
+                    started,
                     finished,
                 }),
-                Some(video_path),
                 Some(filter),
             );
         }
     }
 
-    (None, None, None, Some(filter))
+    (None, Some(filter))
 }
 
-/// Reports the recording output's end on `sender`: `Ok` when it finished, `Err` when it failed.
-fn recording_callbacks(sender: mpsc::Sender<Result<(), String>>) -> RecordingCallbacks {
+/// Sets `started` when the recording output writes its first frame, and reports its end on
+/// `sender`: `Ok` when it finished, `Err` when it failed.
+fn recording_callbacks(
+    started: Arc<AtomicBool>,
+    sender: mpsc::Sender<Result<(), String>>,
+) -> RecordingCallbacks {
     let fail = sender.clone();
     RecordingCallbacks::new()
+        .on_start(move || started.store(true, Ordering::Release))
         .on_fail(move |error| {
             let _ = fail.send(Err(error));
         })
@@ -1604,7 +1660,7 @@ mod tests {
     use crate::annotate::model::TargetFrame;
 
     /// Records the main display for 2 s and ends it the way a capture does: the MP4 must be
-    /// complete when `finish_sck_recording` returns. Needs Screen Recording for the process
+    /// complete when `SckRecording::finish` returns. Needs Screen Recording for the process
     /// that runs the test. Run with
     /// `cargo test recording_ends_with_a_complete_mp4 -- --ignored --nocapture`.
     #[test]
@@ -1627,28 +1683,77 @@ mod tests {
         };
         let path =
             std::env::temp_dir().join(format!("{}.mp4", crate::annotate::bundle::make_bundle_id()));
-        let (stream, recording, video, _) = setup_sck_capture(
+        let (Some(recording), _) = setup_sck_capture(
             &target,
             Some(path.clone()),
             &[],
             Instant::now(),
             &AtomicU64::new(0),
-        );
-        let (Some(stream), Some(recording), Some(video)) = (stream, recording, video) else {
+        ) else {
             panic!("could not start recording (is Screen Recording granted?)");
         };
         thread::sleep(Duration::from_secs(2));
         let started = Instant::now();
-        assert!(finish_sck_recording(&stream, &recording), "output failed");
+        let video = recording.finish().expect("output failed");
         println!("finished in {:?}", started.elapsed());
-        let bytes = std::fs::read(&video).unwrap();
-        // A finished MP4 has its `moov` atom; an aborted export doesn't.
-        assert!(
-            bytes.windows(4).any(|w| w == b"moov"),
-            "MP4 has no moov atom ({} bytes)",
-            bytes.len()
-        );
+        // An aborted export has no `moov` box.
+        assert!(mp4_has_movie_box(&video), "MP4 has no moov box");
         std::fs::remove_file(video).unwrap();
+    }
+
+    fn mp4_box(kind: &[u8; 4], body: &[u8]) -> Vec<u8> {
+        let mut out = u32::try_from(body.len() + 8)
+            .unwrap()
+            .to_be_bytes()
+            .to_vec();
+        out.extend_from_slice(kind);
+        out.extend_from_slice(body);
+        out
+    }
+
+    #[test]
+    fn a_finished_mp4_has_its_movie_box() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("movie.mp4");
+        let finished = [
+            mp4_box(b"ftyp", b"isom"),
+            mp4_box(b"mdat", &[0; 64]),
+            mp4_box(b"moov", &[0; 8]),
+        ]
+        .concat();
+        std::fs::write(&path, &finished).unwrap();
+        assert!(mp4_has_movie_box(&path));
+
+        // A large `mdat` uses the 64-bit size form.
+        let mut large = mp4_box(b"ftyp", b"isom");
+        large.extend_from_slice(&1_u32.to_be_bytes());
+        large.extend_from_slice(b"mdat");
+        large.extend_from_slice(&(16_u64 + 32).to_be_bytes());
+        large.extend_from_slice(&[0; 32]);
+        large.extend(mp4_box(b"moov", &[]));
+        std::fs::write(&path, &large).unwrap();
+        assert!(mp4_has_movie_box(&path));
+    }
+
+    #[test]
+    fn an_aborted_mp4_has_no_movie_box() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("movie.mp4");
+        // The writer stopped inside `mdat`, before the size it promised.
+        let mut aborted = mp4_box(b"ftyp", b"isom");
+        aborted.extend_from_slice(&4096_u32.to_be_bytes());
+        aborted.extend_from_slice(b"mdat");
+        aborted.extend_from_slice(&[0; 64]);
+        std::fs::write(&path, &aborted).unwrap();
+        assert!(!mp4_has_movie_box(&path));
+
+        // `moov` bytes inside the media data don't count.
+        let mut fake = mp4_box(b"ftyp", b"isom");
+        fake.extend(mp4_box(b"mdat", b"....moov...."));
+        std::fs::write(&path, &fake).unwrap();
+        assert!(!mp4_has_movie_box(&path));
+
+        assert!(!mp4_has_movie_box(&dir.path().join("missing.mp4")));
     }
 
     #[test]
