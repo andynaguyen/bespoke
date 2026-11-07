@@ -65,7 +65,8 @@ impl AudioRecorder {
 
     fn open_stream(sink: Sink) -> Result<cpal::Stream> {
         let wanted = crate::app_handle::AppHandle::try_global().and_then(|app| {
-            crate::managers::audio::preferred_microphone(&crate::settings::get_settings(app))
+            crate::managers::audio::preferred_input_device(&crate::settings::get_settings(app))
+                .map(|(name, _)| name)
         });
         Self::open_named(wanted.as_deref(), sink)
     }

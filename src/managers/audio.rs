@@ -263,24 +263,28 @@ pub fn first_connected<'a, S: AsRef<str>>(
         .map(String::as_str)
 }
 
-/// The input Bespoke records from under `settings`, by device name, with `None` for the system
-/// default. The clamshell microphone wins while the lid is closed. Annotate asks for it at the
-/// start of each recording, so Dictate and Annotate always use the same microphone.
-pub fn preferred_microphone(settings: &AppSettings) -> Option<String> {
+/// The input Bespoke records from under `settings`, or `None` for the system default. The
+/// clamshell microphone wins while the lid is closed. Annotate asks for it at the start of each
+/// recording, so Dictate and Annotate always use the same microphone.
+pub fn preferred_input_device(settings: &AppSettings) -> Option<(String, cpal::Device)> {
     match desired_microphone(settings) {
         DesiredMicrophone::Default => None,
-        DesiredMicrophone::Clamshell(name) => Some(name),
-        DesiredMicrophone::Priority(list) => match list_input_devices() {
-            Ok(devices) => {
-                let names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
-                first_connected(&list, &names).map(str::to_string)
-            }
-            Err(e) => {
-                debug!("Failed to list devices, using the top microphone: {e}");
-                list.into_iter().next()
-            }
-        },
+        DesiredMicrophone::Clamshell(name) => first_connected_device(&[name]),
+        DesiredMicrophone::Priority(list) => first_connected_device(&list),
     }
+}
+
+/// The first microphone in `wanted` that is connected now.
+fn first_connected_device(wanted: &[String]) -> Option<(String, cpal::Device)> {
+    let devices = list_input_devices()
+        .inspect_err(|e| debug!("Failed to list devices, using default: {e}"))
+        .ok()?;
+    let names: Vec<&str> = devices.iter().map(|d| d.name.as_str()).collect();
+    let pick = first_connected(wanted, &names)?.to_string();
+    devices
+        .into_iter()
+        .find(|d| d.name == pick)
+        .map(|d| (pick, d.device))
 }
 
 fn create_audio_recorder(
@@ -454,22 +458,7 @@ impl AudioRecordingManager {
         }
 
         let enumerate_started = Instant::now();
-        let found = match list_input_devices() {
-            Ok(devices) => {
-                let names: Vec<&str> = devices.iter().map(|d| d.name.as_str()).collect();
-                let pick = first_connected(&wanted, &names).map(str::to_string);
-                pick.and_then(|name| {
-                    devices
-                        .into_iter()
-                        .find(|d| d.name == name)
-                        .map(|d| (name, d.device))
-                })
-            }
-            Err(e) => {
-                debug!("Failed to list devices, using default: {}", e);
-                None
-            }
-        };
+        let found = first_connected_device(&wanted);
         debug!(
             "device resolve: enumerate={:?} (found={:?})",
             enumerate_started.elapsed(),
