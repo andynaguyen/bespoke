@@ -22,7 +22,6 @@ use crate::annotate::laser_overlay::MetalLaserOverlay as LaserOverlay;
 use crate::annotate::model::{CaptureMode, TargetInfo, format_clock};
 
 const TEXT_COLOR: u32 = 0xf2f2f2;
-pub(crate) mod motion;
 
 fn tabular_nums() -> gpui::FontFeatures {
     gpui::FontFeatures(Arc::new(vec![("tnum".into(), 1)]))
@@ -66,8 +65,12 @@ fn clock_template(clock: &str) -> String {
         .collect()
 }
 
+/// Milliseconds since the UI thread first asked, the clock the capsule's chips reveal on.
 fn reveal_clock_ms() -> u64 {
-    (motion::now() * 1000.0) as u64
+    thread_local! {
+        static START: Instant = Instant::now();
+    }
+    START.with(|start| start.elapsed().as_millis() as u64)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
