@@ -4,7 +4,7 @@ A pasted capture starts with a line like `[Bespoke annotation 0:33 · App “Win
 
 How to read a capture:
 
-1. `get_capture` returns the summary and the contact sheet. The sheet shows every keyframe in time order, left to right and top to bottom, each with a `#N M:SS` badge.
+1. `get_capture` returns the summary and the contact sheet. The sheet shows every keyframe in time order, left to right and top to bottom, each with its number `N` in a small white chip in a corner. The summary gives each number's time.
 2. Each `#N (M:SS)` line is a keyframe: what they did in brackets, then what they said while it was on screen. A line with no quote has the action alone. Coordinates are fractions of the captured area from the top left, so x 0.51 is just right of center.
 3. Speech recognition mishears names and code terms, so trust the screen when the two disagree.
 4. Call `get_frames` for keyframes you need at full size. When the summary has a `Cropped to:` line, pass `full: true` to see the whole screen.
