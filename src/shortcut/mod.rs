@@ -1,6 +1,7 @@
 mod handler;
 pub mod handy_keys;
 pub mod hotkey_impl;
+pub mod keys;
 
 use crate::app_handle::AppHandle;
 use log::{debug, error, info, warn};
@@ -103,10 +104,9 @@ pub fn change_binding(
 
     validate_shortcut_for_implementation(&binding, settings.keyboard_implementation)?;
     if handy_keys::is_mouse_shortcut(&binding) {
-        let requested = binding.parse::<::handy_keys::Hotkey>().ok();
+        let requested = binding.parse::<keys::Hotkey>().ok();
         if settings.bindings.iter().any(|(other_id, other)| {
-            other_id != &id
-                && other.current_binding.parse::<::handy_keys::Hotkey>().ok() == requested
+            other_id != &id && other.current_binding.parse::<keys::Hotkey>().ok() == requested
         }) {
             return Err(format!("Shortcut '{}' is already in use", binding));
         }
@@ -1178,8 +1178,8 @@ mod tests {
         assert_eq!(normalize_keyword("scrub !!"), None);
     }
 
+    use super::keys::Hotkey;
     use global_hotkey::hotkey::HotKey as Shortcut;
-    use handy_keys::Hotkey;
 
     #[test]
     fn compound_shortcut_keys_parse_on_both_backends() {

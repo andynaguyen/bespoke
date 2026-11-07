@@ -3,10 +3,10 @@ use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
-use crate::types::Hotkey;
+use crate::shortcut::keys::types::Hotkey;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-use crate::types::Key;
-use crate::types::{KeyEvent, Modifiers};
+use crate::shortcut::keys::types::Key;
+use crate::shortcut::keys::types::{KeyEvent, Modifiers};
 
 /// Hotkeys that should be blocked when triggered
 pub type BlockingHotkeys = Arc<Mutex<HashSet<Hotkey>>>;

@@ -9,16 +9,16 @@
 //!   events through uinput, so it additionally requires write access to
 //!   `/dev/uinput`. Clean thread shutdown.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError};
-use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crate::error::{Error, Result};
-use crate::types::KeyEvent;
+use crate::shortcut::keys::error::{Error, Result};
+use crate::shortcut::keys::types::KeyEvent;
 
-pub use crate::platform::state::BlockingHotkeys;
+pub use crate::shortcut::keys::platform::state::BlockingHotkeys;
 
 /// Platform-agnostic Keyboard Listener
 ///
@@ -63,7 +63,7 @@ impl KeyboardListener {
     fn new_internal(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Self> {
         #[cfg(target_os = "macos")]
         {
-            use crate::platform::macos::listener;
+            use crate::shortcut::keys::platform::macos::listener;
             let state = listener::spawn(blocking_hotkeys)?;
             let run_loop = state.run_loop;
             Ok(KeyboardListener {
@@ -77,7 +77,7 @@ impl KeyboardListener {
 
         #[cfg(target_os = "windows")]
         {
-            use crate::platform::windows::listener;
+            use crate::shortcut::keys::platform::windows::listener;
             let state = listener::spawn(blocking_hotkeys)?;
             Ok(KeyboardListener {
                 event_receiver: state.event_receiver,
@@ -90,7 +90,7 @@ impl KeyboardListener {
 
         #[cfg(target_os = "linux")]
         {
-            use crate::platform::linux::listener;
+            use crate::shortcut::keys::platform::linux::listener;
             let state = listener::spawn(blocking_hotkeys)?;
             Ok(KeyboardListener {
                 event_receiver: state.event_receiver,

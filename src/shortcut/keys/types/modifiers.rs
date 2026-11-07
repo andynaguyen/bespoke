@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
-use crate::error::{Error, Result};
+use crate::shortcut::keys::error::{Error, Result};
 
 bitflags! {
     /// Modifier keys for hotkey combinations

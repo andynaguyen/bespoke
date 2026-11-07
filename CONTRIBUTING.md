@@ -36,7 +36,7 @@ scripts/install-release.sh       # back to the latest published release
 
 `scripts/install-release.sh` puts a published release back in `/Applications/Bespoke.app`, with Sparkle, so it updates itself again. It downloads the zip from GitHub releases with `gh`, checks it against the release's SHA-256 digest, quits Bespoke and swaps the app. Pass a tag such as `v1.0.4` for an older release. Releases sign with the same identity, so the grants carry over.
 
-Development builds keep file and line numbers in Bespoke backtraces and full debug information for the vendored `handy-keys` crate. Other dependencies build without debug information, which shortens clean builds. Run `CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a debugger. Dependency backtraces have no file or line numbers. To step through dependency source or inspect its local variables, remove the `[profile.dev.package."*"]` section from `Cargo.toml`.
+Development builds keep file and line numbers in Bespoke backtraces. Other dependencies build without debug information, which shortens clean builds. Run `CARGO_PROFILE_DEV_DEBUG=2 cargo build` to inspect Bespoke's local variables in a debugger. Dependency backtraces have no file or line numbers. To step through dependency source or inspect its local variables, remove the `[profile.dev.package."*"]` section from `Cargo.toml`.
 
 ## Release CI
 
@@ -63,7 +63,7 @@ Handle errors explicitly. Production code avoids `unwrap`. Give public APIs doc 
 | `src/app_handle.rs` | App state, events, data paths, and the settings store |
 | `src/managers/` | Audio recording, model downloads, transcription, and history |
 | `src/audio_toolkit/` | Device enumeration, recording, resampling, and voice activity detection |
-| `src/shortcut/` | Global shortcuts (`handy-keys` and `global-hotkey` backends) |
+| `src/shortcut/` | Global shortcuts: the event-tap listener in `keys/`, from `handy-keys`, and the `global-hotkey` backend |
 | `src/annotate.rs`, `src/annotate/`, `swift/annotate-helper/` | Annotate: screen, voice and ink capture, started from Scrawl. `docs/annotate-upstream.md` maps it to upstream |
 | `src/overlay.rs`, `src/ui/overlay.rs` | The recording overlay: backend entry points, then the window and view |
 | `src/tray.rs` | The menu bar icon and menu |
@@ -77,7 +77,7 @@ Handle errors explicitly. Production code avoids `unwrap`. Give public APIs doc 
 
 Backend code emits events with `AppHandle::emit`. The UI receives them on the GPUI main thread through `ui::event_bus`, and views subscribe with `cx.subscribe(&event_bus(cx), ...)`. Async backend work runs on the tokio runtime in `runtime.rs`, and GPUI tasks await it with `runtime::run`.
 
-`vendor/handy-keys` is a patched copy of the `handy-keys` crate.
+`src/shortcut/keys/` started as the `handy-keys` crate. `docs/handy-keys-upstream.md` maps it to upstream.
 
 ## Translations
 

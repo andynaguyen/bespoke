@@ -1,7 +1,7 @@
 use std::process::Command;
 
 #[link(name = "ApplicationServices", kind = "framework")]
-extern "C" {
+unsafe extern "C" {
     fn AXIsProcessTrusted() -> bool;
 }
 

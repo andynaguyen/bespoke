@@ -1,4 +1,4 @@
-use crate::types::HotkeyId;
+use crate::shortcut::keys::types::HotkeyId;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -6,7 +6,9 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility")]
+    #[error(
+        "Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility"
+    )]
     AccessibilityNotGranted,
 
     #[error("Failed to create event tap: {0}")]

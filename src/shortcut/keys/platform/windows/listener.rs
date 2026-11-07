@@ -1,30 +1,32 @@
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
-use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::RemoteDesktop::{
     WTSRegisterSessionNotification, WTSUnRegisterSessionNotification,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-    KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_RCONTROL, VK_RMENU,
-    VK_RSHIFT, VK_RWIN,
+    GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT,
+    KEYEVENTF_KEYUP, SendInput, VIRTUAL_KEY, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
+    VK_RCONTROL, VK_RMENU, VK_RSHIFT, VK_RWIN,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
-    MsgWaitForMultipleObjects, PeekMessageW, RegisterClassW, SetWindowsHookExW, TranslateMessage,
-    UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT, PM_REMOVE,
-    QS_ALLINPUT, WH_KEYBOARD_LL, WH_MOUSE_LL, WINDOW_EX_STYLE, WINDOW_STYLE, WM_KEYDOWN,
+    CallNextHookEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, HHOOK,
+    KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT, MsgWaitForMultipleObjects, PM_REMOVE,
+    PeekMessageW, QS_ALLINPUT, RegisterClassW, SetWindowsHookExW, TranslateMessage,
+    UnhookWindowsHookEx, WH_KEYBOARD_LL, WH_MOUSE_LL, WINDOW_EX_STYLE, WINDOW_STYLE, WM_KEYDOWN,
     WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_POWERBROADCAST, WM_QUIT,
     WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_XBUTTONDOWN, WM_XBUTTONUP, WNDCLASSW,
 };
+use windows::core::PCWSTR;
 
-use crate::error::Result;
-use crate::platform::state::{release_events, stale_modifiers, BlockingHotkeys, RECONCILABLE};
-use crate::types::{Key, KeyEvent, Modifiers};
+use crate::shortcut::keys::error::Result;
+use crate::shortcut::keys::platform::state::{
+    BlockingHotkeys, RECONCILABLE, release_events, stale_modifiers,
+};
+use crate::shortcut::keys::types::{Key, KeyEvent, Modifiers};
 
 use super::keycode::{is_altgr_phantom_ctrl, map_key, vk_to_modifier};
 
@@ -148,7 +150,7 @@ fn physical_modifiers() -> Modifiers {
 
 /// Physically-held modifiers we missed the press of and should adopt.
 /// (`stale_modifiers`/`release_events`, the other half of reconciliation,
-/// live in crate::platform::state, shared with the Linux listener.)
+/// live in crate::shortcut::keys::platform::state, shared with the Linux listener.)
 ///
 /// While AltGr's phantom Left Ctrl is held, CTRL_LEFT is excluded: it is
 /// physically down per GetAsyncKeyState, but the user only pressed Right
@@ -221,27 +223,29 @@ unsafe extern "system" fn watcher_wndproc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    match msg {
-        WM_WTSSESSION_CHANGE => match wparam.0 {
-            WTS_SESSION_LOCK => reconcile_modifiers_in_context(),
-            WTS_SESSION_UNLOCK | WTS_CONSOLE_CONNECT | WTS_REMOTE_CONNECT => {
-                reconcile_modifiers_in_context();
-                REINSTALL_REQUESTED.with(|flag| flag.set(true));
+    unsafe {
+        match msg {
+            WM_WTSSESSION_CHANGE => match wparam.0 {
+                WTS_SESSION_LOCK => reconcile_modifiers_in_context(),
+                WTS_SESSION_UNLOCK | WTS_CONSOLE_CONNECT | WTS_REMOTE_CONNECT => {
+                    reconcile_modifiers_in_context();
+                    REINSTALL_REQUESTED.with(|flag| flag.set(true));
+                }
+                _ => {}
+            },
+            // Resume from sleep/hibernate: Windows can silently drop LL hooks
+            // across a suspend (Handy #1620), and key-ups from before the
+            // suspend are long gone -- re-arm the hooks and reconcile.
+            WM_POWERBROADCAST => {
+                if matches!(wparam.0, PBT_APMRESUMESUSPEND | PBT_APMRESUMEAUTOMATIC) {
+                    reconcile_modifiers_in_context();
+                    REINSTALL_REQUESTED.with(|flag| flag.set(true));
+                }
             }
             _ => {}
-        },
-        // Resume from sleep/hibernate: Windows can silently drop LL hooks
-        // across a suspend (Handy #1620), and key-ups from before the
-        // suspend are long gone -- re-arm the hooks and reconcile.
-        WM_POWERBROADCAST => {
-            if matches!(wparam.0, PBT_APMRESUMESUSPEND | PBT_APMRESUMEAUTOMATIC) {
-                reconcile_modifiers_in_context();
-                REINSTALL_REQUESTED.with(|flag| flag.set(true));
-            }
         }
-        _ => {}
+        DefWindowProcW(hwnd, msg, wparam, lparam)
     }
-    DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
 /// Create a hidden top-level window that watches WTS session changes and
@@ -255,41 +259,45 @@ unsafe extern "system" fn watcher_wndproc(
 /// Returns None on failure. Non-fatal: hooks still work, and stale modifiers
 /// are still corrected lazily by `reconcile_modifiers` on the next key event.
 unsafe fn create_watcher_window() -> Option<HWND> {
-    let class_name: Vec<u16> = "HandyKeysSystemWatcher\0".encode_utf16().collect();
-    let wnd_class = WNDCLASSW {
-        lpfnWndProc: Some(watcher_wndproc),
-        lpszClassName: PCWSTR(class_name.as_ptr()),
-        ..Default::default()
-    };
-    RegisterClassW(&wnd_class);
+    unsafe {
+        let class_name: Vec<u16> = "HandyKeysSystemWatcher\0".encode_utf16().collect();
+        let wnd_class = WNDCLASSW {
+            lpfnWndProc: Some(watcher_wndproc),
+            lpszClassName: PCWSTR(class_name.as_ptr()),
+            ..Default::default()
+        };
+        RegisterClassW(&wnd_class);
 
-    let hwnd = CreateWindowExW(
-        WINDOW_EX_STYLE::default(),
-        PCWSTR(class_name.as_ptr()),
-        PCWSTR::null(),
-        WINDOW_STYLE::default(),
-        0,
-        0,
-        0,
-        0,
-        None,
-        None,
-        None,
-        None,
-    )
-    .ok()?;
+        let hwnd = CreateWindowExW(
+            WINDOW_EX_STYLE::default(),
+            PCWSTR(class_name.as_ptr()),
+            PCWSTR::null(),
+            WINDOW_STYLE::default(),
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            None,
+            None,
+        )
+        .ok()?;
 
-    if WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION).is_err() {
-        let _ = DestroyWindow(hwnd);
-        return None;
+        if WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION).is_err() {
+            let _ = DestroyWindow(hwnd);
+            return None;
+        }
+
+        Some(hwnd)
     }
-
-    Some(hwnd)
 }
 
 unsafe fn destroy_watcher_window(hwnd: HWND) {
-    let _ = WTSUnRegisterSessionNotification(hwnd);
-    let _ = DestroyWindow(hwnd);
+    unsafe {
+        let _ = WTSUnRegisterSessionNotification(hwnd);
+        let _ = DestroyWindow(hwnd);
+    }
 }
 
 /// Re-install the low-level hooks, defensively: Windows silently removes an LL
@@ -302,22 +310,24 @@ unsafe fn destroy_watcher_window(hwnd: HWND) {
 /// failure never leaves us hook-less. No messages are pumped between install
 /// and unhook, so no event is delivered twice.
 unsafe fn reinstall_hooks(kb_hook: &mut HHOOK, mouse_hook: &mut HHOOK) -> bool {
-    let new_kb = match SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), None, 0) {
-        Ok(h) => h,
-        Err(_) => return false,
-    };
-    let new_mouse = match SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), None, 0) {
-        Ok(h) => h,
-        Err(_) => {
-            let _ = UnhookWindowsHookEx(new_kb);
-            return false;
-        }
-    };
-    let _ = UnhookWindowsHookEx(*kb_hook);
-    let _ = UnhookWindowsHookEx(*mouse_hook);
-    *kb_hook = new_kb;
-    *mouse_hook = new_mouse;
-    true
+    unsafe {
+        let new_kb = match SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook_proc), None, 0) {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        let new_mouse = match SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), None, 0) {
+            Ok(h) => h,
+            Err(_) => {
+                let _ = UnhookWindowsHookEx(new_kb);
+                return false;
+            }
+        };
+        let _ = UnhookWindowsHookEx(*kb_hook);
+        let _ = UnhookWindowsHookEx(*mouse_hook);
+        *kb_hook = new_kb;
+        *mouse_hook = new_mouse;
+        true
+    }
 }
 
 pub(crate) struct WindowsListenerState {
@@ -424,79 +434,181 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
 /// This function is called by Windows for every keyboard event system-wide.
 /// It must return quickly to avoid input lag.
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    if code < 0 {
-        return CallNextHookEx(None, code, wparam, lparam);
-    }
+    unsafe {
+        if code < 0 {
+            return CallNextHookEx(None, code, wparam, lparam);
+        }
 
-    let mut should_block = false;
-    let mut needs_mask = false;
+        let mut should_block = false;
+        let mut needs_mask = false;
 
-    HOOK_CONTEXT.with(|ctx_cell| {
-        let mut ctx_ref = ctx_cell.borrow_mut();
-        if let Some(ctx) = ctx_ref.as_mut() {
-            let kb_struct = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
-            let vk_code = kb_struct.vkCode as u16;
-            let scan_code = kb_struct.scanCode;
-            let is_extended = (kb_struct.flags.0 & LLKHF_EXTENDED.0) != 0;
+        HOOK_CONTEXT.with(|ctx_cell| {
+            let mut ctx_ref = ctx_cell.borrow_mut();
+            if let Some(ctx) = ctx_ref.as_mut() {
+                let kb_struct = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+                let vk_code = kb_struct.vkCode as u16;
+                let scan_code = kb_struct.scanCode;
+                let is_extended = (kb_struct.flags.0 & LLKHF_EXTENDED.0) != 0;
 
-            let is_key_down = matches!(wparam.0 as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
+                let is_key_down = matches!(wparam.0 as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
 
-            if vk_code == MENU_MASK_VK && kb_struct.dwExtraInfo == MENU_MASK_EXTRA_INFO {
-                return;
-            }
-
-            // On AltGr layouts Windows synthesizes a Left Ctrl press/release
-            // around every Right Alt event (captured live on UK layout:
-            // identical timestamps, scancode 0x21D). Drop it entirely — no
-            // modifier update, no emit — so AltGr+key reads as OptRight
-            // only. The event is still passed down the hook chain.
-            if is_altgr_phantom_ctrl(vk_code, scan_code) {
-                ctx.altgr_phantom_ctrl = is_key_down;
-                return;
-            }
-
-            if let Some(modifier) = vk_to_modifier(vk_code) {
-                let prev_modifiers = ctx.current_modifiers;
-
-                if is_key_down {
-                    ctx.current_modifiers |= modifier;
-                } else {
-                    ctx.current_modifiers &= !modifier;
+                if vk_code == MENU_MASK_VK && kb_struct.dwExtraInfo == MENU_MASK_EXTRA_INFO {
+                    return;
                 }
 
-                if ctx.current_modifiers != prev_modifiers {
-                    should_block =
-                        should_block_hotkey(&ctx.blocking_hotkeys, ctx.current_modifiers, None);
+                // On AltGr layouts Windows synthesizes a Left Ctrl press/release
+                // around every Right Alt event (captured live on UK layout:
+                // identical timestamps, scancode 0x21D). Drop it entirely — no
+                // modifier update, no emit — so AltGr+key reads as OptRight
+                // only. The event is still passed down the hook chain.
+                if is_altgr_phantom_ctrl(vk_code, scan_code) {
+                    ctx.altgr_phantom_ctrl = is_key_down;
+                    return;
+                }
 
-                    if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent) {
-                        ctx.menu_mask_sent = true;
-                        needs_mask = true;
+                if let Some(modifier) = vk_to_modifier(vk_code) {
+                    let prev_modifiers = ctx.current_modifiers;
+
+                    if is_key_down {
+                        ctx.current_modifiers |= modifier;
+                    } else {
+                        ctx.current_modifiers &= !modifier;
                     }
 
-                    let _ = ctx.event_sender.send(KeyEvent {
-                        modifiers: ctx.current_modifiers,
-                        key: None,
-                        is_key_down,
-                        changed_modifier: Some(modifier),
-                    });
-                }
+                    if ctx.current_modifiers != prev_modifiers {
+                        should_block =
+                            should_block_hotkey(&ctx.blocking_hotkeys, ctx.current_modifiers, None);
 
-                if !ctx.current_modifiers.intersects(MENU_MODIFIERS) {
-                    ctx.menu_mask_sent = false;
+                        if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent)
+                        {
+                            ctx.menu_mask_sent = true;
+                            needs_mask = true;
+                        }
+
+                        let _ = ctx.event_sender.send(KeyEvent {
+                            modifiers: ctx.current_modifiers,
+                            key: None,
+                            is_key_down,
+                            changed_modifier: Some(modifier),
+                        });
+                    }
+
+                    if !ctx.current_modifiers.intersects(MENU_MODIFIERS) {
+                        ctx.menu_mask_sent = false;
+                    }
+                } else {
+                    reconcile_modifiers(ctx);
+
+                    if let Some(key) = map_key(vk_code, scan_code, is_extended) {
+                        should_block = should_block_hotkey(
+                            &ctx.blocking_hotkeys,
+                            ctx.current_modifiers,
+                            Some(key),
+                        );
+
+                        // The shell can no longer see the key we are about to
+                        // swallow; without a substitute, releasing Win/Alt would
+                        // read as a lone tap and open the Start menu (#917).
+                        if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent)
+                        {
+                            ctx.menu_mask_sent = true;
+                            needs_mask = true;
+                        }
+
+                        let _ = ctx.event_sender.send(KeyEvent {
+                            modifiers: ctx.current_modifiers,
+                            key: Some(key),
+                            is_key_down,
+                            changed_modifier: None,
+                        });
+                    }
                 }
-            } else {
+            }
+        });
+
+        if needs_mask {
+            send_menu_mask();
+        }
+
+        if should_block {
+            LRESULT(1)
+        } else {
+            CallNextHookEx(None, code, wparam, lparam)
+        }
+    }
+}
+
+unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    unsafe {
+        if code < 0 {
+            return CallNextHookEx(None, code, wparam, lparam);
+        }
+
+        if !matches!(
+            wparam.0 as u32,
+            WM_LBUTTONDOWN
+                | WM_LBUTTONUP
+                | WM_RBUTTONDOWN
+                | WM_RBUTTONUP
+                | WM_MBUTTONDOWN
+                | WM_MBUTTONUP
+                | WM_XBUTTONDOWN
+                | WM_XBUTTONUP
+        ) {
+            return CallNextHookEx(None, code, wparam, lparam);
+        }
+
+        let mut should_block = false;
+        let mut needs_mask = false;
+
+        HOOK_CONTEXT.with(|ctx_cell| {
+            let mut ctx_ref = ctx_cell.borrow_mut();
+            if let Some(ctx) = ctx_ref.as_mut() {
+                let mouse_struct = &*(lparam.0 as *const MSLLHOOKSTRUCT);
+
                 reconcile_modifiers(ctx);
 
-                if let Some(key) = map_key(vk_code, scan_code, is_extended) {
+                let has_modifiers = !ctx.current_modifiers.is_empty();
+
+                let (key, is_down) = match wparam.0 as u32 {
+                    WM_LBUTTONDOWN if has_modifiers => (Some(Key::MouseLeft), true),
+                    WM_LBUTTONUP if has_modifiers => (Some(Key::MouseLeft), false),
+                    WM_RBUTTONDOWN if has_modifiers => (Some(Key::MouseRight), true),
+                    WM_RBUTTONUP if has_modifiers => (Some(Key::MouseRight), false),
+                    WM_MBUTTONDOWN => (Some(Key::MouseMiddle), true),
+                    WM_MBUTTONUP => (Some(Key::MouseMiddle), false),
+                    WM_XBUTTONDOWN => {
+                        let xbutton = (mouse_struct.mouseData >> 16) & 0xFFFF;
+                        let key = if xbutton == 1 {
+                            Some(Key::MouseX1)
+                        } else if xbutton == 2 {
+                            Some(Key::MouseX2)
+                        } else {
+                            None
+                        };
+                        (key, true)
+                    }
+                    WM_XBUTTONUP => {
+                        let xbutton = (mouse_struct.mouseData >> 16) & 0xFFFF;
+                        let key = if xbutton == 1 {
+                            Some(Key::MouseX1)
+                        } else if xbutton == 2 {
+                            Some(Key::MouseX2)
+                        } else {
+                            None
+                        };
+                        (key, false)
+                    }
+                    _ => (None, false),
+                };
+
+                if let Some(key) = key {
                     should_block = should_block_hotkey(
                         &ctx.blocking_hotkeys,
                         ctx.current_modifiers,
                         Some(key),
                     );
 
-                    // The shell can no longer see the key we are about to
-                    // swallow; without a substitute, releasing Win/Alt would
-                    // read as a lone tap and open the Start menu (#917).
                     if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent) {
                         ctx.menu_mask_sent = true;
                         needs_mask = true;
@@ -505,115 +617,22 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                     let _ = ctx.event_sender.send(KeyEvent {
                         modifiers: ctx.current_modifiers,
                         key: Some(key),
-                        is_key_down,
+                        is_key_down: is_down,
                         changed_modifier: None,
                     });
                 }
             }
+        });
+
+        if needs_mask {
+            send_menu_mask();
         }
-    });
 
-    if needs_mask {
-        send_menu_mask();
-    }
-
-    if should_block {
-        LRESULT(1)
-    } else {
-        CallNextHookEx(None, code, wparam, lparam)
-    }
-}
-
-unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    if code < 0 {
-        return CallNextHookEx(None, code, wparam, lparam);
-    }
-
-    if !matches!(
-        wparam.0 as u32,
-        WM_LBUTTONDOWN
-            | WM_LBUTTONUP
-            | WM_RBUTTONDOWN
-            | WM_RBUTTONUP
-            | WM_MBUTTONDOWN
-            | WM_MBUTTONUP
-            | WM_XBUTTONDOWN
-            | WM_XBUTTONUP
-    ) {
-        return CallNextHookEx(None, code, wparam, lparam);
-    }
-
-    let mut should_block = false;
-    let mut needs_mask = false;
-
-    HOOK_CONTEXT.with(|ctx_cell| {
-        let mut ctx_ref = ctx_cell.borrow_mut();
-        if let Some(ctx) = ctx_ref.as_mut() {
-            let mouse_struct = &*(lparam.0 as *const MSLLHOOKSTRUCT);
-
-            reconcile_modifiers(ctx);
-
-            let has_modifiers = !ctx.current_modifiers.is_empty();
-
-            let (key, is_down) = match wparam.0 as u32 {
-                WM_LBUTTONDOWN if has_modifiers => (Some(Key::MouseLeft), true),
-                WM_LBUTTONUP if has_modifiers => (Some(Key::MouseLeft), false),
-                WM_RBUTTONDOWN if has_modifiers => (Some(Key::MouseRight), true),
-                WM_RBUTTONUP if has_modifiers => (Some(Key::MouseRight), false),
-                WM_MBUTTONDOWN => (Some(Key::MouseMiddle), true),
-                WM_MBUTTONUP => (Some(Key::MouseMiddle), false),
-                WM_XBUTTONDOWN => {
-                    let xbutton = (mouse_struct.mouseData >> 16) & 0xFFFF;
-                    let key = if xbutton == 1 {
-                        Some(Key::MouseX1)
-                    } else if xbutton == 2 {
-                        Some(Key::MouseX2)
-                    } else {
-                        None
-                    };
-                    (key, true)
-                }
-                WM_XBUTTONUP => {
-                    let xbutton = (mouse_struct.mouseData >> 16) & 0xFFFF;
-                    let key = if xbutton == 1 {
-                        Some(Key::MouseX1)
-                    } else if xbutton == 2 {
-                        Some(Key::MouseX2)
-                    } else {
-                        None
-                    };
-                    (key, false)
-                }
-                _ => (None, false),
-            };
-
-            if let Some(key) = key {
-                should_block =
-                    should_block_hotkey(&ctx.blocking_hotkeys, ctx.current_modifiers, Some(key));
-
-                if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent) {
-                    ctx.menu_mask_sent = true;
-                    needs_mask = true;
-                }
-
-                let _ = ctx.event_sender.send(KeyEvent {
-                    modifiers: ctx.current_modifiers,
-                    key: Some(key),
-                    is_key_down: is_down,
-                    changed_modifier: None,
-                });
-            }
+        if should_block {
+            LRESULT(1)
+        } else {
+            CallNextHookEx(None, code, wparam, lparam)
         }
-    });
-
-    if needs_mask {
-        send_menu_mask();
-    }
-
-    if should_block {
-        LRESULT(1)
-    } else {
-        CallNextHookEx(None, code, wparam, lparam)
     }
 }
 
@@ -646,7 +665,7 @@ fn should_block_hotkey(
     modifiers: Modifiers,
     key: Option<Key>,
 ) -> bool {
-    if let Some(ref hotkeys) = blocking_hotkeys {
+    if let Some(hotkeys) = blocking_hotkeys {
         if let Ok(set) = hotkeys.lock() {
             return set
                 .iter()
@@ -709,7 +728,7 @@ mod tests {
 
     #[test]
     fn should_block_registered_mouse_hotkey() {
-        use crate::types::Hotkey;
+        use crate::shortcut::keys::types::Hotkey;
         let mut hotkeys = std::collections::HashSet::new();
         hotkeys.insert(Hotkey::new(Modifiers::empty(), Key::MouseX1).unwrap());
         let blocking_hotkeys = Some(std::sync::Arc::new(std::sync::Mutex::new(hotkeys)));

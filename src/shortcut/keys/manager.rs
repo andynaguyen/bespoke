@@ -3,9 +3,9 @@ use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-use crate::error::{Error, Result};
-use crate::listener::{BlockingHotkeys, KeyboardListener};
-use crate::types::{Hotkey, HotkeyEvent, HotkeyId, HotkeyState, KeyEvent};
+use crate::shortcut::keys::error::{Error, Result};
+use crate::shortcut::keys::listener::{BlockingHotkeys, KeyboardListener};
+use crate::shortcut::keys::types::{Hotkey, HotkeyEvent, HotkeyId, HotkeyState, KeyEvent};
 
 struct ManagerState {
     hotkeys: HashMap<HotkeyId, Hotkey>,
@@ -29,10 +29,10 @@ impl ManagerState {
             let to_press: Vec<HotkeyId> = self
                 .hotkeys
                 .iter()
-                .filter(|(&id, hotkey)| {
+                .filter(|(id, hotkey)| {
                     hotkey.modifiers.matches(event.modifiers)
                         && hotkey.key == event.key
-                        && !self.pressed_hotkeys.contains(&id)
+                        && !self.pressed_hotkeys.contains(id)
                 })
                 .map(|(&id, _)| id)
                 .collect();
@@ -48,8 +48,8 @@ impl ManagerState {
             let to_release: Vec<HotkeyId> = self
                 .hotkeys
                 .iter()
-                .filter(|(&id, hotkey)| {
-                    self.pressed_hotkeys.contains(&id)
+                .filter(|(id, hotkey)| {
+                    self.pressed_hotkeys.contains(id)
                         && ((event.key.is_some() && hotkey.key == event.key)
                             || (event.key.is_none() && !hotkey.modifiers.matches(event.modifiers)))
                 })
@@ -163,8 +163,7 @@ impl HotkeyManager {
                         }
                     }
                 }
-                Err(crate::error::Error::Timeout) => {
-                }
+                Err(crate::shortcut::keys::error::Error::Timeout) => {}
                 Err(_) => {
                     return;
                 }
@@ -274,7 +273,7 @@ impl Drop for HotkeyManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{Key, Modifiers};
+    use crate::shortcut::keys::types::{Key, Modifiers};
 
     #[test]
     fn extended_mouse_hotkeys_release_once_in_either_order() {

@@ -10,6 +10,5 @@ recording_*
 
 __pycache__/
 
-/vendor/handy-keys/Cargo.lock
 
 /dist/

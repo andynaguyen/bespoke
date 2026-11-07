@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
-use crate::error::{Error, Result};
+use crate::shortcut::keys::error::{Error, Result};
 
 use super::key::Key;
 use super::modifiers::Modifiers;

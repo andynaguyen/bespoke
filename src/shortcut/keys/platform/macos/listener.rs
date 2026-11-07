@@ -13,9 +13,9 @@ use objc2_core_graphics::{
     CGEventTapProxy, CGEventType,
 };
 
-use crate::error::{Error, Result};
-use crate::platform::state::{BlockingHotkeys, ListenerState};
-use crate::types::{Key, KeyEvent, Modifiers};
+use crate::shortcut::keys::error::{Error, Result};
+use crate::shortcut::keys::platform::state::{BlockingHotkeys, ListenerState};
+use crate::shortcut::keys::types::{Key, KeyEvent, Modifiers};
 
 use super::keycode::{flags_have_alpha_shift, flags_have_fn, keycode_to_key, keycode_to_modifier};
 use super::permissions::check_accessibility;
@@ -156,7 +156,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
     user_info: *mut c_void,
 ) -> *mut CGEvent {
     // Safety: user_info is the CallbackCtx owned by run_event_tap
-    let ctx = &*(user_info as *const CallbackCtx);
+    let ctx = unsafe { &*(user_info as *const CallbackCtx) };
 
     // Handle tap-disable pseudo-events before touching the state lock: macOS
     // stops delivering real events until the tap is re-enabled, so recovery
@@ -170,7 +170,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
         CGEventType::TapDisabledByTimeout | CGEventType::TapDisabledByUserInput
     ) {
         if let Some(tap) = ctx.tap.get() {
-            CGEvent::tap_enable(tap.as_ref(), true);
+            CGEvent::tap_enable(unsafe { tap.as_ref() }, true);
         }
         if let Ok(mut state) = ctx.state.lock() {
             reconcile_modifiers(
@@ -181,7 +181,8 @@ unsafe extern "C-unwind" fn event_tap_callback(
         return event.as_ptr();
     }
 
-    let cg_event = event.as_ref();
+    // Safety: the event tap passes a valid event for the length of the callback.
+    let cg_event = unsafe { event.as_ref() };
     let flags = CGEvent::flags(Some(cg_event));
 
     let mut should_block = false;

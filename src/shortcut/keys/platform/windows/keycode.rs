@@ -1,4 +1,4 @@
-use crate::types::{Key, Modifiers};
+use crate::shortcut::keys::types::{Key, Modifiers};
 
 #[allow(dead_code)]
 mod vk {

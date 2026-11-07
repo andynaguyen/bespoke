@@ -6,7 +6,7 @@
 
 use evdev::KeyCode;
 
-use crate::types::{Key, Modifiers};
+use crate::shortcut::keys::types::{Key, Modifiers};
 
 pub fn key_code_to_key(code: KeyCode) -> Option<Key> {
     match code {

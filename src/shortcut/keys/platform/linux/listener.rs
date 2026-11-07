@@ -11,9 +11,9 @@ use std::fs;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver};
-use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use evdev::raw_stream::RawDevice;
@@ -23,10 +23,10 @@ use evdev::{
     SynchronizationCode,
 };
 
-use crate::error::{Error, Result};
-use crate::platform::state::{release_events, stale_modifiers, RECONCILABLE};
-use crate::platform::state::{BlockingHotkeys, ListenerState};
-use crate::types::{Key, KeyEvent, Modifiers};
+use crate::shortcut::keys::error::{Error, Result};
+use crate::shortcut::keys::platform::state::{BlockingHotkeys, ListenerState};
+use crate::shortcut::keys::platform::state::{RECONCILABLE, release_events, stale_modifiers};
+use crate::shortcut::keys::types::{Key, KeyEvent, Modifiers};
 
 use super::keycode::{key_code_to_key, key_code_to_modifier};
 
@@ -740,9 +740,9 @@ impl Inotify {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Hotkey;
-    use std::sync::mpsc::Receiver;
+    use crate::shortcut::keys::types::Hotkey;
     use std::sync::Mutex;
+    use std::sync::mpsc::Receiver;
 
     fn state_and_receiver_with(
         hotkeys: &[Hotkey],

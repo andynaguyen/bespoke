@@ -1,5 +1,5 @@
+use super::keys::{Hotkey, HotkeyId, HotkeyManager, HotkeyState, Key, KeyboardListener, Modifiers};
 use crate::app_handle::AppHandle;
-use handy_keys::{Hotkey, HotkeyId, HotkeyManager, HotkeyState, Key, KeyboardListener};
 use log::{debug, error, info};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -324,28 +324,28 @@ impl Drop for HandyKeysState {
     }
 }
 
-fn modifiers_to_strings(modifiers: handy_keys::Modifiers) -> Vec<String> {
+fn modifiers_to_strings(modifiers: Modifiers) -> Vec<String> {
     let mut result = Vec::new();
 
-    if modifiers.intersects(handy_keys::Modifiers::CTRL) {
+    if modifiers.intersects(Modifiers::CTRL) {
         result.push("ctrl".to_string());
     }
-    if modifiers.intersects(handy_keys::Modifiers::OPT) {
+    if modifiers.intersects(Modifiers::OPT) {
         #[cfg(target_os = "macos")]
         result.push("option".to_string());
         #[cfg(not(target_os = "macos"))]
         result.push("alt".to_string());
     }
-    if modifiers.intersects(handy_keys::Modifiers::SHIFT) {
+    if modifiers.intersects(Modifiers::SHIFT) {
         result.push("shift".to_string());
     }
-    if modifiers.intersects(handy_keys::Modifiers::CMD) {
+    if modifiers.intersects(Modifiers::CMD) {
         #[cfg(target_os = "macos")]
         result.push("command".to_string());
         #[cfg(not(target_os = "macos"))]
         result.push("super".to_string());
     }
-    if modifiers.intersects(handy_keys::Modifiers::FN) {
+    if modifiers.intersects(Modifiers::FN) {
         result.push("fn".to_string());
     }
 
@@ -520,7 +520,7 @@ pub fn stop_handy_keys_recording(app: AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_mouse_shortcut, validate_shortcut};
+    use super::{Hotkey, is_mouse_shortcut, validate_shortcut};
 
     #[test]
     fn extended_mouse_shortcuts_use_native_button_names() {
@@ -530,7 +530,7 @@ mod tests {
             assert!(validate_shortcut(binding).is_ok());
             #[cfg(target_os = "windows")]
             assert!(validate_shortcut(binding).is_err());
-            let parsed: handy_keys::Hotkey = binding.parse().unwrap();
+            let parsed: Hotkey = binding.parse().unwrap();
             assert_eq!(parsed.to_handy_string(), binding);
         }
     }

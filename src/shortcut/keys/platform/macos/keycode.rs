@@ -1,4 +1,4 @@
-use crate::types::{Key, Modifiers};
+use crate::shortcut::keys::types::{Key, Modifiers};
 use objc2_core_graphics::CGEventFlags;
 
 pub type CGKeyCode = u16;
