@@ -14,9 +14,6 @@ pub enum Error {
     #[error("Failed to create event tap: {0}")]
     EventTapCreationFailed(String),
 
-    #[error("Failed to create run loop source")]
-    RunLoopSourceCreationFailed,
-
     #[error("Hotkey with id {0:?} not found")]
     HotkeyNotFound(HotkeyId),
 
@@ -29,9 +26,7 @@ pub enum Error {
     #[error("Operation timed out")]
     Timeout,
 
-    #[error("Failed to start recording")]
-    RecordingFailed,
-
+    #[cfg(target_os = "linux")]
     #[error("Platform error: {0}")]
     Platform(String),
 

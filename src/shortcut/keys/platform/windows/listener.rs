@@ -334,14 +334,13 @@ pub(crate) struct WindowsListenerState {
     pub event_receiver: mpsc::Receiver<KeyEvent>,
     pub thread_handle: Option<JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
-    pub blocking_hotkeys: Option<BlockingHotkeys>,
 }
 
 pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<WindowsListenerState> {
     let (tx, rx) = mpsc::channel();
     let running = Arc::new(AtomicBool::new(true));
     let thread_running = Arc::clone(&running);
-    let thread_blocking = blocking_hotkeys.clone();
+    let thread_blocking = blocking_hotkeys;
 
     let handle = thread::spawn(move || {
         HOOK_CONTEXT.with(|ctx| {
@@ -360,7 +359,7 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
         let mut kb_hook = match kb_hook {
             Ok(h) => h,
             Err(e) => {
-                eprintln!("Failed to install keyboard hook: {:?}", e);
+                log::error!("Failed to install keyboard hook: {:?}", e);
                 return;
             }
         };
@@ -370,7 +369,7 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
         let mut mouse_hook = match mouse_hook {
             Ok(h) => h,
             Err(e) => {
-                eprintln!("Failed to install mouse hook: {:?}", e);
+                log::error!("Failed to install mouse hook: {:?}", e);
                 unsafe {
                     let _ = UnhookWindowsHookEx(kb_hook);
                 }
@@ -396,11 +395,9 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
             if outcome.reinstall_hooks || take_reinstall_request() {
                 unsafe {
                     if reinstall_hooks(&mut kb_hook, &mut mouse_hook) {
-                        eprintln!("handy-keys: re-armed hooks after session/power change");
+                        log::info!("re-armed hooks after session/power change");
                     } else {
-                        eprintln!(
-                            "handy-keys: failed to re-install hooks after session/power change"
-                        );
+                        log::warn!("failed to re-install hooks after session/power change");
                     }
                 }
             }
@@ -427,7 +424,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Windows
         event_receiver: rx,
         thread_handle: Some(handle),
         running,
-        blocking_hotkeys,
     })
 }
 
@@ -489,7 +485,6 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                             modifiers: ctx.current_modifiers,
                             key: None,
                             is_key_down,
-                            changed_modifier: Some(modifier),
                         });
                     }
 
@@ -519,7 +514,6 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                             modifiers: ctx.current_modifiers,
                             key: Some(key),
                             is_key_down,
-                            changed_modifier: None,
                         });
                     }
                 }
@@ -618,7 +612,6 @@ unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPA
                         modifiers: ctx.current_modifiers,
                         key: Some(key),
                         is_key_down: is_down,
-                        changed_modifier: None,
                     });
                 }
             }
@@ -656,7 +649,7 @@ fn send_menu_mask() {
     let inputs = [key(KEYBD_EVENT_FLAGS(0)), key(KEYEVENTF_KEYUP)];
     let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
     if sent != inputs.len() as u32 {
-        eprintln!("handy-keys: menu mask injection failed");
+        log::warn!("menu mask injection failed");
     }
 }
 
@@ -923,7 +916,6 @@ mod tests {
         assert_eq!(ctx.current_modifiers, Modifiers::empty());
         assert!(!ctx.menu_mask_sent);
         let release = rx.try_recv().expect("expected a synthetic release");
-        assert_eq!(release.changed_modifier, Some(Modifiers::CMD_LEFT));
         assert!(!release.is_key_down);
     }
 

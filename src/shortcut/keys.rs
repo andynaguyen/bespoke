@@ -9,10 +9,6 @@ mod manager;
 mod platform;
 mod types;
 
-pub use error::{Error, Result};
-pub use listener::{BlockingHotkeys, KeyboardListener};
+pub use listener::KeyboardListener;
 pub use manager::HotkeyManager;
-pub use types::{Hotkey, HotkeyEvent, HotkeyId, HotkeyState, Key, KeyEvent, Modifiers};
-
-#[cfg(target_os = "macos")]
-pub use platform::macos::{check_accessibility, open_accessibility_settings};
+pub use types::{Hotkey, HotkeyId, HotkeyState, Key, Modifiers};

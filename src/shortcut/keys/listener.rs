@@ -28,7 +28,6 @@ pub struct KeyboardListener {
     event_receiver: Receiver<KeyEvent>,
     _thread_handle: Option<JoinHandle<()>>,
     running: Arc<AtomicBool>,
-    blocking_hotkeys: Option<BlockingHotkeys>,
     /// Backend-specific wakeup invoked on Drop after `running` is cleared.
     /// macOS parks its listener thread in a CFRunLoop with no periodic
     /// wakeups (see run_event_tap), so Drop must stop that loop explicitly.
@@ -70,7 +69,6 @@ impl KeyboardListener {
                 event_receiver: state.event_receiver,
                 _thread_handle: state.thread_handle,
                 running: state.running,
-                blocking_hotkeys: state.blocking_hotkeys,
                 stop_wakeup: Some(Box::new(move || run_loop.stop())),
             })
         }
@@ -83,7 +81,6 @@ impl KeyboardListener {
                 event_receiver: state.event_receiver,
                 _thread_handle: state.thread_handle,
                 running: state.running,
-                blocking_hotkeys: state.blocking_hotkeys,
                 stop_wakeup: None,
             })
         }
@@ -96,24 +93,9 @@ impl KeyboardListener {
                 event_receiver: state.event_receiver,
                 _thread_handle: state.thread_handle,
                 running: state.running,
-                blocking_hotkeys: state.blocking_hotkeys,
                 stop_wakeup: None,
             })
         }
-    }
-
-    /// Get a reference to the blocking hotkeys set (if blocking is enabled)
-    pub fn blocking_hotkeys(&self) -> Option<&BlockingHotkeys> {
-        self.blocking_hotkeys.as_ref()
-    }
-
-    /// Blocking receive for key events
-    ///
-    /// Blocks until a key event is received or the listener stops.
-    pub fn recv(&self) -> Result<KeyEvent> {
-        self.event_receiver
-            .recv()
-            .map_err(|_| Error::EventLoopNotRunning)
     }
 
     /// Blocking receive with timeout

@@ -82,36 +82,10 @@ pub struct HotkeyManager {
     event_receiver: Receiver<HotkeyEvent>,
     _thread_handle: Option<JoinHandle<()>>,
     running: Arc<std::sync::atomic::AtomicBool>,
-    blocking_hotkeys: Option<BlockingHotkeys>,
+    blocking_hotkeys: BlockingHotkeys,
 }
 
 impl HotkeyManager {
-    /// Create a new HotkeyManager (non-blocking mode)
-    ///
-    /// On macOS, this will check for accessibility permissions and fail if not granted.
-    pub fn new() -> Result<Self> {
-        let listener = KeyboardListener::new()?;
-
-        let (tx, rx) = mpsc::channel();
-        let state = Arc::new(Mutex::new(ManagerState::new()));
-        let running = Arc::new(std::sync::atomic::AtomicBool::new(true));
-
-        let thread_state = Arc::clone(&state);
-        let thread_running = Arc::clone(&running);
-
-        let handle = thread::spawn(move || {
-            Self::event_loop(listener, thread_state, tx, thread_running);
-        });
-
-        Ok(Self {
-            state,
-            event_receiver: rx,
-            _thread_handle: Some(handle),
-            running,
-            blocking_hotkeys: None,
-        })
-    }
-
     /// Create a new HotkeyManager with blocking support
     ///
     /// On macOS, this will check for accessibility permissions and fail if not granted.
@@ -139,7 +113,7 @@ impl HotkeyManager {
             event_receiver: rx,
             _thread_handle: Some(handle),
             running,
-            blocking_hotkeys: Some(blocking_hotkeys),
+            blocking_hotkeys,
         })
     }
 
@@ -190,10 +164,8 @@ impl HotkeyManager {
         state.next_id += 1;
         state.hotkeys.insert(id, hotkey);
 
-        if let Some(blocking_hotkeys) = &self.blocking_hotkeys {
-            if let Ok(mut blocking) = blocking_hotkeys.lock() {
-                blocking.insert(hotkey);
-            }
+        if let Ok(mut blocking) = self.blocking_hotkeys.lock() {
+            blocking.insert(hotkey);
         }
 
         Ok(id)
@@ -210,32 +182,11 @@ impl HotkeyManager {
             return Err(Error::HotkeyNotFound(id));
         }
 
-        if let Some(blocking_hotkeys) = &self.blocking_hotkeys {
-            if let Some(hotkey) = hotkey {
-                if let Ok(mut blocking) = blocking_hotkeys.lock() {
-                    blocking.remove(&hotkey);
-                }
-            }
+        if let (Some(hotkey), Ok(mut blocking)) = (hotkey, self.blocking_hotkeys.lock()) {
+            blocking.remove(&hotkey);
         }
 
         Ok(())
-    }
-
-    /// Get the hotkey definition associated with an ID
-    ///
-    /// Returns `None` if the ID is not found.
-    pub fn get_hotkey(&self, id: HotkeyId) -> Option<Hotkey> {
-        let state = self.state.lock().ok()?;
-        state.hotkeys.get(&id).copied()
-    }
-
-    /// Blocking receive for hotkey events
-    ///
-    /// Blocks until a hotkey event is received or the event loop stops.
-    pub fn recv(&self) -> Result<HotkeyEvent> {
-        self.event_receiver
-            .recv()
-            .map_err(|_| Error::EventLoopNotRunning)
     }
 
     /// Non-blocking receive for hotkey events
@@ -247,16 +198,6 @@ impl HotkeyManager {
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => None,
         }
-    }
-
-    /// Get the number of currently registered hotkeys
-    pub fn hotkey_count(&self) -> usize {
-        let state = if let Ok(s) = self.state.lock() {
-            s
-        } else {
-            return 0;
-        };
-        state.hotkeys.len()
     }
 }
 
@@ -288,8 +229,7 @@ mod tests {
                 assert_eq!(state.process_event(&down)[0].state, HotkeyState::Pressed);
                 assert!(state.process_event(&down).is_empty());
                 let mouse_up = make_key_event(Modifiers::CTRL_LEFT, Some(key), false);
-                let modifier_up =
-                    make_modifier_event(Modifiers::empty(), false, Modifiers::CTRL_LEFT);
+                let modifier_up = make_modifier_event(Modifiers::empty(), false);
                 let releases = if modifier_first {
                     [modifier_up, mouse_up]
                 } else {
@@ -309,20 +249,14 @@ mod tests {
             modifiers,
             key,
             is_key_down,
-            changed_modifier: None,
         }
     }
 
-    fn make_modifier_event(
-        modifiers: Modifiers,
-        is_key_down: bool,
-        changed: Modifiers,
-    ) -> KeyEvent {
+    fn make_modifier_event(modifiers: Modifiers, is_key_down: bool) -> KeyEvent {
         KeyEvent {
             modifiers,
             key: None,
             is_key_down,
-            changed_modifier: Some(changed),
         }
     }
 
@@ -403,7 +337,7 @@ mod tests {
             state.process_event(&event);
             assert!(state.pressed_hotkeys.contains(&id));
 
-            let event = make_modifier_event(Modifiers::empty(), false, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::empty(), false);
             let results = state.process_event(&event);
 
             assert_eq!(results.len(), 1);
@@ -430,11 +364,7 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            let event = make_modifier_event(
-                Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT,
-                true,
-                Modifiers::SHIFT_LEFT,
-            );
+            let event = make_modifier_event(Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT, true);
             let results = state.process_event(&event);
 
             assert_eq!(results.len(), 1);
@@ -493,23 +423,19 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            let event = make_modifier_event(Modifiers::CMD_LEFT, true, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::CMD_LEFT, true);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Pressed);
 
-            let event = make_modifier_event(
-                Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT,
-                true,
-                Modifiers::SHIFT_LEFT,
-            );
+            let event = make_modifier_event(Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT, true);
             assert_eq!(state.process_event(&event).len(), 0);
 
-            let event = make_modifier_event(Modifiers::CMD_LEFT, false, Modifiers::SHIFT_LEFT);
+            let event = make_modifier_event(Modifiers::CMD_LEFT, false);
             assert_eq!(state.process_event(&event).len(), 0);
             assert!(state.pressed_hotkeys.contains(&id));
 
-            let event = make_modifier_event(Modifiers::empty(), false, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::empty(), false);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Released);
@@ -523,11 +449,11 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            let event = make_modifier_event(Modifiers::CMD_LEFT, true, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::CMD_LEFT, true);
             state.process_event(&event);
             assert!(state.pressed_hotkeys.contains(&id));
 
-            let event = make_modifier_event(Modifiers::empty(), false, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::empty(), false);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Released);
@@ -540,18 +466,14 @@ mod tests {
             let id = HotkeyId(0);
             state.hotkeys.insert(id, hotkey);
 
-            let event = make_modifier_event(Modifiers::CMD_LEFT, true, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::CMD_LEFT, true);
             assert_eq!(state.process_event(&event).len(), 0);
-            let event = make_modifier_event(
-                Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT,
-                true,
-                Modifiers::SHIFT_LEFT,
-            );
+            let event = make_modifier_event(Modifiers::CMD_LEFT | Modifiers::SHIFT_LEFT, true);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Pressed);
 
-            let event = make_modifier_event(Modifiers::SHIFT_LEFT, false, Modifiers::CMD_LEFT);
+            let event = make_modifier_event(Modifiers::SHIFT_LEFT, false);
             let results = state.process_event(&event);
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].state, HotkeyState::Released);

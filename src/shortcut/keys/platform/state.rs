@@ -29,14 +29,11 @@ impl ListenerState {
     }
 
     pub fn should_block(&self, modifiers: Modifiers, key: Option<Key>) -> bool {
-        if let Some(ref hotkeys) = self.blocking_hotkeys {
-            if let Ok(set) = hotkeys.lock() {
-                return set
-                    .iter()
-                    .any(|h| h.modifiers.matches(modifiers) && h.key == key);
-            }
-        }
-        false
+        let Some(Ok(set)) = self.blocking_hotkeys.as_ref().map(|h| h.lock()) else {
+            return false;
+        };
+        set.iter()
+            .any(|h| h.modifiers.matches(modifiers) && h.key == key)
     }
 }
 
@@ -77,7 +74,6 @@ pub fn release_events(tracked: Modifiers, stale: Modifiers) -> Vec<KeyEvent> {
                 modifiers,
                 key: None,
                 is_key_down: false,
-                changed_modifier: Some(modifier),
             });
         }
     }
@@ -120,11 +116,9 @@ mod tests {
         let events = release_events(tracked, stale);
 
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].changed_modifier, Some(Modifiers::CMD_LEFT));
         assert_eq!(events[0].modifiers, Modifiers::CTRL_LEFT | Modifiers::FN);
         assert!(!events[0].is_key_down);
         assert_eq!(events[0].key, None);
-        assert_eq!(events[1].changed_modifier, Some(Modifiers::CTRL_LEFT));
         assert_eq!(events[1].modifiers, Modifiers::FN);
         assert!(!events[1].is_key_down);
     }

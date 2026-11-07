@@ -60,7 +60,6 @@ pub(crate) struct MacOSListenerState {
     pub event_receiver: Receiver<KeyEvent>,
     pub thread_handle: Option<JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
-    pub blocking_hotkeys: Option<BlockingHotkeys>,
     pub run_loop: TapRunLoop,
 }
 
@@ -70,7 +69,7 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<MacOSLi
     }
 
     let (tx, rx) = mpsc::channel();
-    let state = Arc::new(Mutex::new(ListenerState::new(tx, blocking_hotkeys.clone())));
+    let state = Arc::new(Mutex::new(ListenerState::new(tx, blocking_hotkeys)));
     let running = Arc::new(AtomicBool::new(true));
 
     let (init_tx, init_rx) = mpsc::channel::<std::result::Result<TapRunLoop, String>>();
@@ -98,7 +97,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<MacOSLi
         event_receiver: rx,
         thread_handle: Some(handle),
         running,
-        blocking_hotkeys,
         run_loop,
     })
 }
@@ -224,7 +222,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     modifiers,
                     key,
                     is_key_down: true,
-                    changed_modifier: None,
                 });
             }
             CGEventType::KeyUp => {
@@ -245,7 +242,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     modifiers,
                     key,
                     is_key_down: false,
-                    changed_modifier: None,
                 });
             }
             CGEventType::FlagsChanged => {
@@ -269,7 +265,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                         modifiers,
                         key: Some(key),
                         is_key_down,
-                        changed_modifier: None,
                     });
                 } else if let Some(modifier_bit) = changed_modifier {
                     let was_set = state.current_modifiers.contains(modifier_bit);
@@ -295,7 +290,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                         modifiers: new_modifiers,
                         key: None,
                         is_key_down,
-                        changed_modifier,
                     });
                 } else if keycode == 0x3F {
                     let had_fn = modifiers.contains(Modifiers::FN);
@@ -315,7 +309,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                             modifiers: new_modifiers,
                             key: None,
                             is_key_down: has_fn,
-                            changed_modifier: Some(Modifiers::FN),
                         });
                     }
                 }
@@ -325,7 +318,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     modifiers,
                     key: Some(Key::MouseLeft),
                     is_key_down: true,
-                    changed_modifier: None,
                 });
             }
             CGEventType::LeftMouseUp if !modifiers.is_empty() => {
@@ -333,7 +325,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     modifiers,
                     key: Some(Key::MouseLeft),
                     is_key_down: false,
-                    changed_modifier: None,
                 });
             }
             CGEventType::RightMouseDown if !modifiers.is_empty() => {
@@ -341,7 +332,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     modifiers,
                     key: Some(Key::MouseRight),
                     is_key_down: true,
-                    changed_modifier: None,
                 });
             }
             CGEventType::RightMouseUp if !modifiers.is_empty() => {
@@ -349,7 +339,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                     modifiers,
                     key: Some(Key::MouseRight),
                     is_key_down: false,
-                    changed_modifier: None,
                 });
             }
             CGEventType::LeftMouseDown
@@ -366,7 +355,6 @@ unsafe extern "C-unwind" fn event_tap_callback(
                         modifiers,
                         key: Some(key),
                         is_key_down: event_type == CGEventType::OtherMouseDown,
-                        changed_modifier: None,
                     });
                 }
             }

@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
@@ -10,8 +9,7 @@ bitflags! {
     ///
     /// Individual flags track which side (left/right) was pressed.
     /// Compound aliases (`CMD`, `SHIFT`, etc.) match either side.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    #[serde(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Modifiers: u32 {
         const CMD_LEFT    = 1 << 0;
         const SHIFT_LEFT  = 1 << 1;

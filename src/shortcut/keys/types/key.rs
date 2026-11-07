@@ -1,11 +1,10 @@
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
 use crate::shortcut::keys::error::{Error, Result};
 
 /// Keyboard keys and mouse buttons that can be used in hotkey combinations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Key {
     A,

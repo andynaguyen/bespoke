@@ -97,7 +97,6 @@ pub(crate) struct LinuxListenerState {
     pub event_receiver: Receiver<KeyEvent>,
     pub thread_handle: Option<JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
-    pub blocking_hotkeys: Option<BlockingHotkeys>,
 }
 
 pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<LinuxListenerState> {
@@ -117,7 +116,7 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<LinuxLi
 
     let (tx, rx) = mpsc::channel();
     let mut state = LinuxState {
-        listener: ListenerState::new(tx, blocking_hotkeys.clone()),
+        listener: ListenerState::new(tx, blocking_hotkeys),
         blocked_keys: HashSet::new(),
         blocked_modifiers: Modifiers::empty(),
     };
@@ -134,7 +133,6 @@ pub(crate) fn spawn(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<LinuxLi
         event_receiver: rx,
         thread_handle: Some(handle),
         running,
-        blocking_hotkeys,
     })
 }
 
@@ -215,8 +213,8 @@ fn open_device(path: &Path, grab: &mut Option<GrabConfig>) -> io::Result<Option<
 
     if let Some(cfg) = grab {
         if is_passthrough_clone(&device.dev) {
-            eprintln!(
-                "handy-keys: {} is another handy-keys blocking listener's output; its hotkeys \
+            log::warn!(
+                "{} is another handy-keys blocking listener's output; its hotkeys \
                  will be detected but not blocked by this listener",
                 path.display()
             );
@@ -227,8 +225,8 @@ fn open_device(path: &Path, grab: &mut Option<GrabConfig>) -> io::Result<Option<
                 complete_grab(&mut device, cfg);
             }
         } else if has_keyboard_keys(&device.dev) {
-            eprintln!(
-                "handy-keys: {} exposes keyboard keys on a pointer device; its hotkeys will be \
+            log::warn!(
+                "{} exposes keyboard keys on a pointer device; its hotkeys will be \
                  detected but not blocked (pointer devices are never grabbed)",
                 path.display()
             );
@@ -247,8 +245,8 @@ fn complete_grab(device: &mut OpenDevice, cfg: &mut GrabConfig) {
             device.output_nodes = nodes;
         }
         Err(e) => {
-            eprintln!(
-                "handy-keys: cannot grab {} for hotkey blocking ({e}); its hotkeys will be \
+            log::warn!(
+                "cannot grab {} for hotkey blocking ({e}); its hotkeys will be \
                  detected but not blocked",
                 device.path.display()
             );
@@ -437,7 +435,7 @@ fn run_loop(
                     continue;
                 }
                 _ => {
-                    eprintln!("handy-keys: poll on input devices failed: {err}");
+                    log::warn!("poll on input devices failed: {err}");
                     break;
                 }
             }
@@ -513,8 +511,8 @@ fn drain_device(
                             if let Some(output) = &mut device.output {
                                 if !device.pending.is_empty() {
                                     if let Err(e) = output.emit(&device.pending) {
-                                        eprintln!(
-                                            "handy-keys: failed to re-inject events for {}: {e}",
+                                        log::warn!(
+                                            "failed to re-inject events for {}: {e}",
                                             device.path.display()
                                         );
                                     }
@@ -581,7 +579,6 @@ fn process_key(state: &mut LinuxState, code: KeyCode, value: i32) -> bool {
                 modifiers: state.listener.current_modifiers,
                 key: None,
                 is_key_down,
-                changed_modifier: Some(changed_modifier),
             });
         }
 
@@ -633,7 +630,6 @@ fn process_key(state: &mut LinuxState, code: KeyCode, value: i32) -> bool {
         modifiers: state.listener.current_modifiers,
         key: Some(key),
         is_key_down,
-        changed_modifier: None,
     });
 
     block
@@ -776,7 +772,6 @@ mod tests {
         assert_eq!(event.modifiers, Modifiers::SHIFT_LEFT);
         assert_eq!(event.key, None);
         assert!(event.is_key_down);
-        assert_eq!(event.changed_modifier, Some(Modifiers::SHIFT_LEFT));
 
         process_key(&mut state, KeyCode::KEY_LEFTSHIFT, KEY_PRESSED);
         assert!(rx.try_recv().is_err());
@@ -785,7 +780,6 @@ mod tests {
         let event = recv_event(&rx);
         assert_eq!(event.modifiers, Modifiers::empty());
         assert!(!event.is_key_down);
-        assert_eq!(event.changed_modifier, Some(Modifiers::SHIFT_LEFT));
     }
 
     #[test]
@@ -808,7 +802,6 @@ mod tests {
         let event = recv_event(&rx);
         assert_eq!(event.key, Some(Key::A));
         assert!(event.is_key_down);
-        assert_eq!(event.changed_modifier, None);
     }
 
     #[test]
@@ -870,7 +863,6 @@ mod tests {
         reconcile_modifiers(&mut state, Modifiers::SHIFT_LEFT | Modifiers::CTRL_RIGHT);
 
         let event = recv_event(&rx);
-        assert_eq!(event.changed_modifier, Some(Modifiers::CMD_LEFT));
         assert!(!event.is_key_down);
         assert_eq!(event.modifiers, Modifiers::SHIFT_LEFT);
         assert!(rx.try_recv().is_err());

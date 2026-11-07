@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
@@ -8,18 +7,11 @@ use super::key::Key;
 use super::modifiers::Modifiers;
 
 /// A unique identifier for a registered hotkey
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HotkeyId(pub(crate) u32);
 
-impl HotkeyId {
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
-}
-
 /// A hotkey definition - either a key with modifiers, or modifiers only
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hotkey {
     pub modifiers: Modifiers,
     pub key: Option<Key>,
@@ -30,34 +22,12 @@ impl Hotkey {
     ///
     /// At least one of modifiers or key must be provided.
     /// Returns an error if both are empty/None.
-    ///
-    /// # Examples
-    /// ```
-    /// use handy_keys::{Hotkey, Modifiers, Key};
-    ///
-    /// // With modifiers and key
-    /// let hotkey = Hotkey::new(Modifiers::CMD | Modifiers::SHIFT, Key::K).unwrap();
-    ///
-    /// // Modifier-only
-    /// let hotkey = Hotkey::new(Modifiers::CMD | Modifiers::SHIFT, None).unwrap();
-    ///
-    /// // Key-only
-    /// let hotkey = Hotkey::new(Modifiers::empty(), Key::F1).unwrap();
-    /// ```
     pub fn new(modifiers: Modifiers, key: impl Into<Option<Key>>) -> Result<Self> {
         let key = key.into();
         if modifiers.is_empty() && key.is_none() {
             return Err(Error::EmptyHotkey);
         }
         Ok(Self { modifiers, key })
-    }
-
-    /// Format hotkey as lowercase string (e.g., "cmd+shift+k")
-    ///
-    /// This is useful for compatibility with systems that expect lowercase
-    /// key names.
-    pub fn to_lowercase_string(&self) -> String {
-        self.to_string().to_lowercase()
     }
 
     /// Format hotkey using Handy-compatible key names (lowercase with full modifier names)
@@ -67,7 +37,7 @@ impl Hotkey {
     /// - Windows/Linux: "ctrl", "alt", "super", "shift"
     ///
     /// Side-specific modifiers use `_left`/`_right` suffixes.
-    pub fn to_handy_string(&self) -> String {
+    pub fn to_handy_string(self) -> String {
         #[cfg(target_os = "macos")]
         fn mod_names(
             mods: Modifiers,
@@ -195,17 +165,6 @@ impl FromStr for Hotkey {
     type Err = Error;
 
     /// Parse a hotkey from a string like "Cmd+Shift+K" or "Ctrl+Space"
-    ///
-    /// # Examples
-    /// ```
-    /// use handy_keys::Hotkey;
-    ///
-    /// let hotkey: Hotkey = "Cmd+Shift+K".parse().unwrap();
-    /// let hotkey: Hotkey = "Ctrl+Alt+Delete".parse().unwrap();
-    /// let hotkey: Hotkey = "KeypadPlus".parse().unwrap();
-    /// let hotkey: Hotkey = "F1".parse().unwrap();  // Key only
-    /// let hotkey: Hotkey = "Cmd+Shift".parse().unwrap();  // Modifiers only
-    /// ```
     fn from_str(s: &str) -> Result<Self> {
         let s = s.trim();
         if s.is_empty() {
@@ -240,7 +199,7 @@ impl FromStr for Hotkey {
 }
 
 /// The state of a hotkey (pressed or released)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HotkeyState {
     /// The hotkey was just pressed
     Pressed,
@@ -249,21 +208,18 @@ pub enum HotkeyState {
 }
 
 /// Event emitted when a hotkey is pressed or released
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct HotkeyEvent {
     pub id: HotkeyId,
     pub state: HotkeyState,
 }
 
 /// Event emitted during key recording
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct KeyEvent {
     pub modifiers: Modifiers,
     pub key: Option<Key>,
     pub is_key_down: bool,
-    /// For modifier-only events (FlagsChanged), indicates which modifier changed.
-    /// `None` for regular key events.
-    pub changed_modifier: Option<Modifiers>,
 }
 
 impl KeyEvent {
