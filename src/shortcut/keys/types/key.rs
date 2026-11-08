@@ -183,6 +183,23 @@ pub enum Key {
     Mouse8,
 }
 
+impl Key {
+    /// Whether this is a mouse button rather than a keyboard key.
+    pub fn is_mouse_button(self) -> bool {
+        matches!(
+            self,
+            Key::MouseLeft
+                | Key::MouseRight
+                | Key::MouseMiddle
+                | Key::MouseX1
+                | Key::MouseX2
+                | Key::Mouse6
+                | Key::Mouse7
+                | Key::Mouse8
+        )
+    }
+}
+
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -137,7 +137,7 @@ impl HotkeyManager {
                         }
                     }
                 }
-                Err(crate::shortcut::keys::error::Error::Timeout) => {}
+                Err(Error::Timeout) => {}
                 Err(_) => {
                     return;
                 }
@@ -177,12 +177,11 @@ impl HotkeyManager {
     pub fn unregister(&self, id: HotkeyId) -> Result<()> {
         let mut state = self.state.lock().map_err(|_| Error::MutexPoisoned)?;
 
-        let hotkey = state.hotkeys.remove(&id);
-        if hotkey.is_none() {
+        let Some(hotkey) = state.hotkeys.remove(&id) else {
             return Err(Error::HotkeyNotFound(id));
-        }
+        };
 
-        if let (Some(hotkey), Ok(mut blocking)) = (hotkey, self.blocking_hotkeys.lock()) {
+        if let Ok(mut blocking) = self.blocking_hotkeys.lock() {
             blocking.remove(&hotkey);
         }
 

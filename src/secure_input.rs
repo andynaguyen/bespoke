@@ -292,10 +292,6 @@ mod imp {
         });
     }
 
-    fn is_mouse_key(key: &crate::shortcut::keys::Key) -> bool {
-        key.to_string().to_lowercase().starts_with("mouse")
-    }
-
     /// Carbon has no concept of left/right modifiers, so side-specific
     /// modifiers widen to the whole group — returned as `degraded: true` so
     /// the UI can call out the changed matching. The fn key cannot be
@@ -351,7 +347,7 @@ mod imp {
                 );
                 return ShadowPlan::Immune;
             }
-            Some(k) if is_mouse_key(k) => {
+            Some(k) if k.is_mouse_button() => {
                 debug!(
                     "SecureInput fallback: '{}' ('{}') is mouse-based — immune, no shadow needed",
                     id, binding.current_binding
@@ -546,7 +542,7 @@ mod imp {
             while Instant::now() < deadline {
                 match listener.try_recv() {
                     Some(event) => match &event.key {
-                        Some(k) if is_mouse_key(k) => mouse += 1,
+                        Some(k) if k.is_mouse_button() => mouse += 1,
                         Some(_) if event.is_key_down => key_down += 1,
                         Some(_) => key_up += 1,
                         None => flags_changed += 1,

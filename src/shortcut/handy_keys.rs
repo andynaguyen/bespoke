@@ -370,19 +370,10 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
 }
 
 pub fn is_mouse_shortcut(raw: &str) -> bool {
-    matches!(
-        raw.parse::<Hotkey>().ok().and_then(|hotkey| hotkey.key),
-        Some(
-            Key::MouseLeft
-                | Key::MouseRight
-                | Key::MouseMiddle
-                | Key::MouseX1
-                | Key::MouseX2
-                | Key::Mouse6
-                | Key::Mouse7
-                | Key::Mouse8
-        )
-    )
+    raw.parse::<Hotkey>()
+        .ok()
+        .and_then(|hotkey| hotkey.key)
+        .is_some_and(Key::is_mouse_button)
 }
 
 fn ensure_initialized(app: &AppHandle) -> Result<(), String> {

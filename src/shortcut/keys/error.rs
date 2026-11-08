@@ -6,11 +6,13 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[cfg(target_os = "macos")]
     #[error(
         "Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility"
     )]
     AccessibilityNotGranted,
 
+    #[cfg(target_os = "macos")]
     #[error("Failed to create event tap: {0}")]
     EventTapCreationFailed(String),
 
