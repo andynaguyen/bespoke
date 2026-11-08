@@ -184,7 +184,6 @@ pub enum Key {
 }
 
 impl Key {
-    /// Whether this is a mouse button rather than a keyboard key.
     pub fn is_mouse_button(self) -> bool {
         matches!(
             self,

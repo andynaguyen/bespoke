@@ -149,8 +149,6 @@ fn physical_modifiers() -> Modifiers {
 }
 
 /// Physically-held modifiers we missed the press of and should adopt.
-/// (`stale_modifiers`/`release_events`, the other half of reconciliation,
-/// live in crate::shortcut::keys::platform::state, shared with the Linux listener.)
 ///
 /// While AltGr's phantom Left Ctrl is held, CTRL_LEFT is excluded: it is
 /// physically down per GetAsyncKeyState, but the user only pressed Right
@@ -233,9 +231,6 @@ unsafe extern "system" fn watcher_wndproc(
                 }
                 _ => {}
             },
-            // Resume from sleep/hibernate: Windows can silently drop LL hooks
-            // across a suspend (Handy #1620), and key-ups from before the
-            // suspend are long gone -- re-arm the hooks and reconcile.
             WM_POWERBROADCAST => {
                 if matches!(wparam.0, PBT_APMRESUMESUSPEND | PBT_APMRESUMEAUTOMATIC) {
                     reconcile_modifiers_in_context();
@@ -452,11 +447,6 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                     return;
                 }
 
-                // On AltGr layouts Windows synthesizes a Left Ctrl press/release
-                // around every Right Alt event (captured live on UK layout:
-                // identical timestamps, scancode 0x21D). Drop it entirely — no
-                // modifier update, no emit — so AltGr+key reads as OptRight
-                // only. The event is still passed down the hook chain.
                 if is_altgr_phantom_ctrl(vk_code, scan_code) {
                     ctx.altgr_phantom_ctrl = is_key_down;
                     return;
@@ -501,9 +491,6 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                             Some(key),
                         );
 
-                        // The shell can no longer see the key we are about to
-                        // swallow; without a substitute, releasing Win/Alt would
-                        // read as a lone tap and open the Start menu (#917).
                         if needs_menu_mask(should_block, ctx.current_modifiers, ctx.menu_mask_sent)
                         {
                             ctx.menu_mask_sent = true;
