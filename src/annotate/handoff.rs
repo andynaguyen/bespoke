@@ -16,6 +16,9 @@ pub fn default_captures_dir() -> Option<PathBuf> {
     annotate_dir().map(|dir| dir.join("captures"))
 }
 
+/// How many captures the Captures page lists.
+pub const LIBRARY_SIZE: usize = 120;
+
 /// The newest `limit` captures in the captures folder, newest first.
 pub fn recent_captures(limit: usize) -> Vec<Capture> {
     default_captures_dir().map_or_else(Vec::new, |dir| Capture::recent(&dir, limit))
@@ -234,7 +237,7 @@ impl Capture {
         found
     }
 
-    fn load(dir: &Path) -> Result<Self> {
+    pub(crate) fn load(dir: &Path) -> Result<Self> {
         let (dir, bundle) = load_bundle(dir)?;
         Ok(Self { dir, bundle })
     }
@@ -299,6 +302,15 @@ impl Capture {
                 })
             })
             .collect()
+    }
+
+    /// The image a capture's thumbnail is made from: its first keyframe, or its contact sheet.
+    pub(crate) fn cover_image(&self) -> Option<PathBuf> {
+        self.keyframe_rows()
+            .into_iter()
+            .next()
+            .map(|row| row.path)
+            .or_else(|| self.contact_sheet(false).ok())
     }
 
     pub(crate) fn finished(&self) -> Finished {

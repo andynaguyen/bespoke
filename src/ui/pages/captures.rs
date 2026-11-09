@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::annotate::handoff::KeyframeRow;
+use crate::annotate::handoff::{KeyframeRow, LIBRARY_SIZE};
+use crate::annotate::thumbnail;
 use chrono::{Local, TimeZone};
 use gpui::{
-    AnyElement, App, Context, FontWeight, Global, ObjectFit, ScrollHandle, SharedString, Task, div,
-    img, prelude::*, px,
+    AnyElement, App, Context, Entity, FontWeight, Global, ObjectFit, RetainAllImageCache,
+    ScrollHandle, SharedString, Task, div, img, prelude::*, px,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -20,7 +21,6 @@ use crate::ui::shell::Toolbar;
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{Alpha, palette, radius};
 
-const LIMIT: usize = 120;
 const INSPECTOR_WIDTH: f32 = 320.;
 const COLUMNS: usize = 3;
 
@@ -70,6 +70,7 @@ struct Item {
     created_at_ms: u64,
     duration: SharedString,
     marks: usize,
+    thumbnail: Option<PathBuf>,
     sheet: Option<PathBuf>,
     rows: Vec<KeyframeRow>,
     sheet_aspect: f32,
@@ -86,18 +87,12 @@ impl Item {
             created_at_ms: capture.created_at_ms(),
             duration: capture.duration().into(),
             marks: capture.marks(),
+            thumbnail: thumbnail::existing(capture.dir()),
             sheet_aspect: sheet.as_deref().map_or(1.6, png_aspect),
             row_aspects: rows.iter().map(|row| png_aspect(&row.path)).collect(),
             sheet,
             rows,
         }
-    }
-
-    fn thumbnail(&self) -> Option<PathBuf> {
-        self.rows
-            .first()
-            .map(|row| row.path.clone())
-            .or_else(|| self.sheet.clone())
     }
 
     fn when(&self) -> String {
@@ -130,6 +125,9 @@ pub struct Captures {
     retried: Option<PathBuf>,
     stage_scroll: ScrollHandle,
     timeline_scroll: ScrollHandle,
+    /// The open capture's full-size images. Replacing or dropping this frees them, while
+    /// thumbnails stay in GPUI's global cache so returning to the page doesn't redraw them.
+    full_images: Entity<RetainAllImageCache>,
     _load: Task<()>,
 }
 
@@ -144,6 +142,7 @@ impl Captures {
             retried: None,
             stage_scroll: ScrollHandle::new(),
             timeline_scroll: ScrollHandle::new(),
+            full_images: RetainAllImageCache::new(cx),
             _load: Task::ready(()),
         };
         this.reload(cx);
@@ -152,17 +151,37 @@ impl Captures {
 
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         self._load = cx.spawn(async move |this, cx| {
-            let items = crate::runtime::spawn_blocking(|| {
-                crate::annotate::handoff::recent_captures(LIMIT)
+            let (captures, items) = crate::runtime::spawn_blocking(|| {
+                let captures = crate::annotate::handoff::recent_captures(LIBRARY_SIZE);
+                let items: Vec<Item> = captures.iter().map(Item::read).collect();
+                (captures, items)
+            })
+            .await
+            .unwrap_or_default();
+            let missing = items.iter().any(|item| item.thumbnail.is_none());
+            let _ = this.update(cx, |this, cx| {
+                this.items = Some(items);
+                this.take_pending(cx);
+                cx.notify();
+            });
+            if !missing {
+                return;
+            }
+            let thumbnails = crate::runtime::spawn_blocking(move || {
+                thumbnail::fill_missing(&captures);
+                captures
                     .iter()
-                    .map(Item::read)
+                    .map(|capture| thumbnail::existing(capture.dir()))
                     .collect::<Vec<_>>()
             })
             .await
             .unwrap_or_default();
             let _ = this.update(cx, |this, cx| {
-                this.items = Some(items);
-                this.take_pending(cx);
+                if let Some(items) = &mut this.items {
+                    for (item, thumbnail) in items.iter_mut().zip(thumbnails) {
+                        item.thumbnail = thumbnail;
+                    }
+                }
                 cx.notify();
             });
         });
@@ -199,11 +218,13 @@ impl Captures {
         self.copied = false;
         self.stage_scroll = ScrollHandle::new();
         self.timeline_scroll = ScrollHandle::new();
+        self.full_images = RetainAllImageCache::new(cx);
         cx.notify();
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
         self.open = None;
+        self.full_images = RetainAllImageCache::new(cx);
         cx.notify();
     }
 
@@ -344,7 +365,7 @@ impl Captures {
                     .rounded(px(10.))
                     .overflow_hidden()
                     .bg(p.text.a(0.06))
-                    .children(item.thumbnail().map(|path| {
+                    .children(item.thumbnail.clone().map(|path| {
                         img(path)
                             .absolute()
                             .inset_0()
@@ -488,6 +509,7 @@ impl Captures {
                             })
                             .children(image.map(|path| {
                                 img(path)
+                                    .image_cache(&self.full_images)
                                     .absolute()
                                     .inset_0()
                                     .size_full()

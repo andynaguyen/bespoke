@@ -1364,9 +1364,12 @@ impl Coordinator {
                         activity,
                     );
                     match &finalized {
-                        Ok((dir, bundle, _)) => crate::annotate::capture_finished(
-                            crate::annotate::handoff::Finished::of(dir, bundle),
-                        ),
+                        Ok((dir, bundle, _)) => {
+                            crate::annotate::thumbnail::write_finished(dir);
+                            crate::annotate::capture_finished(
+                                crate::annotate::handoff::Finished::of(dir, bundle),
+                            );
+                        }
                         Err(_) => crate::annotate::capture_cancelled(),
                     }
                     (finalized, duration_ms)

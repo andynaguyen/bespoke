@@ -18,6 +18,7 @@ pub mod retention;
 mod screens;
 mod sketch;
 pub mod speech_model;
+pub mod thumbnail;
 mod transcribe;
 mod windows;
 
@@ -78,6 +79,7 @@ pub fn start(app: &AppHandle, cx: &mut App) {
         return;
     }
     follow_captures(app);
+    drop(crate::runtime::spawn_blocking(thumbnail::fill_recent));
     crate::annotate::coordinator::start(shortcuts(&get_settings(app)), cx);
     mcp::sync(app);
 }
