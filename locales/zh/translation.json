@@ -2,7 +2,6 @@
   "tray": {
     "settings": "设置...",
     "copyLastTranscript": "复制最新转录",
-    "unloadModel": "卸载模型",
     "model": "模型",
     "quit": "退出",
     "cancel": "取消",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "翻译为英语",
         "description": "在转录过程中自动将其他语言的语音翻译为英语。"
-      },
-      "modelUnload": {
-        "title": "卸载模型",
-        "description": "当模型在指定时间内未使用时自动释放 GPU/CPU 内存",
-        "options": {
-          "never": "从不",
-          "immediately": "立即",
-          "min2": "2 分钟后",
-          "min5": "5 分钟后",
-          "min10": "10 分钟后",
-          "min15": "15 分钟后",
-          "hour1": "1 小时后",
-          "sec15": "15 秒后（调试）"
-        }
       },
       "voiceActivityDetection": {
         "title": "语音活动检测",

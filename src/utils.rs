@@ -89,8 +89,6 @@ pub fn cancel_current_operation(app: &AppHandle) {
     set_tray_state(app, crate::tray::TrayIconState::Idle);
     hide_recording_overlay(app);
 
-    tm.maybe_unload_immediately("cancellation");
-
     if let Some(coordinator) = app.try_state::<TranscriptionCoordinator>() {
         coordinator.notify_cancel(recording_was_active);
     }

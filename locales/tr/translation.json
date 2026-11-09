@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Ayarlar...",
     "copyLastTranscript": "Son Transkripti Kopyala",
-    "unloadModel": "Modeli Boşalt",
     "model": "Model",
     "quit": "Çıkış",
     "cancel": "İptal",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "İngilizce'ye Çevir",
         "description": "Transkripsiyon sırasında diğer dillerden İngilizce'ye otomatik olarak çevirir."
-      },
-      "modelUnload": {
-        "title": "Modeli Boşalt",
-        "description": "Belirtilen süre boyunca kullanılmadığında modelin GPU/CPU belleğini otomatik olarak serbest bırakır.",
-        "options": {
-          "never": "Asla",
-          "immediately": "Hemen",
-          "min2": "2 dakika sonra",
-          "min5": "5 dakika sonra",
-          "min10": "10 dakika sonra",
-          "min15": "15 dakika sonra",
-          "hour1": "1 saat sonra",
-          "sec15": "15 saniye sonra (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Ses Etkinliği Algılama",

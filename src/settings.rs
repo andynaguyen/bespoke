@@ -146,20 +146,6 @@ pub enum McpReach {
     Tailnet,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ModelUnloadTimeout {
-    Never,
-    Immediately,
-    Min2,
-    #[default]
-    Min5,
-    Min10,
-    Min15,
-    Hour1,
-    Sec15,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PasteMethod {
@@ -229,30 +215,6 @@ impl Default for PasteMethod {
         return PasteMethod::Direct;
         #[cfg(not(target_os = "linux"))]
         return PasteMethod::CtrlV;
-    }
-}
-
-impl ModelUnloadTimeout {
-    pub fn to_minutes(self) -> Option<u64> {
-        match self {
-            ModelUnloadTimeout::Never => None,
-            ModelUnloadTimeout::Immediately => Some(0),
-            ModelUnloadTimeout::Min2 => Some(2),
-            ModelUnloadTimeout::Min5 => Some(5),
-            ModelUnloadTimeout::Min10 => Some(10),
-            ModelUnloadTimeout::Min15 => Some(15),
-            ModelUnloadTimeout::Hour1 => Some(60),
-            ModelUnloadTimeout::Sec15 => Some(0),
-        }
-    }
-
-    pub fn to_seconds(self) -> Option<u64> {
-        match self {
-            ModelUnloadTimeout::Never => None,
-            ModelUnloadTimeout::Immediately => Some(0),
-            ModelUnloadTimeout::Sec15 => Some(15),
-            _ => self.to_minutes().map(|m| m * 60),
-        }
     }
 }
 
@@ -392,7 +354,6 @@ pub struct AppSettings {
     pub snippets: Vec<Snippet>,
     pub app_styles: Vec<AppStyleRule>,
     pub default_style: WritingStyle,
-    pub model_unload_timeout: ModelUnloadTimeout,
     pub word_correction_threshold: f64,
     pub history_limit: usize,
     pub recording_retention_period: RecordingRetentionPeriod,
@@ -867,7 +828,6 @@ pub fn get_default_settings() -> AppSettings {
         snippets: Vec::new(),
         app_styles: default_app_styles(),
         default_style: WritingStyle::default(),
-        model_unload_timeout: ModelUnloadTimeout::default(),
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),
         recording_retention_period: default_recording_retention_period(),
@@ -1185,6 +1145,18 @@ mod tests {
         assert!(!settings.audio_feedback);
         assert!(settings.filler_word_removal_enabled);
         assert!(settings.bindings.is_empty());
+    }
+
+    #[test]
+    fn a_saved_model_unload_timeout_parses_strictly_and_is_not_written_back() {
+        let mut stored = serde_json::to_value(get_default_settings()).unwrap();
+        stored["model_unload_timeout"] = serde_json::json!("min5");
+
+        let settings: AppSettings = serde_json::from_value(stored)
+            .expect("a store from before the field was removed must keep parsing strictly");
+
+        let written = serde_json::to_value(&settings).unwrap();
+        assert!(written.get("model_unload_timeout").is_none());
     }
 
     #[test]

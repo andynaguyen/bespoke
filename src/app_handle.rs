@@ -75,6 +75,19 @@ impl AppHandle {
         (handle, rx)
     }
 
+    #[cfg(test)]
+    pub fn detached() -> Self {
+        let (tx, _rx) = async_channel::unbounded();
+        Self {
+            inner: Arc::new(Inner {
+                state: RwLock::new(HashMap::new()),
+                listeners: Mutex::new(HashMap::new()),
+                ui: tx,
+                stores: Mutex::new(HashMap::new()),
+            }),
+        }
+    }
+
     pub fn global() -> &'static AppHandle {
         GLOBAL
             .get()

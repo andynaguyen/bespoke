@@ -2,7 +2,6 @@
   "tray": {
     "settings": "הגדרות...",
     "copyLastTranscript": "העתק את התמלול האחרון",
-    "unloadModel": "פרוק מודל",
     "model": "מודל",
     "quit": "יציאה",
     "cancel": "ביטול",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "תרגם לאנגלית",
         "description": "תרגם אוטומטית דיבור משפות אחרות לאנגלית בזמן התמלול."
-      },
-      "modelUnload": {
-        "title": "פרוק מודל",
-        "description": "שחרר אוטומטית זיכרון GPU/CPU כשהמודל לא היה בשימוש במשך הזמן שנבחר",
-        "options": {
-          "never": "אף פעם",
-          "immediately": "מיידית",
-          "min2": "אחרי 2 דקות",
-          "min5": "אחרי 5 דקות",
-          "min10": "אחרי 10 דקות",
-          "min15": "אחרי 15 דקות",
-          "hour1": "אחרי שעה",
-          "sec15": "אחרי 15 שניות (דיבאג)"
-        }
       },
       "voiceActivityDetection": {
         "title": "זיהוי פעילות קולית",

@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Configuració...",
     "copyLastTranscript": "Copia l'última transcripció",
-    "unloadModel": "Allibera el model de la memòria",
     "model": "Model",
     "quit": "Surt",
     "cancel": "Cancel·la",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Traduïu a l'anglès",
         "description": "Tradueix automàticament la parla d'altres llengües a l'anglès durant la transcripció."
-      },
-      "modelUnload": {
-        "title": "Allibera el model de la memòria",
-        "description": "Allibera automàticament la memòria de la GPU i de la CPU quan el model no s'ha utilitzat durant el temps especificat",
-        "options": {
-          "never": "Mai",
-          "immediately": "Immediatament",
-          "min2": "Al cap de 2 minuts",
-          "min5": "Al cap de 5 minuts",
-          "min10": "Al cap de 10 minuts",
-          "min15": "Al cap de 15 minuts",
-          "hour1": "Al cap d'1 hora",
-          "sec15": "Al cap de 15 segons (depuració)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Detecció d'activitat de veu",

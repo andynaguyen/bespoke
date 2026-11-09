@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Nastavení...",
     "copyLastTranscript": "Zkopírovat poslední přepis",
-    "unloadModel": "Uvolnit model",
     "model": "Model",
     "quit": "Ukončit",
     "cancel": "Zrušit",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Překládat do angličtiny",
         "description": "Během přepisu automaticky překládat řeč z jiných jazyků do angličtiny."
-      },
-      "modelUnload": {
-        "title": "Uvolnění modelu",
-        "description": "Automaticky uvolnit paměť GPU/CPU, když model nebyl použit po zadanou dobu",
-        "options": {
-          "never": "Nikdy",
-          "immediately": "Okamžitě",
-          "min2": "Po 2 minutách",
-          "min5": "Po 5 minutách",
-          "min10": "Po 10 minutách",
-          "min15": "Po 15 minutách",
-          "hour1": "Po 1 hodině",
-          "sec15": "Po 15 sekundách (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Detekce hlasové aktivity",

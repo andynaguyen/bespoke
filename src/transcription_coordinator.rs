@@ -1,6 +1,7 @@
 use crate::actions::ACTION_MAP;
 use crate::app_handle::AppHandle;
 use crate::managers::audio::AudioRecordingManager;
+use crate::managers::transcription::TranscriptionManager;
 use crate::settings::ShortcutActivation;
 use crate::voice_submit::VoiceSubmit;
 use log::{debug, error, warn};
@@ -461,6 +462,10 @@ impl TranscriptionCoordinator {
                 let mut state = CoordinatorState::new();
 
                 loop {
+                    if state.stage == Stage::Idle {
+                        end_dictation(&app);
+                    }
+
                     let cmd = if let Some(deadline) = state.grace_deadline() {
                         match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
                             Ok(cmd) => cmd,
@@ -609,6 +614,12 @@ fn run_effect(app: &AppHandle, state: &mut CoordinatorState, effect: Effect) {
             binding_id,
             hotkey_string,
         } => stop(app, &binding_id, &hotkey_string),
+    }
+}
+
+fn end_dictation(app: &AppHandle) {
+    if let Some(tm) = app.try_state::<Arc<TranscriptionManager>>() {
+        tm.end_dictation();
     }
 }
 

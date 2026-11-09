@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Settings...",
     "copyLastTranscript": "Copy Last Transcript",
-    "unloadModel": "Unload Model",
     "model": "Model",
     "quit": "Quit",
     "cancel": "Cancel",
@@ -324,7 +323,6 @@
         "pasting": "Pasting",
         "submitting": "Submitting",
         "startup": "Startup",
-        "memory": "Memory",
         "updates": "Updates",
         "application": "Application",
         "overlay": "Overlay",
@@ -440,20 +438,6 @@
       "translateToEnglish": {
         "label": "Translate to English",
         "description": "Automatically translate speech from other languages to English during transcription."
-      },
-      "modelUnload": {
-        "title": "Unload Model",
-        "description": "Automatically free GPU/CPU memory when the model hasn't been used for the specified time",
-        "options": {
-          "never": "Never",
-          "immediately": "Immediately",
-          "min2": "After 2 minutes",
-          "min5": "After 5 minutes",
-          "min10": "After 10 minutes",
-          "min15": "After 15 minutes",
-          "hour1": "After 1 hour",
-          "sec15": "After 15 seconds (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Voice Activity Detection",

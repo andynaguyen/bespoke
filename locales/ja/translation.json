@@ -2,7 +2,6 @@
   "tray": {
     "settings": "設定…",
     "copyLastTranscript": "最新の文字起こしをコピー",
-    "unloadModel": "モデルをアンロード",
     "model": "モデル",
     "quit": "終了",
     "cancel": "キャンセル",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "英語に翻訳",
         "description": "文字起こし中に他の言語から英語に自動的に翻訳。"
-      },
-      "modelUnload": {
-        "title": "モデルのアンロード",
-        "description": "指定時間モデルが使用されていない場合、GPU/CPU メモリを自動的に解放",
-        "options": {
-          "never": "しない",
-          "immediately": "即座に",
-          "min2": "2分後",
-          "min5": "5分後",
-          "min10": "10分後",
-          "min15": "15分後",
-          "hour1": "1時間後",
-          "sec15": "15秒後 (デバッグ)"
-        }
       },
       "voiceActivityDetection": {
         "title": "音声区間検出 (VAD)",

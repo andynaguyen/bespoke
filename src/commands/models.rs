@@ -1,7 +1,7 @@
 use crate::app_handle::{AppHandle, State};
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::{ModelStateEvent, TranscriptionManager};
-use crate::settings::{ModelUnloadTimeout, get_settings, write_settings};
+use crate::settings::{get_settings, write_settings};
 use log::error;
 use std::sync::Arc;
 
@@ -48,11 +48,6 @@ pub async fn delete_model(
 
 pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String> {
     let model_manager = app.state::<Arc<ModelManager>>();
-    let transcription_manager = app.state::<Arc<TranscriptionManager>>();
-
-    let _loading_guard = transcription_manager
-        .try_start_loading()
-        .ok_or_else(|| "Model load already in progress".to_string())?;
 
     let model_info = model_manager
         .get_model_info(model_id)
@@ -62,41 +57,22 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
         return Err(format!("Model not downloaded: {}", model_id));
     }
 
-    let settings = get_settings(app);
-    let unload_timeout = settings.model_unload_timeout;
-    let old_model = settings.selected_model.clone();
-    let old_onboarding_completed = settings.onboarding_completed;
-
-    let mut settings = settings;
+    let mut settings = get_settings(app);
     settings.selected_model = model_id.to_string();
     settings.onboarding_completed = true;
 
     write_settings(app, settings);
 
-    if unload_timeout == ModelUnloadTimeout::Immediately {
-        let _ = app.emit(
-            "model-state-changed",
-            ModelStateEvent {
-                event_type: "selection_changed".to_string(),
-                model_id: Some(model_id.to_string()),
-                model_name: Some(model_info.name.clone()),
-                error: None,
-            },
-        );
-        log::info!(
-            "Model selection changed to {} (not loading — unload set to Immediately).",
-            model_id
-        );
-        return Ok(());
-    }
-
-    if let Err(e) = transcription_manager.load_model(model_id) {
-        let mut settings = get_settings(app);
-        settings.selected_model = old_model;
-        settings.onboarding_completed = old_onboarding_completed;
-        write_settings(app, settings);
-        return Err(e.to_string());
-    }
+    let _ = app.emit(
+        "model-state-changed",
+        ModelStateEvent {
+            event_type: "selection_changed".to_string(),
+            model_id: Some(model_id.to_string()),
+            model_name: Some(model_info.name.clone()),
+            error: None,
+        },
+    );
+    log::info!("Model selection changed to {}", model_id);
 
     Ok(())
 }

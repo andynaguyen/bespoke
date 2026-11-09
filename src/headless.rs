@@ -163,13 +163,7 @@ pub fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     let runs = args.repeat.unwrap_or(1).max(1);
     let mut times_ms: Vec<u64> = Vec::new();
     let mut text = String::new();
-    for i in 0..runs {
-        if !tm.is_model_loaded()
-            && let Err(e) = tm.load_model_with_device(&model_id, device_index)
-        {
-            eprintln!("error: reload before run {} failed: {}", i + 1, e);
-            return 1;
-        }
+    for _ in 0..runs {
         let t = Instant::now();
         match tm.transcribe(samples.clone()) {
             Ok(out) => text = out,

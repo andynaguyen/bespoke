@@ -39,10 +39,16 @@ struct RecordingErrorEvent {
     detail: Option<String>,
 }
 
-struct FinishGuard(AppHandle, Arc<TranscriptionManager>);
+struct EndDictationOnDrop(Arc<TranscriptionManager>);
+impl Drop for EndDictationOnDrop {
+    fn drop(&mut self) {
+        self.0.end_dictation();
+    }
+}
+
+struct FinishGuard(AppHandle);
 impl Drop for FinishGuard {
     fn drop(&mut self) {
-        self.1.maybe_unload_immediately("transcription session");
         if let Some(c) = self.0.try_state::<TranscriptionCoordinator>() {
             c.notify_processing_finished();
         }
@@ -481,7 +487,7 @@ impl ShortcutAction for TranscribeAction {
         let rm = app.state::<Arc<AudioRecordingManager>>();
 
         let kickoff_started = Instant::now();
-        tm.initiate_model_load();
+        tm.begin_dictation();
         let rm_clone = Arc::clone(&rm);
         std::thread::spawn(move || {
             if let Err(e) = rm_clone.preload_vad() {
@@ -666,7 +672,8 @@ impl ShortcutAction for TranscribeAction {
         let cancel_generation = rm.cancel_generation();
 
         crate::runtime::spawn(async move {
-            let _guard = FinishGuard(ah.clone(), Arc::clone(&tm));
+            let _guard = FinishGuard(ah.clone());
+            let dictation = EndDictationOnDrop(Arc::clone(&tm));
             debug!(
                 "Starting async transcription task for binding: {}",
                 binding_id
@@ -718,6 +725,7 @@ impl ShortcutAction for TranscribeAction {
                         Ok(_) => tm.transcribe_recording(samples, keyword),
                         Err(err) => Err(err),
                     };
+                    drop(dictation);
 
                     let wav_saved = match wav_handle {
                         None => false,

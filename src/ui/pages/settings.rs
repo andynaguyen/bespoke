@@ -500,12 +500,6 @@ impl SettingsDialog {
             SettingsSection::System => {
                 let mut groups = vec![
                     SettingsGroup::new()
-                        .title(t("settings.advanced.groups.memory"))
-                        .child(rows::model_unload_timeout(&s, cx))
-                        .into_any_element(),
-                ];
-                groups.push(
-                    SettingsGroup::new()
                         .title(t("settings.about.title"))
                         .child(rows::directory_row(
                             "settings.about.appDataDirectory.title",
@@ -524,7 +518,7 @@ impl SettingsDialog {
                             cx,
                         ))
                         .into_any_element(),
-                );
+                ];
                 // Annotate's permissions sit above Experimental, or first while one is missing,
                 // since that blocks every recording and Settings opens here to show it.
                 let permissions = self.permission_groups(cx);

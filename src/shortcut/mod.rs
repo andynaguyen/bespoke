@@ -1140,20 +1140,13 @@ pub fn change_show_tray_icon_setting(app: AppHandle, enabled: bool) -> Result<()
     Ok(())
 }
 
-fn save_accelerator_and_reload_next_use(app: &AppHandle, s: settings::AppSettings) {
-    settings::write_settings(app, s);
-
-    let tm = app.state::<std::sync::Arc<crate::managers::transcription::TranscriptionManager>>();
-    tm.reload_model_on_next_use();
-}
-
 pub fn change_transcribe_accelerator_setting(
     app: AppHandle,
     accelerator: settings::TranscribeAcceleratorSetting,
 ) -> Result<(), String> {
     let mut s = settings::get_settings(&app);
     s.transcribe_accelerator = accelerator;
-    save_accelerator_and_reload_next_use(&app, s);
+    settings::write_settings(&app, s);
     Ok(())
 }
 
@@ -1163,14 +1156,14 @@ pub fn change_ort_accelerator_setting(
 ) -> Result<(), String> {
     let mut s = settings::get_settings(&app);
     s.ort_accelerator = accelerator;
-    save_accelerator_and_reload_next_use(&app, s);
+    settings::write_settings(&app, s);
     Ok(())
 }
 
 pub fn change_transcribe_gpu_device(app: AppHandle, device: Option<String>) -> Result<(), String> {
     let mut s = settings::get_settings(&app);
     s.transcribe_gpu_device = device;
-    save_accelerator_and_reload_next_use(&app, s);
+    settings::write_settings(&app, s);
     Ok(())
 }
 

@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Cài đặt...",
     "copyLastTranscript": "Sao chép bản chép lời mới nhất",
-    "unloadModel": "Dỡ mô hình",
     "model": "Mô hình",
     "quit": "Thoát",
     "cancel": "Hủy",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Dịch sang tiếng Anh",
         "description": "Tự động dịch giọng nói từ các ngôn ngữ khác sang tiếng Anh trong quá trình chuyển đổi."
-      },
-      "modelUnload": {
-        "title": "Giải phóng mô hình",
-        "description": "Tự động giải phóng bộ nhớ GPU/CPU khi mô hình không được sử dụng trong thời gian quy định",
-        "options": {
-          "never": "Không bao giờ",
-          "immediately": "Ngay lập tức",
-          "min2": "Sau 2 phút",
-          "min5": "Sau 5 phút",
-          "min10": "Sau 10 phút",
-          "min15": "Sau 15 phút",
-          "hour1": "Sau 1 giờ",
-          "sec15": "Sau 15 giây (Gỡ lỗi)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Phát hiện hoạt động giọng nói",

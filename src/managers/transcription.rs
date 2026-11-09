@@ -4,11 +4,9 @@ use crate::audio_toolkit::{
     normalize_transcription_output, remove_filler_words, scratch_before_keyword,
     scrub_before_keyword, strip_trailing_keyword,
 };
-use crate::managers::audio::AudioRecordingManager;
 use crate::managers::model::{EngineType, ModelManager};
 use crate::settings::{
-    AppSettings, ModelUnloadTimeout, OrtAcceleratorSetting, TranscribeAcceleratorSetting,
-    get_settings,
+    AppSettings, OrtAcceleratorSetting, TranscribeAcceleratorSetting, get_settings,
 };
 use crate::voice_submit::VoiceSubmit;
 use anyhow::Result;
@@ -18,7 +16,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, mpsc};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use transcribe_cpp::{
     Backend, Feature, Model, ModelOptions, RunExtension, RunOptions, Session, StreamOptions, Task,
     WhisperRunOptions,
@@ -180,26 +178,39 @@ enum LoadedEngine {
     AppleSpeech,
 }
 
-pub struct LoadingGuard {
-    is_loading: Arc<Mutex<bool>>,
-    loading_condvar: Arc<Condvar>,
+struct LoadedModel {
+    id: String,
+    idle_engine: Option<LoadedEngine>,
 }
+
+#[derive(Default)]
+struct ModelState {
+    model: Option<LoadedModel>,
+    loading: bool,
+    dictating: bool,
+    holds: usize,
+}
+
+struct LoadingGuard(TranscriptionManager);
 
 impl Drop for LoadingGuard {
     fn drop(&mut self) {
-        // Recover from a poisoned mutex instead of panicking —
-        // a panic inside Drop calls abort().
-        let mut is_loading = match self.is_loading.lock() {
-            Ok(g) => g,
-            Err(e) => {
-                warn!(
-                    "Recovered poisoned is_loading mutex during LoadingGuard drop — a panic occurred earlier this session"
-                );
-                e.into_inner()
-            }
-        };
-        *is_loading = false;
-        self.loading_condvar.notify_all();
+        let mut state = self.0.lock_state();
+        state.loading = false;
+        self.0.loading_condvar.notify_all();
+        self.0.unload_if_unwanted(state);
+    }
+}
+
+/// Keeps the speech model in memory across transcriptions that aren't a dictation. The model
+/// unloads when the last hold drops and no dictation needs it.
+pub struct ModelHold(TranscriptionManager);
+
+impl Drop for ModelHold {
+    fn drop(&mut self) {
+        let mut state = self.0.lock_state();
+        state.holds -= 1;
+        self.0.unload_if_unwanted(state);
     }
 }
 
@@ -232,16 +243,10 @@ impl Drop for StreamWorkerGuard {
 
 #[derive(Clone)]
 pub struct TranscriptionManager {
-    engine: Arc<Mutex<Option<LoadedEngine>>>,
     model_manager: Arc<ModelManager>,
     app_handle: AppHandle,
-    current_model_id: Arc<Mutex<Option<String>>>,
-    last_activity: Arc<AtomicU64>,
-    shutdown_signal: Arc<AtomicBool>,
-    watcher_handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
-    is_loading: Arc<Mutex<bool>>,
+    state: Arc<Mutex<ModelState>>,
     loading_condvar: Arc<Condvar>,
-    reload_model_on_next_use: Arc<AtomicBool>,
     router: Arc<StreamRouter>,
     stream_active: Arc<AtomicBool>,
     next_stream_worker_id: Arc<AtomicU64>,
@@ -410,126 +415,73 @@ fn apply_spoken_cuts(text: String, settings: &AppSettings) -> (String, bool) {
 
 impl TranscriptionManager {
     pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Self {
-        let manager = Self {
-            engine: Arc::new(Mutex::new(None)),
+        Self {
             model_manager,
             app_handle: app_handle.clone(),
-            current_model_id: Arc::new(Mutex::new(None)),
-            last_activity: Arc::new(AtomicU64::new(Self::now_ms())),
-            shutdown_signal: Arc::new(AtomicBool::new(false)),
-            watcher_handle: Arc::new(Mutex::new(None)),
-            is_loading: Arc::new(Mutex::new(false)),
+            state: Arc::new(Mutex::new(ModelState::default())),
             loading_condvar: Arc::new(Condvar::new()),
-            reload_model_on_next_use: Arc::new(AtomicBool::new(false)),
             router: Arc::new(StreamRouter::new()),
             stream_active: Arc::new(AtomicBool::new(false)),
             next_stream_worker_id: Arc::new(AtomicU64::new(1)),
             active_stream_worker: Arc::new(AtomicU64::new(0)),
             active_engine_lease: Arc::new(AtomicU64::new(0)),
             inference_lock: Arc::new(Mutex::new(())),
-        };
-
-        {
-            let app_handle_cloned = app_handle.clone();
-            let manager_cloned = manager.clone();
-            let shutdown_signal = manager.shutdown_signal.clone();
-            let handle = thread::spawn(move || {
-                debug!("Idle watcher thread started");
-                while !shutdown_signal.load(Ordering::Relaxed) {
-                    thread::sleep(Duration::from_secs(10));
-
-                    if shutdown_signal.load(Ordering::Relaxed) {
-                        break;
-                    }
-
-                    let settings = get_settings(&app_handle_cloned);
-                    let timeout = settings.model_unload_timeout;
-
-                    if timeout == ModelUnloadTimeout::Immediately {
-                        continue;
-                    }
-
-                    let is_recording = app_handle_cloned
-                        .try_state::<Arc<AudioRecordingManager>>()
-                        .is_some_and(|a| a.is_recording());
-                    if is_recording {
-                        manager_cloned.touch_activity();
-                        continue;
-                    }
-
-                    if let Some(limit_seconds) = timeout.to_seconds() {
-                        let last = manager_cloned.last_activity.load(Ordering::Relaxed);
-                        let now_ms = TranscriptionManager::now_ms();
-                        let idle_ms = now_ms.saturating_sub(last);
-                        let limit_ms = limit_seconds * 1000;
-
-                        if idle_ms > limit_ms && manager_cloned.is_model_loaded() {
-                            let unload_start = std::time::Instant::now();
-                            info!(
-                                "Model idle for {}s (limit: {}s), unloading",
-                                idle_ms / 1000,
-                                limit_seconds
-                            );
-                            manager_cloned.unload_model();
-                            info!(
-                                "Model unloaded due to inactivity (took {}ms)",
-                                unload_start.elapsed().as_millis()
-                            );
-                        }
-                    }
-                }
-                debug!("Idle watcher thread shutting down gracefully");
-            });
-            *manager.watcher_handle.lock().unwrap() = Some(handle);
         }
-
-        manager
     }
 
-    fn lock_engine(&self) -> MutexGuard<'_, Option<LoadedEngine>> {
-        self.engine.lock().unwrap_or_else(|poisoned| {
-            warn!("Engine mutex was poisoned by a previous panic, recovering");
+    fn lock_state(&self) -> MutexGuard<'_, ModelState> {
+        self.state.lock().unwrap_or_else(|poisoned| {
+            warn!("Model state mutex was poisoned by a previous panic, recovering");
             poisoned.into_inner()
         })
     }
 
-    pub fn is_model_loaded(&self) -> bool {
-        self.lock_engine().is_some()
-            || self.active_engine_lease.load(Ordering::Acquire) != 0
-            || matches!(
-                self.inference_lock.try_lock(),
-                Err(std::sync::TryLockError::WouldBlock)
-            )
+    fn wait_for_load<'a>(&self, state: MutexGuard<'a, ModelState>) -> MutexGuard<'a, ModelState> {
+        self.loading_condvar
+            .wait_while(state, |state| state.loading)
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    pub fn reload_model_on_next_use(&self) {
-        self.reload_model_on_next_use.store(true, Ordering::Release);
+    fn take_engine(&self) -> Option<LoadedEngine> {
+        self.lock_state().model.as_mut()?.idle_engine.take()
     }
 
-    pub fn try_start_loading(&self) -> Option<LoadingGuard> {
-        let mut is_loading = self.is_loading.lock().unwrap();
-        if *is_loading {
-            return None;
+    /// Starts loading the model and keeps it in memory until `end_dictation`.
+    pub fn begin_dictation(&self) {
+        self.lock_state().dictating = true;
+        self.initiate_model_load();
+    }
+
+    /// Unloads the model unless something else still needs it.
+    pub fn end_dictation(&self) {
+        let mut state = self.lock_state();
+        state.dictating = false;
+        self.unload_if_unwanted(state);
+    }
+
+    /// Starts loading the model and keeps it in memory until the hold drops.
+    pub fn hold_model(&self) -> ModelHold {
+        self.lock_state().holds += 1;
+        self.initiate_model_load();
+        ModelHold(self.clone())
+    }
+
+    fn unload_if_unwanted(&self, state: MutexGuard<'_, ModelState>) {
+        if !state.loading && !state.dictating && state.holds == 0 && state.model.is_some() {
+            self.unload(state);
         }
-        *is_loading = true;
-        Some(LoadingGuard {
-            is_loading: self.is_loading.clone(),
-            loading_condvar: self.loading_condvar.clone(),
-        })
     }
 
     pub fn unload_model(&self) {
+        self.unload(self.lock_state());
+    }
+
+    fn unload(&self, mut state: MutexGuard<'_, ModelState>) {
         let unload_start = std::time::Instant::now();
         debug!("Starting to unload model");
 
-        {
-            let mut engine = self.lock_engine();
-            *engine = None;
-        }
-        {
-            let mut current_model = self.current_model_id.lock().unwrap();
-            *current_model = None;
-        }
+        state.model = None;
+        drop(state);
 
         let _ = self.app_handle.emit(
             "model-state-changed",
@@ -546,27 +498,6 @@ impl TranscriptionManager {
             "Model unloaded manually (took {}ms)",
             unload_duration.as_millis()
         );
-    }
-
-    fn now_ms() -> u64 {
-        SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
-    }
-
-    fn touch_activity(&self) {
-        self.last_activity.store(Self::now_ms(), Ordering::Relaxed);
-    }
-
-    pub fn maybe_unload_immediately(&self, context: &str) {
-        let settings = get_settings(&self.app_handle);
-        if settings.model_unload_timeout == ModelUnloadTimeout::Immediately
-            && self.is_model_loaded()
-        {
-            info!("Immediately unloading model after {}", context);
-            self.unload_model();
-        }
     }
 
     pub fn load_model(&self, model_id: &str) -> Result<()> {
@@ -636,14 +567,7 @@ impl TranscriptionManager {
                 .inspect_err(|error| emit_loading_failed(&error.to_string()))?
         };
 
-        {
-            let mut engine = self.lock_engine();
-            *engine = None;
-        }
-        {
-            let mut current_model = self.current_model_id.lock().unwrap();
-            *current_model = None;
-        }
+        self.lock_state().model = None;
 
         let loaded_engine = match model_info.engine_type {
             EngineType::TranscribeCpp => {
@@ -784,16 +708,10 @@ impl TranscriptionManager {
             EngineType::AppleSpeech => LoadedEngine::AppleSpeech,
         };
 
-        {
-            let mut engine = self.lock_engine();
-            *engine = Some(loaded_engine);
-        }
-        {
-            let mut current_model = self.current_model_id.lock().unwrap();
-            *current_model = Some(model_id.to_string());
-        }
-
-        self.touch_activity();
+        self.lock_state().model = Some(LoadedModel {
+            id: model_id.to_string(),
+            idle_engine: Some(loaded_engine),
+        });
 
         let _ = self.app_handle.emit(
             "model-state-changed",
@@ -815,41 +733,31 @@ impl TranscriptionManager {
     }
 
     pub fn initiate_model_load(&self) {
-        let mut is_loading = self.is_loading.lock().unwrap();
-        if *is_loading {
+        let mut state = self.lock_state();
+        if state.loading || state.model.is_some() {
             return;
         }
-
-        let reload_pending = self.reload_model_on_next_use.load(Ordering::Acquire);
-        if !reload_pending && self.is_model_loaded() {
-            return;
-        }
-
-        *is_loading = true;
-        let self_clone = self.clone();
+        state.loading = true;
+        let manager = self.clone();
         thread::spawn(move || {
-            if reload_pending {
-                self_clone
-                    .reload_model_on_next_use
-                    .store(false, Ordering::Release);
-            }
-            let settings = get_settings(&self_clone.app_handle);
-            if let Err(e) = self_clone.load_model(&settings.selected_model) {
+            let _loading = LoadingGuard(manager.clone());
+            let settings = get_settings(&manager.app_handle);
+            if let Err(e) = manager.load_model(&settings.selected_model) {
                 error!("Failed to load model: {}", e);
             }
-            let mut is_loading = self_clone.is_loading.lock().unwrap();
-            *is_loading = false;
-            self_clone.loading_condvar.notify_all();
         });
     }
 
     pub fn get_current_model(&self) -> Option<String> {
-        let current_model = self.current_model_id.lock().unwrap();
-        current_model.clone()
+        self.lock_state()
+            .model
+            .as_ref()
+            .map(|model| model.id.clone())
     }
 
     pub fn current_backend(&self) -> Option<String> {
-        match self.lock_engine().as_ref() {
+        let state = self.lock_state();
+        match state.model.as_ref()?.idle_engine.as_ref() {
             Some(LoadedEngine::TranscribeCpp(session)) => {
                 Some(session.model().backend().to_string())
             }
@@ -896,12 +804,7 @@ impl TranscriptionManager {
             stream_active: Arc::clone(&self.stream_active),
         };
 
-        {
-            let mut is_loading = self.is_loading.lock().unwrap();
-            while *is_loading {
-                is_loading = self.loading_condvar.wait(is_loading).unwrap();
-            }
-        }
+        drop(self.wait_for_load(self.lock_state()));
 
         let model_id = self.get_current_model().unwrap_or_default();
 
@@ -915,7 +818,7 @@ impl TranscriptionManager {
             drain_until_finalize(rx);
             return;
         }
-        let mut engine = match self.lock_engine().take() {
+        let mut engine = match self.take_engine() {
             Some(e) => e,
             None => {
                 info!(
@@ -1013,7 +916,6 @@ impl TranscriptionManager {
             };
 
             self.stream_active.store(true, Ordering::Release);
-            self.touch_activity();
             info!(
                 "Live streaming transcription started (model '{}', backend '{}')",
                 model_id, backend
@@ -1028,7 +930,6 @@ impl TranscriptionManager {
                         pending_voice_submit = Some((session, revision));
                     }
                     StreamCmd::Feed(pcm) => {
-                        self.touch_activity();
                         perf.record_feed(pcm.len());
                         let feed_start = Instant::now();
                         match stream.feed(&pcm) {
@@ -1127,15 +1028,20 @@ impl TranscriptionManager {
     }
 
     fn return_engine(&self, engine: LoadedEngine, expected_model_id: &str) {
-        let still_current =
-            self.current_model_id.lock().unwrap().as_deref() == Some(expected_model_id);
-        if still_current {
-            *self.lock_engine() = Some(engine);
-        } else {
-            info!(
-                "Model changed/unloaded during transcription; dropping stale engine (was '{}')",
-                expected_model_id
-            );
+        let mut state = self.lock_state();
+        match state
+            .model
+            .as_mut()
+            .filter(|model| model.id == expected_model_id)
+        {
+            Some(model) => model.idle_engine = Some(engine),
+            None => {
+                drop(state);
+                info!(
+                    "Model changed/unloaded during transcription; dropping stale engine (was '{}')",
+                    expected_model_id
+                );
+            }
         }
     }
 
@@ -1174,7 +1080,6 @@ impl TranscriptionManager {
             &finalized.supported_languages,
         );
 
-        self.maybe_unload_immediately("streaming transcription");
         Ok(Some(RecordingTranscript {
             text: filtered,
             submit,
@@ -1243,8 +1148,6 @@ impl TranscriptionManager {
             ));
         }
 
-        self.touch_activity();
-
         let st = std::time::Instant::now();
         let audio_len = audio.len();
 
@@ -1252,7 +1155,6 @@ impl TranscriptionManager {
 
         if audio.is_empty() {
             debug!("Empty audio vector");
-            self.maybe_unload_immediately("empty audio");
             return Ok(RecordingTranscript::default());
         }
 
@@ -1294,8 +1196,6 @@ impl TranscriptionManager {
             );
         }
 
-        self.maybe_unload_immediately("transcription");
-
         Ok(RecordingTranscript {
             text: final_result,
             submit,
@@ -1305,11 +1205,9 @@ impl TranscriptionManager {
     }
 
     /// Transcribes with segment and word times, for Annotate. Loads the selected model first
-    /// when no model is loaded. Dictation can run between two calls. Annotate calls this once per
-    /// piece of a capture, so it unloads the model itself with `maybe_unload_immediately` after
-    /// the last one.
+    /// when no model is loaded. Annotate calls this once per piece of a capture, under a
+    /// `ModelHold` so the model stays loaded between pieces.
     pub fn transcribe_timed(&self, audio: &[f32]) -> Result<TimedTranscript> {
-        self.touch_activity();
         self.initiate_model_load();
         let settings = get_settings(&self.app_handle);
         let raw = self.run_engine(audio, &settings, true)?;
@@ -1322,7 +1220,6 @@ impl TranscriptionManager {
     }
 
     pub fn voice_submit_probe(&self, audio: Vec<f32>, keyword: &str) -> bool {
-        self.touch_activity();
         let settings = get_settings(&self.app_handle);
         let started = Instant::now();
         match self.run_engine(&audio, &settings, false) {
@@ -1354,13 +1251,13 @@ impl TranscriptionManager {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         {
-            let mut is_loading = self.is_loading.lock().unwrap();
-            while *is_loading {
-                is_loading = self.loading_condvar.wait(is_loading).unwrap();
-            }
+            let state = self.wait_for_load(self.lock_state());
 
-            let engine_guard = self.lock_engine();
-            if engine_guard.is_none() {
+            if state
+                .model
+                .as_ref()
+                .is_none_or(|model| model.idle_engine.is_none())
+            {
                 return Err(anyhow::anyhow!("Model is not loaded for transcription."));
             }
         }
@@ -1385,9 +1282,7 @@ impl TranscriptionManager {
         let mut model_is_whisper = false;
 
         let (result, output_language, model_languages) = {
-            let mut engine_guard = self.lock_engine();
-
-            let mut engine = match engine_guard.take() {
+            let mut engine = match self.take_engine() {
                 Some(e) => e,
                 None => {
                     return Err(anyhow::anyhow!(
@@ -1395,8 +1290,6 @@ impl TranscriptionManager {
                     ));
                 }
             };
-
-            drop(engine_guard);
 
             let mut model_supports_translate = false;
             let mut model_languages = self
@@ -1578,13 +1471,7 @@ impl TranscriptionManager {
                         panic_msg
                     );
 
-                    {
-                        let mut current_model = self
-                            .current_model_id
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner());
-                        *current_model = None;
-                    }
+                    self.lock_state().model = None;
 
                     let _ = self.app_handle.emit(
                         "model-state-changed",
@@ -2203,36 +2090,123 @@ pub fn get_available_accelerators() -> AvailableAccelerators {
     }
 }
 
-impl Drop for TranscriptionManager {
-    fn drop(&mut self) {
-        if Arc::strong_count(&self.engine) > 1 {
-            return;
-        }
-
-        self.shutdown_signal.store(true, Ordering::Relaxed);
-
-        let mut guard = match self.watcher_handle.lock() {
-            Ok(g) => g,
-            Err(e) => {
-                warn!(
-                    "Recovered poisoned watcher_handle mutex during TranscriptionManager drop — a panic occurred earlier this session"
-                );
-                e.into_inner()
-            }
-        };
-        if let Some(handle) = guard.take() {
-            if let Err(e) = handle.join() {
-                warn!("Failed to join idle watcher thread: {:?}", e);
-            } else {
-                debug!("Idle watcher thread joined successfully");
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn manager() -> TranscriptionManager {
+        let app = AppHandle::detached();
+        let models = Arc::new(ModelManager::empty(&app));
+        TranscriptionManager::new(&app, models)
+    }
+
+    fn finish_load(manager: &TranscriptionManager) {
+        manager.lock_state().model = Some(LoadedModel {
+            id: "model".to_string(),
+            idle_engine: Some(LoadedEngine::AppleSpeech),
+        });
+    }
+
+    fn loaded_manager() -> TranscriptionManager {
+        let manager = manager();
+        finish_load(&manager);
+        manager
+    }
+
+    fn engine_in_memory(manager: &TranscriptionManager) -> bool {
+        manager
+            .lock_state()
+            .model
+            .as_ref()
+            .is_some_and(|model| model.idle_engine.is_some())
+    }
+
+    #[test]
+    fn ending_a_dictation_unloads_the_model() {
+        let manager = loaded_manager();
+        manager.begin_dictation();
+        assert!(engine_in_memory(&manager));
+
+        manager.end_dictation();
+        assert!(!engine_in_memory(&manager));
+        assert_eq!(manager.get_current_model(), None);
+    }
+
+    #[test]
+    fn a_hold_keeps_the_model_after_a_dictation_ends() {
+        let manager = loaded_manager();
+        manager.begin_dictation();
+        let hold = manager.hold_model();
+
+        manager.end_dictation();
+        assert!(engine_in_memory(&manager));
+
+        drop(hold);
+        assert!(!engine_in_memory(&manager));
+    }
+
+    #[test]
+    fn a_dictation_keeps_the_model_after_a_hold_drops() {
+        let manager = loaded_manager();
+        let hold = manager.hold_model();
+        manager.begin_dictation();
+
+        drop(hold);
+        assert!(engine_in_memory(&manager));
+
+        manager.end_dictation();
+        assert!(!engine_in_memory(&manager));
+    }
+
+    #[test]
+    fn a_load_that_outlives_its_dictation_unloads_when_it_ends() {
+        let manager = manager();
+        manager.lock_state().loading = true;
+        manager.begin_dictation();
+        manager.end_dictation();
+
+        finish_load(&manager);
+        assert!(engine_in_memory(&manager), "the load is still running");
+
+        drop(LoadingGuard(manager.clone()));
+        assert!(!engine_in_memory(&manager));
+        assert!(!manager.lock_state().loading);
+    }
+
+    #[test]
+    fn a_press_during_a_load_keeps_the_model_it_loads() {
+        let manager = manager();
+        manager.lock_state().loading = true;
+        manager.begin_dictation();
+        manager.end_dictation();
+        manager.begin_dictation();
+
+        finish_load(&manager);
+        drop(LoadingGuard(manager.clone()));
+        assert!(engine_in_memory(&manager));
+    }
+
+    #[test]
+    fn an_engine_a_cancelled_worker_still_holds_does_not_stop_the_next_load() {
+        let manager = loaded_manager();
+        manager.take_engine();
+        manager.begin_dictation();
+
+        manager.end_dictation();
+
+        assert_eq!(manager.get_current_model(), None);
+    }
+
+    #[test]
+    fn an_engine_returned_after_an_unload_is_dropped() {
+        let manager = loaded_manager();
+        let engine = manager.take_engine().unwrap();
+
+        manager.unload_model();
+        manager.return_engine(engine, "model");
+
+        assert!(!engine_in_memory(&manager));
+    }
 
     fn languages(codes: &[&str]) -> Vec<String> {
         codes.iter().map(|code| (*code).to_string()).collect()

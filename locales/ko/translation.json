@@ -2,7 +2,6 @@
   "tray": {
     "settings": "설정...",
     "copyLastTranscript": "마지막 녹음 내용 복사",
-    "unloadModel": "모델 언로드",
     "model": "모델",
     "quit": "종료",
     "cancel": "취소",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "영어로 번역",
         "description": "텍스트로 변환시 다른 언어의 음성을 자동으로 영어로 번역합니다."
-      },
-      "modelUnload": {
-        "title": "모델 언로드",
-        "description": "모델을 지정된 시간 동안 사용하지 않으면 자동으로 GPU/CPU 메모리를 해제합니다",
-        "options": {
-          "never": "안 함",
-          "immediately": "즉시",
-          "min2": "2분 후",
-          "min5": "5분 후",
-          "min10": "10분 후",
-          "min15": "15분 후",
-          "hour1": "1시간 후",
-          "sec15": "15초 후 (디버그)"
-        }
       },
       "voiceActivityDetection": {
         "title": "음성 활동 감지",

@@ -6,7 +6,6 @@
 use crate::app_handle::AppHandle;
 use crate::managers::history::{HistoryEntry, HistoryManager};
 use crate::managers::model::ModelManager;
-use crate::managers::transcription::TranscriptionManager;
 use crate::settings;
 use crate::tray_i18n::get_tray_translations;
 use crate::ui::pages::settings::SettingsSection;
@@ -63,7 +62,6 @@ impl TrayIconState {
 struct MenuInputs {
     busy: bool,
     warning: bool,
-    model_loaded: bool,
     selected_model: String,
     downloaded_models: Vec<(String, String)>,
     locale: String,
@@ -263,7 +261,6 @@ fn compute_desired(app: &AppHandle, icon_state: TrayIconState) -> TrayDesired {
     let settings = settings::get_settings(app);
     let theme = get_current_theme(app);
     let warning = crate::secure_input::tray_warning_active(app);
-    let model_loaded = app.state::<Arc<TranscriptionManager>>().is_model_loaded();
 
     let mut downloaded_models: Vec<(String, String)> = app
         .state::<Arc<ModelManager>>()
@@ -279,7 +276,6 @@ fn compute_desired(app: &AppHandle, icon_state: TrayIconState) -> TrayDesired {
         menu: MenuInputs {
             busy: icon_state.is_busy(),
             warning,
-            model_loaded,
             selected_model: settings.selected_model,
             downloaded_models,
             locale: settings.app_language,
@@ -484,20 +480,12 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
             model_submenu.append(&item)?;
         }
 
-        let unload_model_i = MenuItem::with_id(
-            "unload_model",
-            &strings.unload_model,
-            inputs.model_loaded,
-            None,
-        );
-
         Menu::with_items(&[
             &title_i,
             &separator(),
             &copy_last_transcript_i,
             &separator(),
             &model_submenu,
-            &unload_model_i,
             &separator(),
             &settings_i,
             &triage_i,
@@ -675,15 +663,6 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
         "annotate_open_latest" => {
             crate::annotate::coordinator::menu(crate::annotate::coordinator::MenuAction::OpenLatest)
         }
-        "unload_model" => {
-            let transcription_manager = app.state::<Arc<TranscriptionManager>>();
-            if !transcription_manager.is_model_loaded() {
-                warn!("No model is currently loaded.");
-                return;
-            }
-            transcription_manager.unload_model();
-            info!("Model unloaded via tray.");
-        }
         "cancel" => crate::utils::cancel_current_operation(app),
         "quit" => cx.quit(),
         id if id.starts_with("model_select:") => {
@@ -758,7 +737,6 @@ mod tests {
         MenuInputs {
             busy,
             warning: false,
-            model_loaded: true,
             selected_model: "small".to_string(),
             downloaded_models: vec![("small".to_string(), "Small".to_string())],
             locale: "en".to_string(),

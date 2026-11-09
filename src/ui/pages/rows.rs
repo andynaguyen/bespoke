@@ -4,8 +4,8 @@ use crate::app_handle::AppHandle;
 use crate::commands::audio::AudioDevice;
 use crate::i18n::{t, t_with};
 use crate::settings::{
-    AppSettings, AutoSubmitKey, ClipboardHandling, LogLevel, ModelUnloadTimeout, OverlayPosition,
-    OverlayStyle, PasteMethod, RecordingRetentionPeriod, ShortcutActivation, SoundTheme, Theme,
+    AppSettings, AutoSubmitKey, ClipboardHandling, LogLevel, OverlayPosition, OverlayStyle,
+    PasteMethod, RecordingRetentionPeriod, ShortcutActivation, SoundTheme, Theme,
 };
 use crate::shortcut;
 use crate::ui::components::{
@@ -746,66 +746,6 @@ pub fn show_tray_icon(s: &AppSettings, cx: &App) -> AnyElement {
                 "show_tray_icon",
                 move |s| s.show_tray_icon = v,
                 move |app| shortcut::change_show_tray_icon_setting(app, v),
-            )
-        },
-    )
-}
-
-pub fn model_unload_timeout(s: &AppSettings, cx: &App) -> AnyElement {
-    let mut options: Vec<DropdownOption> = [
-        "never",
-        "immediately",
-        "min2",
-        "min5",
-        "min10",
-        "min15",
-        "hour1",
-    ]
-    .iter()
-    .map(|v| DropdownOption::new(*v, t(&format!("settings.advanced.modelUnload.options.{v}"))))
-    .collect();
-    if s.debug_mode {
-        options.push(DropdownOption::new(
-            "sec15",
-            t("settings.advanced.modelUnload.options.sec15"),
-        ));
-    }
-    let selected = match s.model_unload_timeout {
-        ModelUnloadTimeout::Never => "never",
-        ModelUnloadTimeout::Immediately => "immediately",
-        ModelUnloadTimeout::Min2 => "min2",
-        ModelUnloadTimeout::Min5 => "min5",
-        ModelUnloadTimeout::Min10 => "min10",
-        ModelUnloadTimeout::Min15 => "min15",
-        ModelUnloadTimeout::Hour1 => "hour1",
-        ModelUnloadTimeout::Sec15 => "sec15",
-    };
-    dropdown(
-        "model_unload_timeout",
-        "settings.advanced.modelUnload.title",
-        "settings.advanced.modelUnload.description",
-        options,
-        selected,
-        cx,
-        |value, cx| {
-            let timeout = match value.as_ref() {
-                "never" => ModelUnloadTimeout::Never,
-                "immediately" => ModelUnloadTimeout::Immediately,
-                "min2" => ModelUnloadTimeout::Min2,
-                "min10" => ModelUnloadTimeout::Min10,
-                "min15" => ModelUnloadTimeout::Min15,
-                "hour1" => ModelUnloadTimeout::Hour1,
-                "sec15" => ModelUnloadTimeout::Sec15,
-                _ => ModelUnloadTimeout::Min5,
-            };
-            set(
-                cx,
-                "model_unload_timeout",
-                move |s| s.model_unload_timeout = timeout,
-                move |app| {
-                    crate::commands::transcription::set_model_unload_timeout(app, timeout);
-                    Ok(())
-                },
             )
         },
     )

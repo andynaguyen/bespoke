@@ -432,6 +432,17 @@ pub struct ModelManager {
 }
 
 impl ModelManager {
+    #[cfg(test)]
+    pub fn empty(app_handle: &AppHandle) -> Self {
+        Self {
+            app_handle: app_handle.clone(),
+            models_dir: PathBuf::new(),
+            available_models: Mutex::new(HashMap::new()),
+            cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            is_rescanning: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
     pub fn new(app_handle: &AppHandle) -> Result<Self> {
         let models_dir = crate::portable::app_data_dir(app_handle)
             .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?

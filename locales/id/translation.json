@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Pengaturan...",
     "copyLastTranscript": "Salin Transkripsi Terakhir",
-    "unloadModel": "Keluarkan Model dari Memori",
     "model": "Model",
     "quit": "Keluar",
     "cancel": "Batal",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Terjemahkan ke Bahasa Inggris",
         "description": "Terjemahkan ucapan dari bahasa lain ke bahasa Inggris secara otomatis selama transkripsi."
-      },
-      "modelUnload": {
-        "title": "Keluarkan Model dari Memori",
-        "description": "Bebaskan memori GPU/CPU secara otomatis jika model tidak digunakan selama waktu yang ditentukan",
-        "options": {
-          "never": "Tidak Pernah",
-          "immediately": "Segera",
-          "min2": "Setelah 2 menit",
-          "min5": "Setelah 5 menit",
-          "min10": "Setelah 10 menit",
-          "min15": "Setelah 15 menit",
-          "hour1": "Setelah 1 jam",
-          "sec15": "Setelah 15 detik (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Deteksi Aktivitas Suara",

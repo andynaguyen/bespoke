@@ -190,6 +190,7 @@ fn transcribe_pieces(
 ) -> Result<CaptureTranscript> {
     let samples = crate::audio_toolkit::read_wav_samples(wav)?;
     let manager = app.state::<Arc<TranscriptionManager>>();
+    let _hold = manager.hold_model();
     let mut timed = CaptureTranscript::default();
     let mut transcribed = 0;
     let mut last_error = None;
@@ -215,7 +216,6 @@ fn transcribe_pieces(
         };
         timed.add(part, ms(range.start), ms(range.len()));
     }
-    manager.maybe_unload_immediately("Annotate transcription");
     match last_error {
         Some(error) if transcribed == 0 => Err(error),
         _ => Ok(timed),

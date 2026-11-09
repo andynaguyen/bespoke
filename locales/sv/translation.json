@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Inställningar...",
     "copyLastTranscript": "Kopiera senaste transkriptionen",
-    "unloadModel": "Avlasta modell",
     "model": "Modell",
     "quit": "Avsluta",
     "cancel": "Avbryt",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Översätt till engelska",
         "description": "Översätt automatiskt tal från andra språk till engelska under transkription."
-      },
-      "modelUnload": {
-        "title": "Avlasta modell",
-        "description": "Frigör automatiskt GPU/CPU-minne när modellen inte har använts under den angivna tiden",
-        "options": {
-          "never": "Aldrig",
-          "immediately": "Omedelbart",
-          "min2": "Efter 2 minuter",
-          "min5": "Efter 5 minuter",
-          "min10": "Efter 10 minuter",
-          "min15": "Efter 15 minuter",
-          "hour1": "Efter 1 timme",
-          "sec15": "Efter 15 sekunder (Felsökning)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Röstaktivitetsdetektering",

@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Impostazioni...",
     "copyLastTranscript": "Copia l'ultima trascrizione",
-    "unloadModel": "Rilascia modello",
     "model": "Modello",
     "quit": "Esci",
     "cancel": "Annulla",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Traduci in inglese",
         "description": "Traduci automaticamente in inglese la voce in altre lingue durante la trascrizione."
-      },
-      "modelUnload": {
-        "title": "Disattiva modello",
-        "description": "Libera automaticamente la memoria della GPU/CPU quando il modello non viene utilizzato per un certo periodo",
-        "options": {
-          "never": "Mai",
-          "immediately": "Immediatamente",
-          "min2": "Dopo 2 minuti",
-          "min5": "Dopo 5 minuti",
-          "min10": "Dopo 10 minuti",
-          "min15": "Dopo 15 minuti",
-          "hour1": "Dopo 1 ora",
-          "sec15": "Dopo 15 secondi (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Rilevamento dell'attività vocale",

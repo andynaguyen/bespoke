@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Instellingen...",
     "copyLastTranscript": "Laatste transcriptie kopiëren",
-    "unloadModel": "Model ontladen",
     "model": "Model",
     "quit": "Afsluiten",
     "cancel": "Annuleren",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Vertalen naar het Engels",
         "description": "Vertaal spraak uit andere talen tijdens het transcriberen automatisch naar het Engels."
-      },
-      "modelUnload": {
-        "title": "Model ontladen",
-        "description": "Geheugen (GPU/CPU) automatisch vrijmaken wanneer het model voor de opgegeven tijd niet is gebruikt",
-        "options": {
-          "never": "Nooit",
-          "immediately": "Direct",
-          "min2": "Na 2 minuten",
-          "min5": "Na 5 minuten",
-          "min10": "Na 10 minuten",
-          "min15": "Na 15 minuten",
-          "hour1": "Na 1 uur",
-          "sec15": "Na 15 seconden (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Spraakactiviteitsdetectie (VAD)",

@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Indstillinger...",
     "copyLastTranscript": "Kopiér seneste transskription",
-    "unloadModel": "Frigør model",
     "model": "Model",
     "quit": "Afslut",
     "cancel": "Annuller",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Oversæt til engelsk",
         "description": "Oversæt automatisk tale fra andre sprog til engelsk under transskription."
-      },
-      "modelUnload": {
-        "title": "Frigør model",
-        "description": "Frigør automatisk GPU-/CPU-hukommelse, når modellen ikke har været brugt i den angivne tid",
-        "options": {
-          "never": "Aldrig",
-          "immediately": "Med det samme",
-          "min2": "Efter 2 minutter",
-          "min5": "Efter 5 minutter",
-          "min10": "Efter 10 minutter",
-          "min15": "Efter 15 minutter",
-          "hour1": "Efter 1 time",
-          "sec15": "Efter 15 sekunder (fejlfinding)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Stemmeaktivitetsdetektion",

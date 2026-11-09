@@ -2,7 +2,6 @@
   "tray": {
     "settings": "Einstellungen...",
     "copyLastTranscript": "Letzte Transkription kopieren",
-    "unloadModel": "Modell entladen",
     "model": "Modell",
     "quit": "Beenden",
     "cancel": "Abbrechen",
@@ -342,20 +341,6 @@
       "translateToEnglish": {
         "label": "Ins Englische übersetzen",
         "description": "Sprache aus anderen Sprachen automatisch während der Transkription ins Englische übersetzen."
-      },
-      "modelUnload": {
-        "title": "Modell entladen",
-        "description": "GPU/CPU-Speicher automatisch freigeben, wenn das Modell für die angegebene Zeit nicht verwendet wurde",
-        "options": {
-          "never": "Nie",
-          "immediately": "Sofort",
-          "min2": "Nach 2 Minuten",
-          "min5": "Nach 5 Minuten",
-          "min10": "Nach 10 Minuten",
-          "min15": "Nach 15 Minuten",
-          "hour1": "Nach 1 Stunde",
-          "sec15": "Nach 15 Sekunden (Debug)"
-        }
       },
       "voiceActivityDetection": {
         "title": "Sprachaktivitätserkennung (VAD)",

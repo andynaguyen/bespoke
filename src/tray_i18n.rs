@@ -4,7 +4,6 @@ use crate::i18n;
 pub struct TrayStrings {
     pub settings: String,
     pub copy_last_transcript: String,
-    pub unload_model: String,
     pub model: String,
     pub quit: String,
     pub cancel: String,
@@ -38,7 +37,6 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
     TrayStrings {
         settings: get("settings"),
         copy_last_transcript: get("copyLastTranscript"),
-        unload_model: get("unloadModel"),
         model: get("model"),
         quit: get("quit"),
         cancel: get("cancel"),
