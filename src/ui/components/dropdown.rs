@@ -400,7 +400,7 @@ impl RenderOnce for Dropdown {
         };
         let id = self.id.clone();
         let selected = self.selected.clone();
-        let menu = open.then(|| {
+        let menu = (open && !(in_popup && crate::ui::popup::popovers_hidden(cx))).then(|| {
             if in_popup {
                 let spec = crate::ui::popup::Spec {
                     placement: crate::ui::popup::Placement::Below {

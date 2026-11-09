@@ -33,6 +33,10 @@ pub struct Spec {
     pub interactive: bool,
 }
 
+pub fn popovers_hidden(cx: &App) -> bool {
+    super::main_view(cx).is_some_and(|main| main.read(cx).has_dialog())
+}
+
 pub fn hosts(window: &Window, cx: &App) -> bool {
     cfg!(target_os = "macos")
         && super::main_window(cx)

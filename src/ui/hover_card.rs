@@ -150,6 +150,10 @@ fn fit(size: Size<Pixels>, cx: &mut App) {
 impl Global for HoverCard {}
 
 pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
+    if super::popup::popovers_hidden(cx) {
+        hide(cx);
+        return;
+    }
     let origin = anchor.origin;
     if !cx.has_global::<HoverCard>() && !open(cx) {
         return;

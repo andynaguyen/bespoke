@@ -243,6 +243,9 @@ impl Render for Tooltip {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         if crate::ui::popup::hosts(window, cx) {
+            if crate::ui::popup::popovers_hidden(cx) {
+                return div().into_any_element();
+            }
             let build = self.build.clone();
             let spec = crate::ui::popup::Spec {
                 placement: crate::ui::popup::Placement::At,
