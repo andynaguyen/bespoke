@@ -710,7 +710,7 @@ impl ShortcutAction for TranscribeAction {
                     let transcription_result = match tm.finalize_stream(keyword) {
                         Ok(Some(transcript))
                             if transcript.submit
-                                || transcript.scrubbed
+                                || transcript.cut_by_voice
                                 || !transcript.text.trim().is_empty() =>
                         {
                             Ok(transcript)

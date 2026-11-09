@@ -1,8 +1,8 @@
 use crate::app_handle::AppHandle;
 use crate::audio_toolkit::{
     Fix, OutputLanguageEvidence, TimedText, apply_custom_words_with_fixes, detect_output_language,
-    normalize_transcription_output, remove_filler_words, scrub_before_keyword,
-    strip_trailing_keyword,
+    normalize_transcription_output, remove_filler_words, scratch_before_keyword,
+    scrub_before_keyword, strip_trailing_keyword,
 };
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::model::{EngineType, ModelManager};
@@ -254,7 +254,7 @@ pub struct TranscriptionManager {
 pub struct RecordingTranscript {
     pub text: String,
     pub submit: bool,
-    pub scrubbed: bool,
+    pub cut_by_voice: bool,
     /// The words the dictionary changed in `text`.
     pub fixes: Vec<Fix>,
 }
@@ -390,6 +390,22 @@ fn apply_scrub(text: String, settings: &AppSettings) -> (String, bool) {
         Some(rest) => (rest, true),
         None => (text, false),
     }
+}
+
+fn apply_scratch(text: String, settings: &AppSettings) -> (String, bool) {
+    if !settings.scratch_enabled {
+        return (text, false);
+    }
+    match scratch_before_keyword(&text, &settings.scratch_keyword) {
+        Some(rest) => (rest, true),
+        None => (text, false),
+    }
+}
+
+fn apply_spoken_cuts(text: String, settings: &AppSettings) -> (String, bool) {
+    let (text, scrubbed) = apply_scrub(text, settings);
+    let (text, scratched) = apply_scratch(text, settings);
+    (text, scrubbed || scratched)
 }
 
 impl TranscriptionManager {
@@ -1149,7 +1165,7 @@ impl TranscriptionManager {
 
         let settings = get_settings(&self.app_handle);
         let (text, submit) = split_voice_submit(finalized.text, voice_submit_keyword);
-        let (text, scrubbed) = apply_scrub(text, &settings);
+        let (text, cut_by_voice) = apply_spoken_cuts(text, &settings);
         let (filtered, fixes) = post_process_transcription_text_with_fixes(
             text,
             &settings,
@@ -1162,7 +1178,7 @@ impl TranscriptionManager {
         Ok(Some(RecordingTranscript {
             text: filtered,
             submit,
-            scrubbed,
+            cut_by_voice,
             fixes,
         }))
     }
@@ -1244,7 +1260,7 @@ impl TranscriptionManager {
         let raw = self.run_engine(&audio, &settings, false)?;
 
         let (text, submit) = split_voice_submit(raw.text, voice_submit_keyword);
-        let (text, scrubbed) = apply_scrub(text, &settings);
+        let (text, cut_by_voice) = apply_spoken_cuts(text, &settings);
         let (filtered_result, fixes) = post_process_transcription_text_with_fixes(
             text,
             &settings,
@@ -1283,7 +1299,7 @@ impl TranscriptionManager {
         Ok(RecordingTranscript {
             text: final_result,
             submit,
-            scrubbed,
+            cut_by_voice,
             fixes,
         })
     }
@@ -2233,6 +2249,39 @@ mod tests {
 
         settings.scrub_enabled = false;
         assert_eq!(apply_scrub(text(), &settings), (text(), false));
+    }
+
+    #[test]
+    fn scratch_runs_only_when_turned_on() {
+        let mut settings = crate::settings::get_default_settings();
+        let text = || "Keep this. Drop this. Scratch that. Right start.".to_string();
+        assert_eq!(
+            apply_scratch(text(), &settings),
+            ("Keep this. Right start.".to_string(), true)
+        );
+
+        settings.scratch_enabled = false;
+        assert_eq!(apply_scratch(text(), &settings), (text(), false));
+    }
+
+    #[test]
+    fn spoken_cuts_scrub_first_and_flag_an_empty_result() {
+        let settings = crate::settings::get_default_settings();
+        assert_eq!(
+            apply_spoken_cuts(
+                "Old. Scrub that. One. Two. Scratch that. Three.".to_string(),
+                &settings
+            ),
+            ("One. Three.".to_string(), true)
+        );
+        assert_eq!(
+            apply_spoken_cuts("Draft email. Scratch that.".to_string(), &settings),
+            (String::new(), true)
+        );
+        assert_eq!(
+            apply_spoken_cuts("Nothing to cut.".to_string(), &settings),
+            ("Nothing to cut.".to_string(), false)
+        );
     }
 
     #[test]

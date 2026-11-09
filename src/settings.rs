@@ -404,6 +404,8 @@ pub struct AppSettings {
     pub voice_submit_keyword: String,
     pub scrub_enabled: bool,
     pub scrub_keyword: String,
+    pub scratch_enabled: bool,
+    pub scratch_keyword: String,
     pub post_process_enabled: bool,
     pub post_process_provider_id: String,
     pub post_process_providers: Vec<PostProcessProvider>,
@@ -525,6 +527,14 @@ fn default_scrub_enabled() -> bool {
 
 fn default_scrub_keyword() -> String {
     "scrub that".to_string()
+}
+
+fn default_scratch_enabled() -> bool {
+    true
+}
+
+fn default_scratch_keyword() -> String {
+    "scratch that".to_string()
 }
 
 fn default_auto_submit() -> bool {
@@ -869,6 +879,8 @@ pub fn get_default_settings() -> AppSettings {
         voice_submit_keyword: default_voice_submit_keyword(),
         scrub_enabled: default_scrub_enabled(),
         scrub_keyword: default_scrub_keyword(),
+        scratch_enabled: default_scratch_enabled(),
+        scratch_keyword: default_scratch_keyword(),
         post_process_enabled: default_post_process_enabled(),
         post_process_provider_id: default_post_process_provider_id(),
         post_process_providers: default_post_process_providers(),
@@ -1282,6 +1294,8 @@ mod tests {
         assert_eq!(settings.voice_submit_keyword, "submit");
         assert!(settings.scrub_enabled);
         assert_eq!(settings.scrub_keyword, "scrub that");
+        assert!(settings.scratch_enabled);
+        assert_eq!(settings.scratch_keyword, "scratch that");
         assert_eq!(settings.app_styles, default_app_styles());
 
         assert!(apply_settings_migrations(&mut settings, &stored));

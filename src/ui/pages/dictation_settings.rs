@@ -33,6 +33,7 @@ pub struct DictationSettings {
     cancel_shortcut: Entity<ShortcutInput>,
     language: Entity<LanguagePicker>,
     scrub_keyword: Entity<KeywordField>,
+    scratch_keyword: Entity<KeywordField>,
     submit_keyword: Entity<KeywordField>,
     external_script: Entity<InputState>,
     history_limit: Entity<InputState>,
@@ -158,6 +159,19 @@ impl DictationSettings {
                         read: |s| &s.scrub_keyword,
                         apply: |s, v| s.scrub_keyword = v,
                         command: shortcut::change_scrub_keyword_setting,
+                    },
+                    window,
+                    cx,
+                )
+            }),
+            scratch_keyword: cx.new(|cx| {
+                KeywordField::new(
+                    KeywordSetting {
+                        key: "scratch_keyword",
+                        i18n_prefix: "settings.advanced.voiceScratch.keyword",
+                        read: |s| &s.scratch_keyword,
+                        apply: |s, v| s.scratch_keyword = v,
+                        command: shortcut::change_scratch_keyword_setting,
                     },
                     window,
                     cx,
@@ -630,7 +644,6 @@ impl DictationSettings {
             .child(rows::clipboard_handling(s, cx))
     }
 
-    /// Spoken keywords that act on the dictation: scrub throws it away, submit sends it.
     fn voice_commands_group(&self, s: &AppSettings, cx: &App) -> SettingsGroup {
         let mut group = SettingsGroup::new()
             .title(t("settings.advanced.groups.voiceCommands"))
@@ -651,6 +664,24 @@ impl DictationSettings {
             ));
         if s.scrub_enabled {
             group = group.child(self.scrub_keyword.clone());
+        }
+        group = group.child(rows::toggle(
+            "scratch_enabled",
+            "settings.advanced.voiceScratch.title",
+            "settings.advanced.voiceScratch.description",
+            s.scratch_enabled,
+            cx,
+            |v, cx| {
+                set(
+                    cx,
+                    "scratch_enabled",
+                    move |s| s.scratch_enabled = v,
+                    move |app| shortcut::change_scratch_enabled_setting(app, v),
+                )
+            },
+        ));
+        if s.scratch_enabled {
+            group = group.child(self.scratch_keyword.clone());
         }
         group = group.child(rows::toggle(
             "voice_submit_enabled",

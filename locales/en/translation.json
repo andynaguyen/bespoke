@@ -479,6 +479,15 @@
           "description": "Everything you said before it is thrown away.",
           "invalid": "Use a word with letters or numbers."
         }
+      },
+      "voiceScratch": {
+        "title": "Voice Scratch",
+        "description": "Say your keyword to remove the sentence you just said and keep dictating.",
+        "keyword": {
+          "title": "Scratch Keyword",
+          "description": "Say it as its own phrase, with a pause on each side. The sentence before it is removed.",
+          "invalid": "Use a word with letters or numbers."
+        }
       }
     },
     "postProcessing": {

@@ -398,11 +398,21 @@ pub fn normalize_transcription_output(text: &str) -> String {
     collapse_stutters(text).trim().to_string()
 }
 
-pub fn strip_trailing_keyword(text: &str, keyword: &str) -> Option<String> {
-    let keyword_keys: Vec<String> = keyword.split_whitespace().map(build_match_key).collect();
-    if keyword_keys.is_empty() || keyword_keys.iter().any(String::is_empty) {
-        return None;
+fn keyword_match_keys(keyword: &str) -> Option<Vec<String>> {
+    let keys: Vec<String> = keyword.split_whitespace().map(build_match_key).collect();
+    (!keys.is_empty() && !keys.iter().any(String::is_empty)).then_some(keys)
+}
+
+fn capitalize_first(text: &str) -> String {
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
     }
+}
+
+pub fn strip_trailing_keyword(text: &str, keyword: &str) -> Option<String> {
+    let keyword_keys = keyword_match_keys(keyword)?;
 
     let tokens: Vec<&str> = text.split_whitespace().collect();
     if tokens.len() < keyword_keys.len() {
@@ -428,10 +438,7 @@ pub fn strip_trailing_keyword(text: &str, keyword: &str) -> Option<String> {
 }
 
 pub fn scrub_before_keyword(text: &str, keyword: &str) -> Option<String> {
-    let keyword_keys: Vec<String> = keyword.split_whitespace().map(build_match_key).collect();
-    if keyword_keys.is_empty() || keyword_keys.iter().any(String::is_empty) {
-        return None;
-    }
+    let keyword_keys = keyword_match_keys(keyword)?;
 
     let tokens: Vec<&str> = text.split_whitespace().collect();
     let keys: Vec<String> = tokens.iter().map(|token| build_match_key(token)).collect();
@@ -446,11 +453,73 @@ pub fn scrub_before_keyword(text: &str, keyword: &str) -> Option<String> {
             || ".,;:!?-\u{2013}\u{2014}\u{3001}\u{3002}\u{FF0C}\u{FF01}\u{FF1F}".contains(c)
     });
 
-    let mut chars = rest.chars();
-    Some(match chars.next() {
-        Some(first) => first.to_uppercase().chain(chars).collect(),
-        None => String::new(),
-    })
+    Some(capitalize_first(rest))
+}
+
+const ABBREVIATIONS_THAT_NEVER_END_A_SENTENCE: &[&str] =
+    &["dr", "mr", "mrs", "ms", "prof", "vs", "eg", "ie"];
+
+fn ends_sentence(token: &str) -> bool {
+    token
+        .trim_end_matches(['"', '\'', ')', '\u{201D}', '\u{2019}'])
+        .ends_with([
+            '.', '!', '?', '\u{2026}', '\u{3002}', '\u{FF01}', '\u{FF1F}',
+        ])
+        && !ABBREVIATIONS_THAT_NEVER_END_A_SENTENCE.contains(&build_match_key(token).as_str())
+}
+
+fn has_boundary_on_both_sides(tokens: &[&str], start: usize, end: usize) -> bool {
+    let is_break = |c: Option<char>| !c.is_some_and(char::is_alphanumeric);
+    let before = start == 0
+        || is_break(tokens[start - 1].chars().last())
+        || is_break(tokens[start].chars().next());
+    let after = end == tokens.len()
+        || is_break(tokens[end - 1].chars().last())
+        || is_break(tokens[end].chars().next());
+    before && after
+}
+
+pub fn scratch_before_keyword(text: &str, keyword: &str) -> Option<String> {
+    let keyword_keys = keyword_match_keys(keyword)?;
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    let keys: Vec<String> = tokens.iter().map(|token| build_match_key(token)).collect();
+
+    let mut kept: Vec<String> = Vec::with_capacity(tokens.len());
+    let mut matched = false;
+    let mut after_keyword = false;
+    let mut index = 0;
+    while index < tokens.len() {
+        let end = index + keyword_keys.len();
+        if end <= tokens.len()
+            && keys[index..end] == keyword_keys[..]
+            && has_boundary_on_both_sides(&tokens, index, end)
+        {
+            while kept
+                .last()
+                .is_some_and(|token| build_match_key(token).is_empty())
+            {
+                kept.pop();
+            }
+            kept.pop();
+            while kept.last().is_some_and(|token| !ends_sentence(token)) {
+                kept.pop();
+            }
+            matched = true;
+            after_keyword = true;
+            index = end;
+        } else if after_keyword && keys[index].is_empty() {
+            index += 1;
+        } else if after_keyword {
+            kept.push(capitalize_first(tokens[index]));
+            after_keyword = false;
+            index += 1;
+        } else {
+            kept.push(tokens[index].to_string());
+            index += 1;
+        }
+    }
+
+    matched.then(|| kept.join(" "))
 }
 
 pub fn expand_snippets<'a>(
@@ -667,6 +736,121 @@ mod tests {
             strip_trailing_keyword("submit submit", "submit").as_deref(),
             Some("submit")
         );
+    }
+
+    fn scratch(text: &str) -> Option<String> {
+        scratch_before_keyword(text, "scratch that")
+    }
+
+    #[test]
+    fn scratch_removes_only_the_sentence_before_the_keyword() {
+        assert_eq!(
+            scratch("Hello there. Let's meet Tuesday. Scratch that. Let's meet Wednesday.")
+                .as_deref(),
+            Some("Hello there. Let's meet Wednesday.")
+        );
+        assert_eq!(
+            scratch("Hello there. Let's meet Tuesday, scratch that, let's meet Wednesday.")
+                .as_deref(),
+            Some("Hello there. Let's meet Wednesday.")
+        );
+    }
+
+    #[test]
+    fn scratch_removes_all_text_when_no_earlier_sentence_ends() {
+        assert_eq!(
+            scratch("Hi Bob, scratch that, hey Alice.").as_deref(),
+            Some("Hey Alice.")
+        );
+    }
+
+    #[test]
+    fn scratch_stacks_from_left_to_right() {
+        assert_eq!(
+            scratch("One. Two. Scratch that. Three. Scratch that. Four.").as_deref(),
+            Some("One. Four.")
+        );
+        assert_eq!(
+            scratch("One. Two. Scratch that. Scratch that. Three.").as_deref(),
+            Some("Three.")
+        );
+    }
+
+    #[test]
+    fn scratch_at_the_end_or_alone_leaves_what_came_first() {
+        assert_eq!(scratch("One. Two. Scratch that.").as_deref(), Some("One."));
+        assert_eq!(scratch("Draft email. Scratch that.").as_deref(), Some(""));
+        assert_eq!(scratch("scratch that").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn scratch_handles_punctuation_variants() {
+        for text in [
+            "Keep. Drop this. Scratch that. new text",
+            "Keep. Drop this, SCRATCH THAT! New text",
+            "Keep. Drop this - scratch that - new text",
+            "Keep. Drop this \u{2014} scratch that \u{2014} new text",
+            "Keep. Drop this \"scratch that\" new text",
+        ] {
+            assert_eq!(scratch(text).as_deref(), Some("Keep. New text"), "{text}");
+        }
+    }
+
+    #[test]
+    fn scratch_treats_a_closing_quote_as_part_of_the_sentence_end() {
+        assert_eq!(
+            scratch("He said \"no.\" Drop this. Scratch that.").as_deref(),
+            Some("He said \"no.\"")
+        );
+    }
+
+    #[test]
+    fn scratch_removes_a_finished_sentence_behind_a_lone_separator() {
+        for text in [
+            "Keep. Drop this. - Scratch that - next text.",
+            "Keep. Drop this. \u{2014} scratch that \u{2014} next text.",
+        ] {
+            assert_eq!(scratch(text).as_deref(), Some("Keep. Next text."), "{text}");
+        }
+    }
+
+    #[test]
+    fn scratch_reads_past_abbreviations_that_never_end_a_sentence() {
+        assert_eq!(
+            scratch("Keep this. Send it to Dr. Smith. Scratch that. Next.").as_deref(),
+            Some("Keep this. Next.")
+        );
+        assert_eq!(
+            scratch("Keep this. Bring fruit, e.g. apples. Scratch that. Next.").as_deref(),
+            Some("Keep this. Next.")
+        );
+    }
+
+    #[test]
+    fn scratch_stops_at_abbreviations_that_can_end_a_sentence() {
+        assert_eq!(
+            scratch("Meet at 5 p.m. Drop this. Scratch that. Next.").as_deref(),
+            Some("Meet at 5 p.m. Next.")
+        );
+    }
+
+    #[test]
+    fn scratch_ignores_the_keyword_inside_a_sentence() {
+        assert_eq!(scratch("Please scratch that itch tonight."), None);
+        assert_eq!(scratch("I'd scratch that, thanks."), None);
+        assert_eq!(scratch("One. Scratch that itch."), None);
+        assert_eq!(scratch("Nothing to see here."), None);
+        assert_eq!(scratch(""), None);
+    }
+
+    #[test]
+    fn scratch_supports_custom_keywords() {
+        assert_eq!(
+            scratch_before_keyword("One. Two. Undo. Three.", "Undo").as_deref(),
+            Some("One. Three.")
+        );
+        assert_eq!(scratch_before_keyword("One. Two.", ""), None);
+        assert_eq!(scratch_before_keyword("One. -- Two.", "--"), None);
     }
 
     #[test]

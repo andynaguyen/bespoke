@@ -795,6 +795,22 @@ pub fn change_voice_submit_keyword_setting(app: AppHandle, keyword: String) -> R
     Ok(())
 }
 
+pub fn change_scratch_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.scratch_enabled = enabled;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+pub fn change_scratch_keyword_setting(app: AppHandle, keyword: String) -> Result<(), String> {
+    let keyword =
+        normalize_keyword(&keyword).ok_or("Scratch keyword must contain letters or digits")?;
+    let mut settings = settings::get_settings(&app);
+    settings.scratch_keyword = keyword;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
 pub fn change_scrub_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.scrub_enabled = enabled;
