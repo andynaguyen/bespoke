@@ -130,27 +130,22 @@ pub(crate) fn created_ms_in_name(dir: &Path) -> Option<u64> {
         .ok()
 }
 
+/// The capture with the newest manifest. A folder without a readable `scrawl.json` is a
+/// recording still in progress or one that failed to save, so it never counts as latest.
 fn newest_bundle(captures: &Path) -> Result<PathBuf> {
     let mut candidates = Vec::new();
     for entry in
         fs::read_dir(captures).with_context(|| format!("Could not read {}", captures.display()))?
     {
-        let entry = entry?;
-        let path = entry.path();
+        let path = entry?.path();
         if path.extension().is_some_and(|ext| ext == "scrawl") && path.is_dir() {
             let created = fs::read(path.join("scrawl.json"))
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<CaptureBundle>(&bytes).ok())
-                .map(|bundle| bundle.created_at_ms)
-                .unwrap_or_else(|| {
-                    entry
-                        .metadata()
-                        .ok()
-                        .and_then(|m| m.created().or_else(|_| m.modified()).ok())
-                        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map_or(0, |time| time.as_millis() as u64)
-                });
-            candidates.push((created, path));
+                .map(|bundle| bundle.created_at_ms);
+            if let Some(created) = created {
+                candidates.push((created, path));
+            }
         }
     }
     candidates.sort_unstable();
@@ -665,6 +660,17 @@ mod tests {
         );
         assert!(resolve_bundle_dir(&fixture.0).is_err());
         assert!(resolve_bundle_dir(&fixture.0.join("missing.scrawl")).is_err());
+    }
+
+    #[test]
+    fn a_folder_without_a_manifest_is_never_the_latest_capture() {
+        let fixture = Fixture::new();
+        let saved = fixture.bundle("bespoke-1-a", 100);
+        fs::create_dir_all(fixture.0.join("bespoke-2-b.scrawl")).unwrap();
+        assert_eq!(
+            newest_bundle(&fixture.0).unwrap(),
+            saved.canonicalize().unwrap()
+        );
     }
 
     #[test]
