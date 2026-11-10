@@ -149,14 +149,7 @@ pub enum McpReach {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PasteMethod {
-    /// Cmd+V. Settings files from Handy on Linux or Windows may hold one of its other
-    /// clipboard methods, which macOS never offered, and those read as this one.
     #[default]
-    #[serde(
-        alias = "shift_insert",
-        alias = "ctrl_shift_v",
-        alias = "external_script"
-    )]
     CtrlV,
     Direct,
     None,
@@ -871,49 +864,30 @@ impl AppSettings {
     }
 }
 
+/// Writes back the migrated settings that `get_settings` returns, so the stored copy matches.
+/// Startup calls this once.
 pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
-    let settings = get_settings(app);
+    let settings = update(app, |settings| settings.clone());
     debug!("Loaded settings: {:?}", settings);
     settings
 }
 
-/// Reads the settings. When the stored copy needs repair (a migration, a missing default, or
-/// a field that failed to parse), the repaired settings are written back under the same lock
-/// as `update`, so the repair cannot overwrite a change that landed after this read.
+/// The stored settings with every migration and missing default applied. It never writes.
 pub fn get_settings(app: &AppHandle) -> AppSettings {
-    let (settings, repaired) = read_settings(app);
-    if !repaired {
-        return settings;
-    }
-    let _guard = UPDATE_LOCK.lock();
-    let (settings, repaired) = read_settings(app);
-    if repaired {
-        write_settings(app, settings.clone());
-    }
-    settings
-}
-
-/// The stored settings with every migration and default applied, and whether that changed
-/// them. It never writes, so `update` reads with it and writes once.
-fn read_settings(app: &AppHandle) -> (AppSettings, bool) {
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
 
-    let (mut settings, mut repaired) = match store.get("settings") {
+    let mut settings = match store.get("settings") {
         Some(settings_value) => {
-            let (mut settings, mut repaired) =
-                match serde_json::from_value::<AppSettings>(settings_value.clone()) {
-                    Ok(settings) => (settings, false),
-                    Err(e) => {
-                        warn!("Failed to parse stored settings ({e}); salvaging valid fields");
-                        (salvage_settings(&settings_value), true)
-                    }
-                };
-
-            if apply_settings_migrations(&mut settings, &settings_value) {
-                repaired = true;
-            }
+            let mut settings = match serde_json::from_value::<AppSettings>(settings_value.clone()) {
+                Ok(settings) => settings,
+                Err(e) => {
+                    warn!("Failed to parse stored settings ({e}); salvaging valid fields");
+                    salvage_settings(&settings_value)
+                }
+            };
+            apply_settings_migrations(&mut settings, &settings_value);
 
             for (key, value) in get_default_settings().bindings {
                 if let std::collections::hash_map::Entry::Vacant(entry) =
@@ -921,20 +895,16 @@ fn read_settings(app: &AppHandle) -> (AppSettings, bool) {
                 {
                     debug!("Adding missing binding: {}", entry.key());
                     entry.insert(value);
-                    repaired = true;
                 }
             }
 
-            (settings, repaired)
+            settings
         }
-        None => (get_default_settings(), true),
+        None => get_default_settings(),
     };
 
-    if ensure_post_process_defaults(&mut settings) {
-        repaired = true;
-    }
-
-    (settings, repaired)
+    ensure_post_process_defaults(&mut settings);
+    settings
 }
 
 fn salvage_settings(stored: &serde_json::Value) -> AppSettings {
@@ -1066,10 +1036,7 @@ fn write_settings(app: &AppHandle, settings: AppSettings) {
     store.set("settings", serde_json::to_value(&settings).unwrap());
 }
 
-/// Serializes every settings write, so two of them cannot each read the old settings and
-/// then overwrite the other's field. It is reentrant, so a `get_settings` that repairs the
-/// store from inside an `update` closure takes it again instead of deadlocking.
-static UPDATE_LOCK: parking_lot::ReentrantMutex<()> = parking_lot::const_reentrant_mutex(());
+static UPDATE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
 
 /// Reads the settings, applies `change`, and writes them back, as one step that no other
 /// `update` can interleave with. Returns what `change` returns.
@@ -1078,7 +1045,7 @@ static UPDATE_LOCK: parking_lot::ReentrantMutex<()> = parking_lot::const_reentra
 /// then lose its change when this one writes.
 pub fn update<R>(app: &AppHandle, change: impl FnOnce(&mut AppSettings) -> R) -> R {
     let _guard = UPDATE_LOCK.lock();
-    let (mut settings, _) = read_settings(app);
+    let mut settings = get_settings(app);
     let result = change(&mut settings);
     write_settings(app, settings);
     result
@@ -1625,10 +1592,14 @@ mod tests {
     }
 
     #[test]
-    fn clipboard_paste_methods_from_other_platforms_read_as_cmd_v() {
-        for stored in ["ctrl_v", "shift_insert", "ctrl_shift_v", "external_script"] {
-            let method: PasteMethod = serde_json::from_value(serde_json::json!(stored)).unwrap();
-            assert_eq!(method, PasteMethod::CtrlV, "{stored}");
+    fn paste_methods_from_other_platforms_load_as_cmd_v() {
+        for stored in ["shift_insert", "ctrl_shift_v", "external_script"] {
+            let mut value = serde_json::to_value(get_default_settings()).unwrap();
+            value["paste_method"] = serde_json::json!(stored);
+            value["paste_delay_ms"] = serde_json::json!(123);
+            let settings = salvage_settings(&value);
+            assert_eq!(settings.paste_method, PasteMethod::CtrlV, "{stored}");
+            assert_eq!(settings.paste_delay_ms, 123);
         }
     }
 
