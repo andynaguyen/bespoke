@@ -8,7 +8,6 @@ use gpui::{
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_or, t_with};
-use crate::settings::KeyboardImplementation;
 use crate::shortcut::handy_keys::FrontendKeyEvent;
 use crate::ui::clay::Clay;
 use crate::ui::components::{
@@ -47,9 +46,8 @@ pub struct ShortcutInput {
     chip: Bounds<Pixels>,
 }
 
-fn uses_handy_keys(cx: &App) -> bool {
-    cfg!(target_os = "macos")
-        || SettingsStore::get(cx).keyboard_implementation == KeyboardImplementation::HandyKeys
+fn uses_handy_keys(_cx: &App) -> bool {
+    true
 }
 
 fn mouse_shortcut(button: MouseButton, modifiers: &Modifiers) -> Option<String> {

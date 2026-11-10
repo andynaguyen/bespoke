@@ -120,46 +120,15 @@ impl Default for TrayState {
 pub enum AppTheme {
     Dark,
     Light,
-    Colored,
 }
 
 pub fn get_current_theme(app: &AppHandle) -> AppTheme {
-    if cfg!(target_os = "linux") {
-        AppTheme::Colored
-    } else {
-        // On Windows the tray icon sits on the taskbar, which follows the
-        // *system* theme (SystemUsesLightTheme), not the app theme. With the
-        // "Custom" personalization mode the two can differ (e.g. dark taskbar
-        // + light apps), and the window theme would pick an icon that is
-        // invisible against the taskbar.
-        #[cfg(target_os = "windows")]
-        if let Some(theme) = windows_taskbar_theme() {
-            return theme;
-        }
-
-        let _ = app;
-        if crate::ui::theme::effective_is_dark() {
-            AppTheme::Dark
-        } else {
-            AppTheme::Light
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn windows_taskbar_theme() -> Option<AppTheme> {
-    use winreg::RegKey;
-    use winreg::enums::HKEY_CURRENT_USER;
-
-    let personalize = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")
-        .ok()?;
-    let system_uses_light: u32 = personalize.get_value("SystemUsesLightTheme").ok()?;
-    Some(if system_uses_light == 1 {
-        AppTheme::Light
-    } else {
+    let _ = app;
+    if crate::ui::theme::effective_is_dark() {
         AppTheme::Dark
-    })
+    } else {
+        AppTheme::Light
+    }
 }
 
 pub fn get_icon_path(theme: AppTheme, state: TrayIconState, warning: bool) -> &'static str {
@@ -167,7 +136,6 @@ pub fn get_icon_path(theme: AppTheme, state: TrayIconState, warning: bool) -> &'
         return match theme {
             AppTheme::Dark => "resources/tray_idle_warning.png",
             AppTheme::Light => "resources/tray_idle_warning_dark.png",
-            AppTheme::Colored => "resources/bespoke.png",
         };
     }
     match (theme, state) {
@@ -177,9 +145,6 @@ pub fn get_icon_path(theme: AppTheme, state: TrayIconState, warning: bool) -> &'
         (AppTheme::Light, TrayIconState::Idle) => "resources/tray_idle_dark.png",
         (AppTheme::Light, TrayIconState::Recording) => "resources/tray_recording_dark.png",
         (AppTheme::Light, TrayIconState::Transcribing) => "resources/tray_transcribing_dark.png",
-        (AppTheme::Colored, TrayIconState::Idle) => "resources/bespoke.png",
-        (AppTheme::Colored, TrayIconState::Recording) => "resources/recording.png",
-        (AppTheme::Colored, TrayIconState::Transcribing) => "resources/transcribing.png",
     }
 }
 
@@ -368,15 +333,9 @@ fn apply_on_main(app: &AppHandle) {
     );
 }
 
-#[cfg(target_os = "macos")]
 fn set_tray_icon(tray: &TrayIcon, icon: Icon) -> Result<(), String> {
     tray.set_icon_with_as_template(Some(icon), true)
         .map_err(|e| e.to_string())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn set_tray_icon(tray: &TrayIcon, icon: Icon) -> Result<(), String> {
-    tray.set_icon(Some(icon)).map_err(|e| e.to_string())
 }
 
 fn load_tray_icon(
@@ -425,10 +384,7 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         None
     };
 
-    #[cfg(target_os = "macos")]
     let (settings_accelerator, quit_accelerator) = ("Cmd+,", "Cmd+Q");
-    #[cfg(not(target_os = "macos"))]
-    let (settings_accelerator, quit_accelerator) = ("Ctrl+,", "Ctrl+Q");
     let accelerator = |s: &str| Accelerator::from_str(s).ok();
 
     let title_label = title_label();
@@ -500,7 +456,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         menu.insert(&check_i, annotate_at + 1)?;
     }
 
-    #[cfg(target_os = "macos")]
     {
         let annotate = Submenu::with_id("annotate_submenu", &strings.annotate, true);
         annotate.append_items(&[
@@ -517,8 +472,6 @@ fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Er
         menu.insert(&annotate, annotate_at)?;
         menu.insert(&separator(), annotate_at + 1)?;
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = annotate_at;
 
     if let Some(version) = &inputs.pending_update {
         let label = strings.update_to.replace("{{version}}", version);
@@ -557,7 +510,6 @@ pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
 /// (the app's reopen event for Spotlight/Finder/Dock, the single-instance
 /// callback for a second process) — the natural "where did my icon go?"
 /// moment — so a relaunch brings the icon back without a full quit.
-#[cfg(target_os = "macos")]
 pub fn recreate_tray_icon(app: &AppHandle) {
     let no_tray = app
         .try_state::<crate::cli::CliArgs>()
@@ -596,7 +548,7 @@ pub fn create_tray(app: &AppHandle) {
         .with_icon(icon)
         .with_tooltip(tray_tooltip())
         .with_icon_as_template(true)
-        .with_menu_on_left_click(!cfg!(target_os = "windows"));
+        .with_menu_on_left_click(true);
     let tray = match builder.build() {
         Ok(tray) => tray,
         Err(err) => {
@@ -615,28 +567,6 @@ pub fn create_tray(app: &AppHandle) {
         // so window and tray changes happen after the menu closes.
         menu_app.with_ui(move |cx| handle_menu_event(&app, &id, cx));
     }));
-
-    #[cfg(target_os = "windows")]
-    {
-        use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
-        let click_app = app.clone();
-        TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-            let opens_window = matches!(
-                event,
-                TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up,
-                    ..
-                } | TrayIconEvent::DoubleClick {
-                    button: MouseButton::Left,
-                    ..
-                }
-            );
-            if opens_window {
-                click_app.with_ui(crate::ui::show_main_window);
-            }
-        }));
-    }
 }
 
 fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
@@ -651,15 +581,12 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
             crate::ui::show_main_window(cx);
             crate::updater::check_now();
         }
-        #[cfg(target_os = "macos")]
         "annotate_record" => crate::annotate::coordinator::menu(
             crate::annotate::coordinator::MenuAction::ToggleCapture,
         ),
-        #[cfg(target_os = "macos")]
         "annotate_choose" => crate::annotate::coordinator::menu(
             crate::annotate::coordinator::MenuAction::ChooseTarget,
         ),
-        #[cfg(target_os = "macos")]
         "annotate_open_latest" => {
             crate::annotate::coordinator::menu(crate::annotate::coordinator::MenuAction::OpenLatest)
         }

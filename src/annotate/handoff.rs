@@ -580,7 +580,6 @@ pub fn set_config_value_in(path: &Path, key: &str, value: serde_json::Value) -> 
     let mut body = serde_json::to_vec_pretty(&config)?;
     body.push(b'\n');
     fs::write(&tmp, body)?;
-    #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;

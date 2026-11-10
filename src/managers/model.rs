@@ -1319,9 +1319,9 @@ impl ModelManager {
         let Some(pointer) = hf_cached_path(repo_id, revision, filename) else {
             return false;
         };
-        // Resolve the blob before the pointer goes away. On Windows the
-        // pointer may be a plain file (hf-hub's symlink fallback renames the
-        // blob into the snapshot), in which case there is no separate blob.
+        // Resolve the blob before the pointer goes away. hf-hub makes the
+        // pointer a symlink to its blob. A pointer that is a plain file has no
+        // separate blob, so only a symlink's target gets deleted.
         let is_symlink = fs::symlink_metadata(&pointer)
             .map(|m| m.file_type().is_symlink())
             .unwrap_or(false);

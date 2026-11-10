@@ -111,7 +111,6 @@ impl Render for HoverCardView {
 
 struct HoverCard {
     view: Entity<HoverCardView>,
-    #[cfg(target_os = "macos")]
     native: Option<super::platform::capsule::CapsuleWindow>,
     showing: Option<(Card, Point<Pixels>)>,
     size: Size<Pixels>,
@@ -119,7 +118,6 @@ struct HoverCard {
 
 impl HoverCard {
     fn place(&self, anchor: Point<Pixels>, cx: &App) {
-        #[cfg(target_os = "macos")]
         if let Some(native) = &self.native {
             let width = f64::from(f32::from(self.size.width));
             let height = f64::from(f32::from(self.size.height));
@@ -127,8 +125,6 @@ impl HoverCard {
             let y = f64::from(f32::from(anchor.y)) - f64::from(GAP) - height;
             native.set_frame([x, y], [width, height], cx);
         }
-        #[cfg(not(target_os = "macos"))]
-        let _ = (anchor, cx);
     }
 }
 
@@ -172,7 +168,6 @@ pub fn show(card: Card, anchor: Bounds<Pixels>, cx: &mut App) {
     let view = state.view.clone();
     let state = cx.global::<HoverCard>();
     state.place(origin, cx);
-    #[cfg(target_os = "macos")]
     if let Some(native) = &state.native {
         native.set_visible(true, cx);
     }
@@ -203,7 +198,6 @@ pub fn hide(cx: &mut App) {
     if state.showing.take().is_none() {
         return;
     }
-    #[cfg(target_os = "macos")]
     if let Some(native) = state.native.clone() {
         native.set_visible(false, cx);
     }
@@ -242,16 +236,12 @@ fn open(cx: &mut App) -> bool {
             return false;
         }
     };
-    #[cfg(not(target_os = "macos"))]
-    let _ = window;
-    #[cfg(target_os = "macos")]
     let native = window
         .update(cx, |_, window, _| {
             super::platform::capsule::CapsuleWindow::of(window)
         })
         .ok()
         .flatten();
-    #[cfg(target_os = "macos")]
     if let Some(native) = &native {
         native.set_ignores_mouse(true);
         native.set_shadow(true);
@@ -259,7 +249,6 @@ fn open(cx: &mut App) -> bool {
     }
     cx.set_global(HoverCard {
         view,
-        #[cfg(target_os = "macos")]
         native,
         showing: None,
         size: size(px(WINDOW_W), px(WINDOW_H)),

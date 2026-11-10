@@ -425,7 +425,6 @@ pub fn build_bundle_from_parts(
         let summary = summary_markdown(&bundle, bundle_dir);
         std::fs::create_dir_all(bundle_dir.join("frames"))
             .with_context(|| format!("could not create {}", bundle_dir.display()))?;
-        #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(bundle_dir, std::fs::Permissions::from_mode(0o700));

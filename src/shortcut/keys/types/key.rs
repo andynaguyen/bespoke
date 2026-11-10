@@ -70,8 +70,8 @@ pub enum Key {
     F18,
     F19,
     F20,
-    /// F21–F24 exist on Windows (VK 0x84–0x87) and in evdev; macOS virtual
-    /// keycodes stop at F20, so these are unreachable from macOS hardware.
+    /// macOS virtual keycodes stop at F20, so macOS hardware never sends
+    /// F21 to F24.
     F21,
     F22,
     F23,
@@ -84,17 +84,8 @@ pub enum Key {
     Delete,
     ForwardDelete,
     Insert,
-    /// The Pause/Break key.
-    ///
-    /// Windows delivers this key's release together with its press: the
-    /// hardware break sequence is part of the make sequence (`E1 1D 45 E1
-    /// 9D C5`, nothing on release — PS/2 behavior the HID driver preserves
-    /// for USB keyboards), so the hook sees key-down and key-up back to
-    /// back at press time. Treat it as tap/toggle only on Windows; a hold
-    /// binding would release immediately. Ctrl+Pause reports `VK_CANCEL`
-    /// rather than `VK_PAUSE`; both map here. Linux evdev reports normal
-    /// press/release for USB keyboards, so holds work there. macOS has no
-    /// virtual keycode for Pause — PC keyboards' Pause key arrives as F15.
+    /// The Pause/Break key. macOS has no virtual keycode for Pause. PC
+    /// keyboards' Pause key arrives as F15.
     Pause,
     Home,
     End,
@@ -147,14 +138,12 @@ pub enum Key {
     ScrollLock,
     NumLock,
 
-    /// The PrintScreen/SysRq key. Windows and Linux only: macOS has no
-    /// virtual keycode for it — PC keyboards' PrintScreen arrives as F13
-    /// there.
+    /// The PrintScreen/SysRq key. macOS has no virtual keycode for it. PC
+    /// keyboards' PrintScreen arrives as F13.
     PrintScreen,
 
-    /// The context-menu (Application) key, right of AltGr on full-size PC
-    /// keyboards. `VK_APPS` on Windows, `KEY_COMPOSE` on Linux evdev;
-    /// macOS reports PC keyboards' Menu key as keycode `0x6E`.
+    /// The context-menu key, also called the Application key, right of AltGr
+    /// on full-size PC keyboards. macOS reports it as keycode `0x6E`.
     ContextMenu,
 
     /// The dictation / voice key (macOS virtual keycode `0xB0`, macOS only).

@@ -36,7 +36,6 @@ pub fn model_info() -> ModelInfo {
     }
 }
 
-#[cfg(target_os = "macos")]
 mod imp {
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -123,31 +122,6 @@ mod imp {
         let result = transcribe_file(&wav, custom_words);
         let _ = std::fs::remove_file(&wav);
         result
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-mod imp {
-    use super::Status;
-
-    pub fn status() -> Status {
-        Status::Unsupported
-    }
-
-    pub fn progress() -> f64 {
-        0.0
-    }
-
-    pub fn error() -> Option<String> {
-        None
-    }
-
-    pub fn install() -> u32 {
-        0
-    }
-
-    pub fn attempts() -> u32 {
-        0
     }
 }
 

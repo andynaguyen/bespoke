@@ -109,8 +109,7 @@
       "waiting": "Aguardando...",
       "allGranted": "Tudo pronto!",
       "errors": {
-        "checkFailed": "Erro ao verificar permissões. Por favor, tente novamente.",
-        "requestFailed": "Erro ao solicitar permissão. Por favor, tente novamente."
+        "checkFailed": "Erro ao verificar permissões. Por favor, tente novamente."
       }
     }
   },
@@ -291,20 +290,10 @@
         "description": "Escolha como o texto é inserido. Direto: simula digitação via entrada do sistema. Nenhum: ignora colar, apenas atualiza histórico/área de transferência.",
         "options": {
           "clipboard": "Área de Transferência ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Área de Transferência (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Área de Transferência (Shift+Insert)",
           "direct": "Direto",
-          "none": "Nenhum",
-          "externalScript": "Script externo"
+          "none": "Nenhum"
         },
         "externalScriptPlaceholder": "/caminho/para/seu/script.sh"
-      },
-      "typingTool": {
-        "title": "Ferramenta de digitação",
-        "description": "Escolha qual ferramenta de digitação do Linux usar para o método de colagem direta. Auto detectará e usará automaticamente a melhor ferramenta disponível para o seu sistema.",
-        "options": {
-          "auto": "Auto (Recomendado)"
-        }
       },
       "clipboardHandling": {
         "title": "Manipulação da Área de Transferência",
@@ -321,7 +310,6 @@
           "off": "Desativado",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -619,9 +607,7 @@
     "micPermissionDeniedTitle": "Acesso ao microfone negado",
     "micPermissionDenied": {
       "generic": "O acesso ao microfone foi negado pelo sistema operacional. Conceda a permissão do microfone nas configurações do sistema.",
-      "windows": "Ative o acesso ao microfone em Configurações → Privacidade e segurança → Microfone (incluindo acesso de aplicativos da área de trabalho).",
-      "macos": "Conceda o acesso ao microfone em Ajustes do Sistema → Privacidade e Segurança → Microfone.",
-      "linux": "Conceda o acesso ao microfone nas configurações de som ou privacidade do seu sistema."
+      "macos": "Conceda o acesso ao microfone em Ajustes do Sistema → Privacidade e Segurança → Microfone."
     },
     "noInputDeviceTitle": "Nenhum microfone encontrado",
     "noInputDevice": "Nenhum dispositivo de entrada de áudio foi detectado. Conecte um microfone ou fone de ouvido e tente novamente.",

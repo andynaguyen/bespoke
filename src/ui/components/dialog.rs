@@ -90,8 +90,8 @@ impl RenderOnce for DialogFrame {
         let wide = viewport.width >= px(640.);
         let margin = if wide { rems(1.5) } else { rems(1.) };
         let max_height = viewport.height - margin.to_pixels(window.rem_size()) * 2.;
-        // On macOS a dialog is its own window over the main one, so glass can show through.
-        let on_glass = cfg!(target_os = "macos") && !crate::ui::popup::hosts(window, cx);
+        // A dialog is its own window over the main one, so glass can show through.
+        let on_glass = !crate::ui::popup::hosts(window, cx);
         let fills = self.material == DialogMaterial::Window;
 
         let close_backdrop = self.on_close.clone();

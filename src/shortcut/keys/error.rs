@@ -6,13 +6,11 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[cfg(target_os = "macos")]
     #[error(
         "Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility"
     )]
     AccessibilityNotGranted,
 
-    #[cfg(target_os = "macos")]
     #[error("Failed to create event tap: {0}")]
     EventTapCreationFailed(String),
 
@@ -27,10 +25,6 @@ pub enum Error {
 
     #[error("Operation timed out")]
     Timeout,
-
-    #[cfg(target_os = "linux")]
-    #[error("Platform error: {0}")]
-    Platform(String),
 
     #[error("Hotkey cannot be empty (must have at least a key or modifiers)")]
     EmptyHotkey,

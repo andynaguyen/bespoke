@@ -30,34 +30,11 @@ impl Hotkey {
         Ok(Self { modifiers, key })
     }
 
-    /// Format hotkey using Handy-compatible key names (lowercase with full modifier names)
-    ///
-    /// Uses platform-appropriate naming:
-    /// - macOS: "command", "option", "ctrl", "shift"
-    /// - Windows/Linux: "ctrl", "alt", "super", "shift"
+    /// Format hotkey using Handy-compatible key names (lowercase with full modifier names):
+    /// "command", "option", "ctrl", "shift".
     ///
     /// Side-specific modifiers use `_left`/`_right` suffixes.
     pub fn to_handy_string(self) -> String {
-        #[cfg(target_os = "macos")]
-        fn mod_names(
-            mods: Modifiers,
-            left: Modifiers,
-            right: Modifiers,
-            compound: Modifiers,
-            name: &str,
-        ) -> Option<String> {
-            if mods.contains(compound) {
-                Some(name.to_string())
-            } else if mods.contains(left) {
-                Some(format!("{}_left", name))
-            } else if mods.contains(right) {
-                Some(format!("{}_right", name))
-            } else {
-                None
-            }
-        }
-
-        #[cfg(not(target_os = "macos"))]
         fn mod_names(
             mods: Modifiers,
             left: Modifiers,
@@ -88,10 +65,7 @@ impl Hotkey {
             parts.push(s);
         }
 
-        #[cfg(target_os = "macos")]
         let opt_name = "option";
-        #[cfg(not(target_os = "macos"))]
-        let opt_name = "alt";
         if let Some(s) = mod_names(
             self.modifiers,
             Modifiers::OPT_LEFT,
@@ -112,10 +86,7 @@ impl Hotkey {
             parts.push(s);
         }
 
-        #[cfg(target_os = "macos")]
         let cmd_name = "command";
-        #[cfg(not(target_os = "macos"))]
-        let cmd_name = "super";
         if let Some(s) = mod_names(
             self.modifiers,
             Modifiers::CMD_LEFT,
@@ -126,7 +97,6 @@ impl Hotkey {
             parts.push(s);
         }
 
-        #[cfg(target_os = "macos")]
         if self.modifiers.contains(Modifiers::FN) {
             parts.push("fn".to_string());
         }

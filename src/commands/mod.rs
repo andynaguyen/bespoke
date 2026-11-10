@@ -88,14 +88,10 @@ pub fn initialize_enigo(app: AppHandle) -> Result<(), String> {
             Ok(())
         }
         Err(e) => {
-            if cfg!(target_os = "macos") {
-                log::warn!(
-                    "Failed to initialize Enigo: {} (accessibility permissions may not be granted)",
-                    e
-                );
-            } else {
-                log::warn!("Failed to initialize Enigo: {}", e);
-            }
+            log::warn!(
+                "Failed to initialize Enigo: {} (accessibility permissions may not be granted)",
+                e
+            );
             Err(format!("Failed to initialize input system: {}", e))
         }
     }

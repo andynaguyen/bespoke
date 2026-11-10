@@ -8,7 +8,7 @@ use gpui_component::input::{InputEvent, InputState};
 
 use crate::i18n::{t, t_with};
 use crate::managers::history::HistoryManager;
-use crate::settings::{AppSettings, PasteMethod, TypingTool};
+use crate::settings::{AppSettings, PasteMethod};
 use crate::shortcut;
 use crate::ui::components::{
     Dropdown, DropdownOption, RowDirection, SettingContainer, SettingsGroup, Spinner, TextField,
@@ -38,7 +38,6 @@ pub struct DictationSettings {
     external_script: Entity<InputState>,
     history_limit: Entity<InputState>,
     channels: (String, u16),
-    typing_tools: Vec<String>,
 }
 
 fn picker_language(code: &str) -> String {
@@ -193,30 +192,11 @@ impl DictationSettings {
             external_script,
             history_limit,
             channels: (String::new(), 1),
-            typing_tools: if cfg!(target_os = "linux") {
-                vec!["auto".into()]
-            } else {
-                Vec::new()
-            },
             store,
             models,
         };
         this.refresh_channels(cx);
         this.sync_language(cx);
-        if cfg!(target_os = "linux") {
-            cx.spawn(async move |this, cx| {
-                let Ok(tools) =
-                    crate::runtime::spawn_blocking(shortcut::get_available_typing_tools).await
-                else {
-                    return;
-                };
-                let _ = this.update(cx, |this, cx| {
-                    this.typing_tools = tools;
-                    cx.notify();
-                });
-            })
-            .detach();
-        }
         this
     }
 
@@ -441,61 +421,6 @@ impl DictationSettings {
             )
             .into_any_element()
     }
-
-    fn typing_tool_row(&self, s: &AppSettings, cx: &App) -> Option<AnyElement> {
-        if !cfg!(target_os = "linux") || s.paste_method != PasteMethod::Direct {
-            return None;
-        }
-        let tools = if self.typing_tools.is_empty() {
-            vec!["auto".to_string()]
-        } else {
-            self.typing_tools.clone()
-        };
-        let options = tools
-            .iter()
-            .map(|tool| {
-                let label: SharedString = if tool == "auto" {
-                    t("settings.advanced.typingTool.options.auto")
-                } else {
-                    tool.clone().into()
-                };
-                DropdownOption::new(tool.clone(), label)
-            })
-            .collect();
-        let selected = match s.typing_tool {
-            TypingTool::Auto => "auto",
-            TypingTool::Wtype => "wtype",
-            TypingTool::Kwtype => "kwtype",
-            TypingTool::Dotool => "dotool",
-            TypingTool::Ydotool => "ydotool",
-            TypingTool::Xdotool => "xdotool",
-        };
-        Some(rows::dropdown(
-            "typing_tool",
-            "settings.advanced.typingTool.title",
-            "settings.advanced.typingTool.description",
-            options,
-            selected,
-            cx,
-            |value, cx| {
-                let tool = match value.as_ref() {
-                    "wtype" => TypingTool::Wtype,
-                    "kwtype" => TypingTool::Kwtype,
-                    "dotool" => TypingTool::Dotool,
-                    "ydotool" => TypingTool::Ydotool,
-                    "xdotool" => TypingTool::Xdotool,
-                    _ => TypingTool::Auto,
-                };
-                let value = value.to_string();
-                set(
-                    cx,
-                    "typing_tool",
-                    move |s| s.typing_tool = tool,
-                    move |app| shortcut::change_typing_tool_setting(app, value),
-                )
-            },
-        ))
-    }
 }
 
 impl DictationSettings {
@@ -629,18 +554,13 @@ impl DictationSettings {
             .title(t("settings.advanced.groups.shortcut"))
             .child(self.transcribe_shortcut.clone())
             .child(rows::shortcut_activation(s, cx));
-        if cfg!(target_os = "linux") {
-            group
-        } else {
-            group.child(self.cancel_shortcut.clone())
-        }
+        group.child(self.cancel_shortcut.clone())
     }
 
     fn pasting_group(&self, s: &AppSettings, cx: &App) -> SettingsGroup {
         SettingsGroup::new()
             .title(t("settings.advanced.groups.pasting"))
             .child(self.paste_method_row(s, cx))
-            .children(self.typing_tool_row(s, cx))
             .child(rows::clipboard_handling(s, cx))
     }
 

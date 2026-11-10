@@ -8,18 +8,8 @@ use gpui::Window;
 // `show_window` shows a hidden window and gives it focus.
 pub use imp::{hide_window, is_window_visible, show_window};
 
-pub fn set_title_bar_dark(window: &Window, dark: bool) {
-    #[cfg(target_os = "windows")]
-    imp::set_title_bar_dark(window, dark);
-    #[cfg(not(target_os = "windows"))]
-    let _ = (window, dark);
-}
-
 pub fn prepare_overlay_window(window: &Window) {
-    #[cfg(target_os = "macos")]
     imp::prepare_overlay_window(window);
-    #[cfg(not(target_os = "macos"))]
-    let _ = window;
 }
 
 /// Rounds the main window's frame at `radius::WINDOW`, the radius its glass
@@ -27,34 +17,21 @@ pub fn prepare_overlay_window(window: &Window) {
 /// draws its hairline and shadow there, which left a sliver of desktop
 /// between the frame and the glass at each corner.
 pub fn prepare_main_window(window: &Window) {
-    #[cfg(target_os = "macos")]
     imp::prepare_main_window(window);
-    #[cfg(not(target_os = "macos"))]
-    let _ = window;
 }
 
 pub fn reduce_motion() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        objc2_app_kit::NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        false
-    }
+    objc2_app_kit::NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
 }
 
-#[cfg(target_os = "macos")]
 pub use imp::{
     CursorScreen, accessibility_granted, launch_as_accessory, microphone_authorization,
     microphone_granted, prevent_panels_from_taking_focus, request_accessibility,
     request_microphone, set_activation_policy_regular, set_app_appearance,
 };
 
-#[cfg(target_os = "macos")]
 pub use imp::capsule;
 
-#[cfg(target_os = "macos")]
 mod imp {
     use gpui::Window;
     use objc2::rc::Retained;
@@ -573,100 +550,5 @@ mod imp {
                 visible_bottom: frame.origin.y + frame.size.height - visible.origin.y,
             })
         }
-    }
-}
-
-#[cfg(target_os = "windows")]
-mod imp {
-    use gpui::Window;
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        IsWindowVisible, SW_HIDE, SW_RESTORE, SW_SHOW, SetForegroundWindow, ShowWindow,
-    };
-
-    fn hwnd(window: &Window) -> Option<HWND> {
-        let handle = HasWindowHandle::window_handle(window).ok()?;
-        let RawWindowHandle::Win32(handle) = handle.as_raw() else {
-            return None;
-        };
-        Some(HWND(handle.hwnd.get() as *mut _))
-    }
-
-    pub fn set_title_bar_dark(window: &Window, dark: bool) {
-        use windows::Win32::Graphics::Dwm::{DWMWA_USE_IMMERSIVE_DARK_MODE, DwmSetWindowAttribute};
-        let Some(hwnd) = hwnd(window) else {
-            return;
-        };
-        let value: i32 = dark.into();
-        // SAFETY: `value` is a BOOL-sized integer that outlives the call, and
-        // the attribute takes exactly that.
-        unsafe {
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_USE_IMMERSIVE_DARK_MODE,
-                &value as *const i32 as *const core::ffi::c_void,
-                std::mem::size_of::<i32>() as u32,
-            );
-        }
-    }
-
-    pub fn hide_window(window: &Window, cx: &gpui::App) -> bool {
-        let Some(hwnd) = hwnd(window) else {
-            return false;
-        };
-        let raw = hwnd.0 as isize;
-        cx.foreground_executor()
-            .spawn(async move {
-                // SAFETY: GPUI owns this live window handle.
-                unsafe {
-                    let _ = ShowWindow(HWND(raw as *mut _), SW_HIDE);
-                }
-            })
-            .detach();
-        true
-    }
-
-    pub fn show_window(window: &Window, cx: &gpui::App) {
-        let Some(hwnd) = hwnd(window) else {
-            return;
-        };
-        let raw = hwnd.0 as isize;
-        cx.foreground_executor()
-            .spawn(async move {
-                let hwnd = HWND(raw as *mut _);
-                // SAFETY: GPUI owns this live window handle.
-                unsafe {
-                    let _ = ShowWindow(hwnd, SW_SHOW);
-                    let _ = ShowWindow(hwnd, SW_RESTORE);
-                    let _ = SetForegroundWindow(hwnd);
-                }
-            })
-            .detach();
-    }
-
-    pub fn is_window_visible(window: &Window) -> bool {
-        // SAFETY: GPUI owns this live window handle.
-        hwnd(window).is_some_and(|hwnd| unsafe { IsWindowVisible(hwnd).as_bool() })
-    }
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-mod imp {
-    use gpui::Window;
-
-    /// GPUI on Linux cannot unmap a window, and it ends the app when the
-    /// last window closes. Minimizing keeps the window, and with it the app.
-    pub fn hide_window(window: &Window, _cx: &gpui::App) -> bool {
-        window.minimize_window();
-        true
-    }
-
-    pub fn show_window(window: &Window, _cx: &gpui::App) {
-        window.activate_window();
-    }
-
-    pub fn is_window_visible(_window: &Window) -> bool {
-        true
     }
 }

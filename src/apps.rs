@@ -4,7 +4,6 @@ pub struct InstalledApp {
     pub name: String,
 }
 
-#[cfg(target_os = "macos")]
 pub fn installed_apps() -> Vec<InstalledApp> {
     use objc2_foundation::{NSBundle, NSString};
     use std::path::PathBuf;
@@ -42,12 +41,6 @@ pub fn installed_apps() -> Vec<InstalledApp> {
     apps
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn installed_apps() -> Vec<InstalledApp> {
-    Vec::new()
-}
-
-#[cfg(target_os = "macos")]
 pub fn icon_png(bundle_id: &str, pixels: f64) -> Option<Vec<u8>> {
     use objc2::AnyThread;
     use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSWorkspace};
@@ -66,9 +59,4 @@ pub fn icon_png(bundle_id: &str, pixels: f64) -> Option<Vec<u8>> {
         rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
     }?;
     Some(data.to_vec())
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn icon_png(_bundle_id: &str, _pixels: f64) -> Option<Vec<u8>> {
-    None
 }

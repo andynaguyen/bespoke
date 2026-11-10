@@ -113,13 +113,11 @@ The remote-control flags work through `single_instance.rs`: the second instance 
 
 ## Debug mode
 
-`Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows and Linux) toggles debug mode.
+`Cmd+Shift+D` toggles debug mode.
 
 ## Platform notes
 
-- **macOS** is the only platform that has been built and run. It uses Metal acceleration, and global shortcuts need the Accessibility permission.
-- **Windows** code paths exist but have never been compiled. `main.rs` sets `VK_LOADER_LAYERS_DISABLE=~implicit~` to disable implicit Vulkan layers (overlays, capture hooks). Opt out with `BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS=1` or by setting `VK_LOADER_LAYERS_DISABLE` yourself.
-- **Linux** code paths exist but have never been compiled.
+Bespoke supports macOS only, and a build for another OS fails at compile time.
 
 ## Data location
 

@@ -109,8 +109,7 @@
       "waiting": "ממתין...",
       "allGranted": "הכול מוכן!",
       "errors": {
-        "checkFailed": "בדיקת ההרשאות נכשלה. נסה שוב.",
-        "requestFailed": "בקשת ההרשאה נכשלה. נסה שוב."
+        "checkFailed": "בדיקת ההרשאות נכשלה. נסה שוב."
       }
     }
   },
@@ -291,20 +290,10 @@
         "description": "בחר איך הטקסט יוכנס. ישיר: מדמה הקלדה דרך קלט המערכת. ללא: מדלג על הדבקה ומעדכן רק היסטוריה/לוח.",
         "options": {
           "clipboard": "לוח ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "לוח (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "לוח (Shift+Insert)",
           "direct": "ישיר",
-          "none": "ללא",
-          "externalScript": "סקריפט חיצוני"
+          "none": "ללא"
         },
         "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "כלי הקלדה",
-        "description": "בחר איזה כלי הקלדה בלינוקס ישמש עבור הדבקה ישירה. מצב אוטומטי יזהה וישתמש בכלי המתאים ביותר למערכת שלך.",
-        "options": {
-          "auto": "אוטומטי (מומלץ)"
-        }
       },
       "clipboardHandling": {
         "title": "התנהגות הלוח",
@@ -321,7 +310,6 @@
           "off": "כבוי",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -619,9 +607,7 @@
     "micPermissionDeniedTitle": "הגישה למיקרופון נדחתה",
     "micPermissionDenied": {
       "generic": "מערכת ההפעלה חסמה את הגישה למיקרופון. תן הרשאת מיקרופון בהגדרות המערכת.",
-      "windows": "הפעל גישה למיקרופון ב-Settings > Privacy & security > Microphone, כולל גישה לאפליקציות שולחן עבודה.",
-      "macos": "תן גישה למיקרופון ב-System Settings > Privacy & Security > Microphone.",
-      "linux": "תן גישה למיקרופון דרך הגדרות השמע או הפרטיות במערכת שלך."
+      "macos": "תן גישה למיקרופון ב-System Settings > Privacy & Security > Microphone."
     },
     "noInputDeviceTitle": "לא נמצא מיקרופון",
     "noInputDevice": "לא זוהה התקן קלט שמע. חבר מיקרופון או אוזנייה ונסה שוב.",

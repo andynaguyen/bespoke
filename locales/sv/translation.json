@@ -109,8 +109,7 @@
       "waiting": "Väntar...",
       "allGranted": "Allt klart!",
       "errors": {
-        "checkFailed": "Misslyckades med att kontrollera behörigheter. Försök igen.",
-        "requestFailed": "Misslyckades med att begära behörighet. Försök igen."
+        "checkFailed": "Misslyckades med att kontrollera behörigheter. Försök igen."
       }
     }
   },
@@ -291,20 +290,10 @@
         "description": "Välj hur text infogas. Direkt: simulerar skrivande via systeminmatning. Ingen: hoppar över klistra in, uppdaterar endast historik/urklipp.",
         "options": {
           "clipboard": "Urklipp ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Urklipp (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Urklipp (Shift+Insert)",
           "direct": "Direkt",
-          "none": "Ingen",
-          "externalScript": "Externt skript"
+          "none": "Ingen"
         },
         "externalScriptPlaceholder": "/sökväg/till/ditt/skript.sh"
-      },
-      "typingTool": {
-        "title": "Skrivverktyg",
-        "description": "Välj vilket Linux-skrivverktyg som ska användas för metoden Direkt klistra in. Auto kommer automatiskt att upptäcka och använda det bästa tillgängliga verktyget för ditt system.",
-        "options": {
-          "auto": "Auto (Rekommenderas)"
-        }
       },
       "clipboardHandling": {
         "title": "Hantering av urklipp",
@@ -321,7 +310,6 @@
           "off": "Av",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -617,9 +605,7 @@
     "micPermissionDeniedTitle": "Mikrofonåtkomst nekad",
     "micPermissionDenied": {
       "generic": "Mikrofonåtkomst nekades av operativsystemet. Bevilja mikrofonbehörighet i dina systeminställningar.",
-      "windows": "Aktivera mikrofonåtkomst i Inställningar → Integritet och säkerhet → Mikrofon (inklusive åtkomst till skrivbordsappar).",
-      "macos": "Bevilja mikrofonåtkomst i Systeminställningar → Integritet och säkerhet → Mikrofon.",
-      "linux": "Bevilja mikrofonåtkomst i systemets ljud- eller integritetsinställningar."
+      "macos": "Bevilja mikrofonåtkomst i Systeminställningar → Integritet och säkerhet → Mikrofon."
     },
     "recordingFailed": "Misslyckades med att starta inspelning: {{error}}",
     "modelLoadFailed": "Misslyckades med att ladda modell: {{model}}",

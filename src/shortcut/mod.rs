@@ -12,7 +12,7 @@ use crate::settings::APPLE_INTELLIGENCE_DEFAULT_MODEL_ID;
 use crate::settings::{
     self, APPLE_INTELLIGENCE_PROVIDER_ID, AutoSubmitKey, ClipboardHandling, KeyboardImplementation,
     LLMPrompt, OverlayPosition, OverlayStyle, PasteMethod, ShortcutActivation, ShortcutBinding,
-    SoundTheme, Theme, TypingTool, VadBackend, get_settings,
+    SoundTheme, Theme, VadBackend, get_settings,
 };
 use crate::tray;
 
@@ -145,7 +145,6 @@ pub fn change_binding(
 
     settings.bindings.insert(id.clone(), updated_binding);
 
-    #[cfg(target_os = "macos")]
     if crate::annotate::is_annotate_binding(&id) {
         crate::annotate::sync_shortcuts(&settings);
     }
@@ -193,7 +192,6 @@ fn startup_bindings(app: &AppHandle) -> Vec<(String, ShortcutBinding)> {
 }
 
 pub fn suspend_all_shortcuts(app: &AppHandle) {
-    #[cfg(target_os = "macos")]
     crate::annotate::capture::pause_shortcuts(true);
     for (id, binding) in settings::get_bindings(app) {
         if id == "cancel" {
@@ -209,7 +207,6 @@ pub fn suspend_all_shortcuts(app: &AppHandle) {
 }
 
 pub fn resume_all_shortcuts(app: &AppHandle) {
-    #[cfg(target_os = "macos")]
     crate::annotate::capture::pause_shortcuts(false);
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
@@ -701,36 +698,6 @@ pub fn change_paste_method_setting(app: AppHandle, method: String) -> Result<(),
         }
     };
     settings.paste_method = parsed;
-    settings::write_settings(&app, settings);
-    Ok(())
-}
-
-pub fn get_available_typing_tools() -> Vec<String> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::clipboard::get_available_typing_tools()
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        vec!["auto".to_string()]
-    }
-}
-
-pub fn change_typing_tool_setting(app: AppHandle, tool: String) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    let parsed = match tool.as_str() {
-        "auto" => TypingTool::Auto,
-        "wtype" => TypingTool::Wtype,
-        "kwtype" => TypingTool::Kwtype,
-        "dotool" => TypingTool::Dotool,
-        "ydotool" => TypingTool::Ydotool,
-        "xdotool" => TypingTool::Xdotool,
-        other => {
-            warn!("Invalid typing tool '{}', defaulting to auto", other);
-            TypingTool::Auto
-        }
-    };
-    settings.typing_tool = parsed;
     settings::write_settings(&app, settings);
     Ok(())
 }

@@ -15,20 +15,17 @@ use crate::ui::theme::{Alpha, palette, radius};
 
 const DIALOG_WIDTH: f32 = 540.;
 
-#[cfg(target_os = "macos")]
 const ATTACH_FINISHED_WITHIN_MS: u64 = 10 * 60 * 1000;
 
 #[derive(Default)]
 struct Draft {
     agent: Option<Handoff>,
-    #[cfg(target_os = "macos")]
     reopen_after_recording: bool,
 }
 
 impl Global for Draft {}
 
 /// Opens Triage again when the capture that Record started finishes. Call once at startup.
-#[cfg(target_os = "macos")]
 pub fn init(cx: &mut App) {
     cx.subscribe(
         &crate::ui::event_bus::event_bus(cx),
@@ -49,7 +46,6 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
-#[cfg(target_os = "macos")]
 fn now_ms() -> u64 {
     chrono::Utc::now().timestamp_millis().max(0) as u64
 }
@@ -133,7 +129,6 @@ impl TriageDialog {
             agent,
             capture: None,
         };
-        #[cfg(target_os = "macos")]
         {
             cx.observe(&crate::ui::stores::SettingsStore::global(cx), |_, _, cx| {
                 cx.notify()
@@ -144,7 +139,6 @@ impl TriageDialog {
         this
     }
 
-    #[cfg(target_os = "macos")]
     fn attach_finished_captures(&mut self, cx: &mut Context<Self>) {
         cx.subscribe(
             &crate::ui::event_bus::event_bus(cx),
@@ -163,7 +157,6 @@ impl TriageDialog {
         );
     }
 
-    #[cfg(target_os = "macos")]
     fn attach(&mut self, capture: Option<crate::annotate::handoff::Finished>) {
         if let Some(capture) = capture.filter(|capture| capture.dir.is_dir()) {
             self.capture = Some(Attached {
@@ -173,7 +166,6 @@ impl TriageDialog {
         }
     }
 
-    #[cfg(target_os = "macos")]
     fn record(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let draft = cx.default_global::<Draft>();
         draft.agent = Some(self.agent);
@@ -188,7 +180,6 @@ impl TriageDialog {
         close_dialog(window, cx);
     }
 
-    #[cfg(target_os = "macos")]
     fn show_step(&self, cx: &mut Context<Self>) -> Option<Step> {
         let p = palette(cx);
         let detail = match &self.capture {
@@ -254,11 +245,6 @@ impl TriageDialog {
                     .child(detail),
             )
         })
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    fn show_step(&self, _cx: &mut Context<Self>) -> Option<Step> {
-        None
     }
 
     fn agent_step(&self, cx: &mut Context<Self>) -> Step {
@@ -441,7 +427,6 @@ fn agent_icon(handoff: Handoff) -> &'static str {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn show_hint(cx: &App) -> impl IntoElement {
     let p = palette(cx);
     let hint = t("triage.showHint");
@@ -472,7 +457,6 @@ fn show_hint(cx: &App) -> impl IntoElement {
     })
 }
 
-#[cfg(target_os = "macos")]
 fn capture_label(created_at_ms: u64, duration: &str) -> SharedString {
     use chrono::TimeZone;
     let time = chrono::Local

@@ -22,13 +22,6 @@ pub fn run(
     listener: single_instance::Listener,
     cx: &mut App,
 ) {
-    #[cfg(target_os = "windows")]
-    log::info!(
-        "Vulkan layer policy: VK_LOADER_LAYERS_DISABLE={:?}, BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS={}",
-        std::env::var_os("VK_LOADER_LAYERS_DISABLE"),
-        utils::env_flag_enabled("BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS"),
-    );
-
     let cli_args = app.state::<CliArgs>().inner().clone();
     let mut settings = get_settings(&app);
 
@@ -59,18 +52,13 @@ pub fn run(
         tray::set_tray_visibility(&app, false);
     }
 
-    #[cfg(target_os = "windows")]
-    let force_show = should_force_show_permissions_window(&app);
-    #[cfg(not(target_os = "windows"))]
-    let force_show = false;
-    let show = force_show || !starts_hidden(&app);
+    let show = !starts_hidden(&app);
     #[cfg(debug_assertions)]
     let show = show || ui::dev_snapshot::requested();
     ui::open_main_window(show, cx);
     #[cfg(debug_assertions)]
     ui::dev_snapshot::start(cx);
 
-    #[cfg(target_os = "macos")]
     crate::annotate::start(&app, cx);
 
     let forward_app = app.clone();
@@ -99,7 +87,6 @@ pub fn starts_hidden(app: &AppHandle) -> bool {
 /// likely looking for a tray icon that vanished (#1948): recreate it. When
 /// the window is already visible this is just a focus request.
 pub fn on_reopen(cx: &mut App) {
-    #[cfg(target_os = "macos")]
     if !ui::is_main_window_visible(cx) {
         tray::recreate_tray_icon(AppHandle::global());
     }
@@ -117,31 +104,9 @@ fn handle_second_instance(app: &AppHandle, args: &[String]) {
         // Launched without remote-control flags (e.g. the binary run from a
         // shell): raise the window and recreate a possibly vanished tray
         // icon (#1948).
-        #[cfg(target_os = "macos")]
         tray::recreate_tray_icon(app);
         app.with_ui(ui::show_main_window);
     }
-}
-
-#[cfg(target_os = "windows")]
-fn should_force_show_permissions_window(app: &AppHandle) -> bool {
-    let has_downloaded_models = app
-        .state::<Arc<ModelManager>>()
-        .get_available_models()
-        .iter()
-        .any(|model| model.is_downloaded);
-    if !has_downloaded_models {
-        return false;
-    }
-
-    let status = crate::commands::audio::get_windows_microphone_permission_status();
-    if status.overall_access == crate::commands::audio::PermissionAccess::Denied {
-        log::info!(
-            "Windows microphone permissions are denied; forcing main window visible for onboarding"
-        );
-        return true;
-    }
-    false
 }
 
 fn initialize_core_logic(app_handle: &AppHandle) {
@@ -170,7 +135,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(voice_submit);
     app_handle.manage(tray::TrayState::new());
 
-    #[cfg(unix)]
     signal_handle::setup_signal_handler(app_handle.clone());
 
     // The global hotkey manager binds to the main run loop, so it is created

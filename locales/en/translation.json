@@ -157,8 +157,7 @@
       "waiting": "Waiting...",
       "allGranted": "All set!",
       "errors": {
-        "checkFailed": "Failed to check permissions. Please try again.",
-        "requestFailed": "Failed to request permission. Please try again."
+        "checkFailed": "Failed to check permissions. Please try again."
       }
     }
   },
@@ -342,11 +341,11 @@
       "acceleration": {
         "transcribe": {
           "title": "transcribe.cpp Acceleration",
-          "description": "Hardware acceleration for transcribe.cpp (Whisper-family) models. Auto uses GPU if available (Metal on macOS, Vulkan on Windows/Linux)."
+          "description": "Hardware acceleration for transcribe.cpp (Whisper-family) models. Auto uses the GPU through Metal when one is available."
         },
         "ort": {
           "title": "ONNX Acceleration",
-          "description": "Hardware acceleration for ONNX models (Parakeet, Canary, Moonshine, etc.). DirectML on Windows is experimental. Models may fail to transcribe."
+          "description": "Hardware acceleration for ONNX models (Parakeet, Canary, Moonshine, etc.). Models may fail to transcribe."
         },
         "gpuDevice": {
           "auto": "Auto"
@@ -388,20 +387,10 @@
         "description": "Choose how text is inserted. Direct: simulates typing via system input. None: skips paste, only updates history/clipboard.",
         "options": {
           "clipboard": "Clipboard ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Clipboard (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Clipboard (Shift+Insert)",
           "direct": "Direct",
-          "none": "None",
-          "externalScript": "External Script"
+          "none": "None"
         },
         "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "Typing Tool",
-        "description": "Choose which Linux typing tool to use for Direct paste method. Auto will automatically detect and use the best available tool for your system.",
-        "options": {
-          "auto": "Auto (Recommended)"
-        }
       },
       "clipboardHandling": {
         "title": "Clipboard Handling",
@@ -413,12 +402,11 @@
       },
       "autoSubmit": {
         "title": "Auto Submit",
-        "description": "Automatically send the selected key combination after text insertion. Cmd+Enter applies on macOS, while Windows/Linux use Super+Enter.",
+        "description": "Automatically send the selected key combination after text insertion.",
         "options": {
           "off": "Off",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -624,8 +612,7 @@
         "loading": "Loading apps…",
         "noMatch": "No apps match.",
         "noneLeft": "Every app here has a rule."
-      },
-      "macOSOnly": "Per-app style is only available on macOS. Dictations use {{style}}."
+      }
     },
     "history": {
       "title": "History",
@@ -754,7 +741,7 @@
       },
       "reliablePaste": {
         "title": "Reliable Paste (Beta)",
-        "description": "Restore the clipboard only after the target app actually reads the transcription, instead of after a fixed delay. Intended to fix old clipboard content being pasted under system load. Requires a clipboard paste method; macOS and Windows only."
+        "description": "Restore the clipboard only after the target app actually reads the transcription, instead of after a fixed delay. Intended to fix old clipboard content being pasted under system load. Requires a clipboard paste method."
       },
       "recordingBuffer": {
         "title": "Extra Recording Buffer",
@@ -833,9 +820,7 @@
     "micPermissionDeniedTitle": "Microphone Access Denied",
     "micPermissionDenied": {
       "generic": "Microphone access was denied by the operating system. Please grant microphone permission in your system settings.",
-      "windows": "Enable microphone access in Settings → Privacy & security → Microphone (including desktop app access).",
-      "macos": "Grant microphone access in System Settings → Privacy & Security → Microphone.",
-      "linux": "Grant microphone access in your system's sound or privacy settings."
+      "macos": "Grant microphone access in System Settings → Privacy & Security → Microphone."
     },
     "noInputDeviceTitle": "No Microphone Found",
     "noInputDevice": "No audio input device was detected. Please connect a microphone or headset and try again.",

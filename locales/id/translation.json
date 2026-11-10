@@ -109,8 +109,7 @@
       "waiting": "Menunggu...",
       "allGranted": "Semua siap!",
       "errors": {
-        "checkFailed": "Gagal memeriksa izin. Silakan coba lagi.",
-        "requestFailed": "Gagal meminta izin. Silakan coba lagi."
+        "checkFailed": "Gagal memeriksa izin. Silakan coba lagi."
       }
     }
   },
@@ -291,20 +290,10 @@
         "description": "Pilih cara teks dimasukkan. Langsung: mensimulasikan pengetikan melalui masukan sistem. Tidak Ada: melewati proses tempel dan hanya memperbarui riwayat/papan klip.",
         "options": {
           "clipboard": "Papan klip ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Papan klip (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Papan klip (Shift+Insert)",
           "direct": "Langsung",
-          "none": "Tidak Ada",
-          "externalScript": "Skrip Eksternal"
+          "none": "Tidak Ada"
         },
         "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "Alat Pengetikan",
-        "description": "Pilih alat pengetikan Linux yang digunakan untuk metode tempel Langsung. Otomatis akan mendeteksi dan menggunakan alat terbaik yang tersedia untuk sistem Anda.",
-        "options": {
-          "auto": "Otomatis (Direkomendasikan)"
-        }
       },
       "clipboardHandling": {
         "title": "Penanganan Papan Klip",
@@ -321,7 +310,6 @@
           "off": "Nonaktif",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -620,9 +608,7 @@
     "micPermissionDeniedTitle": "Akses Mikrofon Ditolak",
     "micPermissionDenied": {
       "generic": "Akses mikrofon ditolak oleh sistem operasi. Berikan izin mikrofon di pengaturan sistem Anda.",
-      "windows": "Aktifkan akses mikrofon di Settings → Privacy & security → Microphone (termasuk akses aplikasi desktop).",
-      "macos": "Berikan akses mikrofon di System Settings → Privacy & Security → Microphone.",
-      "linux": "Berikan akses mikrofon di pengaturan suara atau privasi sistem Anda."
+      "macos": "Berikan akses mikrofon di System Settings → Privacy & Security → Microphone."
     },
     "noInputDeviceTitle": "Mikrofon Tidak Ditemukan",
     "noInputDevice": "Tidak ada perangkat masukan audio yang terdeteksi. Hubungkan mikrofon atau headset lalu coba lagi.",

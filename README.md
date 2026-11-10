@@ -90,13 +90,9 @@ Settings, history, recordings and Annotate captures live in `~/Library/Applicati
 
 ## Known limitations
 
-- **Platforms.** Only the macOS build has been compiled and run. The Windows and Linux code paths have never been compiled.
 - **Screen readers.** GPUI exposes no accessibility tree, so screen readers get no labels. Keyboard use works: Tab moves through controls and stays inside open dialogs, Enter and Space activate, arrow keys move sliders and heatmap days, and Escape closes menus.
-- **Linux windows.** GPUI cannot hide a window and ends the app when the last window closes. Closing the main window therefore minimizes it, and starting hidden starts minimized.
-- **Overlay placement.** On Wayland the compositor places the overlay. On Windows the overlay is centered on the display under the cursor, without DPI or text-scale adjustments.
 - **Overlay window lifetime.** The overlay window opens on each show and closes 300ms after hiding. Its pop-in fades without a scale effect, because GPUI cannot scale an element.
 - **Right-to-left languages.** Rows, margins and the toggle knob mirror. Text inputs keep left-aligned text, the slider and the recording seek bar stay left to right, and long wrapped Arabic or Hebrew lines can clip at the left edge (GPUI's bidi line wrapping).
-- **Shortcut recorder on Windows and Linux.** Key names come from the logical key, so numpad keys and non-US layouts can store different names than the physical key.
 - **Signing.** Releases are signed with a self-signed identity and aren't notarized, so macOS asks you to approve the first launch.
 
 ## Contributing

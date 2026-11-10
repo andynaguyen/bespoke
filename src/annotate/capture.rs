@@ -1280,7 +1280,6 @@ pub fn write_bundle_artifacts(
 ) -> Result<()> {
     std::fs::create_dir_all(out_dir.join("frames"))
         .with_context(|| format!("could not create {}", out_dir.display()))?;
-    #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(out_dir, std::fs::Permissions::from_mode(0o700));

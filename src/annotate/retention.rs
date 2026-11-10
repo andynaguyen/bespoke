@@ -169,7 +169,6 @@ fn modified_ago(path: &Path, now: SystemTime) -> Option<Duration> {
     Some(now.duration_since(modified).unwrap_or_default())
 }
 
-#[cfg(unix)]
 fn changed_ago(path: &Path, now: SystemTime) -> Option<Duration> {
     use std::os::unix::fs::MetadataExt;
     let meta = path.metadata().ok()?;

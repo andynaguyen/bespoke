@@ -9,12 +9,6 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-#[cfg(target_os = "windows")]
-use winreg::{
-    HKEY, RegKey,
-    enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
-};
-
 #[derive(Serialize, Clone, Copy, Default)]
 pub struct CustomSounds {
     pub start: bool,
@@ -38,86 +32,6 @@ pub struct AudioDevice {
     pub index: String,
     pub name: String,
     pub is_default: bool,
-}
-
-#[cfg(target_os = "windows")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PermissionAccess {
-    Allowed,
-    Denied,
-    Unknown,
-}
-
-#[cfg(target_os = "windows")]
-#[derive(Debug, Clone)]
-pub struct WindowsMicrophonePermissionStatus {
-    pub overall_access: PermissionAccess,
-    pub device_access: PermissionAccess,
-    pub app_access: PermissionAccess,
-    pub desktop_app_access: PermissionAccess,
-}
-
-#[cfg(target_os = "windows")]
-fn read_registry_permission_access(root_hkey: HKEY, path: &str) -> PermissionAccess {
-    let root = RegKey::predef(root_hkey);
-    let Ok(key) = root.open_subkey(path) else {
-        return PermissionAccess::Unknown;
-    };
-
-    let Ok(value) = key.get_value::<String, _>("Value") else {
-        return PermissionAccess::Unknown;
-    };
-
-    match value.to_ascii_lowercase().as_str() {
-        "allow" => PermissionAccess::Allowed,
-        "deny" => PermissionAccess::Denied,
-        _ => PermissionAccess::Unknown,
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub fn get_windows_microphone_permission_status() -> WindowsMicrophonePermissionStatus {
-    const MICROPHONE_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone";
-    const DESKTOP_APPS_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone\\NonPackaged";
-
-    let device_access = read_registry_permission_access(HKEY_LOCAL_MACHINE, MICROPHONE_PATH);
-    let app_access = read_registry_permission_access(HKEY_CURRENT_USER, MICROPHONE_PATH);
-    let desktop_app_access = read_registry_permission_access(HKEY_CURRENT_USER, DESKTOP_APPS_PATH);
-
-    // Bespoke is a desktop app, so the NonPackaged key (desktop_app_access) is
-    // the relevant permission scope. The UWP master key (app_access) can be
-    // "deny" on systems with debloaters (e.g. O&O ShutUp10) without actually
-    // blocking desktop app microphone access.
-    let overall_access = if device_access == PermissionAccess::Denied {
-        PermissionAccess::Denied
-    } else if desktop_app_access == PermissionAccess::Denied {
-        PermissionAccess::Denied
-    } else if desktop_app_access == PermissionAccess::Allowed {
-        PermissionAccess::Allowed
-    } else if app_access == PermissionAccess::Denied {
-        PermissionAccess::Denied
-    } else if device_access == PermissionAccess::Allowed && app_access == PermissionAccess::Allowed
-    {
-        PermissionAccess::Allowed
-    } else {
-        PermissionAccess::Unknown
-    };
-
-    WindowsMicrophonePermissionStatus {
-        overall_access,
-        device_access,
-        app_access,
-        desktop_app_access,
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub fn open_microphone_privacy_settings() -> Result<(), String> {
-    std::process::Command::new("cmd")
-        .args(["/C", "start", "", "ms-settings:privacy-microphone"])
-        .spawn()
-        .map_err(|e| format!("Failed to open Windows microphone privacy settings: {}", e))?;
-    Ok(())
 }
 
 pub async fn update_microphone_mode(app: AppHandle, always_on: bool) -> Result<(), String> {

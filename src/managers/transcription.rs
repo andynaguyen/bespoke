@@ -333,7 +333,6 @@ impl EngineOutput {
         self
     }
 
-    #[cfg(target_os = "macos")]
     fn from_apple(transcript: crate::annotate::model::TranscriptData) -> Result<Self> {
         if let Some(missing) = transcript.missing {
             anyhow::bail!("Apple Speech: {}", missing.reason);
@@ -359,17 +358,11 @@ impl EngineOutput {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn run_apple_speech(audio: &[f32], settings: &AppSettings) -> Result<EngineOutput> {
     EngineOutput::from_apple(crate::apple_speech::transcribe(
         audio,
         &settings.custom_words,
     )?)
-}
-
-#[cfg(not(target_os = "macos"))]
-fn run_apple_speech(_audio: &[f32], _settings: &AppSettings) -> Result<EngineOutput> {
-    anyhow::bail!("Apple Speech needs macOS 26")
 }
 
 /// Times are milliseconds from the start of the audio.
@@ -1888,8 +1881,7 @@ fn resolve_device_index(index: usize) -> Result<(Backend, Option<transcribe_cpp:
 /// `Auto` lets the library pick the best device (with CPU fallback), while
 /// `Cpu` forces strict CPU. `Gpu` only remains as the companion setting for an
 /// exact device; without a valid exact device it has the retired generic GPU
-/// state's new Auto semantics. An emulated x64 process on Windows ARM64 forces
-/// strict CPU for every setting.
+/// state's new Auto semantics.
 fn select_transcribe_backend(setting: TranscribeAcceleratorSetting) -> Backend {
     select_transcribe_backend_for_host(setting, transcribe_gpu_disabled_for_host())
 }
@@ -1979,7 +1971,7 @@ pub struct GpuDeviceOption {
 static GPU_DEVICES: OnceLock<Vec<GpuDeviceOption>> = OnceLock::new();
 
 fn transcribe_gpu_disabled_for_host() -> bool {
-    crate::utils::is_windows_x64_emulated_on_arm64()
+    false
 }
 
 fn effective_transcribe_accelerator(
@@ -2012,12 +2004,6 @@ fn transcribe_compute_devices() -> &'static [transcribe_cpp::Device] {
             warn!("Failed to initialize transcribe-cpp backends: {}", error);
         }
         let gpu_disabled = transcribe_gpu_disabled_for_host();
-        if gpu_disabled {
-            warn!(
-                "Windows x64 build is running under emulation on an ARM64 host; \
-                 disabling transcribe.cpp GPU acceleration and using CPU"
-            );
-        }
         let devices: Vec<_> = transcribe_cpp::devices()
             .into_iter()
             .filter(|device| transcribe_device_allowed(&device.kind, gpu_disabled))

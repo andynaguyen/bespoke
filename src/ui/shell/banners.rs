@@ -22,10 +22,7 @@ pub struct AccessibilityBanner {
 
 impl AccessibilityBanner {
     pub fn new() -> Self {
-        #[cfg(target_os = "macos")]
         let granted = crate::ui::platform::accessibility_granted();
-        #[cfg(not(target_os = "macos"))]
-        let granted = true;
         Self {
             state: if granted {
                 PermissionState::Granted
@@ -36,7 +33,6 @@ impl AccessibilityBanner {
     }
 
     fn on_click(&mut self, cx: &mut Context<Self>) {
-        #[cfg(target_os = "macos")]
         match self.state {
             PermissionState::Request => {
                 crate::ui::platform::request_accessibility();

@@ -109,8 +109,7 @@
       "waiting": "In attesa...",
       "allGranted": "Tutto pronto!",
       "errors": {
-        "checkFailed": "Impossibile verificare i permessi. Riprova.",
-        "requestFailed": "Impossibile richiedere il permesso. Riprova."
+        "checkFailed": "Impossibile verificare i permessi. Riprova."
       }
     }
   },
@@ -291,20 +290,10 @@
         "description": "Scegli come viene inserito il testo. Diretto: simula l'input da tastiera. Nessuno: non incolla, aggiorna solo la cronologia/appunti.",
         "options": {
           "clipboard": "Appunti ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Appunti (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Appunti (Shift+Insert)",
           "direct": "Diretto",
-          "none": "Nessuno",
-          "externalScript": "Script esterno"
+          "none": "Nessuno"
         },
         "externalScriptPlaceholder": "/percorso/del/tuo/script.sh"
-      },
-      "typingTool": {
-        "title": "Strumento di digitazione",
-        "description": "Scegli quale strumento di digitazione Linux usare per il metodo di incolla diretto. Auto rileverà e userà automaticamente lo strumento migliore disponibile per il tuo sistema.",
-        "options": {
-          "auto": "Auto (Consigliato)"
-        }
       },
       "clipboardHandling": {
         "title": "Gestione Appunti",
@@ -321,7 +310,6 @@
           "off": "Disattivato",
           "enter": "Invio",
           "cmdEnter": "Cmd+Invio",
-          "superEnter": "Super+Invio",
           "ctrlEnter": "Ctrl+Invio"
         }
       },
@@ -619,9 +607,7 @@
     "micPermissionDeniedTitle": "Accesso al microfono negato",
     "micPermissionDenied": {
       "generic": "L'accesso al microfono è stato negato dal sistema operativo. Concedi l'autorizzazione al microfono nelle impostazioni di sistema.",
-      "windows": "Abilita l'accesso al microfono in Impostazioni → Privacy e sicurezza → Microfono (incluso l'accesso delle app desktop).",
-      "macos": "Concedi l'accesso al microfono in Impostazioni di Sistema → Privacy e sicurezza → Microfono.",
-      "linux": "Concedi l'accesso al microfono nelle impostazioni audio o sulla privacy del tuo sistema."
+      "macos": "Concedi l'accesso al microfono in Impostazioni di Sistema → Privacy e sicurezza → Microfono."
     },
     "noInputDeviceTitle": "Nessun microfono trovato",
     "noInputDevice": "Non è stato rilevato alcun dispositivo di ingresso audio. Collega un microfono o delle cuffie e riprova.",

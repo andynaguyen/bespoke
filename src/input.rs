@@ -2,15 +2,10 @@ use crate::app_handle::AppHandle;
 use enigo::{Enigo, Key, Keyboard, Mouse, Settings};
 use std::sync::Mutex;
 
-#[cfg(target_os = "windows")]
-const VK_V: u32 = 0x56;
-#[cfg(target_os = "windows")]
-const VK_INSERT: u32 = 0x2D;
-/// X11 keycode 118, Insert.
-#[cfg(not(target_os = "windows"))]
+/// Raw keycode that `send_paste_shift_insert` sends as Insert. enigo passes it to macOS
+/// unchanged, and macOS reads 0x76 as F4, so the paste sends Shift+F4.
 const XK_INSERT_KEYCODE: u32 = 0x76;
 
-#[cfg(target_os = "macos")]
 mod macos {
     use super::Key;
     use log::{debug, warn};
@@ -182,12 +177,7 @@ pub fn send_paste_ctrl_shift_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), St
 }
 
 fn send_paste_chord(enigo: &mut Enigo, shift: bool, hold_ms: u64) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
-    #[cfg(target_os = "windows")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Other(VK_V));
-    #[cfg(target_os = "linux")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
 
     enigo
         .key(modifier_key, enigo::Direction::Press)
@@ -216,9 +206,6 @@ fn send_paste_chord(enigo: &mut Enigo, shift: bool, hold_ms: u64) -> Result<(), 
 }
 
 pub fn send_paste_shift_insert(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    let insert_key_code = Key::Other(VK_INSERT);
-    #[cfg(not(target_os = "windows"))]
     let insert_key_code = Key::Other(XK_INSERT_KEYCODE);
 
     enigo

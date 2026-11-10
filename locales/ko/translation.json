@@ -109,8 +109,7 @@
       "waiting": "대기 중...",
       "allGranted": "모두 설정 완료!",
       "errors": {
-        "checkFailed": "권한 확인에 실패했습니다. 다시 시도해주세요.",
-        "requestFailed": "권한 요청에 실패했습니다. 다시 시도해주세요."
+        "checkFailed": "권한 확인에 실패했습니다. 다시 시도해주세요."
       }
     }
   },
@@ -291,20 +290,10 @@
         "description": "텍스트 삽입 방법을 선택하세요. 직접: 시스템 입력을 통해 타이핑 시뮬레이션. 없음: 붙여넣기를 건너뛰고 히스토리/클립보드만 업데이트합니다.",
         "options": {
           "clipboard": "클립보드 ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "클립보드 (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "클립보드 (Shift+Insert)",
           "direct": "직접",
-          "none": "없음",
-          "externalScript": "외부 스크립트"
+          "none": "없음"
         },
         "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "타이핑 도구",
-        "description": "직접 붙여넣기 방식에 사용할 Linux 타이핑 도구를 선택하세요. Auto는 시스템에서 사용 가능한 최적의 도구를 자동으로 감지해 사용합니다.",
-        "options": {
-          "auto": "Auto (권장)"
-        }
       },
       "clipboardHandling": {
         "title": "클립보드 처리",
@@ -321,7 +310,6 @@
           "off": "끄기",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -617,9 +605,7 @@
     "micPermissionDeniedTitle": "마이크 접근이 거부되었습니다",
     "micPermissionDenied": {
       "generic": "운영 체제에서 마이크 접근을 거부했습니다. 시스템 설정에서 마이크 권한을 허용해 주세요.",
-      "windows": "설정 → 개인 정보 및 보안 → 마이크(데스크톱 앱 접근 포함)에서 마이크 접근을 활성화하세요.",
-      "macos": "시스템 설정 → 개인 정보 보호 및 보안 → 마이크에서 마이크 접근을 허용하세요.",
-      "linux": "시스템의 소리 또는 개인 정보 설정에서 마이크 접근을 허용하세요."
+      "macos": "시스템 설정 → 개인 정보 보호 및 보안 → 마이크에서 마이크 접근을 허용하세요."
     },
     "noInputDeviceTitle": "마이크를 찾을 수 없음",
     "noInputDevice": "오디오 입력 장치가 감지되지 않았습니다. 마이크 또는 헤드셋을 연결한 후 다시 시도해 주세요.",

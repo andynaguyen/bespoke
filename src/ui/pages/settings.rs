@@ -18,7 +18,6 @@ use crate::ui::glass::{GlassStyle, glass};
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{Alpha, palette, radius, tw};
 
-#[cfg(target_os = "macos")]
 use super::annotate::{AnnotateSettings, AnnotateSettingsPage};
 use super::dictation_settings::{DictatePage, DictationSettings};
 use super::post_processing::{PostProcessingApi, PostProcessingPrompts};
@@ -146,12 +145,10 @@ impl SettingsSection {
                 ],
             ),
         ];
-        if cfg!(target_os = "macos") {
-            groups.push((
-                Some("sidebar.annotate"),
-                vec![Self::AnnotateShortcut, Self::AnnotateHistory],
-            ));
-        }
+        groups.push((
+            Some("sidebar.annotate"),
+            vec![Self::AnnotateShortcut, Self::AnnotateHistory],
+        ));
         let mut app = vec![Self::System];
         if experimental {
             app.push(Self::Experimental);
@@ -191,7 +188,6 @@ pub struct SettingsDialog {
     focus: FocusHandle,
     scroll: ScrollHandle,
     dictation: Entity<DictationSettings>,
-    #[cfg(target_os = "macos")]
     annotate: Entity<AnnotateSettings>,
     post_process_shortcut: Entity<ShortcutInput>,
     post_processing_api: Entity<PostProcessingApi>,
@@ -220,9 +216,7 @@ impl SettingsDialog {
         // pages, and Annotate's permission poll marks the Permissions row from any page.
         let dictation = cx.new(|cx| DictationSettings::new(window, cx));
         cx.observe(&dictation, |_, _, cx| cx.notify()).detach();
-        #[cfg(target_os = "macos")]
         let annotate = cx.new(AnnotateSettings::new);
-        #[cfg(target_os = "macos")]
         cx.observe(&annotate, |_, _, cx| cx.notify()).detach();
 
         let app = AppHandle::global().clone();
@@ -241,7 +235,6 @@ impl SettingsDialog {
             focus,
             scroll: ScrollHandle::new(),
             dictation,
-            #[cfg(target_os = "macos")]
             annotate,
         };
 
@@ -315,26 +308,14 @@ impl SettingsDialog {
         }));
     }
 
-    #[cfg(target_os = "macos")]
     fn permission_missing(&self, cx: &App) -> bool {
         self.annotate.read(cx).permission_missing()
     }
 
-    #[cfg(not(target_os = "macos"))]
-    fn permission_missing(&self, _cx: &App) -> bool {
-        false
-    }
-
-    #[cfg(target_os = "macos")]
     fn permission_groups(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         self.annotate.clone().update(cx, |annotate, cx| {
             annotate.groups(AnnotateSettingsPage::Permissions, cx)
         })
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    fn permission_groups(&self, _cx: &mut Context<Self>) -> Vec<AnyElement> {
-        Vec::new()
     }
 
     fn acceleration_rows(&self, s: &AppSettings, cx: &App) -> Vec<AnyElement> {
@@ -501,7 +482,6 @@ impl SettingsDialog {
                     .children(rows::overlay(&s, cx))
                     .into_any_element(),
             ],
-            #[cfg(target_os = "macos")]
             SettingsSection::AnnotateShortcut | SettingsSection::AnnotateHistory => {
                 let page = if self.section == SettingsSection::AnnotateHistory {
                     AnnotateSettingsPage::History

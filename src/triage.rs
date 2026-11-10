@@ -75,7 +75,6 @@ impl Handoff {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn has_url_handler(scheme: &str) -> bool {
     use objc2_app_kit::NSWorkspace;
     use objc2_foundation::{NSString, NSURL};
@@ -86,11 +85,6 @@ fn has_url_handler(scheme: &str) -> bool {
     NSWorkspace::sharedWorkspace()
         .URLForApplicationToOpenURL(&url)
         .is_some()
-}
-
-#[cfg(not(target_os = "macos"))]
-fn has_url_handler(_scheme: &str) -> bool {
-    false
 }
 
 /// What wrote the session. Only the running app can read its own permissions and settings.
@@ -295,15 +289,9 @@ fn build_kind(executable: Option<&Path>) -> &'static str {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn os_version() -> String {
     let version = objc2_foundation::NSProcessInfo::processInfo().operatingSystemVersionString();
     format!("macOS {version}")
-}
-
-#[cfg(not(target_os = "macos"))]
-fn os_version() -> String {
-    std::env::consts::OS.to_string()
 }
 
 fn chip() -> Option<String> {
@@ -334,7 +322,6 @@ fn bounded<T: Send + 'static>(check: impl FnOnce() -> T + Send + 'static) -> Opt
 
 const NO_ANSWER: &str = "no answer within 3 seconds";
 
-#[cfg(target_os = "macos")]
 fn permissions() -> Vec<String> {
     use crate::annotate::permissions::{Permission, Status as PermissionStatus};
     use crate::ui::platform;
@@ -402,11 +389,6 @@ fn permissions() -> Vec<String> {
     lines
 }
 
-#[cfg(not(target_os = "macos"))]
-fn permissions() -> Vec<String> {
-    Vec::new()
-}
-
 /// The settings behind most reports. Never the post-processing API keys.
 fn settings(app: &AppHandle) -> Vec<String> {
     use std::sync::Arc;
@@ -456,7 +438,6 @@ fn settings(app: &AppHandle) -> Vec<String> {
             }
         ),
         format!("Paste method: {:?}", s.paste_method),
-        format!("Typing tool: {:?}", s.typing_tool),
         format!("Overlay: {:?}", s.overlay_style),
         format!(
             "Post-processing: {}",
@@ -493,20 +474,18 @@ fn paths(app: &AppHandle, data_dir: &Path, session_dir: &Path) -> Vec<(&'static 
         ("Recordings", data_dir.join("recordings")),
         ("Models", data_dir.join("models")),
     ];
-    if cfg!(target_os = "macos") {
-        let annotate = data_dir.join("annotate");
-        paths.extend([
-            (
-                "Annotate captures (`.scrawl` folders)",
-                annotate.join("captures"),
-            ),
-            ("Annotate config", annotate.join("config.json")),
-            (
-                "Agent Access token (NEVER read this)",
-                annotate.join("mcp-token"),
-            ),
-        ]);
-    }
+    let annotate = data_dir.join("annotate");
+    paths.extend([
+        (
+            "Annotate captures (`.scrawl` folders)",
+            annotate.join("captures"),
+        ),
+        ("Annotate config", annotate.join("config.json")),
+        (
+            "Agent Access token (NEVER read this)",
+            annotate.join("mcp-token"),
+        ),
+    ]);
     if let Ok(logs) = crate::portable::app_log_dir(app) {
         paths.extend([
             (

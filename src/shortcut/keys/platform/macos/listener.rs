@@ -210,8 +210,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
 
                 // Skip keycodes we can't map (e.g. special function keys like
                 // Mission Control's 0xA0, or the Globe key's configured action).
-                // A key-less KeyEvent carries no usable information, and the
-                // Windows/Linux backends already emit mapped keys only.
+                // A key-less KeyEvent carries no usable information.
                 if key.is_none() {
                     return event.as_ptr();
                 }

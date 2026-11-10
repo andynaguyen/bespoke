@@ -49,7 +49,6 @@ fn write_args(mut stream: impl Write, args: &[String]) -> std::io::Result<()> {
     stream.flush()
 }
 
-#[cfg(unix)]
 mod imp {
     use std::os::unix::net::{UnixListener, UnixStream};
     use std::path::PathBuf;
@@ -72,37 +71,5 @@ mod imp {
         let path = socket_path();
         let _ = std::fs::remove_file(&path);
         UnixListener::bind(path)
-    }
-}
-
-#[cfg(windows)]
-mod imp {
-    use std::net::{Ipv4Addr, TcpListener, TcpStream};
-    use std::path::PathBuf;
-
-    pub type RawListener = TcpListener;
-
-    fn port_file() -> Option<PathBuf> {
-        dirs::data_local_dir().map(|dir| dir.join(super::APP_IDENTIFIER).join("instance.port"))
-    }
-
-    pub fn forward(args: &[String]) -> std::io::Result<()> {
-        let path = port_file().ok_or(std::io::ErrorKind::NotFound)?;
-        let port: u16 = std::fs::read_to_string(path)?
-            .trim()
-            .parse()
-            .map_err(|_| std::io::ErrorKind::InvalidData)?;
-        let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))?;
-        super::write_args(stream, args)
-    }
-
-    pub fn listen() -> std::io::Result<TcpListener> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
-        let path = port_file().ok_or(std::io::ErrorKind::NotFound)?;
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(path, listener.local_addr()?.port().to_string())?;
-        Ok(listener)
     }
 }

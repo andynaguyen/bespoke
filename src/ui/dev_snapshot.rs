@@ -14,7 +14,6 @@ thread_local! {
 }
 
 fn target_window(cx: &App) -> Option<AnyWindowHandle> {
-    #[cfg(target_os = "macos")]
     if CAPTURE_CAPSULE.get() {
         return crate::annotate::capsule::window_handle(cx);
     }
@@ -106,7 +105,6 @@ async fn wait(cx: &mut AsyncApp, ms: u64) {
 }
 
 fn navigate(page: &str, cx: &mut App) {
-    #[cfg(target_os = "macos")]
     if let Some(action) = page.strip_prefix("scrawl:") {
         CAPTURE_SCREEN.set(true);
         let action = match action {
@@ -117,7 +115,6 @@ fn navigate(page: &str, cx: &mut App) {
         return;
     }
     CAPTURE_SCREEN.set(false);
-    #[cfg(target_os = "macos")]
     if let Some(kind) = page.strip_prefix("capsule:") {
         CAPTURE_CAPSULE.set(true);
         crate::annotate::capsule::dev_preview(kind, cx);
@@ -221,7 +218,6 @@ fn press_tab(count: usize, cx: &mut App) {
     });
 }
 
-#[cfg(target_os = "macos")]
 fn force_draw(cx: &mut AsyncApp) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -257,10 +253,6 @@ fn force_draw(cx: &mut AsyncApp) {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
-fn force_draw(_cx: &mut AsyncApp) {}
-
-#[cfg(target_os = "macos")]
 fn capture(path: &std::path::Path, cx: &mut App) -> bool {
     if CAPTURE_SCREEN.get() {
         // Annotate's picker and capsule span several windows, so these pages
@@ -274,7 +266,6 @@ fn capture(path: &std::path::Path, cx: &mut App) -> bool {
     capture_window(path, cx)
 }
 
-#[cfg(target_os = "macos")]
 fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
     use std::ffi::{CString, c_void};
 
@@ -441,9 +432,4 @@ fn capture_window(path: &std::path::Path, cx: &mut App) -> bool {
         CGImageRelease(image);
         ok
     }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn capture(_path: &std::path::Path, _cx: &mut App) -> bool {
-    false
 }

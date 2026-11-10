@@ -1,7 +1,7 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#[cfg(not(target_os = "macos"))]
+compile_error!("Bespoke supports macOS only.");
 
 mod actions;
-#[cfg(target_os = "macos")]
 mod annotate;
 mod app_handle;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -22,7 +22,6 @@ mod input;
 mod llm_client;
 mod logging;
 mod managers;
-mod memory;
 mod overlay;
 mod paste_tx;
 pub mod portable;
@@ -58,22 +57,10 @@ use single_instance::Instance;
 fn main() {
     let cli_args = CliArgs::parse();
 
-    #[cfg(target_os = "windows")]
-    {
-        // Avoid overlay/capture layer crashes (#2049). Set before backend
-        // initialization, preserving user overrides.
-        if std::env::var_os("VK_LOADER_LAYERS_DISABLE").is_none()
-            && !env_flag_enabled("BESPOKE_KEEP_VULKAN_IMPLICIT_LAYERS")
-        {
-            std::env::set_var("VK_LOADER_LAYERS_DISABLE", "~implicit~");
-        }
-    }
-
     // Avoid ggml-metal residency-set teardown assertions when a native engine
     // outlives shutdown (#1902). This must happen before transcribe-cpp
     // initializes its Metal device. Advanced users can restore upstream
     // residency behavior with BESPOKE_METAL_RESIDENCY=1.
-    #[cfg(target_os = "macos")]
     if std::env::var("BESPOKE_METAL_RESIDENCY").as_deref() == Ok("1") {
         // ggml treats GGML_METAL_NO_RESIDENCY as presence-based, so remove an
         // inherited value as well when explicitly opting back in.
@@ -83,11 +70,6 @@ fn main() {
         // FIXME: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("GGML_METAL_NO_RESIDENCY", "1") };
     }
-
-    // Pin glibc's dynamic mmap threshold before the first large allocation,
-    // so per-dictation transient buffers are returned to the OS on free
-    // instead of accumulating in malloc arenas (#1792). No-op off Linux/glibc.
-    memory::init_allocator();
 
     portable::init();
 
@@ -132,7 +114,6 @@ fn main() {
     app.manage(cli_args);
 
     let application = gpui::Application::new().with_assets(ui::assets::Assets);
-    #[cfg(target_os = "macos")]
     {
         #[cfg(debug_assertions)]
         let snapshot = ui::dev_snapshot::requested();
@@ -147,15 +128,4 @@ fn main() {
     }
     application.on_reopen(startup::on_reopen);
     application.run(move |cx| startup::run(app, ui_messages, listener, cx));
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn release_builds_hide_the_windows_console() {
-        assert_eq!(
-            include_str!("main.rs").lines().next(),
-            Some(r#"#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]"#)
-        );
-    }
 }

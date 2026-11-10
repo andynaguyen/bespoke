@@ -1,4 +1,3 @@
-#[cfg(target_os = "macos")]
 pub mod annotate;
 pub mod captures;
 mod debug;
@@ -8,7 +7,6 @@ mod dictionary;
 mod history;
 mod keyword_field;
 mod language_picker;
-#[cfg(target_os = "macos")]
 mod mcp;
 mod microphone_priority;
 mod models;
@@ -21,8 +19,6 @@ mod style_board;
 pub mod triage;
 
 use gpui::{AnyElement, AnyView, App, AppContext, Context, Entity, Render, Window};
-#[cfg(not(target_os = "macos"))]
-use gpui::{IntoElement, div};
 
 use crate::ui::shell::{Section, Toolbar};
 
@@ -87,19 +83,6 @@ impl PageHandle {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
-struct EmptyPage;
-
-#[cfg(not(target_os = "macos"))]
-impl Render for EmptyPage {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-impl Page for EmptyPage {}
-
 pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle {
     match section {
         Section::Dictate => PageHandle::new(cx.new(|cx| dictate::DictatePage::new(window, cx))),
@@ -108,12 +91,8 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
         }
         Section::Stats => PageHandle::new(cx.new(stats::StatsPage::new)),
         Section::Models => PageHandle::new(cx.new(|cx| models::ModelsPage::new(window, cx))),
-        #[cfg(target_os = "macos")]
         Section::Annotate => PageHandle::new(cx.new(annotate::AnnotatePage::new)),
-        #[cfg(target_os = "macos")]
         Section::Mcp => PageHandle::new(cx.new(mcp::McpPage::new)),
-        #[cfg(not(target_os = "macos"))]
-        Section::Annotate | Section::Mcp => PageHandle::new(cx.new(|_| EmptyPage)),
         Section::Debug => PageHandle::new(cx.new(debug::DebugPage::new)),
     }
 }
