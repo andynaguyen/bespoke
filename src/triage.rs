@@ -1,5 +1,6 @@
-//! Triage an Issue. Writes this Mac's facts (`context.md`) and the triage playbook (`PROMPT.md`)
-//! to a fresh `triage/<time>` folder in the app data folder, then hands the folder to a coding
+//! Triage an Issue. Writes this Mac's facts (`context.md`), the triage playbook (`PROMPT.md`)
+//! and a copy of the settings without API keys (`settings.json`) to a fresh `triage/<time>`
+//! folder in the app data folder, then hands the folder to a coding
 //! agent through its deep link, or copies a prompt that points at it. The agent reads the logs,
 //! finds the cause and helps file an issue, following `.github/triage/PLAYBOOK.md`.
 
@@ -15,6 +16,8 @@ pub const PLAYBOOK: &str = include_str!("../.github/triage/PLAYBOOK.md");
 const REPO: &str = "https://github.com/andynaguyen/bespoke";
 const PROMPT_FILE: &str = "PROMPT.md";
 const CONTEXT_FILE: &str = "context.md";
+const SETTINGS_FILE: &str = "settings.json";
+const REDACTED: &str = "[REDACTED]";
 
 /// Where a triage session goes once its folder is written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -187,7 +190,8 @@ pub fn run_cli(app: &AppHandle) -> i32 {
     0
 }
 
-/// Writes `context.md` and `PROMPT.md` into a fresh `triage/<time>` folder.
+/// Writes `context.md`, `PROMPT.md` and `settings.json`, the settings with the API keys
+/// removed, into a fresh `triage/<time>` folder.
 pub fn write_session(app: &AppHandle, origin: Origin) -> Result<Session, String> {
     let data_dir = crate::portable::app_data_dir(app).map_err(|e| e.to_string())?;
     let now = chrono::Local::now();
@@ -197,7 +201,17 @@ pub fn write_session(app: &AppHandle, origin: Origin) -> Result<Session, String>
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create {}: {e}", dir.display()))?;
 
-    let facts = Facts::collect(app, origin, &data_dir, &dir, now.to_rfc3339());
+    let settings_copy = write_settings_copy(&data_dir, &dir)
+        .inspect_err(|e| log::warn!("Triage wrote no settings copy: {e}"))
+        .ok();
+    let facts = Facts::collect(
+        app,
+        origin,
+        &data_dir,
+        &dir,
+        settings_copy.as_deref(),
+        now.to_rfc3339(),
+    );
     let context = dir.join(CONTEXT_FILE);
     std::fs::write(&context, build_context(&facts))
         .map_err(|e| format!("Failed to write {}: {e}", context.display()))?;
@@ -210,6 +224,59 @@ pub fn write_session(app: &AppHandle, origin: Origin) -> Result<Session, String>
         prompt,
         context,
     })
+}
+
+/// Copies `settings_store.json` into the session folder with the API keys replaced, readable by
+/// this user only. Errors name the step that failed and never quote the file.
+fn write_settings_copy(data_dir: &Path, session_dir: &Path) -> Result<PathBuf, String> {
+    use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let source = data_dir.join(crate::settings::SETTINGS_STORE_PATH);
+    let bytes =
+        std::fs::read(&source).map_err(|e| format!("Failed to read {}: {e}", source.display()))?;
+    let store: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| {
+        format!(
+            "{} is not valid JSON: {e}",
+            crate::settings::SETTINGS_STORE_PATH
+        )
+    })?;
+    let redacted = serde_json::to_vec_pretty(&redact_settings(store))
+        .map_err(|e| format!("Failed to serialize the settings copy: {e}"))?;
+
+    let copy = session_dir.join(SETTINGS_FILE);
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&copy)
+        .map_err(|e| format!("Failed to create {}: {e}", copy.display()))?;
+    file.write_all(&redacted)
+        .map_err(|e| format!("Failed to write {}: {e}", copy.display()))?;
+    Ok(copy)
+}
+
+/// The settings store with every post-processing API key replaced, so the copy is safe to
+/// hand to an agent. An empty key stays empty, which tells the agent none was set.
+fn redact_settings(mut store: serde_json::Value) -> serde_json::Value {
+    fn redact_keys(keys: Option<&mut serde_json::Value>) {
+        let Some(serde_json::Value::Object(keys)) = keys else {
+            return;
+        };
+        for value in keys.values_mut() {
+            if value.as_str().is_some_and(|key| !key.is_empty()) {
+                *value = serde_json::Value::String(REDACTED.to_string());
+            }
+        }
+    }
+
+    redact_keys(
+        store
+            .get_mut("settings")
+            .and_then(|settings| settings.get_mut("post_process_api_keys")),
+    );
+    redact_keys(store.get_mut("post_process_api_keys"));
+    store
 }
 
 fn build_prompt(context: &Path, origin: Origin) -> String {
@@ -253,6 +320,7 @@ impl Facts {
         origin: Origin,
         data_dir: &Path,
         session_dir: &Path,
+        settings_copy: Option<&Path>,
         generated_at: String,
     ) -> Self {
         let executable = std::env::current_exe().ok();
@@ -269,7 +337,7 @@ impl Facts {
                 permissions: permissions(),
                 settings: settings(app),
             }),
-            paths: paths(app, data_dir, session_dir),
+            paths: paths(app, data_dir, session_dir, settings_copy),
         }
     }
 }
@@ -460,13 +528,30 @@ fn settings(app: &AppHandle) -> Vec<String> {
     ]
 }
 
-fn paths(app: &AppHandle, data_dir: &Path, session_dir: &Path) -> Vec<(&'static str, PathBuf)> {
-    let mut paths = vec![
-        ("App data", data_dir.to_path_buf()),
-        (
-            "Settings (JSON; holds API keys under `post_process_api_keys`, never quote them)",
+/// The settings entry in `context.md`: the session's copy when one was written, or else the
+/// original with a warning, because the original holds the API keys.
+fn settings_path(data_dir: &Path, settings_copy: Option<&Path>) -> (&'static str, PathBuf) {
+    match settings_copy {
+        Some(copy) => (
+            "Settings (a copy made for this session, with the API keys removed)",
+            copy.to_path_buf(),
+        ),
+        None => (
+            "Settings (no copy could be made: ask the user before opening this file, it holds API keys)",
             data_dir.join(crate::settings::SETTINGS_STORE_PATH),
         ),
+    }
+}
+
+fn paths(
+    app: &AppHandle,
+    data_dir: &Path,
+    session_dir: &Path,
+    settings_copy: Option<&Path>,
+) -> Vec<(&'static str, PathBuf)> {
+    let mut paths = vec![
+        ("App data", data_dir.to_path_buf()),
+        settings_path(data_dir, settings_copy),
         (
             "History database (SQLite, open in Bespoke; read with `sqlite3 -readonly`, write only with the user's explicit permission)",
             data_dir.join("history.db"),
@@ -615,6 +700,67 @@ mod tests {
                 PathBuf::from("/data/annotate/mcp-token"),
             )],
         }
+    }
+
+    #[test]
+    fn api_keys_are_replaced_and_everything_else_is_kept() {
+        let store = serde_json::json!({
+            "settings": {
+                "post_process_api_keys": {
+                    "openai": "sk-test-not-a-real-key",
+                    "anthropic": "sk-test-also-fake",
+                    "groq": ""
+                },
+                "selected_model": "parakeet",
+                "custom_words": ["Bespoke", "GPUI"]
+            }
+        });
+
+        let redacted = redact_settings(store.clone());
+
+        let keys = &redacted["settings"]["post_process_api_keys"];
+        assert_eq!(keys["openai"], REDACTED);
+        assert_eq!(keys["anthropic"], REDACTED);
+        assert_eq!(keys["groq"], "");
+        assert_eq!(
+            redacted["settings"]["selected_model"],
+            store["settings"]["selected_model"]
+        );
+        assert_eq!(
+            redacted["settings"]["custom_words"],
+            store["settings"]["custom_words"]
+        );
+        let text = serde_json::to_string(&redacted).unwrap();
+        assert!(!text.contains("sk-test-not-a-real-key"));
+        assert!(!text.contains("sk-test-also-fake"));
+    }
+
+    #[test]
+    fn a_store_without_keys_comes_back_unchanged() {
+        for store in [
+            serde_json::json!({}),
+            serde_json::json!({ "settings": {} }),
+            serde_json::json!({ "settings": { "post_process_api_keys": 3 } }),
+            serde_json::Value::Null,
+        ] {
+            assert_eq!(redact_settings(store.clone()), store);
+        }
+    }
+
+    #[test]
+    fn the_context_names_the_copy_and_not_the_original() {
+        let data_dir = Path::new("/data");
+        let copy = data_dir
+            .join("triage/2026-11-01T09-00-00")
+            .join(SETTINGS_FILE);
+
+        let (_, path) = settings_path(data_dir, Some(&copy));
+        assert!(path.ends_with("settings.json"));
+        assert!(!path.ends_with("settings_store.json"));
+
+        let (label, path) = settings_path(data_dir, None);
+        assert!(path.ends_with("settings_store.json"));
+        assert!(label.contains("ask the user"));
     }
 
     #[test]
