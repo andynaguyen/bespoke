@@ -71,6 +71,26 @@ struct MuteState {
     prev_muted: Option<bool>,
 }
 
+impl MuteState {
+    /// Mutes the output and remembers how it was, unless this already muted it.
+    fn apply(&mut self, read: impl FnOnce() -> Option<bool>, mute: impl FnOnce()) {
+        if self.did_mute {
+            return;
+        }
+        self.prev_muted = read();
+        mute();
+        self.did_mute = true;
+    }
+
+    /// Puts the output back the way `apply` found it. Does nothing when `apply` did not mute.
+    fn remove(&mut self, restore: impl FnOnce(Option<bool>)) {
+        if self.did_mute {
+            restore(self.prev_muted);
+            self.did_mute = false;
+        }
+    }
+}
+
 enum DesiredMicrophone {
     Default,
     Priority(Vec<String>),
@@ -334,7 +354,10 @@ impl AudioRecordingManager {
         });
     }
 
-    pub fn apply_mute(&self) {
+    /// Mutes the output for the recording that `generation` belongs to. It checks the
+    /// generation while it holds `mute_state`, and stop and cancel bump the generation
+    /// before they take that lock in `remove_mute`, so a mute never outlives its recording.
+    pub fn apply_mute(&self, generation: u64) {
         let settings = get_settings(&self.app_handle);
         if !settings.mute_while_recording {
             return;
@@ -342,13 +365,11 @@ impl AudioRecordingManager {
 
         let is_open = self.is_open.lock().unwrap();
         let mut mute_guard = self.mute_state.lock().unwrap();
-        if mute_guard.did_mute {
+        if mute_guard.did_mute || !self.is_recording_readiness_current(generation) {
             return;
         }
         if *is_open {
-            mute_guard.prev_muted = get_mute();
-            set_mute(true);
-            mute_guard.did_mute = true;
+            mute_guard.apply(get_mute, || set_mute(true));
             debug!("Mute applied (prev_muted={:?})", mute_guard.prev_muted);
         }
     }
@@ -356,8 +377,7 @@ impl AudioRecordingManager {
     pub fn remove_mute(&self) {
         let mut mute_guard = self.mute_state.lock().unwrap();
         if mute_guard.did_mute {
-            restore_mute(mute_guard.prev_muted);
-            mute_guard.did_mute = false;
+            mute_guard.remove(restore_mute);
             debug!(
                 "Mute removed (restored prev_muted={:?})",
                 mute_guard.prev_muted
@@ -753,6 +773,7 @@ impl AudioRecordingManager {
     pub fn cancel_recording(&self) {
         self.invalidate_recording_readiness();
         self.cancel_generation.fetch_add(1, Ordering::AcqRel);
+        self.remove_mute();
         let mut state = self.state.lock().unwrap();
 
         match *state {
@@ -784,7 +805,51 @@ impl AudioRecordingManager {
 
 #[cfg(test)]
 mod tests {
-    use super::first_connected;
+    use super::{MuteState, first_connected};
+    use std::cell::{Cell, RefCell};
+
+    #[test]
+    fn muting_then_unmuting_restores_what_was_there() {
+        let mut state = MuteState::default();
+        let mutes = Cell::new(0);
+        state.apply(|| Some(false), || mutes.set(mutes.get() + 1));
+        assert_eq!(mutes.get(), 1);
+
+        let restored = RefCell::new(Vec::new());
+        state.remove(|prev| restored.borrow_mut().push(prev));
+        assert_eq!(*restored.borrow(), vec![Some(false)]);
+        assert!(!state.did_mute);
+    }
+
+    #[test]
+    fn unmuting_without_a_mute_does_nothing() {
+        let mut state = MuteState::default();
+        let restores = Cell::new(0);
+        state.remove(|_| restores.set(restores.get() + 1));
+        assert_eq!(restores.get(), 0);
+    }
+
+    #[test]
+    fn a_second_mute_keeps_the_first_reading() {
+        let mut state = MuteState::default();
+        state.apply(|| Some(false), || {});
+
+        let second_read = Cell::new(false);
+        let second_mute = Cell::new(false);
+        state.apply(
+            || {
+                second_read.set(true);
+                Some(true)
+            },
+            || second_mute.set(true),
+        );
+        assert!(!second_read.get());
+        assert!(!second_mute.get());
+
+        let restored = RefCell::new(Vec::new());
+        state.remove(|prev| restored.borrow_mut().push(prev));
+        assert_eq!(*restored.borrow(), vec![Some(false)]);
+    }
 
     fn names(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
