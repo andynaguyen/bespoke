@@ -217,11 +217,19 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
                 }
 
                 let token_limit = model.trim().parse::<i32>().unwrap_or(0);
-                return match apple_intelligence::process_text_with_system_prompt(
-                    &system_prompt,
-                    &user_content,
-                    token_limit,
-                ) {
+                // The Swift bridge blocks until the model answers and never yields, so it runs
+                // on a blocking thread. Awaiting that thread is what lets the caller's deadline
+                // and cancel fire. A call they give up on keeps its thread until it returns.
+                let generation = crate::runtime::spawn_blocking(move || {
+                    apple_intelligence::process_text_with_system_prompt(
+                        &system_prompt,
+                        &user_content,
+                        token_limit,
+                    )
+                })
+                .await
+                .unwrap_or_else(|e| Err(format!("Apple Intelligence task failed: {e}")));
+                return match generation {
                     Ok(result) => {
                         if result.trim().is_empty() {
                             debug!("Apple Intelligence returned an empty response");
