@@ -571,6 +571,7 @@ impl TranscriptionManager {
 
         let loaded_engine = match model_info.engine_type {
             EngineType::TranscribeCpp => {
+                transcribe_compute_devices();
                 let (backend, device) = match device_index {
                     Some(index) => resolve_device_index(index).inspect_err(|e| {
                         emit_loading_failed(&e.to_string());
@@ -1836,46 +1837,18 @@ fn drain_until_finalize(rx: mpsc::Receiver<StreamCmd>) {
     }
 }
 
-/// In a static build (macOS Metal) `init_backends_default` is a harmless no-op;
-/// in a `dynamic-backends` build it loads the per-ISA CPU / GPU modules. Must run
-/// before the first model load.
-pub fn init_transcribe_backend() {
-    transcribe_cpp::init_logging();
-    match transcribe_cpp::init_backends_default() {
-        Ok(()) => {
-            if transcribe_gpu_disabled_for_host() {
-                warn!(
-                    "Windows x64 build is running under emulation on an ARM64 host; \
-                     disabling transcribe.cpp GPU acceleration and using CPU"
-                );
-            }
-            let devices = transcribe_compute_devices();
-            info!(
-                "transcribe-cpp initialized with {} compute device(s): [{}]",
-                devices.len(),
-                devices
-                    .iter()
-                    .map(|d| format!("{} ({})", d.name, d.kind))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
-        Err(e) => warn!("Failed to initialize transcribe-cpp backends: {}", e),
-    }
-}
-
 pub fn describe_compute_devices() -> Vec<String> {
     transcribe_compute_devices()
-        .into_iter()
+        .iter()
         .map(|d| {
             let idx = d
                 .index
                 .map(|i| i.to_string())
                 .unwrap_or_else(|| "-".to_string());
             let name = if d.description.is_empty() {
-                d.name
+                &d.name
             } else {
-                d.description
+                &d.description
             };
             let vram_mb = d.memory_total / (1024 * 1024);
             format!(
@@ -1888,8 +1861,9 @@ pub fn describe_compute_devices() -> Vec<String> {
 
 fn resolve_device_index(index: usize) -> Result<(Backend, Option<transcribe_cpp::Device>)> {
     let device = transcribe_compute_devices()
-        .into_iter()
+        .iter()
         .find(|d| d.index == Some(index))
+        .cloned()
         .ok_or_else(|| {
             anyhow::anyhow!("No compute device with index {index} (see --list-devices)")
         })?;
@@ -1942,9 +1916,12 @@ fn resolve_gpu_device(
         return None;
     }
     let gpu_device = gpu_device?;
-    let resolved = transcribe_compute_devices().into_iter().find(|device| {
-        is_transcribe_gpu_device(device) && transcribe_device_key(device) == gpu_device
-    });
+    let resolved = transcribe_compute_devices()
+        .iter()
+        .find(|device| {
+            is_transcribe_gpu_device(device) && transcribe_device_key(device) == gpu_device
+        })
+        .cloned();
     if resolved.is_none() {
         warn!(
             "Stored transcribe GPU device '{}' is no longer available; using automatic device selection",
@@ -2027,17 +2004,35 @@ fn transcribe_device_allowed(kind: &str, gpu_disabled: bool) -> bool {
     !gpu_disabled || matches!(kind, "cpu" | "accel")
 }
 
-fn transcribe_compute_devices() -> Vec<transcribe_cpp::Device> {
-    let devices = transcribe_cpp::devices();
-    let gpu_disabled = transcribe_gpu_disabled_for_host();
-    if !gpu_disabled {
-        return devices;
-    }
-
-    devices
-        .into_iter()
-        .filter(|device| transcribe_device_allowed(&device.kind, gpu_disabled))
-        .collect()
+fn transcribe_compute_devices() -> &'static [transcribe_cpp::Device] {
+    static DEVICES: OnceLock<Vec<transcribe_cpp::Device>> = OnceLock::new();
+    DEVICES.get_or_init(|| {
+        transcribe_cpp::init_logging();
+        if let Err(error) = transcribe_cpp::init_backends_default() {
+            warn!("Failed to initialize transcribe-cpp backends: {}", error);
+        }
+        let gpu_disabled = transcribe_gpu_disabled_for_host();
+        if gpu_disabled {
+            warn!(
+                "Windows x64 build is running under emulation on an ARM64 host; \
+                 disabling transcribe.cpp GPU acceleration and using CPU"
+            );
+        }
+        let devices: Vec<_> = transcribe_cpp::devices()
+            .into_iter()
+            .filter(|device| transcribe_device_allowed(&device.kind, gpu_disabled))
+            .collect();
+        info!(
+            "transcribe-cpp has {} compute device(s): [{}]",
+            devices.len(),
+            devices
+                .iter()
+                .map(|device| format!("{} ({})", device.name, device.kind))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        devices
+    })
 }
 
 fn available_transcribe_accelerators(gpu_disabled: bool) -> Vec<String> {
@@ -2049,17 +2044,13 @@ fn available_transcribe_accelerators(gpu_disabled: bool) -> Vec<String> {
 }
 
 fn cached_gpu_devices() -> &'static [GpuDeviceOption] {
-    // GPU compute devices transcribe-cpp registered at startup. `id` is a
-    // persistent identity key, never the process-local registry index. It uses
-    // the backend's device_id where available and its name otherwise (Metal).
-    // `total_vram_mb` is 0 when the backend does not report capacity.
     GPU_DEVICES.get_or_init(|| {
         transcribe_compute_devices()
-            .into_iter()
-            .filter(is_transcribe_gpu_device)
+            .iter()
+            .filter(|device| is_transcribe_gpu_device(device))
             .map(|d| GpuDeviceOption {
-                id: transcribe_device_key(&d),
-                name: transcribe_device_label(&d),
+                id: transcribe_device_key(d),
+                name: transcribe_device_label(d),
                 total_vram_mb: (d.memory_total / (1024 * 1024)) as usize,
             })
             .collect()
@@ -2210,6 +2201,65 @@ mod tests {
 
     fn languages(codes: &[&str]) -> Vec<String> {
         codes.iter().map(|code| (*code).to_string()).collect()
+    }
+
+    #[test]
+    fn concurrent_device_queries_share_the_registered_inventory() {
+        let barrier = Arc::new(std::sync::Barrier::new(8));
+        let workers: Vec<_> = (0..8)
+            .map(|i| {
+                let barrier = barrier.clone();
+                thread::spawn(move || {
+                    barrier.wait();
+                    let (listed, available) = if i % 2 == 0 {
+                        (describe_compute_devices(), get_available_accelerators())
+                    } else {
+                        let available = get_available_accelerators();
+                        (describe_compute_devices(), available)
+                    };
+                    let gpu_ids = available
+                        .gpu_devices
+                        .into_iter()
+                        .map(|device| device.id)
+                        .collect::<Vec<_>>();
+                    (listed, gpu_ids, transcribe_compute_devices())
+                })
+            })
+            .collect();
+
+        let devices = transcribe_compute_devices();
+        let expected_gpu_ids: Vec<_> = devices
+            .iter()
+            .filter(|device| is_transcribe_gpu_device(device))
+            .map(transcribe_device_key)
+            .collect();
+        let expected_listing = describe_compute_devices();
+        for worker in workers {
+            let (listed, gpu_ids, inventory) = worker.join().expect("device query panicked");
+            assert!(std::ptr::eq(inventory, devices));
+            assert_eq!(listed, expected_listing);
+            assert_eq!(gpu_ids, expected_gpu_ids);
+        }
+    }
+
+    #[test]
+    fn registered_device_indices_resolve_to_the_same_handles() {
+        for device in transcribe_compute_devices().iter().filter(|device| {
+            !matches!(
+                device.device_type,
+                transcribe_cpp::DeviceType::Accel | transcribe_cpp::DeviceType::Unknown
+            )
+        }) {
+            if let Some(index) = device.index {
+                let (backend, resolved) = resolve_device_index(index).expect("device index");
+                assert_eq!(backend, Backend::Auto);
+                assert_eq!(
+                    resolved.as_ref().map(transcribe_device_key),
+                    Some(transcribe_device_key(device))
+                );
+            }
+        }
+        assert!(resolve_device_index(usize::MAX).is_err());
     }
 
     #[test]

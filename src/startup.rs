@@ -55,10 +55,6 @@ pub fn run(
 
     overlay::update_overlay_enabled_cache(settings.overlay_style != settings::OverlayStyle::None);
 
-    std::thread::spawn(|| {
-        let _ = crate::managers::transcription::get_available_accelerators();
-    });
-
     if cli_args.no_tray {
         tray::set_tray_visibility(&app, false);
     }
@@ -164,8 +160,6 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     );
     let history_manager =
         Arc::new(HistoryManager::new(app_handle).expect("Failed to initialize history manager"));
-
-    managers::transcription::init_transcribe_backend();
 
     managers::transcription::apply_accelerator_settings(app_handle);
 

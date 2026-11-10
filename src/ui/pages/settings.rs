@@ -197,6 +197,7 @@ pub struct SettingsDialog {
     post_processing_api: Entity<PostProcessingApi>,
     post_processing_prompts: Entity<PostProcessingPrompts>,
     accelerators: Option<AvailableAccelerators>,
+    accelerators_loading: bool,
     app_dir: Result<String, String>,
     log_dir: Result<String, String>,
     device_poll: Option<Task<()>>,
@@ -232,6 +233,7 @@ impl SettingsDialog {
             post_processing_api: cx.new(|cx| PostProcessingApi::new(window, cx)),
             post_processing_prompts: cx.new(|cx| PostProcessingPrompts::new(window, cx)),
             accelerators: None,
+            accelerators_loading: false,
             app_dir: crate::commands::get_app_dir_path(app.clone()),
             log_dir: crate::commands::get_log_dir_path(app),
             store,
@@ -243,14 +245,7 @@ impl SettingsDialog {
             annotate,
         };
 
-        cx.spawn(async move |this, cx| {
-            let available = crate::runtime::run(shortcut::get_available_accelerators()).await;
-            let _ = this.update(cx, |this, cx| {
-                this.accelerators = Some(available);
-                cx.notify();
-            });
-        })
-        .detach();
+        this.load_accelerators_if_needed(cx);
         this.sync_device_poll(cx);
         this
     }
@@ -272,10 +267,30 @@ impl SettingsDialog {
     pub fn select(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         if self.section != section {
             self.section = section;
+            self.load_accelerators_if_needed(cx);
             self.sync_device_poll(cx);
             self.scroll.set_offset(point(px(0.), px(0.)));
         }
         cx.notify();
+    }
+
+    fn load_accelerators_if_needed(&mut self, cx: &mut Context<Self>) {
+        if self.section != SettingsSection::Experimental
+            || self.accelerators.is_some()
+            || self.accelerators_loading
+        {
+            return;
+        }
+        self.accelerators_loading = true;
+        cx.spawn(async move |this, cx| {
+            let available = crate::runtime::run(shortcut::get_available_accelerators()).await;
+            let _ = this.update(cx, |this, cx| {
+                this.accelerators_loading = false;
+                this.accelerators = Some(available);
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn sync_device_poll(&mut self, cx: &mut Context<Self>) {

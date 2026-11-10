@@ -12,7 +12,6 @@ pub fn run(app: &AppHandle, args: &CliArgs) -> i32 {
     let transcription_manager = Arc::new(TranscriptionManager::new(app, model_manager.clone()));
     app.manage(model_manager);
     app.manage(transcription_manager);
-    crate::managers::transcription::init_transcribe_backend();
     crate::managers::transcription::apply_accelerator_settings(app);
 
     let code = run_headless_guarded(|| run_headless_transcription(app, args));
