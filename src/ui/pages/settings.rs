@@ -367,10 +367,7 @@ impl SettingsDialog {
                 .child(
                     Dropdown::new("transcribe_accelerator", transcribe)
                         .selected(displayed)
-                        .disabled(
-                            store.is_updating("transcribe_accelerator")
-                                || store.is_updating("transcribe_gpu_device"),
-                        )
+                        .disabled(store.is_updating("transcribe_accelerator"))
                         .on_select(|value, _, cx| {
                             let (accelerator, device) = if value.as_ref() == "cpu" {
                                 (TranscribeAcceleratorSetting::Cpu, None)
@@ -388,10 +385,10 @@ impl SettingsDialog {
                                     s.transcribe_accelerator = accelerator;
                                 },
                                 move |app| {
-                                    shortcut::change_transcribe_gpu_device(app.clone(), device)?;
                                     shortcut::change_transcribe_accelerator_setting(
                                         app,
                                         accelerator,
+                                        device,
                                     )
                                 },
                             );
