@@ -7,7 +7,10 @@ use anyhow::Result;
 use crate::annotate::model::{TranscriptData, TranscriptSegment, WordTiming};
 
 use crate::app_handle::AppHandle;
-use crate::audio_toolkit::{TimedText, apply_custom_words, apply_custom_words_to_timed};
+use crate::audio_toolkit::{
+    TimedText, apply_custom_words, apply_custom_words_to_timed, expand_snippets,
+    expand_snippets_in_timed,
+};
 use crate::managers::model::{EngineType, ModelManager};
 use crate::managers::transcription::{TimedTranscript, TranscriptionManager};
 use crate::settings::{AppSettings, get_settings};
@@ -84,37 +87,76 @@ fn with_selected_model(app: &AppHandle, wav: &Path) -> Result<TranscriptData> {
 
 fn apple_speech(wav: &Path, settings: &AppSettings) -> Result<TranscriptData> {
     let mut transcript = crate::apple_speech::transcribe_file(wav, &settings.custom_words)?;
-    if transcript.missing.is_none() && !settings.custom_words.is_empty() {
-        let correct = |text: &str| {
-            apply_custom_words(
-                text,
-                &settings.custom_words,
-                settings.word_correction_threshold,
-            )
-        };
-        transcript.text = correct(&transcript.text);
-        for segment in &mut transcript.segments {
-            segment.text = correct(&segment.text);
-        }
-        let words: Vec<TimedText> = transcript
-            .words
-            .iter()
-            .map(|w| TimedText {
-                t0: w.t0,
-                t1: w.t1,
-                text: w.text.clone(),
-            })
-            .collect();
-        transcript.words = apply_custom_words_to_timed(
-            &words,
-            &settings.custom_words,
-            settings.word_correction_threshold,
-        )
+    if transcript.missing.is_some() {
+        return Ok(transcript);
+    }
+    let dictionary = Dictionary::new(settings);
+    transcript.text = dictionary.text(&transcript.text);
+    for segment in &mut transcript.segments {
+        segment.text = dictionary.text(&segment.text);
+    }
+    let words: Vec<TimedText> = transcript
+        .words
+        .iter()
+        .map(|w| TimedText {
+            t0: w.t0,
+            t1: w.t1,
+            text: w.text.clone(),
+        })
+        .collect();
+    transcript.words = dictionary
+        .timed(&words)
         .into_iter()
         .map(word_timing)
         .collect();
-    }
     Ok(transcript)
+}
+
+struct Dictionary<'a> {
+    words: &'a [String],
+    threshold: f64,
+    replacements: Vec<(&'a str, String)>,
+}
+
+impl<'a> Dictionary<'a> {
+    fn new(settings: &'a AppSettings) -> Self {
+        Self {
+            words: &settings.custom_words,
+            threshold: settings.word_correction_threshold,
+            replacements: settings
+                .snippets
+                .iter()
+                .map(|s| (s.trigger.as_str(), on_one_line(&s.text)))
+                .collect(),
+        }
+    }
+
+    fn replacements_only(settings: &'a AppSettings) -> Self {
+        Self {
+            words: &[],
+            ..Self::new(settings)
+        }
+    }
+
+    fn replacements(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.replacements
+            .iter()
+            .map(|(t, text)| (*t, text.as_str()))
+    }
+
+    fn text(&self, text: &str) -> String {
+        let text = apply_custom_words(text, self.words, self.threshold);
+        expand_snippets(&text, self.replacements())
+    }
+
+    fn timed(&self, words: &[TimedText]) -> Vec<TimedText> {
+        let words = apply_custom_words_to_timed(words, self.words, self.threshold);
+        expand_snippets_in_timed(&words, self.replacements())
+    }
+}
+
+fn on_one_line(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 #[derive(Default)]
@@ -128,34 +170,21 @@ struct CaptureTranscript {
 
 impl CaptureTranscript {
     fn into_transcript(self, model: String, settings: &AppSettings) -> TranscriptData {
-        let correct = !self.dictionary_prompted && !settings.custom_words.is_empty();
-        let text = self.texts.join(" ");
-        let (text, segments, words) = if correct {
-            let fix = |text: &str| {
-                apply_custom_words(
-                    text,
-                    &settings.custom_words,
-                    settings.word_correction_threshold,
-                )
-            };
-            (
-                fix(&text),
-                self.segments
-                    .into_iter()
-                    .map(|s| TimedText {
-                        text: fix(&s.text),
-                        ..s
-                    })
-                    .collect(),
-                apply_custom_words_to_timed(
-                    &self.words,
-                    &settings.custom_words,
-                    settings.word_correction_threshold,
-                ),
-            )
+        let dictionary = if self.dictionary_prompted {
+            Dictionary::replacements_only(settings)
         } else {
-            (text, self.segments, self.words)
+            Dictionary::new(settings)
         };
+        let text = dictionary.text(&self.texts.join(" "));
+        let words = dictionary.timed(&self.words);
+        let segments: Vec<TimedText> = self
+            .segments
+            .into_iter()
+            .map(|s| TimedText {
+                text: dictionary.text(&s.text),
+                ..s
+            })
+            .collect();
         TranscriptData {
             source: "bespoke".into(),
             model: Some(model),
@@ -367,6 +396,25 @@ mod tests {
         assert_eq!(ranges.len(), 2);
         assert!(ranges[1].len() >= MIN_TAIL);
         assert!(ranges[0].len() <= MAX_CHUNK_SECS * SAMPLE_RATE);
+    }
+
+    #[test]
+    fn a_prompted_model_still_gets_the_replacements() {
+        let mut settings = crate::settings::get_default_settings();
+        settings.custom_words = vec!["Karat".into()];
+        settings.snippets = vec![crate::settings::Snippet {
+            trigger: "Carrot".into(),
+            text: "Karat".into(),
+        }];
+        let timed = CaptureTranscript {
+            texts: vec!["Carrot just sends Stripe.".into()],
+            words: spread_words("Carrot just sends Stripe.", 0, 400),
+            dictionary_prompted: true,
+            ..Default::default()
+        };
+        let transcript = timed.into_transcript("Whisper".into(), &settings);
+        assert_eq!(transcript.text, "Karat just sends Stripe.");
+        assert_eq!(transcript.words[0].text, "Karat");
     }
 
     #[test]

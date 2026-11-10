@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use natural::phonetics::soundex;
 use regex::Regex;
 use strsim::levenshtein;
@@ -522,6 +524,128 @@ pub fn scratch_before_keyword(text: &str, keyword: &str) -> Option<String> {
     matched.then(|| kept.join(" "))
 }
 
+fn snippet_triggers<'a>(
+    snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Vec<(Vec<String>, &'a str)> {
+    snippets
+        .into_iter()
+        .map(|(trigger, expansion)| {
+            let keys: Vec<String> = trigger.split_whitespace().map(build_match_key).collect();
+            (keys, expansion)
+        })
+        .filter(|(keys, _)| !keys.is_empty() && keys.iter().all(|key| !key.is_empty()))
+        .collect()
+}
+
+struct Splice<'a> {
+    heard: Range<usize>,
+    expansion: &'a str,
+}
+
+fn find_splices<'a>(text: &str, triggers: &[(Vec<String>, &'a str)]) -> Vec<Splice<'a>> {
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    let keys: Vec<String> = tokens.iter().map(|token| build_match_key(token)).collect();
+    let offset = |token: &str| token.as_ptr() as usize - text.as_ptr() as usize;
+
+    let mut splices = Vec::new();
+    let mut i = 0;
+    while i < tokens.len() {
+        let longest = triggers
+            .iter()
+            .filter(|(trigger, _)| keys.get(i..i + trigger.len()) == Some(trigger.as_slice()))
+            .min_by_key(|(trigger, _)| std::cmp::Reverse(trigger.len()));
+        let Some((trigger, expansion)) = longest else {
+            i += 1;
+            continue;
+        };
+        let first = tokens[i];
+        let last = tokens[i + trigger.len() - 1];
+        let lead_end = first.find(char::is_alphanumeric).unwrap_or(0);
+        let trail_start = last
+            .char_indices()
+            .rev()
+            .find(|(_, c)| c.is_alphanumeric())
+            .map_or(last.len(), |(index, c)| index + c.len_utf8());
+        splices.push(Splice {
+            heard: offset(first) + lead_end..offset(last) + trail_start,
+            expansion,
+        });
+        i += trigger.len();
+    }
+    splices
+}
+
+fn apply_splices(text: &str, range: Range<usize>, splices: &[Splice]) -> String {
+    let mut out = String::with_capacity(range.len());
+    let mut copied = range.start;
+    for splice in splices
+        .iter()
+        .filter(|s| range.start <= s.heard.start && s.heard.end <= range.end)
+    {
+        out.push_str(&text[copied..splice.heard.start]);
+        out.push_str(splice.expansion);
+        copied = splice.heard.end;
+    }
+    out.push_str(&text[copied..range.end]);
+    out
+}
+
+/// `expand_snippets` over words that carry times. It matches the words as one text, so a timed
+/// word that holds several words, like a dictionary word with a space, still matches. Words that
+/// an expanded trigger touches become one word, from the first one's start to the last one's end.
+pub fn expand_snippets_in_timed<'a>(
+    words: &[TimedText],
+    snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Vec<TimedText> {
+    let triggers = snippet_triggers(snippets);
+    if triggers.is_empty() {
+        return words.to_vec();
+    }
+    let mut text = String::new();
+    let mut ranges: Vec<Range<usize>> = Vec::with_capacity(words.len());
+    for word in words {
+        if !text.is_empty() {
+            text.push(' ');
+        }
+        let start = text.len();
+        text.push_str(word.text.trim());
+        ranges.push(start..text.len());
+    }
+    let splices = find_splices(&text, &triggers);
+
+    let mut out = Vec::with_capacity(words.len());
+    let mut i = 0;
+    while i < words.len() {
+        let last = last_covered_word(&ranges, &splices, i);
+        let range = ranges[i].start..ranges[last].end;
+        let touched = splices
+            .iter()
+            .any(|s| range.start <= s.heard.start && s.heard.end <= range.end);
+        out.push(if touched {
+            TimedText {
+                t0: words[i].t0,
+                t1: words[last].t1,
+                text: apply_splices(&text, range, &splices),
+            }
+        } else {
+            words[i].clone()
+        });
+        i = last + 1;
+    }
+    out
+}
+
+fn last_covered_word(words: &[Range<usize>], splices: &[Splice], first: usize) -> usize {
+    let mut last = first;
+    while splices
+        .iter()
+        .any(|s| s.heard.start < words[last].end && words[last].end < s.heard.end)
+    {
+        last += 1;
+    }
+    last
+}
+
 pub fn expand_snippets<'a>(
     text: &str,
     snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
@@ -534,60 +658,16 @@ pub fn expand_snippets_with_fixes<'a>(
     text: &str,
     snippets: impl IntoIterator<Item = (&'a str, &'a str)>,
 ) -> (String, Vec<Fix>) {
-    let mut triggers: Vec<(Vec<String>, &str)> = snippets
-        .into_iter()
-        .map(|(trigger, expansion)| {
-            let keys: Vec<String> = trigger.split_whitespace().map(build_match_key).collect();
-            (keys, expansion)
-        })
-        .filter(|(keys, _)| !keys.is_empty() && keys.iter().all(|key| !key.is_empty()))
-        .collect();
-    if triggers.is_empty() {
-        return (text.to_string(), Vec::new());
-    }
-    triggers.sort_by_key(|(keys, _)| std::cmp::Reverse(keys.len()));
-
-    let tokens: Vec<&str> = text.split_whitespace().collect();
-    let keys: Vec<String> = tokens.iter().map(|token| build_match_key(token)).collect();
-    let offset = |token: &str| token.as_ptr() as usize - text.as_ptr() as usize;
-
-    let mut expanded = String::with_capacity(text.len());
-    let mut fixes = Vec::new();
-    let mut copied = 0;
-    let mut i = 0;
-    while i < tokens.len() {
-        let hit = triggers
-            .iter()
-            .find(|(trigger, _)| keys.get(i..i + trigger.len()) == Some(trigger.as_slice()));
-        let Some((trigger, expansion)) = hit else {
-            i += 1;
-            continue;
-        };
-        let first = tokens[i];
-        let last = tokens[i + trigger.len() - 1];
-        let lead_end = first.find(char::is_alphanumeric).unwrap_or(0);
-        let trail_start = last
-            .char_indices()
-            .rev()
-            .find(|(_, c)| c.is_alphanumeric())
-            .map_or(last.len(), |(index, c)| index + c.len_utf8());
-
-        let heard_end = offset(last) + trail_start;
-        let heard_start = offset(first) + lead_end;
-        fixes.push(Fix {
-            heard: text[heard_start..heard_end.max(heard_start)].to_string(),
-            written: expansion.to_string(),
+    let splices = find_splices(text, &snippet_triggers(snippets));
+    let fixes = splices
+        .iter()
+        .map(|splice| Fix {
+            heard: text[splice.heard.clone()].to_string(),
+            written: splice.expansion.to_string(),
             replacement: true,
-        });
-        expanded.push_str(&text[copied..offset(first)]);
-        expanded.push_str(&first[..lead_end]);
-        expanded.push_str(expansion);
-        expanded.push_str(&last[trail_start..]);
-        copied = offset(last) + last.len();
-        i += trigger.len();
-    }
-    expanded.push_str(&text[copied..]);
-    (expanded, fixes)
+        })
+        .collect();
+    (apply_splices(text, 0..text.len(), &splices), fixes)
 }
 
 #[cfg(test)]
@@ -636,6 +716,48 @@ mod tests {
                 written: "a@example.com".into(),
                 replacement: true,
             }]
+        );
+    }
+
+    #[test]
+    fn expand_snippets_in_timed_spans_the_trigger_words() {
+        let word = |t0, t1, text: &str| TimedText {
+            t0,
+            t1,
+            text: text.into(),
+        };
+        let words = [
+            word(0, 100, "Carrot"),
+            word(100, 200, "pays"),
+            word(200, 300, "Henry"),
+            word(300, 400, "K."),
+        ];
+        let snippets = [("carrot", "Karat"), ("henry k", "Henrique")];
+        assert_eq!(
+            expand_snippets_in_timed(&words, snippets),
+            [
+                word(0, 100, "Karat"),
+                word(100, 200, "pays"),
+                word(200, 400, "Henrique."),
+            ]
+        );
+    }
+
+    #[test]
+    fn expand_snippets_in_timed_matches_inside_a_word_with_spaces() {
+        let word = |t0, t1, text: &str| TimedText {
+            t0,
+            t1,
+            text: text.into(),
+        };
+        let words = [word(0, 200, "MacBook Pro"), word(200, 300, "model,")];
+        assert_eq!(
+            expand_snippets_in_timed(&words, [("macbook pro model", "the laptop")]),
+            [word(0, 300, "the laptop,")]
+        );
+        assert_eq!(
+            expand_snippets_in_timed(&words, [("pro", "Max")]),
+            [word(0, 200, "MacBook Max"), word(200, 300, "model,")]
         );
     }
 
