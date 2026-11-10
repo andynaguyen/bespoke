@@ -292,8 +292,7 @@
           "clipboard": "Papan klip ({{modifier}}+V)",
           "direct": "Langsung",
           "none": "Tidak Ada"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Penanganan Papan Klip",

@@ -292,8 +292,7 @@
           "clipboard": "Буфер обмена ({{modifier}}+V)",
           "direct": "Прямой",
           "none": "Нет"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Обработка буфера обмена",

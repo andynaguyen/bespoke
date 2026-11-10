@@ -18,14 +18,6 @@ pub fn redact_text(text: &str) -> &str {
     }
 }
 
-#[cfg(test)]
-const IMAGE_FILE_MACHINE_ARM64: u16 = 0xaa64;
-
-#[cfg(test)]
-fn native_machine_is_arm64(native_machine: Option<u16>) -> bool {
-    native_machine == Some(IMAGE_FILE_MACHINE_ARM64)
-}
-
 pub fn cancel_current_operation(app: &AppHandle) {
     info!("Initiating operation cancellation...");
 
@@ -104,14 +96,6 @@ pub fn env_flag_enabled(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn arm64_native_machine_is_the_only_match() {
-        assert!(native_machine_is_arm64(Some(IMAGE_FILE_MACHINE_ARM64)));
-        assert!(!native_machine_is_arm64(Some(0x8664)));
-        assert!(!native_machine_is_arm64(Some(0x014c)));
-        assert!(!native_machine_is_arm64(None));
-    }
 
     #[test]
     fn env_flag_enabled_true_for_truthy_values() {

@@ -292,8 +292,7 @@
           "clipboard": "Portapapeles ({{modifier}}+V)",
           "direct": "Directo",
           "none": "Ninguno"
-        },
-        "externalScriptPlaceholder": "/ruta/a/su/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Manejo del portapapeles",

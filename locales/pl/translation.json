@@ -292,8 +292,7 @@
           "clipboard": "Schowek ({{modifier}}+V)",
           "direct": "Bezpośrednio",
           "none": "Brak"
-        },
-        "externalScriptPlaceholder": "/sciezka/do/twojego/skryptu.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Obsługa schowka",

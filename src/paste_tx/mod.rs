@@ -104,8 +104,6 @@ pub(crate) fn send_chord(
     use crate::settings::PasteMethod;
     match paste_method {
         PasteMethod::CtrlV => crate::input::send_paste_ctrl_v(enigo, CHORD_HOLD_MS),
-        PasteMethod::CtrlShiftV => crate::input::send_paste_ctrl_shift_v(enigo, CHORD_HOLD_MS),
-        PasteMethod::ShiftInsert => crate::input::send_paste_shift_insert(enigo, CHORD_HOLD_MS),
         other => Err(format!(
             "Invalid paste method for clipboard paste: {:?}",
             other

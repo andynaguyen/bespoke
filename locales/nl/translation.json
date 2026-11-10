@@ -292,8 +292,7 @@
           "clipboard": "Klembord ({{modifier}}+V)",
           "direct": "Direct",
           "none": "Geen"
-        },
-        "externalScriptPlaceholder": "/pad/naar/je/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Klembordbeheer",

@@ -292,8 +292,7 @@
           "clipboard": "クリップボード ({{modifier}}+V)",
           "direct": "直接",
           "none": "なし"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "クリップボードの処理",

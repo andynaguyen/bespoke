@@ -292,8 +292,7 @@
           "clipboard": "Pano ({{modifier}}+V)",
           "direct": "Doğrudan",
           "none": "Yok"
-        },
-        "externalScriptPlaceholder": "/dosya/yolu/betik.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Pano Yönetimi",

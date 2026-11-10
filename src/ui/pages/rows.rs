@@ -377,9 +377,6 @@ pub fn paste_method_value(method: PasteMethod) -> &'static str {
         PasteMethod::CtrlV => "ctrl_v",
         PasteMethod::Direct => "direct",
         PasteMethod::None => "none",
-        PasteMethod::ShiftInsert => "shift_insert",
-        PasteMethod::CtrlShiftV => "ctrl_shift_v",
-        PasteMethod::ExternalScript => "external_script",
     }
 }
 

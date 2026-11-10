@@ -292,8 +292,7 @@
           "clipboard": "Клипборд ({{modifier}}+V)",
           "direct": "Директно",
           "none": "Няма"
-        },
-        "externalScriptPlaceholder": "/път/към/вашия/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Работа с клипборда",

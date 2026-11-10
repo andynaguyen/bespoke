@@ -272,8 +272,7 @@
           "clipboard": "الحافظة ({{modifier}}+V)",
           "direct": "مباشر",
           "none": "بلا"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "التعامل مع الحافظة",

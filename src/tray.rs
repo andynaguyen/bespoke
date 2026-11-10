@@ -122,8 +122,7 @@ pub enum AppTheme {
     Light,
 }
 
-pub fn get_current_theme(app: &AppHandle) -> AppTheme {
-    let _ = app;
+pub fn get_current_theme() -> AppTheme {
     if crate::ui::theme::effective_is_dark() {
         AppTheme::Dark
     } else {
@@ -224,7 +223,7 @@ fn sync_tray_with(app: &AppHandle, update: impl FnOnce(&mut TrayInner)) {
 
 fn compute_desired(app: &AppHandle, icon_state: TrayIconState) -> TrayDesired {
     let settings = settings::get_settings(app);
-    let theme = get_current_theme(app);
+    let theme = get_current_theme();
     let warning = crate::secure_input::tray_warning_active(app);
 
     let mut downloaded_models: Vec<(String, String)> = app
@@ -530,7 +529,7 @@ pub fn recreate_tray_icon(app: &AppHandle) {
 }
 
 pub fn create_tray(app: &AppHandle) {
-    let initial_icon_path = get_icon_path(get_current_theme(app), TrayIconState::Idle, false);
+    let initial_icon_path = get_icon_path(get_current_theme(), TrayIconState::Idle, false);
     let icon = load_tray_icon(app.path().resolve(
         initial_icon_path,
         crate::app_handle::BaseDirectory::Resource,

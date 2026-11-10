@@ -292,8 +292,7 @@
           "clipboard": "Porta-retalls ({{modifier}}+V)",
           "direct": "Directe",
           "none": "Cap"
-        },
-        "externalScriptPlaceholder": "/camí/al/vostre/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Gestió del porta-retalls",

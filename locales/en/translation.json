@@ -389,8 +389,7 @@
           "clipboard": "Clipboard ({{modifier}}+V)",
           "direct": "Direct",
           "none": "None"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Clipboard Handling",

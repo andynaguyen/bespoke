@@ -292,8 +292,7 @@
           "clipboard": "Área de Transferência ({{modifier}}+V)",
           "direct": "Direto",
           "none": "Nenhum"
-        },
-        "externalScriptPlaceholder": "/caminho/para/seu/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Manipulação da Área de Transferência",

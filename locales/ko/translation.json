@@ -292,8 +292,7 @@
           "clipboard": "클립보드 ({{modifier}}+V)",
           "direct": "직접",
           "none": "없음"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "클립보드 처리",

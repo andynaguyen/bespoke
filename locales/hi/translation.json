@@ -292,8 +292,7 @@
           "clipboard": "क्लिपबोर्ड ({{modifier}}+V)",
           "direct": "डायरेक्ट",
           "none": "कोई नहीं"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "क्लिपबोर्ड मैनेजमेंट",

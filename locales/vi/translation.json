@@ -292,8 +292,7 @@
           "clipboard": "Bảng nhớ tạm ({{modifier}}+V)",
           "direct": "Trực tiếp",
           "none": "Không có"
-        },
-        "externalScriptPlaceholder": "/duong-dan/toi/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Xử lý Clipboard",

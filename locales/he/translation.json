@@ -292,8 +292,7 @@
           "clipboard": "לוח ({{modifier}}+V)",
           "direct": "ישיר",
           "none": "ללא"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "התנהגות הלוח",

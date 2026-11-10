@@ -292,8 +292,7 @@
           "clipboard": "Schránka ({{modifier}}+V)",
           "direct": "Přímé",
           "none": "Žádné"
-        },
-        "externalScriptPlaceholder": "/cesta/k/vasemu/skriptu.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Práce se schránkou",

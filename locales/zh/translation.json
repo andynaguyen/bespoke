@@ -292,8 +292,7 @@
           "clipboard": "剪贴板 ({{modifier}}+V)",
           "direct": "直接",
           "none": "无"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "剪贴板处理",

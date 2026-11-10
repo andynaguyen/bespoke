@@ -292,8 +292,7 @@
           "clipboard": "Zwischenablage ({{modifier}}+V)",
           "direct": "Direkt",
           "none": "Keine"
-        },
-        "externalScriptPlaceholder": "/pfad/zu/ihrem/skript.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Zwischenablage-Verhalten",

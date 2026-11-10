@@ -292,8 +292,7 @@
           "clipboard": "Presse-papiers ({{modifier}}+V)",
           "direct": "Direct",
           "none": "Aucun"
-        },
-        "externalScriptPlaceholder": "/chemin/vers/votre/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Gestion du presse-papiers",

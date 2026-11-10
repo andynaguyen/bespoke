@@ -149,13 +149,17 @@ pub enum McpReach {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PasteMethod {
+    /// Cmd+V. Settings files from Handy on Linux or Windows may hold one of its other
+    /// clipboard methods, which macOS never offered, and those read as this one.
     #[default]
+    #[serde(
+        alias = "shift_insert",
+        alias = "ctrl_shift_v",
+        alias = "external_script"
+    )]
     CtrlV,
     Direct,
     None,
-    ShiftInsert,
-    CtrlShiftV,
-    ExternalScript,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -370,7 +374,6 @@ pub struct AppSettings {
     pub paste_delay_after_ms: u64,
     pub reliable_paste: bool,
     pub typing_tool: TypingTool,
-    pub external_script_path: Option<String>,
     pub filler_word_removal_enabled: bool,
     pub custom_filler_words: Option<Vec<String>>,
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
@@ -826,7 +829,6 @@ pub fn get_default_settings() -> AppSettings {
         paste_delay_after_ms: default_paste_delay_after_ms(),
         reliable_paste: false,
         typing_tool: default_typing_tool(),
-        external_script_path: None,
         filler_word_removal_enabled: default_filler_word_removal_enabled(),
         custom_filler_words: None,
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
@@ -1620,6 +1622,14 @@ mod tests {
         assert!(!debug_output.contains("sk-proj-secret-key-12345"));
         assert!(!debug_output.contains("sk-ant-secret-key-67890"));
         assert!(debug_output.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn clipboard_paste_methods_from_other_platforms_read_as_cmd_v() {
+        for stored in ["ctrl_v", "shift_insert", "ctrl_shift_v", "external_script"] {
+            let method: PasteMethod = serde_json::from_value(serde_json::json!(stored)).unwrap();
+            assert_eq!(method, PasteMethod::CtrlV, "{stored}");
+        }
     }
 
     #[test]

@@ -653,23 +653,12 @@ pub fn change_paste_method_setting(app: AppHandle, method: String) -> Result<(),
         "ctrl_v" => PasteMethod::CtrlV,
         "direct" => PasteMethod::Direct,
         "none" => PasteMethod::None,
-        "shift_insert" => PasteMethod::ShiftInsert,
-        "ctrl_shift_v" => PasteMethod::CtrlShiftV,
-        "external_script" => PasteMethod::ExternalScript,
         other => {
             warn!("Invalid paste method '{}', defaulting to ctrl_v", other);
             PasteMethod::CtrlV
         }
     };
     settings::update(&app, |settings| settings.paste_method = parsed);
-    Ok(())
-}
-
-pub fn change_external_script_path_setting(
-    app: AppHandle,
-    path: Option<String>,
-) -> Result<(), String> {
-    settings::update(&app, |settings| settings.external_script_path = path);
     Ok(())
 }
 

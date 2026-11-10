@@ -4,7 +4,6 @@ use crate::settings::{AutoSubmitKey, ClipboardHandling, PasteMethod, get_setting
 use crate::system_clipboard::ClipboardSnapshot;
 use enigo::{Direction, Enigo, Key, Keyboard};
 use log::info;
-use std::process::Command;
 use std::time::Duration;
 
 fn with_enigo<T>(
@@ -41,7 +40,6 @@ fn finish_clipboard_paste(
 fn paste_via_clipboard(
     text: &str,
     app_handle: &AppHandle,
-    paste_method: &PasteMethod,
     paste_delay_ms: u64,
     paste_delay_after_ms: u64,
 ) -> Result<(), String> {
@@ -52,12 +50,7 @@ fn paste_via_clipboard(
 
     std::thread::sleep(Duration::from_millis(paste_delay_ms));
 
-    let paste_result = with_enigo(app_handle, |enigo| match paste_method {
-        PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo, 100),
-        PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(enigo, 100),
-        PasteMethod::ShiftInsert => input::send_paste_shift_insert(enigo, 100),
-        _ => Err("Invalid paste method for clipboard paste".into()),
-    });
+    let paste_result = with_enigo(app_handle, |enigo| input::send_paste_ctrl_v(enigo, 100));
 
     finish_clipboard_paste(paste_result, paste_delay_after_ms, || match &saved {
         ClipboardSnapshot::Text(text) => {
@@ -65,33 +58,6 @@ fn paste_via_clipboard(
         }
         other => clipboard.restore(other),
     })
-}
-
-fn paste_via_external_script(text: &str, script_path: &str) -> Result<(), String> {
-    info!("Pasting via external script: {}", script_path);
-
-    // Do not capture the script's stdio. A clipboard helper the script runs may fork a
-    // background daemon that inherits those file descriptors. Waiting for captured output
-    // would then block until the clipboard selection is replaced, instead of returning
-    // after the script itself exits.
-    use std::process::Stdio;
-    let status = Command::new(script_path)
-        .arg(text)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|e| format!("Failed to execute external script '{}': {}", script_path, e))?;
-
-    if !status.success() {
-        return Err(format!(
-            "External script '{}' failed with exit code {:?}",
-            script_path,
-            status.code()
-        ));
-    }
-
-    Ok(())
 }
 
 fn paste_direct(text: &str, app_handle: &AppHandle) -> Result<(), String> {
@@ -164,10 +130,7 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
 
     // Rich-text editors (Slack, Gmail) trim trailing whitespace from pasted
     // text, so clipboard pastes type the space as a keystroke afterwards.
-    let clipboard_paste = matches!(
-        paste_method,
-        PasteMethod::CtrlV | PasteMethod::CtrlShiftV | PasteMethod::ShiftInsert
-    );
+    let clipboard_paste = paste_method == PasteMethod::CtrlV;
     let type_trailing_space = settings.append_trailing_space && clipboard_paste;
     let text = if settings.append_trailing_space && !type_trailing_space {
         format!("{} ", text)
@@ -187,7 +150,7 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
         PasteMethod::Direct => {
             paste_direct(&text, &app_handle)?;
         }
-        PasteMethod::CtrlV | PasteMethod::CtrlShiftV | PasteMethod::ShiftInsert => {
+        PasteMethod::CtrlV => {
             if settings.reliable_paste {
                 let reliable_result = with_enigo(&app_handle, |enigo| {
                     crate::paste_tx::try_reliable_paste(
@@ -212,24 +175,10 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
                     }
                 }
             }
-            paste_via_clipboard(
-                &text,
-                &app_handle,
-                &paste_method,
-                paste_delay_ms,
-                paste_delay_after_ms,
-            )?;
+            paste_via_clipboard(&text, &app_handle, paste_delay_ms, paste_delay_after_ms)?;
             if type_trailing_space {
                 send_trailing_space(&app_handle);
             }
-        }
-        PasteMethod::ExternalScript => {
-            let script_path = settings
-                .external_script_path
-                .as_ref()
-                .filter(|p| !p.is_empty())
-                .ok_or("External script path is not configured")?;
-            paste_via_external_script(&text, script_path)?;
         }
     }
 
@@ -269,8 +218,6 @@ mod tests {
     fn auto_submit_runs_for_active_paste_methods() {
         assert!(should_send_auto_submit(true, PasteMethod::CtrlV));
         assert!(should_send_auto_submit(true, PasteMethod::Direct));
-        assert!(should_send_auto_submit(true, PasteMethod::CtrlShiftV));
-        assert!(should_send_auto_submit(true, PasteMethod::ShiftInsert));
     }
 
     #[test]
@@ -282,42 +229,5 @@ mod tests {
 
         assert_eq!(result.unwrap_err(), "input failed");
         assert!(restored.get());
-    }
-
-    #[test]
-    fn external_script_does_not_wait_for_inherited_stdio() {
-        use std::fs;
-        use std::os::unix::fs::PermissionsExt;
-        use std::sync::mpsc;
-        use std::thread;
-
-        let script_path = std::env::temp_dir().join(format!(
-            "bespoke-external-script-{}-{}.sh",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("system clock should be after UNIX_EPOCH")
-                .as_nanos()
-        ));
-        fs::write(&script_path, "#!/bin/sh\nsleep 3 &\nexit 0\n").expect("write external script");
-        let mut permissions = fs::metadata(&script_path)
-            .expect("read external script metadata")
-            .permissions();
-        permissions.set_mode(0o700);
-        fs::set_permissions(&script_path, permissions).expect("make external script executable");
-
-        let (sender, receiver) = mpsc::channel();
-        let script_path_for_thread = script_path.clone();
-        thread::spawn(move || {
-            let result =
-                paste_via_external_script("test", script_path_for_thread.to_str().unwrap());
-            sender.send(result).expect("send script result");
-        });
-
-        let result = receiver
-            .recv_timeout(Duration::from_secs(1))
-            .expect("external script should return without waiting for its child");
-        fs::remove_file(script_path).expect("remove external script");
-        assert!(result.is_ok());
     }
 }

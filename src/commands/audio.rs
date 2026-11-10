@@ -122,7 +122,7 @@ pub async fn get_microphone_channels(device_name: String) -> Result<u16, String>
         use cpal::traits::HostTrait;
 
         let device = if device_name.eq_ignore_ascii_case("default") {
-            crate::audio_toolkit::get_cpal_host().default_input_device()
+            cpal::default_host().default_input_device()
         } else {
             list_input_devices()
                 .map_err(|e| format!("Failed to list audio devices: {e}"))?

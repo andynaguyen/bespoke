@@ -2,10 +2,6 @@ use crate::app_handle::AppHandle;
 use enigo::{Enigo, Key, Keyboard, Mouse, Settings};
 use std::sync::Mutex;
 
-/// Raw keycode that `send_paste_shift_insert` sends as Insert. enigo passes it to macOS
-/// unchanged, and macOS reads 0x76 as F4, so the paste sends Shift+F4.
-const XK_INSERT_KEYCODE: u32 = 0x76;
-
 mod macos {
     use super::Key;
     use log::{debug, warn};
@@ -169,57 +165,20 @@ pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
 /// against those. Callers that can detect a failed chord (e.g. the
 /// receipt-sequenced paste path) may use a much shorter hold.
 pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    send_paste_chord(enigo, false, hold_ms)
-}
-
-pub fn send_paste_ctrl_shift_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    send_paste_chord(enigo, true, hold_ms)
-}
-
-fn send_paste_chord(enigo: &mut Enigo, shift: bool, hold_ms: u64) -> Result<(), String> {
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
 
     enigo
         .key(modifier_key, enigo::Direction::Press)
         .map_err(|e| format!("Failed to press modifier key: {}", e))?;
-    if shift {
-        enigo
-            .key(Key::Shift, enigo::Direction::Press)
-            .map_err(|e| format!("Failed to press Shift key: {}", e))?;
-    }
     enigo
         .key(v_key_code, enigo::Direction::Click)
         .map_err(|e| format!("Failed to click V key: {}", e))?;
 
     std::thread::sleep(std::time::Duration::from_millis(hold_ms));
 
-    if shift {
-        enigo
-            .key(Key::Shift, enigo::Direction::Release)
-            .map_err(|e| format!("Failed to release Shift key: {}", e))?;
-    }
     enigo
         .key(modifier_key, enigo::Direction::Release)
         .map_err(|e| format!("Failed to release modifier key: {}", e))?;
-
-    Ok(())
-}
-
-pub fn send_paste_shift_insert(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    let insert_key_code = Key::Other(XK_INSERT_KEYCODE);
-
-    enigo
-        .key(Key::Shift, enigo::Direction::Press)
-        .map_err(|e| format!("Failed to press Shift key: {}", e))?;
-    enigo
-        .key(insert_key_code, enigo::Direction::Click)
-        .map_err(|e| format!("Failed to click Insert key: {}", e))?;
-
-    std::thread::sleep(std::time::Duration::from_millis(hold_ms));
-
-    enigo
-        .key(Key::Shift, enigo::Direction::Release)
-        .map_err(|e| format!("Failed to release Shift key: {}", e))?;
 
     Ok(())
 }

@@ -292,8 +292,7 @@
           "clipboard": "Appunti ({{modifier}}+V)",
           "direct": "Diretto",
           "none": "Nessuno"
-        },
-        "externalScriptPlaceholder": "/percorso/del/tuo/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Gestione Appunti",

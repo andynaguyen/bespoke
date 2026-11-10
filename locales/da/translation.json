@@ -292,8 +292,7 @@
           "clipboard": "Udklipsholder ({{modifier}}+V)",
           "direct": "Direkte",
           "none": "Ingen"
-        },
-        "externalScriptPlaceholder": "/sti/til/dit/script.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Håndtering af udklipsholder",

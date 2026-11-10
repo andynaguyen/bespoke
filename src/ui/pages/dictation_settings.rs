@@ -35,7 +35,6 @@ pub struct DictationSettings {
     scrub_keyword: Entity<KeywordField>,
     scratch_keyword: Entity<KeywordField>,
     submit_keyword: Entity<KeywordField>,
-    external_script: Entity<InputState>,
     history_limit: Entity<InputState>,
     channels: (String, u16),
 }
@@ -77,32 +76,6 @@ impl DictationSettings {
         cx.observe(&models, |this, _, cx| {
             this.sync_language(cx);
             cx.notify();
-        })
-        .detach();
-
-        let external = store
-            .read(cx)
-            .settings
-            .external_script_path
-            .clone()
-            .unwrap_or_default();
-        let external_script = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder(t("settings.advanced.pasteMethod.externalScriptPlaceholder"))
-                .default_value(external)
-        });
-        cx.subscribe(&external_script, |_, input, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                let path = input.read(cx).value().to_string();
-                let stored = (!path.is_empty()).then(|| path.clone());
-                let command = stored.clone();
-                set(
-                    cx,
-                    "external_script_path",
-                    move |s| s.external_script_path = stored,
-                    move |app| shortcut::change_external_script_path_setting(app, command),
-                );
-            }
         })
         .detach();
 
@@ -189,7 +162,6 @@ impl DictationSettings {
                     cx,
                 )
             }),
-            external_script,
             history_limit,
             channels: (String::new(), 1),
             store,
@@ -386,38 +358,25 @@ impl DictationSettings {
         SettingContainer::new(t("settings.advanced.pasteMethod.title"))
             .description(t("settings.advanced.pasteMethod.description"))
             .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(
-                        Dropdown::new("paste_method", rows::paste_method_options(method))
-                            .selected(Some(rows::paste_method_value(method)))
-                            .disabled(store.is_updating("paste_method"))
-                            .on_select(|value, _, cx| {
-                                let method = match value.as_ref() {
-                                    "direct" => PasteMethod::Direct,
-                                    "none" => PasteMethod::None,
-                                    "shift_insert" => PasteMethod::ShiftInsert,
-                                    "ctrl_shift_v" => PasteMethod::CtrlShiftV,
-                                    "external_script" => PasteMethod::ExternalScript,
-                                    _ => PasteMethod::CtrlV,
-                                };
-                                let value = value.to_string();
-                                set(
-                                    cx,
-                                    "paste_method",
-                                    move |s| s.paste_method = method,
-                                    move |app| shortcut::change_paste_method_setting(app, value),
-                                );
-                            }),
-                    )
-                    .when(method == PasteMethod::ExternalScript, |el| {
-                        el.child(
-                            TextField::new(&self.external_script)
-                                .disabled(store.is_updating("external_script_path")),
-                        )
-                    }),
+                div().flex().flex_col().gap_2().child(
+                    Dropdown::new("paste_method", rows::paste_method_options(method))
+                        .selected(Some(rows::paste_method_value(method)))
+                        .disabled(store.is_updating("paste_method"))
+                        .on_select(|value, _, cx| {
+                            let method = match value.as_ref() {
+                                "direct" => PasteMethod::Direct,
+                                "none" => PasteMethod::None,
+                                _ => PasteMethod::CtrlV,
+                            };
+                            let value = value.to_string();
+                            set(
+                                cx,
+                                "paste_method",
+                                move |s| s.paste_method = method,
+                                move |app| shortcut::change_paste_method_setting(app, value),
+                            );
+                        }),
+                ),
             )
             .into_any_element()
     }

@@ -292,8 +292,7 @@
           "clipboard": "Urklipp ({{modifier}}+V)",
           "direct": "Direkt",
           "none": "Ingen"
-        },
-        "externalScriptPlaceholder": "/sökväg/till/ditt/skript.sh"
+        }
       },
       "clipboardHandling": {
         "title": "Hantering av urklipp",
