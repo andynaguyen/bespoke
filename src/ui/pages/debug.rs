@@ -536,9 +536,7 @@ impl Render for DebugPage {
             .child(rows::word_correction_threshold(&s))
             .child(rows::paste_delay(&s))
             .child(rows::paste_delay_after(&s));
-        if cfg!(any(target_os = "macos", target_os = "windows")) {
-            group = group.child(rows::reliable_paste(&s, cx));
-        }
+        group = group.child(rows::reliable_paste(&s, cx));
         group = group
             .child(rows::hold_threshold(&s))
             .child(rows::recording_buffer(&s))
@@ -546,9 +544,7 @@ impl Render for DebugPage {
         if self.is_laptop {
             group = group.child(rows::clamshell_microphone(&s, cx));
         }
-        if cfg!(target_os = "macos") {
-            group = group.child(self.render_diagnostic(cx));
-        }
+        group = group.child(self.render_diagnostic(cx));
         group = group.child(self.render_logs(cx));
 
         div().w_full().flex().flex_col().gap_6().child(group)

@@ -109,8 +109,7 @@
       "waiting": "Čekání...",
       "allGranted": "Vše připraveno!",
       "errors": {
-        "checkFailed": "Nepodařilo se zkontrolovat oprávnění. Zkuste to prosím znovu.",
-        "requestFailed": "Nepodařilo se požádat o oprávnění. Zkuste to prosím znovu."
+        "checkFailed": "Nepodařilo se zkontrolovat oprávnění. Zkuste to prosím znovu."
       }
     }
   },
@@ -291,19 +290,8 @@
         "description": "Vyberte, jak se text vkládá. Přímé: simuluje psaní přes systémový vstup. Žádné: přeskočí vložení a aktualizuje pouze historii/schránku.",
         "options": {
           "clipboard": "Schránka ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Schránka (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Schránka (Shift+Insert)",
           "direct": "Přímé",
-          "none": "Žádné",
-          "externalScript": "Externí skript"
-        },
-        "externalScriptPlaceholder": "/cesta/k/vasemu/skriptu.sh"
-      },
-      "typingTool": {
-        "title": "Nástroj pro psaní",
-        "description": "Vyberte, který linuxový nástroj pro psaní použít pro metodu přímého vložení. Auto automaticky zjistí a použije nejlepší dostupný nástroj pro váš systém.",
-        "options": {
-          "auto": "Auto (Doporučeno)"
+          "none": "Žádné"
         }
       },
       "clipboardHandling": {
@@ -321,7 +309,6 @@
           "off": "Vypnuto",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -621,9 +608,7 @@
     "micPermissionDeniedTitle": "Přístup k mikrofonu byl odepřen",
     "micPermissionDenied": {
       "generic": "Přístup k mikrofonu byl odepřen operačním systémem. Povolte prosím přístup k mikrofonu v nastavení systému.",
-      "windows": "Povolte přístup k mikrofonu v Nastavení → Soukromí a zabezpečení → Mikrofon (včetně přístupu desktopových aplikací).",
-      "macos": "Povolte přístup k mikrofonu v Nastavení systému → Soukromí a zabezpečení → Mikrofon.",
-      "linux": "Povolte přístup k mikrofonu v nastavení zvuku nebo soukromí vašeho systému."
+      "macos": "Povolte přístup k mikrofonu v Nastavení systému → Soukromí a zabezpečení → Mikrofon."
     },
     "noInputDeviceTitle": "Mikrofon nebyl nalezen",
     "noInputDevice": "Nebylo detekováno žádné zvukové vstupní zařízení. Připojte mikrofon nebo sluchátka a zkuste to znovu.",

@@ -19,163 +19,14 @@ const SILERO_VAD_THRESHOLD: f32 = 0.3;
 const EARSHOT_VAD_THRESHOLD: f32 = 0.5;
 
 fn set_mute(mute: bool) {
-    #[cfg(target_os = "windows")]
-    {
-        unsafe {
-            use windows::Win32::{
-                Media::Audio::{
-                    Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator, MMDeviceEnumerator,
-                    eMultimedia, eRender,
-                },
-                System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
-            };
-
-            macro_rules! unwrap_or_return {
-                ($expr:expr) => {
-                    match $expr {
-                        Ok(val) => val,
-                        Err(_) => return,
-                    }
-                };
-            }
-
-            // Initialize the COM library for this thread.
-            // If already initialized (e.g., by another library like Tauri), this does nothing.
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-
-            let all_devices: IMMDeviceEnumerator =
-                unwrap_or_return!(CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL));
-            let default_device =
-                unwrap_or_return!(all_devices.GetDefaultAudioEndpoint(eRender, eMultimedia));
-            let volume_interface = unwrap_or_return!(
-                default_device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None)
-            );
-
-            let _ = volume_interface.SetMute(mute, std::ptr::null());
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        use std::process::Command;
-
-        let mute_val = if mute { "1" } else { "0" };
-        let amixer_state = if mute { "mute" } else { "unmute" };
-
-        if Command::new("wpctl")
-            .args(["set-mute", "@DEFAULT_AUDIO_SINK@", mute_val])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-        {
-            return;
-        }
-
-        if Command::new("pactl")
-            .args(["set-sink-mute", "@DEFAULT_SINK@", mute_val])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-        {
-            return;
-        }
-
-        let _ = Command::new("amixer")
-            .args(["set", "Master", amixer_state])
-            .output();
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        use std::process::Command;
-        let script = format!(
-            "set volume output muted {}",
-            if mute { "true" } else { "false" }
-        );
-        let _ = Command::new("osascript").args(["-e", &script]).output();
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn get_mute() -> Option<bool> {
-    unsafe {
-        use windows::Win32::{
-            Media::Audio::{
-                Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator, MMDeviceEnumerator,
-                eMultimedia, eRender,
-            },
-            System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx},
-        };
-
-        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-
-        let all_devices: IMMDeviceEnumerator =
-            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
-        let default_device = all_devices
-            .GetDefaultAudioEndpoint(eRender, eMultimedia)
-            .ok()?;
-        let volume_interface = default_device
-            .Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None)
-            .ok()?;
-
-        Some(volume_interface.GetMute().ok()?.as_bool())
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn get_mute() -> Option<bool> {
     use std::process::Command;
-
-    if let Ok(out) = Command::new("wpctl")
-        .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
-        .output()
-    {
-        if out.status.success() {
-            return Some(String::from_utf8_lossy(&out.stdout).contains("[MUTED]"));
-        }
-    }
-
-    // 2. PulseAudio (pactl): prints "Mute: yes" / "Mute: no".
-    // Force LC_ALL=C so a localized system still emits the parseable English
-    // "yes"/"no" instead of e.g. "ja"/"nein".
-    if let Ok(out) = Command::new("pactl")
-        .env("LC_ALL", "C")
-        .args(["get-sink-mute", "@DEFAULT_SINK@"])
-        .output()
-    {
-        if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout).to_lowercase();
-            if s.contains("yes") {
-                return Some(true);
-            }
-            if s.contains("no") {
-                return Some(false);
-            }
-        }
-    }
-
-    // 3. ALSA (amixer): prints "[off]" for muted channels, "[on]" otherwise.
-    // LC_ALL=C keeps the "[on]"/"[off]" tokens stable across locales.
-    if let Ok(out) = Command::new("amixer")
-        .env("LC_ALL", "C")
-        .args(["get", "Master"])
-        .output()
-    {
-        if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout);
-            if s.contains("[off]") {
-                return Some(true);
-            }
-            if s.contains("[on]") {
-                return Some(false);
-            }
-        }
-    }
-
-    None
+    let script = format!(
+        "set volume output muted {}",
+        if mute { "true" } else { "false" }
+    );
+    let _ = Command::new("osascript").args(["-e", &script]).output();
 }
 
-#[cfg(target_os = "macos")]
 fn get_mute() -> Option<bool> {
     use std::process::Command;
 
@@ -191,11 +42,6 @@ fn get_mute() -> Option<bool> {
         "false" => Some(false),
         _ => None,
     }
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-fn get_mute() -> Option<bool> {
-    None
 }
 
 fn restore_mute(prev_muted: Option<bool>) {
@@ -223,6 +69,24 @@ pub enum MicrophoneMode {
 struct MuteState {
     did_mute: bool,
     prev_muted: Option<bool>,
+}
+
+impl MuteState {
+    fn apply(&mut self, read: impl FnOnce() -> Option<bool>, mute: impl FnOnce()) {
+        if self.did_mute {
+            return;
+        }
+        self.prev_muted = read();
+        mute();
+        self.did_mute = true;
+    }
+
+    fn remove(&mut self, restore: impl FnOnce(Option<bool>)) {
+        if self.did_mute {
+            restore(self.prev_muted);
+            self.did_mute = false;
+        }
+    }
 }
 
 enum DesiredMicrophone {
@@ -488,7 +352,7 @@ impl AudioRecordingManager {
         });
     }
 
-    pub fn apply_mute(&self) {
+    pub fn apply_mute(&self, generation: u64) {
         let settings = get_settings(&self.app_handle);
         if !settings.mute_while_recording {
             return;
@@ -496,13 +360,11 @@ impl AudioRecordingManager {
 
         let is_open = self.is_open.lock().unwrap();
         let mut mute_guard = self.mute_state.lock().unwrap();
-        if mute_guard.did_mute {
+        if mute_guard.did_mute || !self.is_recording_readiness_current(generation) {
             return;
         }
         if *is_open {
-            mute_guard.prev_muted = get_mute();
-            set_mute(true);
-            mute_guard.did_mute = true;
+            mute_guard.apply(get_mute, || set_mute(true));
             debug!("Mute applied (prev_muted={:?})", mute_guard.prev_muted);
         }
     }
@@ -510,8 +372,7 @@ impl AudioRecordingManager {
     pub fn remove_mute(&self) {
         let mut mute_guard = self.mute_state.lock().unwrap();
         if mute_guard.did_mute {
-            restore_mute(mute_guard.prev_muted);
-            mute_guard.did_mute = false;
+            mute_guard.remove(restore_mute);
             debug!(
                 "Mute removed (restored prev_muted={:?})",
                 mute_guard.prev_muted
@@ -907,6 +768,7 @@ impl AudioRecordingManager {
     pub fn cancel_recording(&self) {
         self.invalidate_recording_readiness();
         self.cancel_generation.fetch_add(1, Ordering::AcqRel);
+        self.remove_mute();
         let mut state = self.state.lock().unwrap();
 
         match *state {
@@ -938,7 +800,51 @@ impl AudioRecordingManager {
 
 #[cfg(test)]
 mod tests {
-    use super::first_connected;
+    use super::{MuteState, first_connected};
+    use std::cell::{Cell, RefCell};
+
+    #[test]
+    fn muting_then_unmuting_restores_what_was_there() {
+        let mut state = MuteState::default();
+        let mutes = Cell::new(0);
+        state.apply(|| Some(false), || mutes.set(mutes.get() + 1));
+        assert_eq!(mutes.get(), 1);
+
+        let restored = RefCell::new(Vec::new());
+        state.remove(|prev| restored.borrow_mut().push(prev));
+        assert_eq!(*restored.borrow(), vec![Some(false)]);
+        assert!(!state.did_mute);
+    }
+
+    #[test]
+    fn unmuting_without_a_mute_does_nothing() {
+        let mut state = MuteState::default();
+        let restores = Cell::new(0);
+        state.remove(|_| restores.set(restores.get() + 1));
+        assert_eq!(restores.get(), 0);
+    }
+
+    #[test]
+    fn a_second_mute_keeps_the_first_reading() {
+        let mut state = MuteState::default();
+        state.apply(|| Some(false), || {});
+
+        let second_read = Cell::new(false);
+        let second_mute = Cell::new(false);
+        state.apply(
+            || {
+                second_read.set(true);
+                Some(true)
+            },
+            || second_mute.set(true),
+        );
+        assert!(!second_read.get());
+        assert!(!second_mute.get());
+
+        let restored = RefCell::new(Vec::new());
+        state.remove(|prev| restored.borrow_mut().push(prev));
+        assert_eq!(*restored.borrow(), vec![Some(false)]);
+    }
 
     fn names(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()

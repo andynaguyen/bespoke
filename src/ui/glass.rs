@@ -74,7 +74,6 @@ fn paint_glass(
     window.paint_quad(fill(bounds, color).corner_radii(spec.radius));
 }
 
-#[cfg(target_os = "macos")]
 mod imp {
     use std::collections::{HashMap, HashSet};
 
@@ -396,26 +395,5 @@ mod imp {
             }
             window.stack = stack;
         }
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-mod imp {
-    use gpui::{App, Bounds, Pixels, SharedString, Window};
-
-    use super::GlassSpec;
-
-    pub fn available() -> bool {
-        false
-    }
-
-    pub fn place(
-        _id: &SharedString,
-        _bounds: Bounds<Pixels>,
-        _spec: GlassSpec,
-        _window: &mut Window,
-        _cx: &mut App,
-    ) -> bool {
-        false
     }
 }

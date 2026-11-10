@@ -231,10 +231,7 @@ impl PathResolver {
     }
 
     pub fn app_log_dir(&self) -> Result<PathBuf, Error> {
-        #[cfg(target_os = "macos")]
         let dir = dirs::home_dir().map(|home| home.join("Library/Logs").join(APP_IDENTIFIER));
-        #[cfg(not(target_os = "macos"))]
-        let dir = dirs::data_local_dir().map(|dir| dir.join(APP_IDENTIFIER).join("logs"));
         dir.ok_or_else(|| anyhow::anyhow!("no log directory for this platform"))
     }
 
@@ -264,7 +261,6 @@ pub fn migrate_legacy_dirs() -> Vec<String> {
         dirs::cache_dir(),
         dirs::data_local_dir(),
     ];
-    #[cfg(target_os = "macos")]
     bases.push(dirs::home_dir().map(|home| home.join("Library/Logs")));
 
     let mut notes = Vec::new();

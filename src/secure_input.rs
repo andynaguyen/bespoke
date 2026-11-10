@@ -73,7 +73,6 @@ pub fn tray_warning_active(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(target_os = "macos")]
 mod imp {
     use super::*;
     use crate::settings::{self, KeyboardImplementation, ShortcutBinding};
@@ -571,53 +570,5 @@ mod imp {
         })
         .await
         .map_err(|e| format!("Diagnostic task failed: {e}"))?
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-mod imp {
-    use super::*;
-
-    pub struct SecureInputState;
-
-    impl SecureInputState {
-        pub fn new() -> Self {
-            Self
-        }
-        pub fn warning_active(&self) -> bool {
-            false
-        }
-    }
-
-    pub fn is_enabled() -> bool {
-        false
-    }
-
-    pub fn start_monitor(_app: &AppHandle) {}
-
-    pub fn status(_app: &AppHandle) -> SecureInputStatus {
-        SecureInputStatus {
-            enabled: false,
-            sustained: false,
-            culprit_pid: None,
-            culprit_name: None,
-            fallback_active: false,
-            covered_bindings: Vec::new(),
-            degraded_bindings: Vec::new(),
-            uncovered_bindings: Vec::new(),
-            recorder_blocked: false,
-        }
-    }
-
-    pub fn note_recorder_blocked(_app: &AppHandle) {}
-
-    pub fn register_cancel_fallback(_app: &AppHandle) {}
-
-    pub fn unregister_cancel_fallback(_app: &AppHandle) {}
-
-    pub fn reconcile_fallback(_app: &AppHandle) {}
-
-    pub async fn run_diagnostic(_duration_secs: u32) -> Result<KeyboardDiagnosticReport, String> {
-        Err("The keyboard diagnostic is only supported on macOS".to_string())
     }
 }

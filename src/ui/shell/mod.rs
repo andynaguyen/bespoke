@@ -47,20 +47,12 @@ pub enum Section {
 }
 
 impl Section {
-    #[cfg(target_os = "macos")]
     pub const PRIMARY: &[Section] = &[
         Section::Dictate,
         Section::Annotate,
         Section::Dictionary,
         Section::Stats,
         Section::Mcp,
-        Section::Models,
-    ];
-    #[cfg(not(target_os = "macos"))]
-    pub const PRIMARY: &[Section] = &[
-        Section::Dictate,
-        Section::Dictionary,
-        Section::Stats,
         Section::Models,
     ];
 
@@ -96,7 +88,7 @@ enum OnboardingStep {
     Done,
 }
 
-pub const TITLEBAR_HEIGHT: f32 = if cfg!(target_os = "macos") { 28. } else { 0. };
+pub const TITLEBAR_HEIGHT: f32 = 28.;
 
 pub struct MainWindow {
     step: OnboardingStep,
@@ -331,30 +323,23 @@ impl MainWindow {
             dialog_window.close(cx);
         }
         self.previous_focus = window.focused(cx);
-        self.dialog = if cfg!(target_os = "macos") {
-            let built = std::rc::Rc::new(std::cell::Cell::new(None));
-            let slot = built.clone();
-            DialogWindow::open(
-                window,
-                move |window, cx| {
-                    let view = build(window, cx);
-                    slot.set(Some(view.clone()));
-                    view
-                },
-                cx,
-            )
-            .and_then(|dialog_window| {
-                Some(OpenDialog {
-                    view: built.take()?,
-                    window: Some(dialog_window),
-                })
-            })
-        } else {
+        let built = std::rc::Rc::new(std::cell::Cell::new(None));
+        let slot = built.clone();
+        self.dialog = DialogWindow::open(
+            window,
+            move |window, cx| {
+                let view = build(window, cx);
+                slot.set(Some(view.clone()));
+                view
+            },
+            cx,
+        )
+        .and_then(|dialog_window| {
             Some(OpenDialog {
-                view: build(window, cx),
-                window: None,
+                view: built.take()?,
+                window: Some(dialog_window),
             })
-        };
+        });
         cx.notify();
     }
 
@@ -405,16 +390,8 @@ impl MainWindow {
                 let detail = event.payload.get("detail").and_then(|v| v.as_str());
                 match error_type {
                     Some("microphone_permission_denied") => {
-                        let platform = if cfg!(target_os = "macos") {
-                            "macos"
-                        } else if cfg!(target_os = "windows") {
-                            "windows"
-                        } else {
-                            "linux"
-                        };
                         let generic = t("errors.micPermissionDenied.generic");
-                        let description =
-                            t_or(&format!("errors.micPermissionDenied.{platform}"), &generic);
+                        let description = t_or("errors.micPermissionDenied.macos", &generic);
                         toast::error_with(t("errors.micPermissionDeniedTitle"), description, cx);
                     }
                     Some("no_input_device") => toast::error_with(
@@ -570,17 +547,8 @@ fn initial_onboarding_step(cx: &App) -> (OnboardingStep, bool) {
         return (OnboardingStep::Accessibility, false);
     }
 
-    #[cfg(target_os = "macos")]
     if !crate::ui::platform::accessibility_granted() || !crate::ui::platform::microphone_granted() {
         return (OnboardingStep::Accessibility, true);
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let status = crate::commands::audio::get_windows_microphone_permission_status();
-        if status.overall_access == crate::commands::audio::PermissionAccess::Denied {
-            return (OnboardingStep::Accessibility, true);
-        }
     }
 
     (OnboardingStep::Done, true)
@@ -705,22 +673,20 @@ impl Render for MainWindow {
                 }
             })
             .child(crate::ui::popup::frame_marker())
-            .when(cfg!(target_os = "macos"), |el| {
-                el.child(
-                    div()
-                        .id("title-strip")
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .right_0()
-                        .h(px(TITLEBAR_HEIGHT))
-                        .on_click(|event, window, _| {
-                            if event.click_count() == 2 {
-                                window.titlebar_double_click();
-                            }
-                        }),
-                )
-            })
+            .child(
+                div()
+                    .id("title-strip")
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(px(TITLEBAR_HEIGHT))
+                    .on_click(|event, window, _| {
+                        if event.click_count() == 2 {
+                            window.titlebar_double_click();
+                        }
+                    }),
+            )
             .child(content)
             .children(self.dialog.clone().map(|dialog| {
                 match dialog.window {

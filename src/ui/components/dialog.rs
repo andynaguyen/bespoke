@@ -90,8 +90,7 @@ impl RenderOnce for DialogFrame {
         let wide = viewport.width >= px(640.);
         let margin = if wide { rems(1.5) } else { rems(1.) };
         let max_height = viewport.height - margin.to_pixels(window.rem_size()) * 2.;
-        // On macOS a dialog is its own window over the main one, so glass can show through.
-        let on_glass = cfg!(target_os = "macos") && !crate::ui::popup::hosts(window, cx);
+        let own_window = !crate::ui::popup::hosts(window, cx);
         let fills = self.material == DialogMaterial::Window;
 
         let close_backdrop = self.on_close.clone();
@@ -118,7 +117,7 @@ impl RenderOnce for DialogFrame {
             .row_dir()
             .items_center()
             .justify_center()
-            .when(!on_glass, |el| el.bg(gpui::black().a(0.5)))
+            .when(!own_window, |el| el.bg(gpui::black().a(0.5)))
             .p(margin)
             .occlude()
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
@@ -144,7 +143,7 @@ impl RenderOnce for DialogFrame {
                     .relative()
                     .overflow_hidden()
                     .rounded(radius::PANEL)
-                    .when(on_glass, |el| {
+                    .when(own_window, |el| {
                         el.child(match self.material {
                             DialogMaterial::Popup => glass_with(
                                 "dialog",
@@ -164,7 +163,7 @@ impl RenderOnce for DialogFrame {
                             ),
                         })
                     })
-                    .when(!on_glass, |el| {
+                    .when(!own_window, |el| {
                         el.border_1()
                             .border_color(p.line)
                             .bg(p.background)

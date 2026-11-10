@@ -13,21 +13,6 @@ use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{Alpha, palette, tw};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Platform {
-    MacOs,
-    Windows,
-    Other,
-}
-
-const PLATFORM: Platform = if cfg!(target_os = "macos") {
-    Platform::MacOs
-} else if cfg!(target_os = "windows") {
-    Platform::Windows
-} else {
-    Platform::Other
-};
-
-#[derive(Clone, Copy, PartialEq, Eq)]
 enum Status {
     Needed,
     Waiting,
@@ -35,30 +20,11 @@ enum Status {
 }
 
 fn accessibility_granted() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        crate::ui::platform::accessibility_granted()
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        true
-    }
+    crate::ui::platform::accessibility_granted()
 }
 
 fn microphone_granted() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        crate::ui::platform::microphone_granted()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let status = crate::commands::audio::get_windows_microphone_permission_status();
-        status.overall_access != crate::commands::audio::PermissionAccess::Denied
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        true
-    }
+    crate::ui::platform::microphone_granted()
 }
 
 fn initialize_input() {
@@ -98,34 +64,14 @@ impl AccessibilityOnboarding {
             polling: None,
         };
         if preview {
-            if PLATFORM != Platform::MacOs {
-                this.accessibility = Status::Granted;
-            }
-            if PLATFORM == Platform::Other {
-                this.microphone = Status::Granted;
-            }
             return this;
         }
-        match PLATFORM {
-            Platform::Other => {
-                this.accessibility = Status::Granted;
-                this.microphone = Status::Granted;
-            }
-            Platform::Windows => {
-                this.accessibility = Status::Granted;
-                if microphone_granted() {
-                    this.microphone = Status::Granted;
-                }
-            }
-            Platform::MacOs => {
-                if accessibility_granted() {
-                    this.accessibility = Status::Granted;
-                    initialize_input();
-                }
-                if microphone_granted() {
-                    this.microphone = Status::Granted;
-                }
-            }
+        if accessibility_granted() {
+            this.accessibility = Status::Granted;
+            initialize_input();
+        }
+        if microphone_granted() {
+            this.microphone = Status::Granted;
         }
         if this.all_granted() {
             this.complete(window, cx);
@@ -172,10 +118,7 @@ impl AccessibilityOnboarding {
     }
 
     fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if PLATFORM == Platform::MacOs
-            && self.accessibility != Status::Granted
-            && accessibility_granted()
-        {
+        if self.accessibility != Status::Granted && accessibility_granted() {
             self.accessibility = Status::Granted;
             initialize_input();
         }
@@ -194,7 +137,6 @@ impl AccessibilityOnboarding {
         if self.preview {
             return;
         }
-        #[cfg(target_os = "macos")]
         crate::ui::platform::request_accessibility();
         self.accessibility = Status::Waiting;
         self.start_polling(window, cx);
@@ -205,15 +147,6 @@ impl AccessibilityOnboarding {
         if self.preview {
             return;
         }
-        #[cfg(target_os = "windows")]
-        {
-            if let Err(e) = crate::commands::audio::open_microphone_privacy_settings() {
-                log::error!("Failed to request microphone permission: {e}");
-                crate::ui::toast::error(t("onboarding.permissions.errors.requestFailed"), cx);
-                return;
-            }
-        }
-        #[cfg(target_os = "macos")]
         crate::ui::platform::request_microphone();
         self.microphone = Status::Waiting;
         self.start_polling(window, cx);
@@ -343,11 +276,6 @@ impl Render for AccessibilityOnboarding {
                 .into_any_element();
         }
 
-        let microphone_label = if PLATFORM == Platform::Windows {
-            t("accessibility.openSettings")
-        } else {
-            t("onboarding.permissions.grant")
-        };
         div()
             .id("permissions-onboarding")
             .size_full()
@@ -392,30 +320,26 @@ impl Render for AccessibilityOnboarding {
                                             .child(t("onboarding.permissions.description")),
                                     ),
                             )
-                            .when(PLATFORM != Platform::Other, |el| {
-                                el.child(self.render_card(
-                                    "grant-microphone",
-                                    "mic",
-                                    t("onboarding.permissions.microphone.title"),
-                                    t("onboarding.permissions.microphone.description"),
-                                    self.microphone,
-                                    microphone_label,
-                                    Self::grant_microphone,
-                                    cx,
-                                ))
-                            })
-                            .when(PLATFORM == Platform::MacOs, |el| {
-                                el.child(self.render_card(
-                                    "grant-accessibility",
-                                    "keyboard",
-                                    t("onboarding.permissions.accessibility.title"),
-                                    t("onboarding.permissions.accessibility.description"),
-                                    self.accessibility,
-                                    t("onboarding.permissions.grant"),
-                                    Self::grant_accessibility,
-                                    cx,
-                                ))
-                            }),
+                            .child(self.render_card(
+                                "grant-microphone",
+                                "mic",
+                                t("onboarding.permissions.microphone.title"),
+                                t("onboarding.permissions.microphone.description"),
+                                self.microphone,
+                                t("onboarding.permissions.grant"),
+                                Self::grant_microphone,
+                                cx,
+                            ))
+                            .child(self.render_card(
+                                "grant-accessibility",
+                                "keyboard",
+                                t("onboarding.permissions.accessibility.title"),
+                                t("onboarding.permissions.accessibility.description"),
+                                self.accessibility,
+                                t("onboarding.permissions.grant"),
+                                Self::grant_accessibility,
+                                cx,
+                            )),
                     ),
             )
             .into_any_element()

@@ -38,7 +38,8 @@ Read the triage context file before investigating.
 - "Started from" says what wrote the file. The running app records permissions and
   settings. The `--triage` command line cannot: a process started from a terminal
   gets the terminal's permissions, not Bespoke's. In that case read the settings
-  file yourself, and ask the user to check System Settings > Privacy & Security.
+  copy named in the context file, and ask the user to check System Settings >
+  Privacy & Security.
 - The version is that of the copy that wrote the file. The bug may have happened on
   another Mac, or on an older build the user has since updated. Ask.
 - "Build" tells you how this copy was installed. A Sparkle release came from a
@@ -106,8 +107,13 @@ Work from evidence, not assumption. In rough order of value:
   diagnostic that shows whether key events reach Bespoke.
 - **Models.** Transcription models live in the models folder. A missing or partial
   download shows up in `bespoke.log` when the model loads.
-- **Settings.** `settings_store.json` holds every setting. Read it freely. It also
-  holds post-processing API keys under `post_process_api_keys`: never quote them.
+- **Settings.** The context file names a settings copy in the session folder. It
+  holds every setting, with the post-processing API keys replaced by `[REDACTED]`.
+  Read that copy. Do not open `settings_store.json` in the app data folder: it holds
+  the real keys. If the context file names no copy, an older Bespoke wrote the
+  session. Then read the original through a filter that drops the keys:
+  `jq 'del(.settings.post_process_api_keys)' <path to settings_store.json>`. If `jq`
+  is not installed, ask the user before opening the file.
 - **History.** `history.db` is SQLite and Bespoke keeps it open. Read it with
   `sqlite3 -readonly`. Write to it only when a write is necessary to fix the problem
   the user described, and only with their explicit permission.
@@ -180,7 +186,8 @@ never the tag-pinned clone from step 4.
 
 ## 9. Redact
 
-Never read the Agent Access token (`mcp-token`, named in the context file). Scrub
+Never read the Agent Access token (`mcp-token`, named in the context file). Never
+read `settings_store.json` directly either, because it holds API keys. Scrub
 anything you quote in an issue or comment: API keys, tokens, the Tailscale address,
 and the user's home folder path (write `~`). Dictation history, recordings and
 captures hold what the user said and what was on their screen. Quote none of it in

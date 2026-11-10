@@ -20,10 +20,6 @@ enum PttAction {
     CancelRelease,
 }
 
-/// A key-up deferred by `RELEASE_GRACE` so a synthesized X11 auto-repeat
-/// press can cancel it (#1539). When the grace elapses the hold is resolved
-/// by [`CoordinatorState::finish_hold`] (recording) or
-/// [`CoordinatorState::finish_pending_hold`] (press remembered while busy).
 struct PendingRelease {
     binding_id: String,
     hotkey_string: String,

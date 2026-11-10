@@ -7,15 +7,11 @@ pub struct CpalDeviceInfo {
 }
 
 pub fn list_input_devices() -> Result<Vec<CpalDeviceInfo>, Box<dyn std::error::Error>> {
-    Ok(describe(
-        crate::audio_toolkit::get_cpal_host().input_devices()?,
-    ))
+    Ok(describe(cpal::default_host().input_devices()?))
 }
 
 pub fn list_output_devices() -> Result<Vec<CpalDeviceInfo>, Box<dyn std::error::Error>> {
-    Ok(describe(
-        crate::audio_toolkit::get_cpal_host().output_devices()?,
-    ))
+    Ok(describe(cpal::default_host().output_devices()?))
 }
 
 fn describe(devices: impl Iterator<Item = cpal::Device>) -> Vec<CpalDeviceInfo> {

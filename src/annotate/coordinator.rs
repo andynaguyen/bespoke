@@ -186,8 +186,31 @@ pub enum IslandPhase {
         finished_at: Instant,
         frame_count: usize,
         duration_ms: u64,
+        copied: bool,
+    },
+    Failed {
+        finished_at: Instant,
     },
     Dismissing,
+}
+
+const FINISHED_CAPSULE_MS: u64 = 25_000;
+
+fn phase_after_finish(
+    saved_frame_count: Option<usize>,
+    copied: bool,
+    duration_ms: u64,
+    now: Instant,
+) -> IslandPhase {
+    match saved_frame_count {
+        Some(frame_count) => IslandPhase::Completed {
+            finished_at: now,
+            frame_count,
+            duration_ms,
+            copied,
+        },
+        None => IslandPhase::Failed { finished_at: now },
+    }
 }
 
 enum CaptureSource {
@@ -924,9 +947,8 @@ impl Coordinator {
                 stroke_count,
             },
             IslandPhase::Processing => Pres::Processing,
-            IslandPhase::Completed { .. } => Pres::Completed {
-                label: "Copied".to_owned(),
-            },
+            IslandPhase::Completed { copied, .. } => Pres::Completed { copied },
+            IslandPhase::Failed { .. } => Pres::Failed,
         };
         PillSnapshot {
             pres,
@@ -1028,8 +1050,9 @@ impl Coordinator {
                 self.apply_pill_action(action, cx);
             }
         }
-        if let IslandPhase::Completed { finished_at, .. } = self.island_phase
-            && finished_at.elapsed() >= Duration::from_millis(25_000)
+        if let IslandPhase::Completed { finished_at, .. } | IslandPhase::Failed { finished_at } =
+            self.island_phase
+            && finished_at.elapsed() >= Duration::from_millis(FINISHED_CAPSULE_MS)
         {
             self.set_island_phase(IslandPhase::Dismissing);
         }
@@ -1370,7 +1393,10 @@ impl Coordinator {
                                 crate::annotate::handoff::Finished::of(dir, bundle),
                             );
                         }
-                        Err(_) => crate::annotate::capture_cancelled(),
+                        Err(error) => {
+                            annotate_log(format!("Capture could not be saved: {error:#}"));
+                            crate::annotate::capture_cancelled();
+                        }
                     }
                     (finalized, duration_ms)
                 })
@@ -1378,19 +1404,26 @@ impl Coordinator {
 
             let _ = entity.update(cx, |coord, cx| {
                 let (finalized, duration_ms) = result;
-                let mut frame_count = 1;
+                let mut saved = None;
+                let mut copied = false;
                 coord.completed_dir = None;
                 if let Ok((dir, bundle, _)) = finalized {
-                    frame_count = bundle.keyframes.len();
-                    let _ = crate::annotate::handoff::copy_bundle_to_clipboard(&dir);
+                    saved = Some(bundle.keyframes.len());
+                    match crate::annotate::handoff::copy_bundle_to_clipboard(&dir) {
+                        Ok(()) => copied = true,
+                        Err(error) => {
+                            annotate_log(format!("Capture saved but not copied: {error:#}"));
+                        }
+                    }
                     coord.completed_dir = Some(dir.clone());
                     coord.review_dir = Some(dir);
                 }
-                coord.set_island_phase(IslandPhase::Completed {
-                    finished_at: Instant::now(),
-                    frame_count,
+                coord.set_island_phase(phase_after_finish(
+                    saved,
+                    copied,
                     duration_ms,
-                });
+                    Instant::now(),
+                ));
                 cx.notify();
             });
         })
@@ -2093,5 +2126,30 @@ mod tests {
     #[test]
     fn clock_template_is_width_stable() {
         assert_eq!(clock_template("12:34"), "00:00");
+    }
+
+    #[test]
+    fn a_capture_that_was_not_saved_shows_the_failure() {
+        let now = Instant::now();
+        assert_eq!(
+            phase_after_finish(None, false, 4_000, now),
+            IslandPhase::Failed { finished_at: now }
+        );
+    }
+
+    #[test]
+    fn a_saved_capture_says_whether_it_was_copied() {
+        let now = Instant::now();
+        for copied in [true, false] {
+            assert_eq!(
+                phase_after_finish(Some(3), copied, 4_000, now),
+                IslandPhase::Completed {
+                    finished_at: now,
+                    frame_count: 3,
+                    duration_ms: 4_000,
+                    copied,
+                }
+            );
+        }
     }
 }

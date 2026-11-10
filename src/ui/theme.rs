@@ -6,13 +6,7 @@ use crate::settings::Theme as ThemeSetting;
 
 pub const REM: Pixels = px(15.);
 
-pub const MONO_FONT: &str = if cfg!(target_os = "macos") {
-    "Menlo"
-} else if cfg!(target_os = "windows") {
-    "Consolas"
-} else {
-    "DejaVu Sans Mono"
-};
+pub const MONO_FONT: &str = "Menlo";
 
 fn hex(value: u32) -> Hsla {
     rgb(value).into()
@@ -229,20 +223,6 @@ pub fn apply_theme_setting(setting: ThemeSetting, cx: &mut App) {
     crate::tray::refresh_tray_icon(crate::app_handle::AppHandle::global());
 }
 
-pub fn sync_title_bar(cx: &mut App) {
-    if !cfg!(target_os = "windows") {
-        return;
-    }
-    cx.defer(|cx| {
-        let dark = effective_is_dark();
-        if let Some(handle) = crate::ui::main_window(cx) {
-            let _ = handle.update(cx, |_, window, _| {
-                crate::ui::platform::set_title_bar_dark(window, dark)
-            });
-        }
-    });
-}
-
 pub fn system_appearance_changed(window: &Window, cx: &mut App) {
     let appearance = window.appearance();
     if cx.global::<BespokeTheme>().system == appearance {
@@ -270,7 +250,6 @@ fn recompute(cx: &mut App) {
     cx.global_mut::<BespokeTheme>().palette = palette;
     sync_component_theme(&palette, cx);
     cx.refresh_windows();
-    sync_title_bar(cx);
 }
 
 fn sync_component_theme(palette: &Palette, cx: &mut App) {
@@ -296,21 +275,16 @@ fn sync_component_theme(palette: &Palette, cx: &mut App) {
 }
 
 fn apply_native_appearance(setting: ThemeSetting, cx: &App) {
-    #[cfg(target_os = "macos")]
-    {
-        let dark = match setting {
-            ThemeSetting::System => None,
-            ThemeSetting::Light => Some(false),
-            ThemeSetting::Dark => Some(true),
-        };
-        // Deferred: AppKit reports the appearance change back to GPUI
-        // synchronously, which GPUI cannot take while the app is in use.
-        cx.foreground_executor()
-            .spawn(async move { crate::ui::platform::set_app_appearance(dark) })
-            .detach();
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (setting, cx);
+    let dark = match setting {
+        ThemeSetting::System => None,
+        ThemeSetting::Light => Some(false),
+        ThemeSetting::Dark => Some(true),
+    };
+    // Deferred: AppKit reports the appearance change back to GPUI
+    // synchronously, which GPUI cannot take while the app is in use.
+    cx.foreground_executor()
+        .spawn(async move { crate::ui::platform::set_app_appearance(dark) })
+        .detach();
 }
 
 pub fn shadow_lg() -> Vec<gpui::BoxShadow> {

@@ -204,26 +204,33 @@ impl PostProcessingApi {
         }
         let key = format!("post_process_base_url:{provider_id}");
         let app = AppHandle::global().clone();
-        self.store.update(cx, |store, cx| {
-            store.set_updating(key.clone(), true, cx);
-            store.post_process_models.remove(&provider_id);
-            cx.spawn(async move |store, cx| {
-                let id = provider_id.clone();
-                let result = crate::runtime::spawn_blocking(move || {
-                    shortcut::change_post_process_base_url_setting(app.clone(), id.clone(), value)?;
-                    shortcut::change_post_process_model_setting(app, id, String::new())
-                })
-                .await;
-                if let Ok(Err(e)) = result {
-                    log::error!("Failed to update base URL: {e}");
-                }
-                let _ = store.update(cx, |store, cx| {
-                    store.set_updating(key, false, cx);
-                    store.post_process_models.remove(&provider_id);
-                    store.refresh(cx);
-                });
-            })
-            .detach();
+        let store = self.store.clone();
+        self.store.update(cx, |s, cx| {
+            s.post_process_models.remove(&provider_id);
+            let id = provider_id.clone();
+            s.update_async_then(
+                &key,
+                |_| {},
+                async move {
+                    crate::runtime::spawn_blocking(move || {
+                        shortcut::change_post_process_base_url_setting(
+                            app.clone(),
+                            id.clone(),
+                            value,
+                        )?;
+                        shortcut::change_post_process_model_setting(app, id, String::new())
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?
+                },
+                move |_, cx| {
+                    store.update(cx, |s, cx| {
+                        s.post_process_models.remove(&provider_id);
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
         });
     }
 
@@ -803,7 +810,7 @@ impl PostProcessingPrompts {
                 self.shown_prompt = None;
                 let id = prompt.id.clone();
                 self.store.update(cx, |store, cx| {
-                    store.refresh(cx);
+                    store.reload_unless_writing(cx);
                     let stored = id.clone();
                     store.update(
                         "post_process_selected_prompt_id",
@@ -832,7 +839,7 @@ impl PostProcessingPrompts {
             log::error!("Failed to update prompt: {e}");
         }
         self.shown_prompt = None;
-        self.store.update(cx, |s, cx| s.refresh(cx));
+        self.store.update(cx, |s, cx| s.reload_unless_writing(cx));
     }
 
     fn delete_prompt(&mut self, cx: &mut Context<Self>) {
@@ -845,7 +852,7 @@ impl PostProcessingPrompts {
         }
         self.creating = false;
         self.shown_prompt = None;
-        self.store.update(cx, |s, cx| s.refresh(cx));
+        self.store.update(cx, |s, cx| s.reload_unless_writing(cx));
     }
 
     fn select(&mut self, id: String, cx: &mut Context<Self>) {

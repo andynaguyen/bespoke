@@ -2,12 +2,6 @@
 //! # Platform Notes
 //!
 //! - **macOS**: Uses CGEventTap. Requires accessibility permissions.
-//! - **Windows**: Uses low-level keyboard hooks. Clean thread shutdown.
-//! - **Linux**: Reads evdev devices directly (Wayland, X11, and console
-//!   alike). Requires read access to `/dev/input` (`input` group).
-//!   Blocking grabs keyboards exclusively and re-injects non-blocked
-//!   events through uinput, so it additionally requires write access to
-//!   `/dev/uinput`. Clean thread shutdown.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,7 +25,7 @@ pub struct KeyboardListener {
     /// Backend-specific wakeup invoked on Drop after `running` is cleared.
     /// macOS parks its listener thread in a CFRunLoop with no periodic
     /// wakeups (see run_event_tap), so Drop must stop that loop explicitly.
-    stop_wakeup: Option<Box<dyn Fn() + Send>>,
+    stop_wakeup: Box<dyn Fn() + Send>,
 }
 
 impl KeyboardListener {
@@ -49,53 +43,20 @@ impl KeyboardListener {
     /// Events matching hotkeys in the provided set will be blocked from reaching
     /// other applications. The set can be modified after creation to add/remove
     /// hotkeys dynamically.
-    ///
-    /// Note: On Linux this grabs keyboards exclusively and re-injects
-    /// non-blocked events through uinput, so it requires write access to
-    /// `/dev/uinput` (and fails with an actionable error without it).
-    /// Mouse-button hotkeys are detected but not blocked — pointer devices
-    /// are never grabbed (same behavior as Windows).
     pub fn new_with_blocking(blocking_hotkeys: BlockingHotkeys) -> Result<Self> {
         Self::new_internal(Some(blocking_hotkeys))
     }
 
     fn new_internal(blocking_hotkeys: Option<BlockingHotkeys>) -> Result<Self> {
-        #[cfg(target_os = "macos")]
-        {
-            use crate::shortcut::keys::platform::macos::listener;
-            let state = listener::spawn(blocking_hotkeys)?;
-            let run_loop = state.run_loop;
-            Ok(KeyboardListener {
-                event_receiver: state.event_receiver,
-                _thread_handle: state.thread_handle,
-                running: state.running,
-                stop_wakeup: Some(Box::new(move || run_loop.stop())),
-            })
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            use crate::shortcut::keys::platform::windows::listener;
-            let state = listener::spawn(blocking_hotkeys)?;
-            Ok(KeyboardListener {
-                event_receiver: state.event_receiver,
-                _thread_handle: state.thread_handle,
-                running: state.running,
-                stop_wakeup: None,
-            })
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            use crate::shortcut::keys::platform::linux::listener;
-            let state = listener::spawn(blocking_hotkeys)?;
-            Ok(KeyboardListener {
-                event_receiver: state.event_receiver,
-                _thread_handle: state.thread_handle,
-                running: state.running,
-                stop_wakeup: None,
-            })
-        }
+        use crate::shortcut::keys::platform::macos::listener;
+        let state = listener::spawn(blocking_hotkeys)?;
+        let run_loop = state.run_loop;
+        Ok(KeyboardListener {
+            event_receiver: state.event_receiver,
+            _thread_handle: state.thread_handle,
+            running: state.running,
+            stop_wakeup: Box::new(move || run_loop.stop()),
+        })
     }
 
     /// Blocking receive with timeout
@@ -126,13 +87,7 @@ impl Drop for KeyboardListener {
     fn drop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
 
-        // Wake the listener thread if the backend parks it (macOS stops the
-        // tap thread's CFRunLoop). Windows/Linux event loops re-check
-        // `running` at least every ~100ms on their own, so the join below is
-        // short and shutdown is clean on all platforms.
-        if let Some(wake) = &self.stop_wakeup {
-            wake();
-        }
+        (self.stop_wakeup)();
         if let Some(handle) = self._thread_handle.take() {
             let _ = handle.join();
         }

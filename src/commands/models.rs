@@ -1,7 +1,7 @@
 use crate::app_handle::{AppHandle, State};
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::{ModelStateEvent, TranscriptionManager};
-use crate::settings::{get_settings, write_settings};
+use crate::settings::{self, get_settings};
 use log::error;
 use std::sync::Arc;
 
@@ -36,9 +36,9 @@ pub async fn delete_model(
     if settings.selected_model == model_id {
         transcription_manager.unload_model();
 
-        let mut settings = get_settings(&app_handle);
-        settings.selected_model = String::new();
-        write_settings(&app_handle, settings);
+        settings::update(&app_handle, |settings| {
+            settings.selected_model = String::new()
+        });
     }
 
     model_manager
@@ -57,11 +57,10 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
         return Err(format!("Model not downloaded: {}", model_id));
     }
 
-    let mut settings = get_settings(app);
-    settings.selected_model = model_id.to_string();
-    settings.onboarding_completed = true;
-
-    write_settings(app, settings);
+    settings::update(app, |settings| {
+        settings.selected_model = model_id.to_string();
+        settings.onboarding_completed = true;
+    });
 
     let _ = app.emit(
         "model-state-changed",

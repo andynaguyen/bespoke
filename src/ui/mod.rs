@@ -79,11 +79,9 @@ pub fn init(
     crate::i18n::set_language(&language);
     event_bus::init(ui_messages, cx);
     toast::init(cx);
-    #[cfg(target_os = "macos")]
     pages::triage::init(cx);
     cx.set_global(MainWindowSlot::default());
 
-    #[cfg(target_os = "macos")]
     platform::prevent_panels_from_taking_focus();
 
     cx.on_action(|_: &Quit, cx| cx.quit());
@@ -170,7 +168,7 @@ pub fn open_main_window(show: bool, cx: &mut App) {
         // and the Window menu still show it.
         titlebar: Some(TitlebarOptions {
             title: Some("Bespoke".into()),
-            appears_transparent: cfg!(target_os = "macos"),
+            appears_transparent: true,
             traffic_light_position: Some(gpui::point(px(19.), px(19.))),
         }),
         focus: show,
@@ -199,11 +197,8 @@ pub fn open_main_window(show: bool, cx: &mut App) {
     match handle {
         Ok(handle) => {
             cx.global_mut::<MainWindowSlot>().handle = Some(handle);
-            theme::sync_title_bar(cx);
             if show {
                 show_main_window(cx);
-            } else if cfg!(target_os = "linux") {
-                let _ = handle.update(cx, |_, window, _| window.minimize_window());
             }
         }
         Err(e) => log::error!("Failed to open the main window: {e}"),
@@ -219,7 +214,6 @@ pub fn hide_main_window(window: &mut gpui::Window, cx: &mut App) -> bool {
         slot.view = None;
     }
 
-    #[cfg(target_os = "macos")]
     {
         let app = AppHandle::global();
         let settings = crate::settings::get_settings(app);
@@ -230,8 +224,6 @@ pub fn hide_main_window(window: &mut gpui::Window, cx: &mut App) -> bool {
                 .detach();
         }
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = CliArgs::default;
 
     !hidden
 }
@@ -241,7 +233,6 @@ pub fn show_main_window(cx: &mut App) {
         open_main_window(true, cx);
         return;
     };
-    #[cfg(target_os = "macos")]
     cx.foreground_executor()
         .spawn(async { platform::set_activation_policy_regular(true) })
         .detach();

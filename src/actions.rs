@@ -32,6 +32,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+const POST_PROCESS_TOTAL_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, serde::Serialize)]
 struct RecordingErrorEvent {
@@ -52,10 +53,6 @@ impl Drop for FinishGuard {
         if let Some(c) = self.0.try_state::<TranscriptionCoordinator>() {
             c.notify_processing_finished();
         }
-        // The pipeline just freed its large transient buffers (captured PCM,
-        // WAV copy, engine scratch); hand the cached pages back to the OS so
-        // they don't sit in malloc arenas until they get swapped out (#1792).
-        crate::memory::trim_freed_memory();
     }
 }
 
@@ -121,6 +118,10 @@ where
             return Some(result);
         }
     }
+}
+
+async fn complete_within<F: Future>(operation: F, limit: Duration) -> Option<F::Output> {
+    tokio::time::timeout(limit, operation).await.ok()
 }
 
 fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool {
@@ -214,10 +215,12 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
 
                 let token_limit = model.trim().parse::<i32>().unwrap_or(0);
                 return match apple_intelligence::process_text_with_system_prompt(
-                    &system_prompt,
-                    &user_content,
+                    system_prompt,
+                    user_content,
                     token_limit,
-                ) {
+                )
+                .await
+                {
                     Ok(result) => {
                         if result.trim().is_empty() {
                             debug!("Apple Intelligence returned an empty response");
@@ -431,7 +434,19 @@ pub(crate) async fn process_transcription_output(
     }
 
     if post_process {
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text).await {
+        let processed = complete_within(
+            post_process_transcription(&settings, &final_text),
+            POST_PROCESS_TOTAL_TIMEOUT,
+        )
+        .await
+        .unwrap_or_else(|| {
+            warn!(
+                "LLM post-processing gave no answer within {:?}. Using the original transcription.",
+                POST_PROCESS_TOTAL_TIMEOUT
+            );
+            None
+        });
+        if let Some(processed_text) = processed {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
@@ -586,7 +601,7 @@ impl ShortcutAction for TranscribeAction {
                         play_feedback_sound_blocking(&app_clone, SoundType::Start);
                     }
                     if rm_clone.is_recording_readiness_current(generation) {
-                        rm_clone.apply_mute();
+                        rm_clone.apply_mute(generation);
                     }
                 });
             }
@@ -974,8 +989,8 @@ pub static ACTION_MAP: LazyLock<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy
 #[cfg(test)]
 mod tests {
     use super::{
-        complete_unless_cancelled, is_blank_transcription, should_use_streaming_overlay,
-        strip_think_block,
+        complete_unless_cancelled, complete_within, is_blank_transcription,
+        should_use_streaming_overlay, strip_think_block,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1003,6 +1018,26 @@ mod tests {
             crate::runtime::block_on(complete_unless_cancelled(future::ready("done"), || false));
 
         assert_eq!(result, Some("done"));
+    }
+
+    #[test]
+    fn an_operation_that_finishes_in_time_returns_its_output() {
+        let result = crate::runtime::block_on(complete_within(
+            future::ready("done"),
+            Duration::from_secs(5),
+        ));
+
+        assert_eq!(result, Some("done"));
+    }
+
+    #[test]
+    fn an_operation_that_never_finishes_runs_out_of_time() {
+        let result = crate::runtime::block_on(complete_within(
+            future::pending::<()>(),
+            Duration::from_millis(20),
+        ));
+
+        assert_eq!(result, None);
     }
 
     #[test]

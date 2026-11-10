@@ -146,15 +146,13 @@ pub enum McpReach {
     Tailnet,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PasteMethod {
+    #[default]
     CtrlV,
     Direct,
     None,
-    ShiftInsert,
-    CtrlShiftV,
-    ExternalScript,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -193,29 +191,12 @@ pub enum RecordingRetentionPeriod {
     Months3,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyboardImplementation {
     Tauri,
+    #[default]
     HandyKeys,
-}
-
-impl Default for KeyboardImplementation {
-    fn default() -> Self {
-        #[cfg(target_os = "linux")]
-        return KeyboardImplementation::Tauri;
-        #[cfg(not(target_os = "linux"))]
-        return KeyboardImplementation::HandyKeys;
-    }
-}
-
-impl Default for PasteMethod {
-    fn default() -> Self {
-        #[cfg(target_os = "linux")]
-        return PasteMethod::Direct;
-        #[cfg(not(target_os = "linux"))]
-        return PasteMethod::CtrlV;
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -386,7 +367,6 @@ pub struct AppSettings {
     pub paste_delay_after_ms: u64,
     pub reliable_paste: bool,
     pub typing_tool: TypingTool,
-    pub external_script_path: Option<String>,
     pub filler_word_removal_enabled: bool,
     pub custom_filler_words: Option<Vec<String>>,
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
@@ -434,10 +414,7 @@ fn default_overlay_position() -> OverlayPosition {
 }
 
 fn default_overlay_style() -> OverlayStyle {
-    #[cfg(target_os = "linux")]
-    return OverlayStyle::None;
-    #[cfg(not(target_os = "linux"))]
-    return OverlayStyle::Live;
+    OverlayStyle::Live
 }
 
 fn default_vad_enabled() -> bool {
@@ -723,14 +700,7 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
 pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 
 pub fn get_default_settings() -> AppSettings {
-    #[cfg(target_os = "windows")]
-    let default_shortcut = "ctrl+space";
-    #[cfg(target_os = "macos")]
     let default_shortcut = "option+space";
-    #[cfg(target_os = "linux")]
-    let default_shortcut = "ctrl+space";
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    let default_shortcut = "alt+space";
 
     let mut bindings = HashMap::new();
     bindings.insert(
@@ -743,14 +713,7 @@ pub fn get_default_settings() -> AppSettings {
             current_binding: default_shortcut.to_string(),
         },
     );
-    #[cfg(target_os = "windows")]
-    let default_post_process_shortcut = "ctrl+shift+space";
-    #[cfg(target_os = "macos")]
     let default_post_process_shortcut = "option+shift+space";
-    #[cfg(target_os = "linux")]
-    let default_post_process_shortcut = "ctrl+shift+space";
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    let default_post_process_shortcut = "alt+shift+space";
 
     bindings.insert(
         "transcribe_with_post_process".to_string(),
@@ -763,7 +726,6 @@ pub fn get_default_settings() -> AppSettings {
             current_binding: default_post_process_shortcut.to_string(),
         },
     );
-    #[cfg(target_os = "macos")]
     for (id, name, description, default) in [
         (
             crate::annotate::RECORD_BINDING,
@@ -860,7 +822,6 @@ pub fn get_default_settings() -> AppSettings {
         paste_delay_after_ms: default_paste_delay_after_ms(),
         reliable_paste: false,
         typing_tool: default_typing_tool(),
-        external_script_path: None,
         filler_word_removal_enabled: default_filler_word_removal_enabled(),
         custom_filler_words: None,
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
@@ -903,54 +864,46 @@ impl AppSettings {
     }
 }
 
+/// Writes back the migrated settings that `get_settings` returns, so the stored copy matches.
+/// Startup calls this once.
 pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
-    let settings = get_settings(app);
+    let settings = update(app, |settings| settings.clone());
     debug!("Loaded settings: {:?}", settings);
     settings
 }
 
+/// The stored settings with every migration and missing default applied. It never writes.
 pub fn get_settings(app: &AppHandle) -> AppSettings {
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
 
-    let mut settings = if let Some(settings_value) = store.get("settings") {
-        let (mut settings, mut updated) =
-            match serde_json::from_value::<AppSettings>(settings_value.clone()) {
-                Ok(settings) => (settings, false),
+    let mut settings = match store.get("settings") {
+        Some(settings_value) => {
+            let mut settings = match serde_json::from_value::<AppSettings>(settings_value.clone()) {
+                Ok(settings) => settings,
                 Err(e) => {
                     warn!("Failed to parse stored settings ({e}); salvaging valid fields");
-                    (salvage_settings(&settings_value), true)
+                    salvage_settings(&settings_value)
                 }
             };
+            apply_settings_migrations(&mut settings, &settings_value);
 
-        if apply_settings_migrations(&mut settings, &settings_value) {
-            updated = true;
-        }
-
-        for (key, value) in get_default_settings().bindings {
-            if let std::collections::hash_map::Entry::Vacant(entry) = settings.bindings.entry(key) {
-                debug!("Adding missing binding: {}", entry.key());
-                entry.insert(value);
-                updated = true;
+            for (key, value) in get_default_settings().bindings {
+                if let std::collections::hash_map::Entry::Vacant(entry) =
+                    settings.bindings.entry(key)
+                {
+                    debug!("Adding missing binding: {}", entry.key());
+                    entry.insert(value);
+                }
             }
-        }
 
-        if updated {
-            store.set("settings", serde_json::to_value(&settings).unwrap());
+            settings
         }
-
-        settings
-    } else {
-        let default_settings = get_default_settings();
-        store.set("settings", serde_json::to_value(&default_settings).unwrap());
-        default_settings
+        None => get_default_settings(),
     };
 
-    if ensure_post_process_defaults(&mut settings) {
-        store.set("settings", serde_json::to_value(&settings).unwrap());
-    }
-
+    ensure_post_process_defaults(&mut settings);
     settings
 }
 
@@ -1075,12 +1028,27 @@ fn apply_settings_migrations(
     updated
 }
 
-pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+fn write_settings(app: &AppHandle, settings: AppSettings) {
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
 
     store.set("settings", serde_json::to_value(&settings).unwrap());
+}
+
+static UPDATE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
+/// Reads the settings, applies `change`, and writes them back, as one step that no other
+/// `update` can interleave with. Returns what `change` returns.
+///
+/// `change` must only edit the settings it is given. A nested `update` would write first and
+/// then lose its change when this one writes.
+pub fn update<R>(app: &AppHandle, change: impl FnOnce(&mut AppSettings) -> R) -> R {
+    let _guard = UPDATE_LOCK.lock();
+    let mut settings = get_settings(app);
+    let result = change(&mut settings);
+    write_settings(app, settings);
+    result
 }
 
 pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {
@@ -1411,7 +1379,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(target_os = "linux"))]
     #[test]
     fn default_overlay_style_is_live_when_overlay_defaults_on() {
         let settings = get_default_settings();
@@ -1622,6 +1589,18 @@ mod tests {
         assert!(!debug_output.contains("sk-proj-secret-key-12345"));
         assert!(!debug_output.contains("sk-ant-secret-key-67890"));
         assert!(debug_output.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn paste_methods_from_other_platforms_load_as_cmd_v() {
+        for stored in ["shift_insert", "ctrl_shift_v", "external_script"] {
+            let mut value = serde_json::to_value(get_default_settings()).unwrap();
+            value["paste_method"] = serde_json::json!(stored);
+            value["paste_delay_ms"] = serde_json::json!(123);
+            let settings = salvage_settings(&value);
+            assert_eq!(settings.paste_method, PasteMethod::CtrlV, "{stored}");
+            assert_eq!(settings.paste_delay_ms, 123);
+        }
     }
 
     #[test]

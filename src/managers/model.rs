@@ -2,7 +2,7 @@ use super::model_capabilities::{
     CapabilityProbe, CapabilityProber, Compatibility, GgufHeaderProber,
 };
 use crate::app_handle::AppHandle;
-use crate::settings::{get_settings, write_settings};
+use crate::settings::{self, get_settings};
 use anyhow::Result;
 use hf_hub::api::tokio::{ApiBuilder, CancellationToken, Progress};
 use hf_hub::{Cache, Repo, RepoType};
@@ -1319,18 +1319,14 @@ impl ModelManager {
         let Some(pointer) = hf_cached_path(repo_id, revision, filename) else {
             return false;
         };
-        // Resolve the blob before the pointer goes away. On Windows the
-        // pointer may be a plain file (hf-hub's symlink fallback renames the
-        // blob into the snapshot), in which case there is no separate blob.
-        let is_symlink = fs::symlink_metadata(&pointer)
-            .map(|m| m.file_type().is_symlink())
-            .unwrap_or(false);
-        if is_symlink && let Ok(blob) = fs::canonicalize(&pointer) {
+        let blob = fs::canonicalize(&pointer).ok();
+        info!("Deleting HF cache file at: {:?}", pointer);
+        let removed = fs::remove_file(&pointer).is_ok();
+        if let Some(blob) = blob {
             info!("Deleting HF cache blob at: {:?}", blob);
             let _ = fs::remove_file(&blob);
         }
-        info!("Deleting HF cache file at: {:?}", pointer);
-        fs::remove_file(&pointer).is_ok()
+        removed
     }
 
     fn auto_select_model_if_needed(&self) {
@@ -1348,7 +1344,9 @@ impl ModelManager {
                     settings.selected_model
                 );
                 settings.selected_model = String::new();
-                write_settings(&self.app_handle, settings.clone());
+                settings::update(&self.app_handle, |settings| {
+                    settings.selected_model = String::new();
+                });
             }
         }
 
@@ -1368,9 +1366,9 @@ impl ModelManager {
                 available_model.id, available_model.name
             );
 
-            let mut updated_settings = settings;
-            updated_settings.selected_model = available_model.id.clone();
-            write_settings(&self.app_handle, updated_settings);
+            settings::update(&self.app_handle, |settings| {
+                settings.selected_model = available_model.id.clone();
+            });
 
             info!("Successfully auto-selected model: {}", available_model.id);
         }

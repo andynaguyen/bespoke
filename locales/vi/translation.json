@@ -109,8 +109,7 @@
       "waiting": "Đang chờ...",
       "allGranted": "Hoàn tất!",
       "errors": {
-        "checkFailed": "Không thể kiểm tra quyền. Vui lòng thử lại.",
-        "requestFailed": "Không thể yêu cầu quyền. Vui lòng thử lại."
+        "checkFailed": "Không thể kiểm tra quyền. Vui lòng thử lại."
       }
     }
   },
@@ -291,19 +290,8 @@
         "description": "Chọn cách chèn văn bản. Trực tiếp: mô phỏng gõ phím qua đầu vào hệ thống. Không có: bỏ qua dán, chỉ cập nhật lịch sử/clipboard.",
         "options": {
           "clipboard": "Bảng nhớ tạm ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Bảng nhớ tạm (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Bảng nhớ tạm (Shift+Insert)",
           "direct": "Trực tiếp",
-          "none": "Không có",
-          "externalScript": "Script bên ngoài"
-        },
-        "externalScriptPlaceholder": "/duong-dan/toi/script.sh"
-      },
-      "typingTool": {
-        "title": "Công cụ gõ",
-        "description": "Chọn công cụ gõ trên Linux cho phương thức dán trực tiếp. Auto sẽ tự động phát hiện và dùng công cụ tốt nhất có sẵn cho hệ thống của bạn.",
-        "options": {
-          "auto": "Auto (Khuyến nghị)"
+          "none": "Không có"
         }
       },
       "clipboardHandling": {
@@ -321,7 +309,6 @@
           "off": "Tắt",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -617,9 +604,7 @@
     "micPermissionDeniedTitle": "Quyền truy cập micrô bị từ chối",
     "micPermissionDenied": {
       "generic": "Quyền truy cập micrô đã bị hệ điều hành từ chối. Vui lòng cấp quyền micrô trong cài đặt hệ thống.",
-      "windows": "Bật quyền truy cập micrô trong Cài đặt → Quyền riêng tư & bảo mật → Micrô (bao gồm quyền truy cập ứng dụng máy tính).",
-      "macos": "Cấp quyền truy cập micrô trong Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Micrô.",
-      "linux": "Cấp quyền truy cập micrô trong cài đặt âm thanh hoặc quyền riêng tư của hệ thống."
+      "macos": "Cấp quyền truy cập micrô trong Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Micrô."
     },
     "noInputDeviceTitle": "Không tìm thấy micrô",
     "noInputDevice": "Không phát hiện thiết bị đầu vào âm thanh nào. Vui lòng kết nối micrô hoặc tai nghe và thử lại.",

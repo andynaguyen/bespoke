@@ -1,14 +1,10 @@
 use crate::TranscriptionCoordinator;
 use crate::app_handle::AppHandle;
-#[cfg(unix)]
 use log::debug;
 use log::warn;
 
-#[cfg(unix)]
 use signal_hook::consts::{SIGUSR1, SIGUSR2};
-#[cfg(unix)]
 use signal_hook::iterator::Signals;
-#[cfg(unix)]
 use std::thread;
 
 pub fn send_transcription_input(app: &AppHandle, binding_id: &str, source: &str) {
@@ -19,7 +15,6 @@ pub fn send_transcription_input(app: &AppHandle, binding_id: &str, source: &str)
     }
 }
 
-#[cfg(unix)]
 pub fn setup_signal_handler(app_handle: AppHandle) {
     let mut signals =
         Signals::new([SIGUSR1, SIGUSR2]).expect("failed to register transcription signal handlers");

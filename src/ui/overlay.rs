@@ -36,14 +36,8 @@ const PAD_X: f32 = 18.;
 const PAD_TOP: f32 = 10.;
 const PAD_BOTTOM: f32 = 18.;
 
-#[cfg(target_os = "macos")]
 const TOP_OFFSET: f32 = 46.;
-#[cfg(not(target_os = "macos"))]
-const TOP_OFFSET: f32 = 4.;
-#[cfg(target_os = "macos")]
 const BOTTOM_OFFSET: f32 = 15.;
-#[cfg(not(target_os = "macos"))]
-const BOTTOM_OFFSET: f32 = 40.;
 
 const HIDE_DELAY: Duration = Duration::from_millis(300);
 
@@ -183,7 +177,6 @@ fn placement(
     position: OverlayPosition,
     cx: &App,
 ) -> (Option<DisplayId>, gpui::Point<Pixels>) {
-    #[cfg(target_os = "macos")]
     if let Some(screen) = crate::ui::platform::CursorScreen::current() {
         let x = (screen.width as f32 - f32::from(size.width)) / 2.;
         let y = match position {

@@ -12,7 +12,6 @@
 use crate::app_handle::{APP_NAME, AppHandle};
 
 pub fn apply_autostart(app: &AppHandle, enabled: bool) {
-    #[cfg(target_os = "macos")]
     if macos::login_item_api_available() {
         macos::remove_plugin_launch_agent(app);
         macos::set_login_item(enabled);
@@ -40,7 +39,6 @@ pub fn apply_autostart(app: &AppHandle, enabled: bool) {
 
 fn auto_launch() -> Result<auto_launch::AutoLaunch, auto_launch::Error> {
     let exe = std::env::current_exe()?;
-    #[cfg(target_os = "macos")]
     let exe = exe
         .ancestors()
         .find(|p| p.extension().is_some_and(|ext| ext == "app"))
@@ -52,12 +50,10 @@ fn auto_launch() -> Result<auto_launch::AutoLaunch, auto_launch::Error> {
         .set_app_name(APP_NAME)
         .set_app_path(&exe.to_string_lossy())
         .set_args(&[] as &[&str]);
-    #[cfg(target_os = "macos")]
     builder.set_use_launch_agent(true);
     builder.build()
 }
 
-#[cfg(target_os = "macos")]
 mod macos {
     use std::path::{Path, PathBuf};
 

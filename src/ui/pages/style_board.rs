@@ -809,15 +809,7 @@ impl Render for StyleBoard {
                         &mut this.width
                     })),
             )
-            .child(if cfg!(target_os = "macos") {
-                self.render_shelf(wide, cx)
-            } else {
-                div()
-                    .text_px(12.)
-                    .text_color(p.text.a(0.55))
-                    .child(t("settings.style.macOSOnly"))
-                    .into_any_element()
-            })
+            .child(self.render_shelf(wide, cx))
     }
 }
 

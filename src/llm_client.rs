@@ -6,6 +6,10 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Serialize)]
 struct ChatMessage {
@@ -166,6 +170,8 @@ fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwes
     let headers = build_headers(provider, api_key)?;
     reqwest::Client::builder()
         .default_headers(headers)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .timeout(REQUEST_TIMEOUT)
         .build()
         .map_err(|e| report_reqwest_error("Failed to build HTTP client", &e))
 }

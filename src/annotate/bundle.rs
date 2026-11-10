@@ -222,6 +222,17 @@ pub fn movie_frames_at(
     Ok(frames)
 }
 
+fn save_narration(bundle_dir: &Path, audio: Option<&[f32]>) -> PathBuf {
+    let wav_path = bundle_dir.join("audio.wav");
+    if let Some(audio) = audio {
+        let _ = std::fs::create_dir_all(bundle_dir);
+        if let Err(error) = crate::audio_toolkit::save_wav_file(&wav_path, audio) {
+            capture::annotate_log(format!("Could not write audio.wav: {error:#}"));
+        }
+    }
+    wav_path
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn finalize_capture_bundle(
     bundle_dir: &Path,
@@ -243,13 +254,11 @@ pub fn finalize_capture_bundle(
         duration_ms,
         video_offset_ms,
     } = recording;
-    let wav_path = bundle_dir.join("audio.wav");
-    if let Some(ref audio) = recorded_audio {
-        let _ = std::fs::create_dir_all(bundle_dir);
-        if let Err(error) = crate::audio_toolkit::save_wav_file(&wav_path, audio) {
-            capture::annotate_log(format!("Could not write audio.wav: {error:#}"));
-        }
-    }
+    let wav_path = save_narration(bundle_dir, recorded_audio.as_deref());
+    anyhow::ensure!(
+        !frames.is_empty(),
+        "No screenshot of the recording succeeded, so there is nothing to show"
+    );
     let has_wav = wav_path.exists();
     let crop_settings = (target.mode == CaptureMode::Display)
         .then(autocrop::Settings::configured)
@@ -425,7 +434,6 @@ pub fn build_bundle_from_parts(
         let summary = summary_markdown(&bundle, bundle_dir);
         std::fs::create_dir_all(bundle_dir.join("frames"))
             .with_context(|| format!("could not create {}", bundle_dir.display()))?;
-        #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(bundle_dir, std::fs::Permissions::from_mode(0o700));
@@ -841,6 +849,45 @@ mod tests {
         assert!(empty_frames.join("scrawl.json").exists());
         assert!(empty_frames.join("contact-sheet.png").exists());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_recording_with_no_frames_is_not_a_capture() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle_dir = dir.path().join("empty.scrawl");
+        let target = TargetInfo {
+            mode: CaptureMode::Window,
+            app: Some("OpenCode".into()),
+            bundle_id: Some("ai.opencode.desktop".into()),
+            window_title: Some("session/tool-running — OpenCode".into()),
+            window_id: Some(4210),
+            display_id: 1,
+            frame: TargetFrame {
+                x: 100.0,
+                y: 60.0,
+                width: 1280.0,
+                height: 800.0,
+                scale: 2.0,
+            },
+        };
+        let recording = capture::ScreenRecording {
+            frames: Vec::new(),
+            video: None,
+            duration_ms: 3_000,
+            video_offset_ms: 0,
+        };
+        let result = finalize_capture_bundle(
+            &bundle_dir,
+            target,
+            recording,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            windows::ActivityLog::default(),
+        );
+        assert!(result.is_err());
+        assert!(!bundle_dir.join("scrawl.json").exists());
     }
 
     #[test]

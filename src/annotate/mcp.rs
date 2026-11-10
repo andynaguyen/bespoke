@@ -25,7 +25,7 @@ use tokio::net::TcpListener;
 use tokio::task::{JoinHandle, JoinSet};
 
 use crate::app_handle::AppHandle;
-use crate::settings::{McpReach, get_settings, write_settings};
+use crate::settings::{self, McpReach, get_settings};
 
 pub const PORT: u16 = 47790;
 const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -64,7 +64,7 @@ fn agent_url(app: &AppHandle) -> Result<String> {
 }
 
 /// This Mac's Tailscale address: an IPv4 address in Tailscale's 100.64.0.0/10 range on its
-/// tunnel interface (`utun*` on macOS, `tailscale0` on Linux). `None` while Tailscale is off.
+/// `utun*` tunnel interface. `None` while Tailscale is off.
 pub fn tailscale_address() -> Option<Ipv4Addr> {
     let mut list: *mut libc::ifaddrs = std::ptr::null_mut();
     // SAFETY: on success `list` holds a linked list that `freeifaddrs` releases below.
@@ -128,9 +128,7 @@ pub fn codex_config(app: &AppHandle) -> Result<String> {
 }
 
 pub fn set_reach(app: AppHandle, reach: McpReach) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.annotate_mcp_reach = reach;
-    write_settings(&app, settings);
+    settings::update(&app, |settings| settings.annotate_mcp_reach = reach);
     sync(&app);
     Ok(())
 }

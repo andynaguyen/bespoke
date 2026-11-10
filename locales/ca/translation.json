@@ -109,8 +109,7 @@
       "waiting": "S'està esperant...",
       "allGranted": "Tot a punt!",
       "errors": {
-        "checkFailed": "No s'han pogut comprovar els permisos. Torneu-ho a provar.",
-        "requestFailed": "No s'ha pogut sol·licitar el permís. Torneu-ho a provar."
+        "checkFailed": "No s'han pogut comprovar els permisos. Torneu-ho a provar."
       }
     }
   },
@@ -291,19 +290,8 @@
         "description": "Trieu com s'insereix el text. Directe: simula l'escriptura mitjançant l'entrada del sistema. Cap: no enganxa el text, només actualitza l'historial i el porta-retalls.",
         "options": {
           "clipboard": "Porta-retalls ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Porta-retalls (Ctrl+Maj+V)",
-          "clipboardShiftInsert": "Porta-retalls (Maj+Insert)",
           "direct": "Directe",
-          "none": "Cap",
-          "externalScript": "Script extern"
-        },
-        "externalScriptPlaceholder": "/camí/al/vostre/script.sh"
-      },
-      "typingTool": {
-        "title": "Eina d'escriptura",
-        "description": "Trieu l'eina d'escriptura del Linux que s'utilitzarà amb el mètode d'enganxament directe. L'opció automàtica detecta i utilitza la millor eina disponible per al sistema.",
-        "options": {
-          "auto": "Automàtica (recomanada)"
+          "none": "Cap"
         }
       },
       "clipboardHandling": {
@@ -321,7 +309,6 @@
           "off": "Desactivat",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -622,9 +609,7 @@
     "micPermissionDeniedTitle": "Accés al micròfon denegat",
     "micPermissionDenied": {
       "generic": "El sistema operatiu ha denegat l'accés al micròfon. Concediu el permís del micròfon a la configuració del sistema.",
-      "windows": "Activa l'accés al micròfon a Configuració → Privadesa i seguretat → Micròfon (inclòs l'accés de les aplicacions d'escriptori).",
-      "macos": "Concediu l'accés al micròfon a Configuració del sistema → Privadesa i seguretat → Micròfon.",
-      "linux": "Concediu l'accés al micròfon a la configuració de so o de privadesa del sistema."
+      "macos": "Concediu l'accés al micròfon a Configuració del sistema → Privadesa i seguretat → Micròfon."
     },
     "noInputDeviceTitle": "No s'ha trobat cap micròfon",
     "noInputDevice": "No s'ha detectat cap dispositiu d'entrada d'àudio. Connecteu un micròfon o uns auriculars amb micròfon i torneu-ho a provar.",

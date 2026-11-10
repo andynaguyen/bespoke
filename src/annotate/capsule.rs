@@ -58,9 +58,9 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
             stroke_count: 3,
         },
         "processing" => Pres::Processing,
-        "done" => Pres::Completed {
-            label: "Copied".into(),
-        },
+        "done" => Pres::Completed { copied: true },
+        "saved" => Pres::Completed { copied: false },
+        "failed" => Pres::Failed,
         _ => Pres::Selecting {
             mode: SelectionMode::Area,
             hold: false,
@@ -541,7 +541,7 @@ impl AnnotateCapsule {
                     .child(self.label(t("annotate.capsule.processing"), c))
                     .into_any_element(),
             ],
-            Pres::Completed { .. } => vec![
+            Pres::Completed { copied } => vec![
                 div()
                     .flex_none()
                     .flex()
@@ -550,7 +550,14 @@ impl AnnotateCapsule {
                     .pl(px(6.))
                     .pr(px(4.))
                     .child(capsule::done_mark(c))
-                    .child(self.label(t("annotate.capsule.copied"), c))
+                    .child(self.label(
+                        if copied {
+                            t("annotate.capsule.copied")
+                        } else {
+                            t("annotate.capsule.saved")
+                        },
+                        c,
+                    ))
                     .child(self.secondary(snapshot.clock.clone(), c))
                     .into_any_element(),
                 capsule::divider(c).into_any_element(),
@@ -578,6 +585,19 @@ impl AnnotateCapsule {
                 .child(icon("scan-eye").size(px(14.)))
                 .child(t("annotate.capsule.inspect"))
                 .into_any_element(),
+                close(self, PillAction::DismissCompleted, cx),
+            ],
+            Pres::Failed => vec![
+                div()
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .pl(px(6.))
+                    .pr(px(4.))
+                    .child(icon("triangle-alert").size(px(14.)))
+                    .child(self.label(t("annotate.capsule.failed"), c))
+                    .into_any_element(),
                 close(self, PillAction::DismissCompleted, cx),
             ],
         }

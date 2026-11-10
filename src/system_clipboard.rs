@@ -1,21 +1,12 @@
-//! One `arboard::Clipboard` lives for the whole process: on X11 the owning
-//! instance must stay alive for other apps to read what Bespoke wrote.
-
 use std::borrow::Cow;
-use std::sync::Mutex;
 
 pub type ClipboardImage = arboard::ImageData<'static>;
-
-static CLIPBOARD: Mutex<Option<arboard::Clipboard>> = Mutex::new(None);
 
 fn with_clipboard<R>(
     f: impl FnOnce(&mut arboard::Clipboard) -> Result<R, arboard::Error>,
 ) -> Result<R, String> {
-    let mut guard = CLIPBOARD.lock().map_err(|e| e.to_string())?;
-    if guard.is_none() {
-        *guard = Some(arboard::Clipboard::new().map_err(|e| e.to_string())?);
-    }
-    f(guard.as_mut().expect("clipboard initialized above")).map_err(|e| e.to_string())
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    f(&mut clipboard).map_err(|e| e.to_string())
 }
 
 #[derive(Clone, Copy)]

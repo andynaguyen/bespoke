@@ -331,19 +331,13 @@ fn modifiers_to_strings(modifiers: Modifiers) -> Vec<String> {
         result.push("ctrl".to_string());
     }
     if modifiers.intersects(Modifiers::OPT) {
-        #[cfg(target_os = "macos")]
         result.push("option".to_string());
-        #[cfg(not(target_os = "macos"))]
-        result.push("alt".to_string());
     }
     if modifiers.intersects(Modifiers::SHIFT) {
         result.push("shift".to_string());
     }
     if modifiers.intersects(Modifiers::CMD) {
-        #[cfg(target_os = "macos")]
         result.push("command".to_string());
-        #[cfg(not(target_os = "macos"))]
-        result.push("super".to_string());
     }
     if modifiers.intersects(Modifiers::FN) {
         result.push("fn".to_string());
@@ -359,10 +353,6 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
     let hotkey = raw
         .parse::<Hotkey>()
         .map_err(|e| format!("Invalid shortcut for HandyKeys: {}", e))?;
-    #[cfg(target_os = "windows")]
-    if matches!(hotkey.key, Some(Key::Mouse6 | Key::Mouse7 | Key::Mouse8)) {
-        return Err("Mouse buttons 6 through 8 are not supported on Windows".into());
-    }
     if matches!(hotkey.key, Some(Key::MouseLeft | Key::MouseRight)) && hotkey.modifiers.is_empty() {
         return Err("Left and right mouse buttons require a modifier key".into());
     }
@@ -404,44 +394,26 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn register_cancel_shortcut(app: &AppHandle) {
-    #[cfg(target_os = "linux")]
-    {
-        let _ = app;
-        return;
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let app_clone = app.clone();
-        crate::runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
-                && let Some(state) = app_clone.try_state::<HandyKeysState>()
-                && let Err(e) = state.register(&cancel_binding)
-            {
-                error!("Failed to register cancel shortcut: {}", e);
-            }
-        });
-    }
+    let app_clone = app.clone();
+    crate::runtime::spawn(async move {
+        if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
+            && let Some(state) = app_clone.try_state::<HandyKeysState>()
+            && let Err(e) = state.register(&cancel_binding)
+        {
+            error!("Failed to register cancel shortcut: {}", e);
+        }
+    });
 }
 
 pub fn unregister_cancel_shortcut(app: &AppHandle) {
-    #[cfg(target_os = "linux")]
-    {
-        let _ = app;
-        return;
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let app_clone = app.clone();
-        crate::runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
-                && let Some(state) = app_clone.try_state::<HandyKeysState>()
-            {
-                let _ = state.unregister(&cancel_binding);
-            }
-        });
-    }
+    let app_clone = app.clone();
+    crate::runtime::spawn(async move {
+        if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
+            && let Some(state) = app_clone.try_state::<HandyKeysState>()
+        {
+            let _ = state.unregister(&cancel_binding);
+        }
+    });
 }
 
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
@@ -461,13 +433,6 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
 }
 
 pub fn start_handy_keys_recording(app: AppHandle) -> Result<(), String> {
-    let settings = get_settings(&app);
-    if settings.keyboard_implementation != settings::KeyboardImplementation::HandyKeys
-        && !cfg!(target_os = "macos")
-    {
-        return Err("handy-keys is not the active keyboard implementation".into());
-    }
-
     // While Secure Input is active the tap receives no KeyDown/KeyUp, so the
     // recorder would silently capture just the modifier and overwrite the
     // binding with it (issue #1578). Refuse instead; the frontend maps this
@@ -493,13 +458,6 @@ pub fn start_handy_keys_recording(app: AppHandle) -> Result<(), String> {
 }
 
 pub fn stop_handy_keys_recording(app: AppHandle) -> Result<(), String> {
-    let settings = get_settings(&app);
-    if settings.keyboard_implementation != settings::KeyboardImplementation::HandyKeys
-        && !cfg!(target_os = "macos")
-    {
-        return Err("handy-keys is not the active keyboard implementation".into());
-    }
-
     let state = app
         .try_state::<HandyKeysState>()
         .ok_or("HandyKeysState not initialized")?;
@@ -517,10 +475,7 @@ mod tests {
     fn extended_mouse_shortcuts_use_native_button_names() {
         for binding in ["mouse6", "mouse7", "mouse8", "ctrl+mouse8"] {
             assert!(is_mouse_shortcut(binding));
-            #[cfg(not(target_os = "windows"))]
             assert!(validate_shortcut(binding).is_ok());
-            #[cfg(target_os = "windows")]
-            assert!(validate_shortcut(binding).is_err());
             let parsed: Hotkey = binding.parse().unwrap();
             assert_eq!(parsed.to_handy_string(), binding);
         }

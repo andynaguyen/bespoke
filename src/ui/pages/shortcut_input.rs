@@ -1,14 +1,10 @@
-use std::collections::BTreeSet;
-
 use gpui::{
-    App, Bounds, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, KeyUpEvent, Modifiers,
-    ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseUpEvent, NavigationDirection, Pixels,
-    SharedString, Window, canvas, div, prelude::*, px,
+    Bounds, Context, Entity, FontWeight, Modifiers, MouseButton, MouseDownEvent,
+    NavigationDirection, Pixels, SharedString, Window, canvas, div, prelude::*, px,
 };
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_or, t_with};
-use crate::settings::KeyboardImplementation;
 use crate::shortcut::handy_keys::FrontendKeyEvent;
 use crate::ui::clay::Clay;
 use crate::ui::components::{
@@ -20,19 +16,6 @@ use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{Alpha, mix, palette};
 use crate::ui::toast;
 
-const MODIFIERS: &[&str] = &[
-    "ctrl", "control", "shift", "alt", "option", "meta", "command", "cmd", "super", "win",
-    "windows",
-];
-
-#[derive(Default)]
-struct WindowCapture {
-    pressed: BTreeSet<String>,
-    captured: Vec<String>,
-    mouse: Option<(MouseButton, String)>,
-    modifiers: Modifiers,
-}
-
 pub struct ShortcutInput {
     binding_id: String,
     store: Entity<SettingsStore>,
@@ -42,14 +25,7 @@ pub struct ShortcutInput {
     keyed: String,
     modifier_only: String,
     committing: bool,
-    capture: WindowCapture,
-    focus: FocusHandle,
     chip: Bounds<Pixels>,
-}
-
-fn uses_handy_keys(cx: &App) -> bool {
-    cfg!(target_os = "macos")
-        || SettingsStore::get(cx).keyboard_implementation == KeyboardImplementation::HandyKeys
 }
 
 fn mouse_shortcut(button: MouseButton, modifiers: &Modifiers) -> Option<String> {
@@ -81,30 +57,6 @@ fn mouse_shortcut(button: MouseButton, modifiers: &Modifiers) -> Option<String> 
     Some(parts.join("+"))
 }
 
-fn key_token(key: &str) -> String {
-    match key {
-        "escape" => "esc".into(),
-        other => other.to_lowercase(),
-    }
-}
-
-fn modifier_tokens(modifiers: &Modifiers) -> Vec<&'static str> {
-    let mut tokens = Vec::new();
-    if modifiers.shift {
-        tokens.push("shift");
-    }
-    if modifiers.control {
-        tokens.push("ctrl");
-    }
-    if modifiers.alt {
-        tokens.push("alt");
-    }
-    if modifiers.platform {
-        tokens.push("super");
-    }
-    tokens
-}
-
 impl ShortcutInput {
     pub fn new(binding_id: &str, cx: &mut Context<Self>) -> Self {
         let store = SettingsStore::global(cx);
@@ -117,9 +69,9 @@ impl ShortcutInput {
             }
         })
         .detach();
-        cx.on_release(|this, cx| {
+        cx.on_release(|this, _| {
             if this.recording && !this.committing {
-                this.stop_backend_recording(cx);
+                this.stop_backend_recording();
             }
         })
         .detach();
@@ -132,8 +84,6 @@ impl ShortcutInput {
             keyed: String::new(),
             modifier_only: String::new(),
             committing: false,
-            capture: WindowCapture::default(),
-            focus: cx.focus_handle(),
             chip: Bounds::default(),
         }
     }
@@ -142,7 +92,9 @@ impl ShortcutInput {
         AppHandle::global().clone()
     }
 
-    fn start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Records the next shortcut through the key tap, which sees keys that other apps and
+    /// macOS would otherwise take.
+    fn start(&mut self, cx: &mut Context<Self>) {
         if self.recording {
             return;
         }
@@ -156,25 +108,16 @@ impl ShortcutInput {
             .map(|b| b.current_binding.clone())
             .unwrap_or_default();
 
-        if uses_handy_keys(cx) {
-            match crate::shortcut::handy_keys::start_handy_keys_recording(Self::app()) {
-                Ok(()) => {}
-                Err(error) => {
-                    if error.contains("secure-input-active") {
-                        toast::error(t("secureInput.recorderBlocked"), cx);
-                    } else {
-                        toast::error(
-                            t_with("settings.general.shortcut.errors.set", &[("error", &error)]),
-                            cx,
-                        );
-                    }
-                    return;
-                }
+        if let Err(error) = crate::shortcut::handy_keys::start_handy_keys_recording(Self::app()) {
+            if error.contains("secure-input-active") {
+                toast::error(t("secureInput.recorderBlocked"), cx);
+            } else {
+                toast::error(
+                    t_with("settings.general.shortcut.errors.set", &[("error", &error)]),
+                    cx,
+                );
             }
-        } else {
-            crate::shortcut::suspend_all_shortcuts(&Self::app());
-            self.capture = WindowCapture::default();
-            self.focus.focus(window);
+            return;
         }
         self.recording = true;
         self.current.clear();
@@ -183,13 +126,9 @@ impl ShortcutInput {
         cx.notify();
     }
 
-    fn stop_backend_recording(&self, cx: &App) {
-        if uses_handy_keys(cx) {
-            if let Err(e) = crate::shortcut::handy_keys::stop_handy_keys_recording(Self::app()) {
-                log::error!("{e}");
-            }
-        } else {
-            crate::shortcut::resume_all_shortcuts(&Self::app());
+    fn stop_backend_recording(&self) {
+        if let Err(e) = crate::shortcut::handy_keys::stop_handy_keys_recording(Self::app()) {
+            log::error!("{e}");
         }
     }
 
@@ -199,7 +138,6 @@ impl ShortcutInput {
         self.keyed.clear();
         self.modifier_only.clear();
         self.original.clear();
-        self.capture = WindowCapture::default();
         cx.notify();
     }
 
@@ -243,7 +181,7 @@ impl ShortcutInput {
                 cx,
             )
         });
-        self.stop_backend_recording(cx);
+        self.stop_backend_recording();
         self.reset_state(cx);
     }
 
@@ -252,8 +190,8 @@ impl ShortcutInput {
             return;
         }
         self.committing = true;
-        self.stop_backend_recording(cx);
-        if uses_handy_keys(cx) && !self.original.is_empty() {
+        self.stop_backend_recording();
+        if !self.original.is_empty() {
             let original = self.original.clone();
             let id = self.binding_id.clone();
             self.store.update(cx, |s, cx| {
@@ -273,7 +211,7 @@ impl ShortcutInput {
     }
 
     fn on_handy_keys_event(&mut self, event: FrontendKeyEvent, cx: &mut Context<Self>) {
-        if !self.recording || self.committing || !uses_handy_keys(cx) {
+        if !self.recording || self.committing {
             return;
         }
         if event.is_key_down && !event.hotkey_string.is_empty() {
@@ -309,104 +247,18 @@ impl ShortcutInput {
         }
     }
 
-    fn sorted_capture(&self) -> String {
-        let mut keys = self.capture.captured.clone();
-        keys.sort_by_key(|k| !MODIFIERS.contains(&k.as_str()));
-        keys.join("+")
-    }
-
-    fn on_key_down(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
-        if !self.recording || uses_handy_keys(cx) || event.is_held {
-            return;
-        }
-        cx.stop_propagation();
-        let key = key_token(&event.keystroke.key);
-        self.capture.pressed.insert(key.clone());
-        if !self.capture.captured.contains(&key) {
-            self.capture.captured.push(key);
-        }
-        if self.capture.mouse.is_none() {
-            self.current = self.capture.captured.join("+");
-        }
-        cx.notify();
-    }
-
-    fn on_key_up(&mut self, event: &KeyUpEvent, cx: &mut Context<Self>) {
-        if !self.recording || uses_handy_keys(cx) {
-            return;
-        }
-        cx.stop_propagation();
-        self.capture
-            .pressed
-            .remove(&key_token(&event.keystroke.key));
-        self.maybe_finish_keys(cx);
-    }
-
-    fn on_modifiers_changed(&mut self, event: &ModifiersChangedEvent, cx: &mut Context<Self>) {
-        if !self.recording || uses_handy_keys(cx) {
-            return;
-        }
-        let before: BTreeSet<&str> = modifier_tokens(&self.capture.modifiers)
-            .into_iter()
-            .collect();
-        let after: BTreeSet<&str> = modifier_tokens(&event.modifiers).into_iter().collect();
-        self.capture.modifiers = event.modifiers;
-        for added in after.difference(&before) {
-            self.capture.pressed.insert(added.to_string());
-            if !self.capture.captured.iter().any(|k| k == added) {
-                self.capture.captured.push(added.to_string());
-            }
-        }
-        for removed in before.difference(&after) {
-            self.capture.pressed.remove(*removed);
-        }
-        if self.capture.mouse.is_none() {
-            self.current = self.capture.captured.join("+");
-        }
-        self.maybe_finish_keys(cx);
-        cx.notify();
-    }
-
-    fn maybe_finish_keys(&mut self, cx: &mut Context<Self>) {
-        if self.capture.pressed.is_empty()
-            && !self.capture.captured.is_empty()
-            && self.capture.mouse.is_none()
-        {
-            let keys = self.sorted_capture();
-            self.commit(keys, cx);
-        }
-    }
-
     fn on_mouse_down(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
         if !self.recording {
             return;
         }
         let shortcut = mouse_shortcut(event.button, &event.modifiers);
         let keyed_has_mouse = self.keyed.split('+').any(|k| k.starts_with("mouse"));
-        if self.committing || shortcut.is_some() || keyed_has_mouse {
-            if !uses_handy_keys(cx)
-                && self.capture.mouse.is_none()
-                && let Some(shortcut) = shortcut
-            {
-                self.current = shortcut.clone();
-                self.capture.mouse = Some((event.button, shortcut));
-                cx.notify();
-            }
+        let key_tap_records_it = shortcut.is_some() || keyed_has_mouse;
+        if self.committing || key_tap_records_it {
             return;
         }
         if event.button == MouseButton::Left && !self.chip.contains(&event.position) {
             self.cancel(cx);
-        }
-    }
-
-    fn on_mouse_up(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
-        if !self.recording || uses_handy_keys(cx) {
-            return;
-        }
-        if let Some((button, shortcut)) = self.capture.mouse.clone()
-            && button == event.button
-        {
-            self.commit(shortcut, cx);
         }
     }
 
@@ -457,19 +309,13 @@ impl ShortcutInput {
                     blur_radius: gpui::px(0.),
                     spread_radius: gpui::px(2.),
                 }])
-                .track_focus(&self.focus)
-                .capture_key_down(cx.listener(|this, e, _, cx| this.on_key_down(e, cx)))
-                .on_key_up(cx.listener(|this, e, _, cx| this.on_key_up(e, cx)))
-                .on_modifiers_changed(
-                    cx.listener(|this, e, _, cx| this.on_modifiers_changed(e, cx)),
-                )
                 .child(text)
         } else {
             chip.muted_clay(p.clay, 26., px(6.), p.is_dark)
                 .hover(|s| s.bg(mix(p.clay, p.text, 0.05)))
                 .cursor_pointer()
                 .keyboard_focus(cx)
-                .on_click(cx.listener(move |this, _, window, cx| this.start(window, cx)))
+                .on_click(cx.listener(move |this, _, _, cx| this.start(cx)))
                 .child(format_key_combination(&binding.current_binding))
         };
 
@@ -488,12 +334,6 @@ impl ShortcutInput {
                 window.on_mouse_event(move |event: &MouseDownEvent, phase, _, cx| {
                     if phase == gpui::DispatchPhase::Capture {
                         let _ = down.update(cx, |this, cx| this.on_mouse_down(event, cx));
-                    }
-                });
-                let up = paint_entity.clone();
-                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
-                    if phase == gpui::DispatchPhase::Capture {
-                        let _ = up.update(cx, |this, cx| this.on_mouse_up(event, cx));
                     }
                 });
             },

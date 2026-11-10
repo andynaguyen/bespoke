@@ -6,27 +6,15 @@
 //!
 //! This module instead publishes the transcript as a *lazy promise* and waits
 //! for the operating system to tell us that a consumer actually read the
-//! clipboard — a "receipt" — before restoring:
-//!
-//! - Windows: delayed rendering (`SetClipboardData(CF_UNICODETEXT, NULL)`),
-//!   the owner window receives `WM_RENDERFORMAT` on read.
-//! - macOS: `declareTypes:owner:` with an owner object, the pasteboard calls
-//!   `pasteboard:provideDataForType:` on read.
-//!
-
-#![cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+//! clipboard — a "receipt" — before restoring. It declares the type with
+//! `declareTypes:owner:` and an owner object, and the pasteboard calls
+//! `pasteboard:provideDataForType:` on read.
 
 use std::time::{Duration, Instant};
 
-#[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_os = "windows")]
-mod windows;
 
-#[cfg(target_os = "macos")]
 use macos as platform;
-#[cfg(target_os = "windows")]
-use windows as platform;
 
 pub(crate) const QUIET_PERIOD: Duration = Duration::from_millis(200);
 
@@ -42,8 +30,6 @@ pub(crate) struct TxState {
     pub receipts: Vec<Instant>,
     pub ownership_lost: bool,
     pub cancelled: bool,
-    #[cfg(target_os = "windows")]
-    pub auto_submit_sent: bool,
     pub logged_receipt: bool,
 }
 
@@ -56,8 +42,6 @@ impl TxState {
             receipts: Vec::new(),
             ownership_lost: false,
             cancelled: false,
-            #[cfg(target_os = "windows")]
-            auto_submit_sent: false,
             logged_receipt: false,
         }
     }
@@ -120,8 +104,6 @@ pub(crate) fn send_chord(
     use crate::settings::PasteMethod;
     match paste_method {
         PasteMethod::CtrlV => crate::input::send_paste_ctrl_v(enigo, CHORD_HOLD_MS),
-        PasteMethod::CtrlShiftV => crate::input::send_paste_ctrl_shift_v(enigo, CHORD_HOLD_MS),
-        PasteMethod::ShiftInsert => crate::input::send_paste_shift_insert(enigo, CHORD_HOLD_MS),
         other => Err(format!(
             "Invalid paste method for clipboard paste: {:?}",
             other
@@ -129,7 +111,6 @@ pub(crate) fn send_chord(
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn try_reliable_paste(
     text: &str,
     app_handle: &crate::app_handle::AppHandle,

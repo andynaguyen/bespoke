@@ -1,5 +1,5 @@
-//! Registration runs on the main thread: Carbon (macOS) and `RegisterHotKey`
-//! (Windows) both bind hotkeys to the main run loop.
+//! Registration runs on the main thread, because Carbon binds hotkeys to the
+//! main run loop.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -11,7 +11,6 @@ use log::{debug, error, warn};
 use crate::app_handle::AppHandle;
 
 use crate::settings::ShortcutBinding;
-#[cfg(not(target_os = "linux"))]
 use crate::settings::get_settings;
 
 use super::handler::handle_shortcut_event;
@@ -188,41 +187,23 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
 }
 
 pub fn register_cancel_shortcut(app: &AppHandle) {
-    #[cfg(target_os = "linux")]
-    {
-        let _ = app;
-        return;
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let app_clone = app.clone();
-        crate::runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
-                && let Err(e) = register_shortcut(&app_clone, cancel_binding)
-            {
-                error!("Failed to register cancel shortcut: {}", e);
-            }
-        });
-    }
+    let app_clone = app.clone();
+    crate::runtime::spawn(async move {
+        if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned()
+            && let Err(e) = register_shortcut(&app_clone, cancel_binding)
+        {
+            error!("Failed to register cancel shortcut: {}", e);
+        }
+    });
 }
 
 pub fn unregister_cancel_shortcut(app: &AppHandle) {
-    #[cfg(target_os = "linux")]
-    {
-        let _ = app;
-        return;
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let app_clone = app.clone();
-        crate::runtime::spawn(async move {
-            if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-                let _ = unregister_shortcut(&app_clone, cancel_binding);
-            }
-        });
-    }
+    let app_clone = app.clone();
+    crate::runtime::spawn(async move {
+        if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
+            let _ = unregister_shortcut(&app_clone, cancel_binding);
+        }
+    });
 }
 
 #[cfg(test)]

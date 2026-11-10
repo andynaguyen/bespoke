@@ -6,19 +6,11 @@
 
 pub const STATE_CHANGED: &str = "update-state-changed";
 
-#[cfg(target_os = "macos")]
 pub use macos::{
     automatically_checks, check_now, is_enabled, last_checked, pending_version,
     set_automatically_checks, start,
 };
 
-#[cfg(not(target_os = "macos"))]
-pub use other::{
-    automatically_checks, check_now, is_enabled, last_checked, pending_version,
-    set_automatically_checks, start,
-};
-
-#[cfg(target_os = "macos")]
 mod macos {
     use std::cell::RefCell;
     use std::sync::Mutex;
@@ -221,32 +213,5 @@ mod macos {
             let seconds = date.timeIntervalSince1970();
             (seconds > 0.).then(|| SystemTime::UNIX_EPOCH + Duration::from_secs_f64(seconds))
         })
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-mod other {
-    use std::time::SystemTime;
-
-    pub fn start() {}
-
-    pub fn is_enabled() -> bool {
-        false
-    }
-
-    pub fn pending_version() -> Option<String> {
-        None
-    }
-
-    pub fn check_now() {}
-
-    pub fn automatically_checks() -> bool {
-        false
-    }
-
-    pub fn set_automatically_checks(_enabled: bool) {}
-
-    pub fn last_checked() -> Option<SystemTime> {
-        None
     }
 }

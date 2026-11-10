@@ -109,8 +109,7 @@
       "waiting": "इंतज़ार किया जा रहा है...",
       "allGranted": "सब तैयार!",
       "errors": {
-        "checkFailed": "अनुमतियां जांची नहीं जा सकीं. कृपया फिर से कोशिश करें.",
-        "requestFailed": "अनुमति मांगी नहीं जा सकी. कृपया फिर से कोशिश करें."
+        "checkFailed": "अनुमतियां जांची नहीं जा सकीं. कृपया फिर से कोशिश करें."
       }
     }
   },
@@ -291,19 +290,8 @@
         "description": "चुनें कि टेक्स्ट कैसे डाला जाए. 'डायरेक्ट': सिस्टम इनपुट के ज़रिए सीधे टाइप करता है. 'कोई नहीं': पेस्ट नहीं करता, केवल इतिहास/क्लिपबोर्ड अपडेट करता है.",
         "options": {
           "clipboard": "क्लिपबोर्ड ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "क्लिपबोर्ड (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "क्लिपबोर्ड (Shift+Insert)",
           "direct": "डायरेक्ट",
-          "none": "कोई नहीं",
-          "externalScript": "बाहरी स्क्रिप्ट"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "टाइपिंग टूल",
-        "description": "चुनें कि 'डायरेक्ट' पेस्ट के लिए कौन सा Linux टाइपिंग टूल इस्तेमाल किया जाए. 'ऑटो' आपके सिस्टम के लिए सबसे अच्छा उपलब्ध टूल अपने आप चुन लेता है.",
-        "options": {
-          "auto": "ऑटो (सुझाया गया)"
+          "none": "कोई नहीं"
         }
       },
       "clipboardHandling": {
@@ -321,7 +309,6 @@
           "off": "बंद",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -620,9 +607,7 @@
     "micPermissionDeniedTitle": "माइक्रोफ़ोन का ऐक्सेस नहीं दिया गया",
     "micPermissionDenied": {
       "generic": "ऑपरेटिंग सिस्टम ने माइक्रोफ़ोन का ऐक्सेस नहीं दिया. कृपया अपनी सिस्टम सेटिंग में जाकर माइक्रोफ़ोन की अनुमति दें.",
-      "windows": "Settings → Privacy & security → Microphone में माइक्रोफ़ोन ऐक्सेस चालू करें (डेस्कटॉप ऐप ऐक्सेस समेत).",
-      "macos": "System Settings → Privacy & Security → Microphone में माइक्रोफ़ोन का ऐक्सेस दें.",
-      "linux": "अपने सिस्टम की साउंड या प्राइवेसी सेटिंग में माइक्रोफ़ोन का ऐक्सेस दें."
+      "macos": "System Settings → Privacy & Security → Microphone में माइक्रोफ़ोन का ऐक्सेस दें."
     },
     "noInputDeviceTitle": "कोई माइक्रोफ़ोन नहीं मिला",
     "noInputDevice": "कोई ऑडियो इनपुट डिवाइस नहीं मिला. कृपया माइक्रोफ़ोन या हेडसेट कनेक्ट करके फिर से कोशिश करें.",

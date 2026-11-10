@@ -38,9 +38,8 @@ pub fn popovers_hidden(cx: &App) -> bool {
 }
 
 pub fn hosts(window: &Window, cx: &App) -> bool {
-    cfg!(target_os = "macos")
-        && super::main_window(cx)
-            .is_some_and(|handle| handle.window_id() == window.window_handle().window_id())
+    super::main_window(cx)
+        .is_some_and(|handle| handle.window_id() == window.window_handle().window_id())
 }
 
 pub fn in_host(window: &mut Window, cx: &mut App, f: impl FnOnce(&mut Window, &mut App)) {
@@ -137,7 +136,6 @@ impl Render for PopupView {
 
 struct Popup {
     view: Entity<PopupView>,
-    #[cfg(target_os = "macos")]
     native: super::platform::capsule::CapsuleWindow,
     spec: Spec,
     anchor: Bounds<Pixels>,
@@ -193,7 +191,6 @@ fn show(
         cx.notify();
     });
     if appearing {
-        #[cfg(target_os = "macos")]
         {
             let parent = super::main_window(cx).and_then(|handle| {
                 handle
@@ -237,7 +234,6 @@ fn fit(id: &SharedString, measured: Size<Pixels>, cx: &mut App) {
     };
     if !popup.revealed {
         popup.revealed = true;
-        #[cfg(target_os = "macos")]
         popup.native.clone().set_alpha(1., cx);
     }
 }
@@ -250,14 +246,11 @@ fn place(id: &SharedString, cx: &App) {
         return;
     };
     let frame = frame_for(popup.spec.placement, popup.anchor, popup.host, size);
-    #[cfg(target_os = "macos")]
     popup.native.set_frame(
         [points(frame.origin.x), points(frame.origin.y)],
         [points(size.width), points(size.height)],
         cx,
     );
-    #[cfg(not(target_os = "macos"))]
-    let _ = frame;
 }
 
 fn frame_for(
@@ -303,7 +296,6 @@ fn frame_for(
     )
 }
 
-#[cfg(target_os = "macos")]
 fn points(pixels: Pixels) -> f64 {
     f64::from(f32::from(pixels))
 }
@@ -327,7 +319,6 @@ fn hide(id: &SharedString, cx: &mut App) {
         return;
     };
     popup.shown = false;
-    #[cfg(target_os = "macos")]
     {
         let native = popup.native.clone();
         native.hide_detached(cx);
@@ -368,14 +359,12 @@ fn open(id: &SharedString, spec: Spec, cx: &mut App) -> Option<Popup> {
             return None;
         }
     };
-    #[cfg(target_os = "macos")]
     let native = window
         .update(cx, |_, window, _| {
             super::platform::capsule::CapsuleWindow::of(window)
         })
         .ok()
         .flatten()?;
-    #[cfg(target_os = "macos")]
     {
         native.set_ignores_mouse(!spec.interactive);
         if let Some(radius) = spec.frame_radius {
@@ -383,11 +372,8 @@ fn open(id: &SharedString, spec: Spec, cx: &mut App) -> Option<Popup> {
             native.set_corner_radius(points(radius));
         }
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = window;
     Some(Popup {
         view,
-        #[cfg(target_os = "macos")]
         native,
         spec,
         anchor: Bounds::default(),
@@ -402,9 +388,7 @@ fn open(id: &SharedString, spec: Spec, cx: &mut App) -> Option<Popup> {
 #[derive(Clone)]
 pub struct DialogWindow {
     handle: AnyWindowHandle,
-    #[cfg(target_os = "macos")]
     native: super::platform::capsule::CapsuleWindow,
-    #[cfg(target_os = "macos")]
     parent: super::platform::capsule::CapsuleWindow,
     frame: Rc<Cell<Bounds<Pixels>>>,
 }
@@ -440,7 +424,6 @@ impl DialogWindow {
         cx: &mut App,
     ) -> Option<Self> {
         let frame = host.bounds();
-        #[cfg(target_os = "macos")]
         let parent = super::platform::capsule::CapsuleWindow::of(host)?;
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(frame)),
@@ -467,23 +450,19 @@ impl DialogWindow {
                 return None;
             }
         };
-        #[cfg(target_os = "macos")]
         let native = handle
             .update(cx, |_, window, _| {
                 super::platform::capsule::CapsuleWindow::of(window)
             })
             .ok()
             .flatten()?;
-        #[cfg(target_os = "macos")]
         {
             native.set_corner_radius(points(super::theme::radius::WINDOW));
             native.show_attached(&parent, 1., true, cx);
         }
         Some(Self {
             handle: handle.into(),
-            #[cfg(target_os = "macos")]
             native,
-            #[cfg(target_os = "macos")]
             parent,
             frame: Rc::new(Cell::new(frame)),
         })
@@ -497,33 +476,25 @@ impl DialogWindow {
     /// Makes the dialog the key window again, after something brought the main window forward
     /// over it as key.
     pub fn focus(&self, cx: &App) {
-        #[cfg(target_os = "macos")]
         self.native.show_attached(&self.parent, 1., true, cx);
-        #[cfg(not(target_os = "macos"))]
-        let _ = cx;
     }
 
     pub fn sync(&self, host: Bounds<Pixels>, cx: &App) {
-        #[cfg(target_os = "macos")]
         if !self.native.is_visible() {
             self.native.show_attached(&self.parent, 1., true, cx);
         }
         if self.frame.replace(host) == host {
             return;
         }
-        #[cfg(target_os = "macos")]
         self.native.set_frame(
             [points(host.origin.x), points(host.origin.y)],
             [points(host.size.width), points(host.size.height)],
             cx,
         );
-        #[cfg(not(target_os = "macos"))]
-        let _ = cx;
     }
 
     pub fn close(self, cx: &mut App) {
         cx.defer(move |cx| {
-            #[cfg(target_os = "macos")]
             self.native.hide_detached(cx);
             let _ = self
                 .handle

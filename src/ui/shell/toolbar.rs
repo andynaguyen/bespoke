@@ -65,7 +65,7 @@ pub fn render(title: SharedString, toolbar: Toolbar, _window: &mut Window, cx: &
         .gap_4()
         // In RTL the sidebar moves right, but macOS keeps the traffic lights
         // at the top left, over the toolbar's end.
-        .when(cfg!(target_os = "macos") && crate::i18n::is_rtl(), |bar| {
+        .when(crate::i18n::is_rtl(), |bar| {
             bar.pl(px(TRAFFIC_LIGHTS_WIDTH))
         })
         .child(drag_region("toolbar-drag"))

@@ -7,7 +7,9 @@ use std::path::Path;
 type Color = [u8; 4];
 const RED: Color = [255, 59, 48, 255];
 const WHITE: Color = [255, 255, 255, 255];
+#[cfg(test)]
 const TEXT: Color = [242, 242, 242, 255];
+#[cfg(test)]
 const MUTED: Color = [150, 150, 150, 255];
 
 pub fn encode_png(frame: &RgbaFrame) -> anyhow::Result<Vec<u8>> {
@@ -990,6 +992,7 @@ fn blit_scaled(dst: &mut RgbaFrame, src: &RgbaFrame, rect: [f32; 4], radius: f32
     }
 }
 
+#[cfg(test)]
 pub fn render_synthetic_demo_frame(width: u32, height: u32, t_ms: u64, phase: u32) -> RgbaFrame {
     let mut frame = solid(1280, 800, [22, 23, 26, 255]);
     rounded(&mut frame, [0.0, 0.0, 244.0, 800.0], 0.0, [28, 29, 33, 255]);

@@ -2,7 +2,6 @@ pub mod audio;
 pub mod constants;
 pub mod lang_id;
 pub mod text;
-pub mod utils;
 pub mod vad;
 
 pub use audio::{
@@ -17,5 +16,4 @@ pub use text::{
     normalize_transcription_output, remove_filler_words, scratch_before_keyword,
     scrub_before_keyword, strip_trailing_keyword,
 };
-pub use utils::get_cpal_host;
 pub use vad::{EarshotVad, SileroVad, VoiceActivityDetector};

@@ -8,7 +8,7 @@ use gpui_component::input::{InputEvent, InputState};
 
 use crate::i18n::{t, t_with};
 use crate::managers::history::HistoryManager;
-use crate::settings::{AppSettings, PasteMethod, TypingTool};
+use crate::settings::{AppSettings, PasteMethod};
 use crate::shortcut;
 use crate::ui::components::{
     Dropdown, DropdownOption, RowDirection, SettingContainer, SettingsGroup, Spinner, TextField,
@@ -35,10 +35,8 @@ pub struct DictationSettings {
     scrub_keyword: Entity<KeywordField>,
     scratch_keyword: Entity<KeywordField>,
     submit_keyword: Entity<KeywordField>,
-    external_script: Entity<InputState>,
     history_limit: Entity<InputState>,
     channels: (String, u16),
-    typing_tools: Vec<String>,
 }
 
 fn picker_language(code: &str) -> String {
@@ -78,32 +76,6 @@ impl DictationSettings {
         cx.observe(&models, |this, _, cx| {
             this.sync_language(cx);
             cx.notify();
-        })
-        .detach();
-
-        let external = store
-            .read(cx)
-            .settings
-            .external_script_path
-            .clone()
-            .unwrap_or_default();
-        let external_script = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder(t("settings.advanced.pasteMethod.externalScriptPlaceholder"))
-                .default_value(external)
-        });
-        cx.subscribe(&external_script, |_, input, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                let path = input.read(cx).value().to_string();
-                let stored = (!path.is_empty()).then(|| path.clone());
-                let command = stored.clone();
-                set(
-                    cx,
-                    "external_script_path",
-                    move |s| s.external_script_path = stored,
-                    move |app| shortcut::change_external_script_path_setting(app, command),
-                );
-            }
         })
         .detach();
 
@@ -190,33 +162,13 @@ impl DictationSettings {
                     cx,
                 )
             }),
-            external_script,
             history_limit,
             channels: (String::new(), 1),
-            typing_tools: if cfg!(target_os = "linux") {
-                vec!["auto".into()]
-            } else {
-                Vec::new()
-            },
             store,
             models,
         };
         this.refresh_channels(cx);
         this.sync_language(cx);
-        if cfg!(target_os = "linux") {
-            cx.spawn(async move |this, cx| {
-                let Ok(tools) =
-                    crate::runtime::spawn_blocking(shortcut::get_available_typing_tools).await
-                else {
-                    return;
-                };
-                let _ = this.update(cx, |this, cx| {
-                    this.typing_tools = tools;
-                    cx.notify();
-                });
-            })
-            .detach();
-        }
         this
     }
 
@@ -406,95 +358,27 @@ impl DictationSettings {
         SettingContainer::new(t("settings.advanced.pasteMethod.title"))
             .description(t("settings.advanced.pasteMethod.description"))
             .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(
-                        Dropdown::new("paste_method", rows::paste_method_options(method))
-                            .selected(Some(rows::paste_method_value(method)))
-                            .disabled(store.is_updating("paste_method"))
-                            .on_select(|value, _, cx| {
-                                let method = match value.as_ref() {
-                                    "direct" => PasteMethod::Direct,
-                                    "none" => PasteMethod::None,
-                                    "shift_insert" => PasteMethod::ShiftInsert,
-                                    "ctrl_shift_v" => PasteMethod::CtrlShiftV,
-                                    "external_script" => PasteMethod::ExternalScript,
-                                    _ => PasteMethod::CtrlV,
-                                };
-                                let value = value.to_string();
-                                set(
-                                    cx,
-                                    "paste_method",
-                                    move |s| s.paste_method = method,
-                                    move |app| shortcut::change_paste_method_setting(app, value),
-                                );
-                            }),
-                    )
-                    .when(method == PasteMethod::ExternalScript, |el| {
-                        el.child(
-                            TextField::new(&self.external_script)
-                                .disabled(store.is_updating("external_script_path")),
-                        )
-                    }),
+                div().flex().flex_col().gap_2().child(
+                    Dropdown::new("paste_method", rows::paste_method_options(method))
+                        .selected(Some(rows::paste_method_value(method)))
+                        .disabled(store.is_updating("paste_method"))
+                        .on_select(|value, _, cx| {
+                            let method = match value.as_ref() {
+                                "direct" => PasteMethod::Direct,
+                                "none" => PasteMethod::None,
+                                _ => PasteMethod::CtrlV,
+                            };
+                            let value = value.to_string();
+                            set(
+                                cx,
+                                "paste_method",
+                                move |s| s.paste_method = method,
+                                move |app| shortcut::change_paste_method_setting(app, value),
+                            );
+                        }),
+                ),
             )
             .into_any_element()
-    }
-
-    fn typing_tool_row(&self, s: &AppSettings, cx: &App) -> Option<AnyElement> {
-        if !cfg!(target_os = "linux") || s.paste_method != PasteMethod::Direct {
-            return None;
-        }
-        let tools = if self.typing_tools.is_empty() {
-            vec!["auto".to_string()]
-        } else {
-            self.typing_tools.clone()
-        };
-        let options = tools
-            .iter()
-            .map(|tool| {
-                let label: SharedString = if tool == "auto" {
-                    t("settings.advanced.typingTool.options.auto")
-                } else {
-                    tool.clone().into()
-                };
-                DropdownOption::new(tool.clone(), label)
-            })
-            .collect();
-        let selected = match s.typing_tool {
-            TypingTool::Auto => "auto",
-            TypingTool::Wtype => "wtype",
-            TypingTool::Kwtype => "kwtype",
-            TypingTool::Dotool => "dotool",
-            TypingTool::Ydotool => "ydotool",
-            TypingTool::Xdotool => "xdotool",
-        };
-        Some(rows::dropdown(
-            "typing_tool",
-            "settings.advanced.typingTool.title",
-            "settings.advanced.typingTool.description",
-            options,
-            selected,
-            cx,
-            |value, cx| {
-                let tool = match value.as_ref() {
-                    "wtype" => TypingTool::Wtype,
-                    "kwtype" => TypingTool::Kwtype,
-                    "dotool" => TypingTool::Dotool,
-                    "ydotool" => TypingTool::Ydotool,
-                    "xdotool" => TypingTool::Xdotool,
-                    _ => TypingTool::Auto,
-                };
-                let value = value.to_string();
-                set(
-                    cx,
-                    "typing_tool",
-                    move |s| s.typing_tool = tool,
-                    move |app| shortcut::change_typing_tool_setting(app, value),
-                )
-            },
-        ))
     }
 }
 
@@ -629,18 +513,13 @@ impl DictationSettings {
             .title(t("settings.advanced.groups.shortcut"))
             .child(self.transcribe_shortcut.clone())
             .child(rows::shortcut_activation(s, cx));
-        if cfg!(target_os = "linux") {
-            group
-        } else {
-            group.child(self.cancel_shortcut.clone())
-        }
+        group.child(self.cancel_shortcut.clone())
     }
 
     fn pasting_group(&self, s: &AppSettings, cx: &App) -> SettingsGroup {
         SettingsGroup::new()
             .title(t("settings.advanced.groups.pasting"))
             .child(self.paste_method_row(s, cx))
-            .children(self.typing_tool_row(s, cx))
             .child(rows::clipboard_handling(s, cx))
     }
 

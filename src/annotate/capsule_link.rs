@@ -9,7 +9,8 @@ pub enum Pres {
     Recording { chips: bool, stroke_count: usize },
     Selecting { mode: SelectionMode, hold: bool },
     Processing,
-    Completed { label: String },
+    Completed { copied: bool },
+    Failed,
 }
 
 #[derive(Clone, Copy, Debug)]

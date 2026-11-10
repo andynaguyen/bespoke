@@ -377,48 +377,27 @@ pub fn paste_method_value(method: PasteMethod) -> &'static str {
         PasteMethod::CtrlV => "ctrl_v",
         PasteMethod::Direct => "direct",
         PasteMethod::None => "none",
-        PasteMethod::ShiftInsert => "shift_insert",
-        PasteMethod::CtrlShiftV => "ctrl_shift_v",
-        PasteMethod::ExternalScript => "external_script",
     }
 }
 
 pub fn paste_method_options(current: PasteMethod) -> Vec<DropdownOption> {
-    let mac = cfg!(target_os = "macos");
-    let modifier = if mac { "Cmd" } else { "Ctrl" };
     let mut options = vec![DropdownOption::new(
         "ctrl_v",
         t_with(
             "settings.advanced.pasteMethod.options.clipboard",
-            &[("modifier", &modifier)],
+            &[("modifier", &"Cmd")],
         ),
     )];
-    if !mac || current == PasteMethod::Direct {
+    if current == PasteMethod::Direct {
         options.push(
             DropdownOption::new("direct", t("settings.advanced.pasteMethod.options.direct"))
-                .disabled(mac),
+                .disabled(true),
         );
     }
     options.push(DropdownOption::new(
         "none",
         t("settings.advanced.pasteMethod.options.none"),
     ));
-    if cfg!(any(target_os = "windows", target_os = "linux")) {
-        options.push(DropdownOption::new(
-            "ctrl_shift_v",
-            t("settings.advanced.pasteMethod.options.clipboardCtrlShiftV"),
-        ));
-        options.push(DropdownOption::new(
-            "shift_insert",
-            t("settings.advanced.pasteMethod.options.clipboardShiftInsert"),
-        ));
-    }
-    if cfg!(target_os = "linux") {
-        options.push(DropdownOption::new(
-            "external_script",
-            t("settings.advanced.pasteMethod.options.externalScript"),
-        ));
-    }
     options
 }
 
@@ -485,11 +464,7 @@ fn submit_key_options() -> Vec<DropdownOption> {
         ),
         DropdownOption::new(
             "cmd_enter",
-            if cfg!(target_os = "macos") {
-                t("settings.advanced.autoSubmit.options.cmdEnter")
-            } else {
-                t("settings.advanced.autoSubmit.options.superEnter")
-            },
+            t("settings.advanced.autoSubmit.options.cmdEnter"),
         ),
     ]
 }
@@ -953,7 +928,7 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
                             }
                         }
                     }
-                    SettingsStore::global(cx).update(cx, |s, cx| s.refresh(cx));
+                    SettingsStore::global(cx).update(cx, |s, cx| s.reload_unless_writing(cx));
                 });
             })
             .detach();

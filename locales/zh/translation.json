@@ -109,8 +109,7 @@
       "waiting": "等待中...",
       "allGranted": "全部完成！",
       "errors": {
-        "checkFailed": "检查权限失败。请重试。",
-        "requestFailed": "请求权限失败。请重试。"
+        "checkFailed": "检查权限失败。请重试。"
       }
     }
   },
@@ -291,19 +290,8 @@
         "description": "选择文字插入方式。直接：通过系统输入模拟打字。无：跳过粘贴，仅更新历史记录/剪贴板。",
         "options": {
           "clipboard": "剪贴板 ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "剪贴板 (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "剪贴板 (Shift+Insert)",
           "direct": "直接",
-          "none": "无",
-          "externalScript": "外部脚本"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "输入工具",
-        "description": "选择在直接粘贴方式下使用的 Linux 输入工具。Auto 会自动检测并使用系统中可用的最佳工具。",
-        "options": {
-          "auto": "Auto（推荐）"
+          "none": "无"
         }
       },
       "clipboardHandling": {
@@ -321,7 +309,6 @@
           "off": "关闭",
           "enter": "回车",
           "cmdEnter": "Cmd+回车",
-          "superEnter": "Super+回车",
           "ctrlEnter": "Ctrl+回车"
         }
       },
@@ -617,9 +604,7 @@
     "micPermissionDeniedTitle": "麦克风访问被拒绝",
     "micPermissionDenied": {
       "generic": "操作系统拒绝了麦克风访问。请在系统设置中授予麦克风权限。",
-      "windows": "在设置 → 隐私和安全性 → 麦克风（包括桌面应用访问）中启用麦克风访问。",
-      "macos": "在系统设置 → 隐私与安全性 → 麦克风中授予麦克风访问权限。",
-      "linux": "在系统的声音或隐私设置中授予麦克风访问权限。"
+      "macos": "在系统设置 → 隐私与安全性 → 麦克风中授予麦克风访问权限。"
     },
     "noInputDeviceTitle": "未找到麦克风",
     "noInputDevice": "未检测到音频输入设备。请连接麦克风或耳机后重试。",

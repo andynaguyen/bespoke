@@ -109,8 +109,7 @@
       "waiting": "Venter...",
       "allGranted": "Alt er klar!",
       "errors": {
-        "checkFailed": "Kunne ikke tjekke tilladelser. Prøv igen.",
-        "requestFailed": "Kunne ikke anmode om tilladelse. Prøv igen."
+        "checkFailed": "Kunne ikke tjekke tilladelser. Prøv igen."
       }
     }
   },
@@ -291,19 +290,8 @@
         "description": "Vælg, hvordan tekst indsættes. Direkte: simulerer tastetryk via systeminput. Ingen: springer indsætning over, opdaterer kun historik/udklipsholder.",
         "options": {
           "clipboard": "Udklipsholder ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Udklipsholder (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Udklipsholder (Shift+Insert)",
           "direct": "Direkte",
-          "none": "Ingen",
-          "externalScript": "Eksternt script"
-        },
-        "externalScriptPlaceholder": "/sti/til/dit/script.sh"
-      },
-      "typingTool": {
-        "title": "Skriveværktøj",
-        "description": "Vælg hvilket Linux-skriveværktøj der skal bruges til Direkte indsætningsmetode. Auto registrerer og bruger automatisk det bedste tilgængelige værktøj til dit system.",
-        "options": {
-          "auto": "Auto (anbefalet)"
+          "none": "Ingen"
         }
       },
       "clipboardHandling": {
@@ -321,7 +309,6 @@
           "off": "Fra",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
-          "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
         }
       },
@@ -620,9 +607,7 @@
     "micPermissionDeniedTitle": "Mikrofonadgang nægtet",
     "micPermissionDenied": {
       "generic": "Mikrofonadgang blev nægtet af operativsystemet. Giv venligst mikrofontilladelse i dine systemindstillinger.",
-      "windows": "Aktivér mikrofonadgang under Indstillinger → Privatliv og sikkerhed → Mikrofon (inklusive adgang for skrivebordsapps).",
-      "macos": "Giv mikrofonadgang under Systemindstillinger → Privatliv og sikkerhed → Mikrofon.",
-      "linux": "Giv mikrofonadgang i dit systems lyd- eller privatlivsindstillinger."
+      "macos": "Giv mikrofonadgang under Systemindstillinger → Privatliv og sikkerhed → Mikrofon."
     },
     "noInputDeviceTitle": "Ingen mikrofon fundet",
     "noInputDevice": "Ingen lydinputenhed blev registreret. Tilslut en mikrofon eller et headset, og prøv igen.",

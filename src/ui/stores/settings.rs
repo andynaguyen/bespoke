@@ -1,7 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::future::Future;
+use std::pin::Pin;
 
 use gpui::{App, AppContext, Context, Entity, Global, SharedString};
+
+use crate::shortcut::BindingResponse;
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::commands::audio::{AudioDevice, CustomSounds};
@@ -12,11 +15,64 @@ pub struct SettingsStore {
     app: AppHandle,
     pub settings: AppSettings,
     pub defaults: AppSettings,
-    updating: HashSet<SharedString>,
+    fetching: HashSet<SharedString>,
+    writes: WriteQueue<Write>,
     pub audio_devices: Vec<AudioDevice>,
     pub output_devices: Vec<AudioDevice>,
     pub custom_sounds: CustomSounds,
     pub post_process_models: HashMap<String, Vec<String>>,
+}
+
+struct Write {
+    job: Pin<Box<dyn Future<Output = Result<(), String>> + Send>>,
+    on_done: Option<OnDone>,
+}
+
+type OnDone = Box<dyn FnOnce(Result<(), String>, &mut App)>;
+
+struct WriteQueue<J> {
+    running: HashSet<SharedString>,
+    waiting: HashMap<SharedString, VecDeque<J>>,
+}
+
+impl<J> Default for WriteQueue<J> {
+    fn default() -> Self {
+        Self {
+            running: HashSet::new(),
+            waiting: HashMap::new(),
+        }
+    }
+}
+
+impl<J> WriteQueue<J> {
+    fn start_or_wait(&mut self, key: &SharedString, job: J) -> Option<J> {
+        if self.running.contains(key) {
+            self.waiting.entry(key.clone()).or_default().push_back(job);
+            None
+        } else {
+            self.running.insert(key.clone());
+            Some(job)
+        }
+    }
+
+    fn finish_and_take_next(&mut self, key: &SharedString) -> Option<J> {
+        let next = self.waiting.get_mut(key).and_then(VecDeque::pop_front);
+        if self.waiting.get(key).is_some_and(VecDeque::is_empty) {
+            self.waiting.remove(key);
+        }
+        if next.is_none() {
+            self.running.remove(key);
+        }
+        next
+    }
+
+    fn is_busy(&self, key: &str) -> bool {
+        self.running.contains(key)
+    }
+
+    fn is_idle(&self) -> bool {
+        self.running.is_empty() && self.waiting.is_empty()
+    }
 }
 
 struct GlobalSettingsStore(Entity<SettingsStore>);
@@ -60,8 +116,8 @@ impl SettingsStore {
         cx.subscribe(
             &event_bus(cx),
             |this, _, event: &AppEvent, cx| match event.name.as_str() {
-                "model-state-changed" => this.refresh(cx),
-                "settings-changed" => this.refresh(cx),
+                "model-state-changed" => this.reload_unless_writing(cx),
+                "settings-changed" => this.reload_unless_writing(cx),
                 _ => {}
             },
         )
@@ -70,7 +126,8 @@ impl SettingsStore {
         Self {
             settings: settings::get_settings(&app),
             defaults: settings::get_default_settings(),
-            updating: HashSet::new(),
+            fetching: HashSet::new(),
+            writes: WriteQueue::default(),
             audio_devices: Vec::new(),
             output_devices: Vec::new(),
             custom_sounds: crate::commands::audio::check_custom_sounds(app.clone()),
@@ -83,28 +140,15 @@ impl SettingsStore {
         &self.app
     }
 
-    pub fn refresh(&mut self, cx: &mut Context<Self>) {
-        self.settings = settings::get_settings(&self.app);
+    pub fn reload_unless_writing(&mut self, cx: &mut Context<Self>) {
+        if self.writes.is_idle() {
+            self.settings = settings::get_settings(&self.app);
+        }
         cx.notify();
     }
 
     pub fn is_updating(&self, key: &str) -> bool {
-        self.updating.contains(key)
-    }
-
-    pub fn set_updating(
-        &mut self,
-        key: impl Into<SharedString>,
-        updating: bool,
-        cx: &mut Context<Self>,
-    ) {
-        let key = key.into();
-        if updating {
-            self.updating.insert(key);
-        } else {
-            self.updating.remove(&key);
-        }
-        cx.notify();
+        self.fetching.contains(key) || self.writes.is_busy(key)
     }
 
     pub fn update(
@@ -125,18 +169,57 @@ impl SettingsStore {
         command: impl Future<Output = Result<(), String>> + Send + 'static,
         cx: &mut Context<Self>,
     ) {
+        self.write(key, apply, command, None, cx);
+    }
+
+    pub fn update_async_then(
+        &mut self,
+        key: &str,
+        apply: impl FnOnce(&mut AppSettings),
+        command: impl Future<Output = Result<(), String>> + Send + 'static,
+        on_done: impl FnOnce(Result<(), String>, &mut App) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.write(key, apply, command, Some(Box::new(on_done)), cx);
+    }
+
+    fn write(
+        &mut self,
+        key: &str,
+        apply: impl FnOnce(&mut AppSettings),
+        command: impl Future<Output = Result<(), String>> + Send + 'static,
+        on_done: Option<OnDone>,
+        cx: &mut Context<Self>,
+    ) {
         let key = SharedString::from(key.to_string());
         apply(&mut self.settings);
-        self.set_updating(key.clone(), true, cx);
+        let write = Write {
+            job: Box::pin(command),
+            on_done,
+        };
+        if let Some(write) = self.writes.start_or_wait(&key, write) {
+            self.start_write(key, write, cx);
+        }
+        cx.notify();
+    }
+
+    fn start_write(&mut self, key: SharedString, write: Write, cx: &mut Context<Self>) {
+        let Write { job, on_done } = write;
         cx.spawn(async move |this, cx| {
-            let result = crate::runtime::run(command).await;
+            let result = crate::runtime::run(job).await;
+            if let Err(e) = &result {
+                log::error!("Failed to update setting {}: {}", key, e);
+            }
             let _ = this.update(cx, |this, cx| {
-                if let Err(e) = &result {
-                    log::error!("Failed to update setting {}: {}", key, e);
+                if let Some(next) = this.writes.finish_and_take_next(&key) {
+                    this.start_write(key, next, cx);
                 }
-                this.updating.remove(&key);
-                this.refresh(cx);
+                this.reload_unless_writing(cx);
             });
+            // Outside the store's update, so `on_done` can update the store itself.
+            if let Some(on_done) = on_done {
+                let _ = cx.update(|cx| on_done(result, cx));
+            }
         })
         .detach();
     }
@@ -185,65 +268,55 @@ impl SettingsStore {
         cx: &mut Context<Self>,
     ) {
         let key = format!("binding_{id}");
-        if let Some(entry) = self.settings.bindings.get_mut(&id) {
-            entry.current_binding = binding.clone();
-        }
-        self.set_updating(key.clone(), true, cx);
         let app = self.app.clone();
-        cx.spawn(async move |this, cx| {
-            let result = crate::runtime::spawn_blocking(move || {
-                crate::shortcut::change_binding(app, id, binding)
-            })
-            .await
-            .map_err(|e| e.to_string())
-            .and_then(|r| r)
-            .and_then(|response| {
-                if response.success {
-                    Ok(())
-                } else {
-                    Err(response
-                        .error
-                        .unwrap_or_else(|| "Failed to update binding".to_string()))
+        let (shown_id, shown) = (id.clone(), binding.clone());
+        self.update_async_then(
+            &key,
+            move |settings| {
+                if let Some(entry) = settings.bindings.get_mut(&shown_id) {
+                    entry.current_binding = shown;
                 }
-            });
-            let _ = this.update(cx, |this, cx| {
-                this.updating.remove(key.as_str());
-                this.refresh(cx);
-                on_done(result, cx);
-            });
-        })
-        .detach();
+            },
+            async move {
+                binding_outcome(
+                    crate::runtime::spawn_blocking(move || {
+                        crate::shortcut::change_binding(app, id, binding)
+                    })
+                    .await,
+                )
+            },
+            on_done,
+            cx,
+        );
     }
 
     pub fn reset_binding(&mut self, id: String, cx: &mut Context<Self>) {
         let key = format!("binding_{id}");
-        self.set_updating(key.clone(), true, cx);
         let app = self.app.clone();
-        cx.spawn(async move |this, cx| {
-            let result =
-                crate::runtime::spawn_blocking(move || crate::shortcut::reset_binding(app, id))
-                    .await;
-            if let Ok(Err(e)) = result {
-                log::error!("Failed to reset binding: {}", e);
-            }
-            let _ = this.update(cx, |this, cx| {
-                this.updating.remove(key.as_str());
-                this.refresh(cx);
-            });
-        })
-        .detach();
+        self.update_async(
+            &key,
+            |_| {},
+            async move {
+                binding_outcome(
+                    crate::runtime::spawn_blocking(move || crate::shortcut::reset_binding(app, id))
+                        .await,
+                )
+            },
+            cx,
+        );
     }
 
     pub fn fetch_post_process_models(&mut self, provider_id: String, cx: &mut Context<Self>) {
         let key = format!("post_process_models_fetch:{provider_id}");
-        self.set_updating(key.clone(), true, cx);
+        self.fetching.insert(key.clone().into());
+        cx.notify();
         let app = self.app.clone();
         cx.spawn(async move |this, cx| {
             let id = provider_id.clone();
             let result =
                 crate::runtime::run(crate::shortcut::fetch_post_process_models(app, id)).await;
             let _ = this.update(cx, |this, cx| {
-                this.updating.remove(key.as_str());
+                this.fetching.remove(key.as_str());
                 match result {
                     Ok(models) => {
                         this.post_process_models.insert(provider_id, models);
@@ -254,5 +327,91 @@ impl SettingsStore {
             });
         })
         .detach();
+    }
+}
+
+fn binding_outcome(
+    result: Result<Result<BindingResponse, String>, tokio::task::JoinError>,
+) -> Result<(), String> {
+    let response = result.map_err(|e| e.to_string())??;
+    if response.success {
+        Ok(())
+    } else {
+        Err(response
+            .error
+            .unwrap_or_else(|| "Failed to update binding".to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WriteQueue;
+    use gpui::SharedString;
+
+    fn key(name: &'static str) -> SharedString {
+        SharedString::from(name)
+    }
+
+    #[test]
+    fn the_first_write_for_a_setting_starts_at_once() {
+        let mut queue = WriteQueue::<u32>::default();
+        let k = key("volume");
+        assert_eq!(queue.start_or_wait(&k, 1), Some(1));
+        assert!(!queue.is_idle());
+    }
+
+    #[test]
+    fn a_write_waits_for_the_one_that_is_running() {
+        let mut queue = WriteQueue::<u32>::default();
+        let k = key("volume");
+        assert_eq!(queue.start_or_wait(&k, 1), Some(1));
+        assert_eq!(queue.start_or_wait(&k, 2), None);
+        assert_eq!(queue.finish_and_take_next(&k), Some(2));
+        assert_eq!(queue.finish_and_take_next(&k), None);
+        assert!(queue.is_idle());
+    }
+
+    #[test]
+    fn waiting_writes_run_in_the_order_they_arrived() {
+        let mut queue = WriteQueue::<u32>::default();
+        let k = key("volume");
+        assert_eq!(queue.start_or_wait(&k, 1), Some(1));
+        assert_eq!(queue.start_or_wait(&k, 2), None);
+        assert_eq!(queue.start_or_wait(&k, 3), None);
+        assert_eq!(queue.finish_and_take_next(&k), Some(2));
+        assert_eq!(queue.finish_and_take_next(&k), Some(3));
+        assert_eq!(queue.finish_and_take_next(&k), None);
+        assert!(queue.is_idle());
+    }
+
+    #[test]
+    fn the_queue_is_busy_while_a_write_waits() {
+        let mut queue = WriteQueue::<u32>::default();
+        let k = key("volume");
+        assert_eq!(queue.start_or_wait(&k, 1), Some(1));
+        assert_eq!(queue.start_or_wait(&k, 2), None);
+        assert_eq!(queue.finish_and_take_next(&k), Some(2));
+        assert!(!queue.is_idle());
+        assert_eq!(queue.finish_and_take_next(&k), None);
+        assert!(queue.is_idle());
+    }
+
+    #[test]
+    fn different_settings_do_not_wait_for_each_other() {
+        let mut queue = WriteQueue::<u32>::default();
+        assert_eq!(queue.start_or_wait(&key("a"), 1), Some(1));
+        assert_eq!(queue.start_or_wait(&key("b"), 2), Some(2));
+    }
+
+    #[test]
+    fn the_queue_is_busy_until_the_last_write_ends() {
+        let mut queue = WriteQueue::<u32>::default();
+        let (a, b) = (key("a"), key("b"));
+        assert_eq!(queue.start_or_wait(&a, 1), Some(1));
+        assert_eq!(queue.start_or_wait(&b, 2), Some(2));
+        assert_eq!(queue.finish_and_take_next(&a), None);
+        assert!(!queue.is_idle());
+        assert_eq!(queue.finish_and_take_next(&b), None);
+        assert!(queue.is_idle());
     }
 }
