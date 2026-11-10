@@ -6,10 +6,22 @@ use crate::annotate::coordinator::SelectionMode;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Pres {
     Hidden,
-    Recording { chips: bool, stroke_count: usize },
-    Selecting { mode: SelectionMode, hold: bool },
+    Recording {
+        chips: bool,
+        stroke_count: usize,
+    },
+    Selecting {
+        mode: SelectionMode,
+        hold: bool,
+    },
     Processing,
-    Completed { label: String },
+    /// A check mark and the copied label when the capture reached the clipboard, or the saved
+    /// label when it was written but the clipboard copy failed.
+    Completed {
+        copied: bool,
+    },
+    /// A warning that the capture could not be saved.
+    Failed,
 }
 
 #[derive(Clone, Copy, Debug)]

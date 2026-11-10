@@ -913,6 +913,8 @@
       "finish": "Finish",
       "processing": "Processing",
       "copied": "Copied",
+      "saved": "Saved",
+      "failed": "Couldn't save the capture",
       "paste": "Paste",
       "inspect": "Inspect",
       "marks_one": "{{count}} mark",
