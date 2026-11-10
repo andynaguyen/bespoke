@@ -1876,12 +1876,6 @@ fn resolve_device_index(index: usize) -> Result<(Backend, Option<transcribe_cpp:
     Ok((Backend::Auto, Some(device)))
 }
 
-/// Map Bespoke's whisper accelerator setting to a transcribe-cpp [`Backend`].
-///
-/// `Auto` lets the library pick the best device (with CPU fallback), while
-/// `Cpu` forces strict CPU. `Gpu` only remains as the companion setting for an
-/// exact device; without a valid exact device it has the retired generic GPU
-/// state's new Auto semantics.
 fn select_transcribe_backend(setting: TranscribeAcceleratorSetting) -> Backend {
     match setting {
         TranscribeAcceleratorSetting::Cpu => Backend::Cpu,

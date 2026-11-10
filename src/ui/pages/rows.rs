@@ -928,7 +928,7 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
                             }
                         }
                     }
-                    SettingsStore::global(cx).update(cx, |s, cx| s.refresh(cx));
+                    SettingsStore::global(cx).update(cx, |s, cx| s.reload_unless_writing(cx));
                 });
             })
             .detach();

@@ -186,29 +186,23 @@ pub enum IslandPhase {
         finished_at: Instant,
         frame_count: usize,
         duration_ms: u64,
-        /// True when the capture reached the clipboard. False makes the capsule say it was saved
-        /// but not copied.
         copied: bool,
     },
-    /// The capsule says the capture could not be saved.
     Failed {
         finished_at: Instant,
     },
     Dismissing,
 }
 
-/// How long a finished or failed capsule stays on screen.
 const FINISHED_CAPSULE_MS: u64 = 25_000;
 
-/// The capsule's phase once a finish is over. `saved` is the keyframe count of a capture that
-/// was written, and `copied` says whether it also reached the clipboard.
 fn phase_after_finish(
-    saved: Option<usize>,
+    saved_frame_count: Option<usize>,
     copied: bool,
     duration_ms: u64,
     now: Instant,
 ) -> IslandPhase {
-    match saved {
+    match saved_frame_count {
         Some(frame_count) => IslandPhase::Completed {
             finished_at: now,
             frame_count,

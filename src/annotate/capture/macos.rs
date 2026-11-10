@@ -713,7 +713,7 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
     let mut last_sample = Instant::now()
         .checked_sub(FRAME_SAMPLE_INTERVAL)
         .unwrap_or_else(Instant::now);
-    let mut sample_failed = false;
+    let mut logged_sample_failure = false;
     let mut last_excluded = initial_excluded.clone();
     let mut prompts = SystemPrompts::new(&sampler_target);
     while !thread_stopping.load(Ordering::Acquire) {
@@ -759,16 +759,13 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
             let frame = filter_and_config
                 .as_ref()
                 .and_then(|(filter, config)| capture_sck_frame(filter, config, t_ms));
-            // A failed screenshot leaves a gap, because a made-up frame would read as the
-            // user's screen. The log notes only the first failure, since samples come every
-            // few hundred ms.
             match frame {
                 Some(frame) => thread_frames
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .push(frame, urgent),
-                None if !sample_failed => {
-                    sample_failed = true;
+                None if !logged_sample_failure => {
+                    logged_sample_failure = true;
                     annotate_log("Screen sample failed; leaving it out of the capture");
                 }
                 None => {}

@@ -253,8 +253,8 @@ impl ShortcutInput {
         }
         let shortcut = mouse_shortcut(event.button, &event.modifiers);
         let keyed_has_mouse = self.keyed.split('+').any(|k| k.starts_with("mouse"));
-        // The key tap records mouse shortcuts, so a click that could be one is left to it.
-        if self.committing || shortcut.is_some() || keyed_has_mouse {
+        let key_tap_records_it = shortcut.is_some() || keyed_has_mouse;
+        if self.committing || key_tap_records_it {
             return;
         }
         if event.button == MouseButton::Left && !self.chip.contains(&event.position) {

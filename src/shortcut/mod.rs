@@ -1016,8 +1016,6 @@ pub fn change_show_tray_icon_setting(app: AppHandle, enabled: bool) -> Result<()
     Ok(())
 }
 
-/// Sets the accelerator and its GPU device in one write. Two writes would leave a moment
-/// with a GPU and no device, which `get_settings` repairs to Auto.
 pub fn change_transcribe_accelerator_setting(
     app: AppHandle,
     accelerator: settings::TranscribeAcceleratorSetting,

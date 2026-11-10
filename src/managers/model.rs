@@ -1319,18 +1319,14 @@ impl ModelManager {
         let Some(pointer) = hf_cached_path(repo_id, revision, filename) else {
             return false;
         };
-        // Resolve the blob before the pointer goes away. hf-hub makes the
-        // pointer a symlink to its blob. A pointer that is a plain file has no
-        // separate blob, so only a symlink's target gets deleted.
-        let is_symlink = fs::symlink_metadata(&pointer)
-            .map(|m| m.file_type().is_symlink())
-            .unwrap_or(false);
-        if is_symlink && let Ok(blob) = fs::canonicalize(&pointer) {
+        let blob = fs::canonicalize(&pointer).ok();
+        info!("Deleting HF cache file at: {:?}", pointer);
+        let removed = fs::remove_file(&pointer).is_ok();
+        if let Some(blob) = blob {
             info!("Deleting HF cache blob at: {:?}", blob);
             let _ = fs::remove_file(&blob);
         }
-        info!("Deleting HF cache file at: {:?}", pointer);
-        fs::remove_file(&pointer).is_ok()
+        removed
     }
 
     fn auto_select_model_if_needed(&self) {

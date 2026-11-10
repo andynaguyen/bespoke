@@ -222,6 +222,17 @@ pub fn movie_frames_at(
     Ok(frames)
 }
 
+fn save_narration(bundle_dir: &Path, audio: Option<&[f32]>) -> PathBuf {
+    let wav_path = bundle_dir.join("audio.wav");
+    if let Some(audio) = audio {
+        let _ = std::fs::create_dir_all(bundle_dir);
+        if let Err(error) = crate::audio_toolkit::save_wav_file(&wav_path, audio) {
+            capture::annotate_log(format!("Could not write audio.wav: {error:#}"));
+        }
+    }
+    wav_path
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn finalize_capture_bundle(
     bundle_dir: &Path,
@@ -243,15 +254,7 @@ pub fn finalize_capture_bundle(
         duration_ms,
         video_offset_ms,
     } = recording;
-    let wav_path = bundle_dir.join("audio.wav");
-    if let Some(ref audio) = recorded_audio {
-        let _ = std::fs::create_dir_all(bundle_dir);
-        if let Err(error) = crate::audio_toolkit::save_wav_file(&wav_path, audio) {
-            capture::annotate_log(format!("Could not write audio.wav: {error:#}"));
-        }
-    }
-    // The narration is already on disk, so the user's voice survives a recording with no
-    // screenshots.
+    let wav_path = save_narration(bundle_dir, recorded_audio.as_deref());
     anyhow::ensure!(
         !frames.is_empty(),
         "No screenshot of the recording succeeded, so there is nothing to show"

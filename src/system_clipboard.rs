@@ -1,6 +1,3 @@
-//! One `arboard::Clipboard` lives for the whole process. The first call creates it, and
-//! every later call reuses it behind a mutex.
-
 use std::borrow::Cow;
 use std::sync::Mutex;
 

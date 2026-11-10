@@ -72,7 +72,6 @@ struct MuteState {
 }
 
 impl MuteState {
-    /// Mutes the output and remembers how it was, unless this already muted it.
     fn apply(&mut self, read: impl FnOnce() -> Option<bool>, mute: impl FnOnce()) {
         if self.did_mute {
             return;
@@ -82,7 +81,6 @@ impl MuteState {
         self.did_mute = true;
     }
 
-    /// Puts the output back the way `apply` found it. Does nothing when `apply` did not mute.
     fn remove(&mut self, restore: impl FnOnce(Option<bool>)) {
         if self.did_mute {
             restore(self.prev_muted);
@@ -354,9 +352,6 @@ impl AudioRecordingManager {
         });
     }
 
-    /// Mutes the output for the recording that `generation` belongs to. It checks the
-    /// generation while it holds `mute_state`, and stop and cancel bump the generation
-    /// before they take that lock in `remove_mute`, so a mute never outlives its recording.
     pub fn apply_mute(&self, generation: u64) {
         let settings = get_settings(&self.app_handle);
         if !settings.mute_while_recording {

@@ -94,7 +94,6 @@ impl CandidateBuffer {
 }
 
 pub struct ScreenRecording {
-    /// The screenshots taken while recording. Empty when no screenshot succeeded.
     pub frames: Vec<RgbaFrame>,
     pub video: Option<PathBuf>,
     pub duration_ms: u64,

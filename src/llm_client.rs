@@ -8,9 +8,7 @@ use std::error::Error as StdError;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-/// How long a provider gets to accept a connection.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-/// How long one request gets from send to the end of its response body.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Serialize)]

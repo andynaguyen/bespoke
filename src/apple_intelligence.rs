@@ -25,7 +25,21 @@ unsafe extern "C" {
     ) -> *mut AppleLLMResponse;
 }
 
-pub fn process_text_with_system_prompt(
+/// Generates on a blocking thread, so the caller can time out or cancel while the model runs.
+/// A generation the caller gives up on keeps its thread until the model answers.
+pub async fn process_text_with_system_prompt(
+    system_prompt: String,
+    user_content: String,
+    max_tokens: i32,
+) -> Result<String, String> {
+    crate::runtime::spawn_blocking(move || {
+        process_text_blocking(&system_prompt, &user_content, max_tokens)
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("Apple Intelligence task failed: {e}")))
+}
+
+fn process_text_blocking(
     system_prompt: &str,
     user_content: &str,
     max_tokens: i32,

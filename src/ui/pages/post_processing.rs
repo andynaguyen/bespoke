@@ -810,7 +810,7 @@ impl PostProcessingPrompts {
                 self.shown_prompt = None;
                 let id = prompt.id.clone();
                 self.store.update(cx, |store, cx| {
-                    store.refresh(cx);
+                    store.reload_unless_writing(cx);
                     let stored = id.clone();
                     store.update(
                         "post_process_selected_prompt_id",
@@ -839,7 +839,7 @@ impl PostProcessingPrompts {
             log::error!("Failed to update prompt: {e}");
         }
         self.shown_prompt = None;
-        self.store.update(cx, |s, cx| s.refresh(cx));
+        self.store.update(cx, |s, cx| s.reload_unless_writing(cx));
     }
 
     fn delete_prompt(&mut self, cx: &mut Context<Self>) {
@@ -852,7 +852,7 @@ impl PostProcessingPrompts {
         }
         self.creating = false;
         self.shown_prompt = None;
-        self.store.update(cx, |s, cx| s.refresh(cx));
+        self.store.update(cx, |s, cx| s.reload_unless_writing(cx));
     }
 
     fn select(&mut self, id: String, cx: &mut Context<Self>) {

@@ -25,7 +25,7 @@ pub struct KeyboardListener {
     /// Backend-specific wakeup invoked on Drop after `running` is cleared.
     /// macOS parks its listener thread in a CFRunLoop with no periodic
     /// wakeups (see run_event_tap), so Drop must stop that loop explicitly.
-    stop_wakeup: Option<Box<dyn Fn() + Send>>,
+    stop_wakeup: Box<dyn Fn() + Send>,
 }
 
 impl KeyboardListener {
@@ -55,7 +55,7 @@ impl KeyboardListener {
             event_receiver: state.event_receiver,
             _thread_handle: state.thread_handle,
             running: state.running,
-            stop_wakeup: Some(Box::new(move || run_loop.stop())),
+            stop_wakeup: Box::new(move || run_loop.stop()),
         })
     }
 
@@ -87,11 +87,7 @@ impl Drop for KeyboardListener {
     fn drop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
 
-        // Wake the listener thread, which parks in the tap thread's
-        // CFRunLoop, so the join below is short.
-        if let Some(wake) = &self.stop_wakeup {
-            wake();
-        }
+        (self.stop_wakeup)();
         if let Some(handle) = self._thread_handle.take() {
             let _ = handle.join();
         }

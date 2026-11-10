@@ -81,7 +81,7 @@ pub fn open_path(target: &Path) -> Result<()> {
 
 pub fn resolve_bundle_dir(path_or_id: &Path) -> Result<PathBuf> {
     if path_or_id == Path::new("latest") {
-        return newest_bundle(&default_captures_dir().context("No captures folder")?);
+        return newest_saved_bundle(&default_captures_dir().context("No captures folder")?);
     }
     let mut path = path_or_id.to_owned();
     if path.file_name().is_some_and(|name| name == "scrawl.json") {
@@ -130,9 +130,7 @@ pub(crate) fn created_ms_in_name(dir: &Path) -> Option<u64> {
         .ok()
 }
 
-/// The capture with the newest manifest. A folder without a readable `scrawl.json` is a
-/// recording still in progress or one that failed to save, so it never counts as latest.
-fn newest_bundle(captures: &Path) -> Result<PathBuf> {
+fn newest_saved_bundle(captures: &Path) -> Result<PathBuf> {
     let mut candidates = Vec::new();
     for entry in
         fs::read_dir(captures).with_context(|| format!("Could not read {}", captures.display()))?
@@ -186,7 +184,7 @@ impl Capture {
     pub fn find(captures: &Path, reference: &str) -> Result<Self> {
         let reference = reference.trim();
         if reference.is_empty() || reference == "latest" {
-            return Self::load(&newest_bundle(captures)?);
+            return Self::load(&newest_saved_bundle(captures)?);
         }
         let names: Vec<_> = Path::new(reference)
             .components()
@@ -655,7 +653,7 @@ mod tests {
             (older.canonicalize().unwrap())
         );
         assert_eq!(
-            newest_bundle(&fixture.0).unwrap(),
+            newest_saved_bundle(&fixture.0).unwrap(),
             (newer.canonicalize().unwrap())
         );
         assert!(resolve_bundle_dir(&fixture.0).is_err());
@@ -668,7 +666,7 @@ mod tests {
         let saved = fixture.bundle("bespoke-1-a", 100);
         fs::create_dir_all(fixture.0.join("bespoke-2-b.scrawl")).unwrap();
         assert_eq!(
-            newest_bundle(&fixture.0).unwrap(),
+            newest_saved_bundle(&fixture.0).unwrap(),
             saved.canonicalize().unwrap()
         );
     }

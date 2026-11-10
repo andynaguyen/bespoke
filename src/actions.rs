@@ -32,9 +32,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
-/// How long LLM post-processing gets, across every request it makes, before the
-/// original transcript is used.
-const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(60);
+const POST_PROCESS_TOTAL_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, serde::Serialize)]
 struct RecordingErrorEvent {
@@ -122,7 +120,6 @@ where
     }
 }
 
-/// Runs `operation` for at most `limit`. `None` means it ran out of time.
 async fn complete_within<F: Future>(operation: F, limit: Duration) -> Option<F::Output> {
     tokio::time::timeout(limit, operation).await.ok()
 }
@@ -217,19 +214,13 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
                 }
 
                 let token_limit = model.trim().parse::<i32>().unwrap_or(0);
-                // The Swift bridge blocks until the model answers and never yields, so it runs
-                // on a blocking thread. Awaiting that thread is what lets the caller's deadline
-                // and cancel fire. A call they give up on keeps its thread until it returns.
-                let generation = crate::runtime::spawn_blocking(move || {
-                    apple_intelligence::process_text_with_system_prompt(
-                        &system_prompt,
-                        &user_content,
-                        token_limit,
-                    )
-                })
+                return match apple_intelligence::process_text_with_system_prompt(
+                    system_prompt,
+                    user_content,
+                    token_limit,
+                )
                 .await
-                .unwrap_or_else(|e| Err(format!("Apple Intelligence task failed: {e}")));
-                return match generation {
+                {
                     Ok(result) => {
                         if result.trim().is_empty() {
                             debug!("Apple Intelligence returned an empty response");
@@ -445,13 +436,13 @@ pub(crate) async fn process_transcription_output(
     if post_process {
         let processed = complete_within(
             post_process_transcription(&settings, &final_text),
-            POST_PROCESS_TIMEOUT,
+            POST_PROCESS_TOTAL_TIMEOUT,
         )
         .await
         .unwrap_or_else(|| {
             warn!(
                 "LLM post-processing gave no answer within {:?}. Using the original transcription.",
-                POST_PROCESS_TIMEOUT
+                POST_PROCESS_TOTAL_TIMEOUT
             );
             None
         });

@@ -1,9 +1,3 @@
-//! Triage an Issue. Writes this Mac's facts (`context.md`), the triage playbook (`PROMPT.md`)
-//! and a copy of the settings without API keys (`settings.json`) to a fresh `triage/<time>`
-//! folder in the app data folder, then hands the folder to a coding
-//! agent through its deep link, or copies a prompt that points at it. The agent reads the logs,
-//! finds the cause and helps file an issue, following `.github/triage/PLAYBOOK.md`.
-
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -190,8 +184,6 @@ pub fn run_cli(app: &AppHandle) -> i32 {
     0
 }
 
-/// Writes `context.md`, `PROMPT.md` and `settings.json`, the settings with the API keys
-/// removed, into a fresh `triage/<time>` folder.
 pub fn write_session(app: &AppHandle, origin: Origin) -> Result<Session, String> {
     let data_dir = crate::portable::app_data_dir(app).map_err(|e| e.to_string())?;
     let now = chrono::Local::now();
@@ -226,8 +218,6 @@ pub fn write_session(app: &AppHandle, origin: Origin) -> Result<Session, String>
     })
 }
 
-/// Copies `settings_store.json` into the session folder with the API keys replaced, readable by
-/// this user only. Errors name the step that failed and never quote the file.
 fn write_settings_copy(data_dir: &Path, session_dir: &Path) -> Result<PathBuf, String> {
     use std::io::Write as _;
     use std::os::unix::fs::OpenOptionsExt;
@@ -256,8 +246,6 @@ fn write_settings_copy(data_dir: &Path, session_dir: &Path) -> Result<PathBuf, S
     Ok(copy)
 }
 
-/// The settings store with every post-processing API key replaced, so the copy is safe to
-/// hand to an agent. An empty key stays empty, which tells the agent none was set.
 fn redact_settings(mut store: serde_json::Value) -> serde_json::Value {
     fn redact_keys(keys: Option<&mut serde_json::Value>) {
         let Some(serde_json::Value::Object(keys)) = keys else {
@@ -528,8 +516,6 @@ fn settings(app: &AppHandle) -> Vec<String> {
     ]
 }
 
-/// The settings entry in `context.md`: the session's copy when one was written, or else the
-/// original with a warning, because the original holds the API keys.
 fn settings_path(data_dir: &Path, settings_copy: Option<&Path>) -> (&'static str, PathBuf) {
     match settings_copy {
         Some(copy) => (
