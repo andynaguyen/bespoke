@@ -4,6 +4,8 @@ use std::pin::Pin;
 
 use gpui::{App, AppContext, Context, Entity, Global, SharedString};
 
+use crate::shortcut::BindingResponse;
+
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::commands::audio::{AudioDevice, CustomSounds};
 use crate::settings::{self, AppSettings};
@@ -13,16 +15,24 @@ pub struct SettingsStore {
     app: AppHandle,
     pub settings: AppSettings,
     pub defaults: AppSettings,
+    /// Keys with work in flight that is not a settings write, such as a model list fetch.
+    /// Writes are tracked by `writes`.
     updating: HashSet<SharedString>,
-    writes: WriteQueue<WriteJob>,
+    writes: WriteQueue<Write>,
     pub audio_devices: Vec<AudioDevice>,
     pub output_devices: Vec<AudioDevice>,
     pub custom_sounds: CustomSounds,
     pub post_process_models: HashMap<String, Vec<String>>,
 }
 
-/// A settings command that waits its turn in the `WriteQueue`.
-type WriteJob = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
+/// A settings command that waits its turn in the `WriteQueue`, and what to run on the main
+/// thread once it ends.
+struct Write {
+    job: Pin<Box<dyn Future<Output = Result<(), String>> + Send>>,
+    on_done: Option<OnDone>,
+}
+
+type OnDone = Box<dyn FnOnce(Result<(), String>, &mut App)>;
 
 /// Orders the writes for each setting. One write per key runs at a time. A write that
 /// arrives while another runs waits its turn, so writes for one key land in the order
@@ -65,6 +75,11 @@ impl<J> WriteQueue<J> {
             self.running.remove(key);
         }
         next
+    }
+
+    /// Whether a write for `key` runs or waits.
+    fn is_busy(&self, key: &str) -> bool {
+        self.running.contains(key)
     }
 
     /// Whether nothing runs and nothing waits.
@@ -148,7 +163,7 @@ impl SettingsStore {
     }
 
     pub fn is_updating(&self, key: &str) -> bool {
-        self.updating.contains(key)
+        self.updating.contains(key) || self.writes.is_busy(key)
     }
 
     pub fn set_updating(
@@ -184,31 +199,62 @@ impl SettingsStore {
         command: impl Future<Output = Result<(), String>> + Send + 'static,
         cx: &mut Context<Self>,
     ) {
+        self.write(key, apply, command, None, cx);
+    }
+
+    /// Like `update_async`, then runs `on_done` with the command's result once it ends.
+    pub fn update_async_then(
+        &mut self,
+        key: &str,
+        apply: impl FnOnce(&mut AppSettings),
+        command: impl Future<Output = Result<(), String>> + Send + 'static,
+        on_done: impl FnOnce(Result<(), String>, &mut App) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.write(key, apply, command, Some(Box::new(on_done)), cx);
+    }
+
+    /// Shows `apply` at once and queues `command` behind any write for `key` that runs or
+    /// waits.
+    fn write(
+        &mut self,
+        key: &str,
+        apply: impl FnOnce(&mut AppSettings),
+        command: impl Future<Output = Result<(), String>> + Send + 'static,
+        on_done: Option<OnDone>,
+        cx: &mut Context<Self>,
+    ) {
         let key = SharedString::from(key.to_string());
         apply(&mut self.settings);
-        self.set_updating(key.clone(), true, cx);
-        if let Some(job) = self.writes.submit(&key, Box::pin(command)) {
-            self.start_write(key, job, cx);
+        let write = Write {
+            job: Box::pin(command),
+            on_done,
+        };
+        if let Some(write) = self.writes.submit(&key, write) {
+            self.start_write(key, write, cx);
         }
+        cx.notify();
     }
 
     /// Runs one write for `key`, then each write that waited for it, in order. The store
     /// reloads from disk once no write runs or waits.
-    fn start_write(&mut self, key: SharedString, job: WriteJob, cx: &mut Context<Self>) {
+    fn start_write(&mut self, key: SharedString, write: Write, cx: &mut Context<Self>) {
+        let Write { job, on_done } = write;
         cx.spawn(async move |this, cx| {
             let result = crate::runtime::run(job).await;
+            if let Err(e) = &result {
+                log::error!("Failed to update setting {}: {}", key, e);
+            }
             let _ = this.update(cx, |this, cx| {
-                if let Err(e) = &result {
-                    log::error!("Failed to update setting {}: {}", key, e);
-                }
-                match this.writes.finished(&key) {
-                    Some(next) => this.start_write(key, next, cx),
-                    None => {
-                        this.updating.remove(&key);
-                    }
+                if let Some(next) = this.writes.finished(&key) {
+                    this.start_write(key, next, cx);
                 }
                 this.refresh(cx);
             });
+            // Outside the store's update, so `on_done` can update the store itself.
+            if let Some(on_done) = on_done {
+                let _ = cx.update(|cx| on_done(result, cx));
+            }
         })
         .detach();
     }
@@ -257,53 +303,42 @@ impl SettingsStore {
         cx: &mut Context<Self>,
     ) {
         let key = format!("binding_{id}");
-        if let Some(entry) = self.settings.bindings.get_mut(&id) {
-            entry.current_binding = binding.clone();
-        }
-        self.set_updating(key.clone(), true, cx);
         let app = self.app.clone();
-        cx.spawn(async move |this, cx| {
-            let result = crate::runtime::spawn_blocking(move || {
-                crate::shortcut::change_binding(app, id, binding)
-            })
-            .await
-            .map_err(|e| e.to_string())
-            .and_then(|r| r)
-            .and_then(|response| {
-                if response.success {
-                    Ok(())
-                } else {
-                    Err(response
-                        .error
-                        .unwrap_or_else(|| "Failed to update binding".to_string()))
+        let (shown_id, shown) = (id.clone(), binding.clone());
+        self.update_async_then(
+            &key,
+            move |settings| {
+                if let Some(entry) = settings.bindings.get_mut(&shown_id) {
+                    entry.current_binding = shown;
                 }
-            });
-            let _ = this.update(cx, |this, cx| {
-                this.updating.remove(key.as_str());
-                this.refresh(cx);
-                on_done(result, cx);
-            });
-        })
-        .detach();
+            },
+            async move {
+                binding_outcome(
+                    crate::runtime::spawn_blocking(move || {
+                        crate::shortcut::change_binding(app, id, binding)
+                    })
+                    .await,
+                )
+            },
+            on_done,
+            cx,
+        );
     }
 
     pub fn reset_binding(&mut self, id: String, cx: &mut Context<Self>) {
         let key = format!("binding_{id}");
-        self.set_updating(key.clone(), true, cx);
         let app = self.app.clone();
-        cx.spawn(async move |this, cx| {
-            let result =
-                crate::runtime::spawn_blocking(move || crate::shortcut::reset_binding(app, id))
-                    .await;
-            if let Ok(Err(e)) = result {
-                log::error!("Failed to reset binding: {}", e);
-            }
-            let _ = this.update(cx, |this, cx| {
-                this.updating.remove(key.as_str());
-                this.refresh(cx);
-            });
-        })
-        .detach();
+        self.update_async(
+            &key,
+            |_| {},
+            async move {
+                binding_outcome(
+                    crate::runtime::spawn_blocking(move || crate::shortcut::reset_binding(app, id))
+                        .await,
+                )
+            },
+            cx,
+        );
     }
 
     pub fn fetch_post_process_models(&mut self, provider_id: String, cx: &mut Context<Self>) {
@@ -326,6 +361,20 @@ impl SettingsStore {
             });
         })
         .detach();
+    }
+}
+
+/// A binding change's result, with a refused change as an error.
+fn binding_outcome(
+    result: Result<Result<BindingResponse, String>, tokio::task::JoinError>,
+) -> Result<(), String> {
+    let response = result.map_err(|e| e.to_string())??;
+    if response.success {
+        Ok(())
+    } else {
+        Err(response
+            .error
+            .unwrap_or_else(|| "Failed to update binding".to_string()))
     }
 }
 
