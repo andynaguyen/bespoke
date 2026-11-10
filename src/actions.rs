@@ -32,6 +32,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+/// How long LLM post-processing gets, across every request it makes, before the
+/// original transcript is used.
+const POST_PROCESS_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, serde::Serialize)]
 struct RecordingErrorEvent {
@@ -117,6 +120,11 @@ where
             return Some(result);
         }
     }
+}
+
+/// Runs `operation` for at most `limit`. `None` means it ran out of time.
+async fn complete_within<F: Future>(operation: F, limit: Duration) -> Option<F::Output> {
+    tokio::time::timeout(limit, operation).await.ok()
 }
 
 fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool {
@@ -427,7 +435,19 @@ pub(crate) async fn process_transcription_output(
     }
 
     if post_process {
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text).await {
+        let processed = complete_within(
+            post_process_transcription(&settings, &final_text),
+            POST_PROCESS_TIMEOUT,
+        )
+        .await
+        .unwrap_or_else(|| {
+            warn!(
+                "LLM post-processing gave no answer within {:?}. Using the original transcription.",
+                POST_PROCESS_TIMEOUT
+            );
+            None
+        });
+        if let Some(processed_text) = processed {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
@@ -970,8 +990,8 @@ pub static ACTION_MAP: LazyLock<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy
 #[cfg(test)]
 mod tests {
     use super::{
-        complete_unless_cancelled, is_blank_transcription, should_use_streaming_overlay,
-        strip_think_block,
+        complete_unless_cancelled, complete_within, is_blank_transcription,
+        should_use_streaming_overlay, strip_think_block,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -999,6 +1019,26 @@ mod tests {
             crate::runtime::block_on(complete_unless_cancelled(future::ready("done"), || false));
 
         assert_eq!(result, Some("done"));
+    }
+
+    #[test]
+    fn an_operation_that_finishes_in_time_returns_its_output() {
+        let result = crate::runtime::block_on(complete_within(
+            future::ready("done"),
+            Duration::from_secs(5),
+        ));
+
+        assert_eq!(result, Some("done"));
+    }
+
+    #[test]
+    fn an_operation_that_never_finishes_runs_out_of_time() {
+        let result = crate::runtime::block_on(complete_within(
+            future::pending::<()>(),
+            Duration::from_millis(20),
+        ));
+
+        assert_eq!(result, None);
     }
 
     #[test]
