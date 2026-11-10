@@ -25,7 +25,7 @@ use tokio::net::TcpListener;
 use tokio::task::{JoinHandle, JoinSet};
 
 use crate::app_handle::AppHandle;
-use crate::settings::{McpReach, get_settings, write_settings};
+use crate::settings::{self, McpReach, get_settings};
 
 pub const PORT: u16 = 47790;
 const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -128,9 +128,7 @@ pub fn codex_config(app: &AppHandle) -> Result<String> {
 }
 
 pub fn set_reach(app: AppHandle, reach: McpReach) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.annotate_mcp_reach = reach;
-    write_settings(&app, settings);
+    settings::update(&app, |settings| settings.annotate_mcp_reach = reach);
     sync(&app);
     Ok(())
 }

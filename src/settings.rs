@@ -1041,12 +1041,29 @@ fn apply_settings_migrations(
     updated
 }
 
-pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+fn write_settings(app: &AppHandle, settings: AppSettings) {
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
 
     store.set("settings", serde_json::to_value(&settings).unwrap());
+}
+
+/// Serializes every settings change, so two of them cannot each read the old settings and
+/// then overwrite the other's field.
+static UPDATE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
+/// Reads the settings, applies `change`, and writes them back, as one step that no other
+/// `update` can interleave with. Returns what `change` returns.
+///
+/// `change` must only edit the settings it is given. It must not call `update` or any
+/// function that does, or it deadlocks.
+pub fn update<R>(app: &AppHandle, change: impl FnOnce(&mut AppSettings) -> R) -> R {
+    let _guard = UPDATE_LOCK.lock();
+    let mut settings = get_settings(app);
+    let result = change(&mut settings);
+    write_settings(app, settings);
+    result
 }
 
 pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {

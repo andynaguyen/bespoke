@@ -3,7 +3,7 @@ pub mod history;
 pub mod models;
 
 use crate::app_handle::AppHandle;
-use crate::settings::{LogLevel, get_settings, write_settings};
+use crate::settings::{self, LogLevel};
 
 pub fn get_app_dir_path(app: AppHandle) -> Result<String, String> {
     let app_data_dir = crate::portable::app_data_dir(&app)
@@ -23,9 +23,7 @@ pub fn set_log_level(app: AppHandle, level: LogLevel) -> Result<(), String> {
     let level_filter: log::LevelFilter = level.into();
     crate::FILE_LOG_LEVEL.store(level_filter as u8, std::sync::atomic::Ordering::Relaxed);
 
-    let mut settings = get_settings(&app);
-    settings.log_level = level;
-    write_settings(&app, settings);
+    settings::update(&app, |settings| settings.log_level = level);
 
     Ok(())
 }

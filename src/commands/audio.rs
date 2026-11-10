@@ -4,7 +4,7 @@ use crate::audio_toolkit::audio::{
     AudioRecorder, CpalDeviceInfo, list_input_devices, list_output_devices,
 };
 use crate::managers::audio::{AudioRecordingManager, MicrophoneMode};
-use crate::settings::{get_settings, write_settings};
+use crate::settings;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -35,9 +35,7 @@ pub struct AudioDevice {
 }
 
 pub async fn update_microphone_mode(app: AppHandle, always_on: bool) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.always_on_microphone = always_on;
-    write_settings(&app, settings);
+    settings::update(&app, |settings| settings.always_on_microphone = always_on);
 
     let rm = app.state::<Arc<AudioRecordingManager>>().inner().clone();
     let new_mode = if always_on {
@@ -82,9 +80,7 @@ async fn list_devices(
 }
 
 pub async fn set_microphone_priority(app: AppHandle, priority: Vec<String>) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.microphone_priority = priority;
-    write_settings(&app, settings);
+    settings::update(&app, |settings| settings.microphone_priority = priority);
 
     let rm = app.state::<Arc<AudioRecordingManager>>().inner().clone();
     tokio::task::spawn_blocking(move || rm.update_selected_device())
@@ -98,13 +94,8 @@ pub async fn get_available_output_devices() -> Result<Vec<AudioDevice>, String> 
 }
 
 pub fn set_selected_output_device(app: AppHandle, device_name: String) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.selected_output_device = if device_name == "default" {
-        None
-    } else {
-        Some(device_name)
-    };
-    write_settings(&app, settings);
+    let device = (device_name != "default").then_some(device_name);
+    settings::update(&app, |settings| settings.selected_output_device = device);
     Ok(())
 }
 
@@ -121,13 +112,8 @@ pub async fn play_test_sound(app: AppHandle, sound_type: String) {
 }
 
 pub fn set_clamshell_microphone(app: AppHandle, device_name: String) -> Result<(), String> {
-    let mut settings = get_settings(&app);
-    settings.clamshell_microphone = if device_name == "default" {
-        None
-    } else {
-        Some(device_name)
-    };
-    write_settings(&app, settings);
+    let device = (device_name != "default").then_some(device_name);
+    settings::update(&app, |settings| settings.clamshell_microphone = device);
     Ok(())
 }
 
@@ -162,8 +148,6 @@ pub async fn set_selected_channel(app: AppHandle, channel: Option<u16>) -> Resul
         .map_err(|e| format!("audio task join failed: {e}"))?
         .map_err(|e| format!("Failed to update channel selection: {e}"))?;
 
-    let mut settings = get_settings(&app);
-    settings.selected_channel = channel;
-    write_settings(&app, settings);
+    settings::update(&app, |settings| settings.selected_channel = channel);
     Ok(())
 }
