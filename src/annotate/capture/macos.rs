@@ -713,7 +713,7 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
     let mut last_sample = Instant::now()
         .checked_sub(FRAME_SAMPLE_INTERVAL)
         .unwrap_or_else(Instant::now);
-    let mut phase = 0_u32;
+    let mut sample_failed = false;
     let mut last_excluded = initial_excluded.clone();
     let mut prompts = SystemPrompts::new(&sampler_target);
     while !thread_stopping.load(Ordering::Acquire) {
@@ -756,20 +756,23 @@ pub(super) fn run_sampler(sampler: Sampler) -> Option<PathBuf> {
         if urgent || last_sample.elapsed() >= interval {
             last_sample = Instant::now();
             let t_ms = started_at.elapsed().as_millis() as u64;
-            if urgent {
-                phase = phase.saturating_add(1);
+            let frame = filter_and_config
+                .as_ref()
+                .and_then(|(filter, config)| capture_sck_frame(filter, config, t_ms));
+            // A failed screenshot leaves a gap, because a made-up frame would read as the
+            // user's screen. The log notes only the first failure, since samples come every
+            // few hundred ms.
+            match frame {
+                Some(frame) => thread_frames
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .push(frame, urgent),
+                None if !sample_failed => {
+                    sample_failed = true;
+                    annotate_log("Screen sample failed; leaving it out of the capture");
+                }
+                None => {}
             }
-            let frame = if let Some((ref filter, ref config)) = filter_and_config {
-                capture_sck_frame(filter, config, t_ms).unwrap_or_else(|| {
-                    crate::annotate::render::render_synthetic_demo_frame(1280, 800, t_ms, phase)
-                })
-            } else {
-                crate::annotate::render::render_synthetic_demo_frame(1280, 800, t_ms, phase)
-            };
-            thread_frames
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .push(frame, urgent);
         }
         thread::park_timeout(Duration::from_millis(30));
     }

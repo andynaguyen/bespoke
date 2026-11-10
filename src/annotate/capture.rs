@@ -94,6 +94,7 @@ impl CandidateBuffer {
 }
 
 pub struct ScreenRecording {
+    /// The screenshots taken while recording. Empty when no screenshot succeeded.
     pub frames: Vec<RgbaFrame>,
     pub video: Option<PathBuf>,
     pub duration_ms: u64,
@@ -555,12 +556,7 @@ impl ScreenCaptureSession {
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
             CandidateBuffer::new(0),
         );
-        let mut collected = buffer.into_frames();
-        if collected.is_empty() {
-            collected.push(crate::annotate::render::render_synthetic_demo_frame(
-                1280, 800, 0, 0,
-            ));
-        }
+        let collected = buffer.into_frames();
         let valid_video =
             video_path.filter(|path| path.exists() && path.metadata().is_ok_and(|m| m.len() > 0));
         ScreenRecording {

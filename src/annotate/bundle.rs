@@ -250,6 +250,12 @@ pub fn finalize_capture_bundle(
             capture::annotate_log(format!("Could not write audio.wav: {error:#}"));
         }
     }
+    // The narration is already on disk, so the user's voice survives a recording with no
+    // screenshots.
+    anyhow::ensure!(
+        !frames.is_empty(),
+        "No screenshot of the recording succeeded, so there is nothing to show"
+    );
     let has_wav = wav_path.exists();
     let crop_settings = (target.mode == CaptureMode::Display)
         .then(autocrop::Settings::configured)
@@ -840,6 +846,45 @@ mod tests {
         assert!(empty_frames.join("scrawl.json").exists());
         assert!(empty_frames.join("contact-sheet.png").exists());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_recording_with_no_frames_is_not_a_capture() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle_dir = dir.path().join("empty.scrawl");
+        let target = TargetInfo {
+            mode: CaptureMode::Window,
+            app: Some("OpenCode".into()),
+            bundle_id: Some("ai.opencode.desktop".into()),
+            window_title: Some("session/tool-running — OpenCode".into()),
+            window_id: Some(4210),
+            display_id: 1,
+            frame: TargetFrame {
+                x: 100.0,
+                y: 60.0,
+                width: 1280.0,
+                height: 800.0,
+                scale: 2.0,
+            },
+        };
+        let recording = capture::ScreenRecording {
+            frames: Vec::new(),
+            video: None,
+            duration_ms: 3_000,
+            video_offset_ms: 0,
+        };
+        let result = finalize_capture_bundle(
+            &bundle_dir,
+            target,
+            recording,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            windows::ActivityLog::default(),
+        );
+        assert!(result.is_err());
+        assert!(!bundle_dir.join("scrawl.json").exists());
     }
 
     #[test]
