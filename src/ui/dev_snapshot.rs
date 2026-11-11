@@ -51,8 +51,7 @@ pub fn start(cx: &mut App) {
         .filter(|p| !p.is_empty())
         .collect();
     if let Ok(language) = std::env::var("BESPOKE_DEV_LANGUAGE") {
-        crate::i18n::set_language(&language);
-        cx.refresh_windows();
+        crate::ui::apply_language(&language, cx);
     }
     if let Ok(theme) = std::env::var("BESPOKE_DEV_THEME") {
         let setting = match theme.as_str() {

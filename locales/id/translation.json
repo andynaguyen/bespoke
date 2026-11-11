@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Keluar",
     "cancel": "Batal",
-    "secureInputWarning": "⚠ Pintasan diblokir oleh Secure Input"
+    "secureInputWarning": "⚠ Pintasan diblokir oleh Secure Input",
+    "annotate": "Anotasi",
+    "annotateRecord": "Rekam Layar",
+    "annotateChoose": "Pilih yang Akan Direkam…",
+    "annotateOpenLatest": "Buka Tangkapan Terbaru",
+    "checkForUpdates": "Periksa Pembaruan…",
+    "updateTo": "Perbarui ke {{version}}…",
+    "triage": "Diagnosis Masalah…"
   },
   "sidebar": {
     "models": "Model",
     "stats": "Statistik",
-    "debug": "Debug"
+    "debug": "Debug",
+    "settings": "Pengaturan",
+    "dictate": "Dikte",
+    "dictionary": "Kamus",
+    "annotate": "Anotasi",
+    "mcp": "MCP",
+    "update": {
+      "available": "Pembaruan tersedia",
+      "version": "Versi {{version}}",
+      "button": "Perbarui"
+    }
   },
   "onboarding": {
     "subtitle": "Untuk memulai, pilih model transkripsi",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Model multibahasa yang besar dan lebih lambat, tetapi sangat akurat."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Bawaan macOS. Berjalan di Mac ini dengan model ucapan Apple."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "translation": "Dapat menerjemahkan ke bahasa Inggris",
       "translate": "Terjemahkan",
       "streaming": "Menampilkan transkripsi langsung saat Anda berbicara"
-    }
+    },
+    "errors": {
+      "rescan": "Gagal memindai ulang model",
+      "delete": "Gagal menghapus model"
+    },
+    "builtIn": "Bawaan macOS"
   },
   "settings": {
     "general": {
@@ -140,7 +166,7 @@
         "bindings": {
           "transcribe": {
             "name": "Pintasan Transkripsi",
-            "description": "Pintasan keyboard untuk merekam dan mentranskripsikan suara Anda."
+            "description": "Tekan tombol keyboard, tombol tengah mouse, atau tombol samping mouse untuk merekam dan mentranskripsikan suara Anda. Tombol kiri dan kanan mouse memerlukan tombol pengubah."
           },
           "cancel": {
             "name": "Pintasan Batal",
@@ -149,12 +175,32 @@
           "transcribe_with_post_process": {
             "name": "Pintasan Pascaproses",
             "description": "Opsional: pintasan khusus yang selalu menerapkan pascaproses AI pada transkripsi Anda."
+          },
+          "annotate": {
+            "name": "Pintasan Anotasi",
+            "description": "Ketuk untuk merekam layar di bawah penunjuk, ketuk lagi untuk selesai. Tahan untuk memilih area, jendela, atau layar."
+          },
+          "annotate_paste": {
+            "name": "Tempel Tangkapan Terakhir",
+            "description": "Menempelkan lembar kontak dan ringkasan tangkapan terbaru ke aplikasi yang sedang aktif."
           }
         },
         "errors": {
           "restore": "Gagal memulihkan pintasan asli",
           "set": "Gagal mengatur pintasan: {{error}}",
-          "reset": "Gagal mengembalikan pintasan ke nilai awal"
+          "reset": "Gagal mengembalikan pintasan ke nilai awal",
+          "updateBinding": "Gagal memperbarui pintasan"
+        },
+        "pressKeysOrMouse": "Tekan tombol keyboard atau mouse...",
+        "mouseButtons": {
+          "mouseleft": "Mouse Kiri",
+          "mouseright": "Mouse Kanan",
+          "mousemiddle": "Mouse Tengah",
+          "mousex1": "Mouse 4",
+          "mousex2": "Mouse 5",
+          "mouse6": "Mouse 6",
+          "mouse7": "Mouse 7",
+          "mouse8": "Mouse 8"
         }
       },
       "language": {
@@ -173,9 +219,9 @@
           "toggle": "Tekan"
         },
         "descriptions": {
-          "hold_or_toggle": "Tahan untuk merekam atau tekan untuk mulai/berhenti",
-          "push_to_talk": "Merekam selama Anda menahan pintasan",
-          "toggle": "Ketuk pintasan untuk mulai merekam, lalu ketuk lagi untuk berhenti"
+          "hold_or_toggle": "Tahan untuk merekam atau tekan untuk mulai/berhenti.",
+          "push_to_talk": "Merekam selama Anda menahan pintasan.",
+          "toggle": "Ketuk pintasan untuk mulai merekam, lalu ketuk lagi untuk berhenti."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Suara",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Pilih perangkat mikrofon yang Anda inginkan",
+        "description": "Pilih perangkat mikrofon yang Anda inginkan.",
         "placeholder": "Pilih mikrofon...",
-        "loading": "Memuat..."
+        "loading": "Memuat...",
+        "priority": {
+          "title": "Prioritas",
+          "description": "Dikte dan Anotasi merekam dari mikrofon pertama yang terhubung. Seret untuk mengubah urutan.",
+          "add": "Tambah mikrofon",
+          "noneToAdd": "Tidak ada mikrofon lain yang terhubung",
+          "inUse": "Digunakan",
+          "notConnected": "Tidak terhubung",
+          "systemDefault": "Bawaan sistem",
+          "alwaysLast": "Selalu terakhir"
+        }
       },
       "channel": {
         "title": "Kanal Masukan",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Umpan Balik Audio",
-        "description": "Putar suara saat perekaman dimulai dan dihentikan"
+        "description": "Putar suara saat perekaman dimulai dan dihentikan."
       },
       "outputDevice": {
         "title": "Perangkat Keluaran",
-        "description": "Pilih perangkat keluaran audio yang Anda inginkan untuk suara umpan balik",
+        "description": "Pilih perangkat keluaran audio yang Anda inginkan untuk suara umpan balik.",
         "placeholder": "Pilih perangkat keluaran...",
         "loading": "Memuat..."
       },
       "volume": {
         "title": "Volume",
-        "description": "Sesuaikan volume suara umpan balik audio"
-      }
+        "description": "Sesuaikan volume suara umpan balik audio."
+      },
+      "defaultDevice": "Bawaan"
     },
     "advanced": {
       "groups": {
         "transcription": "Transkripsi",
-        "experimental": "Eksperimental"
+        "experimental": "Eksperimental",
+        "dictation": "Dikte",
+        "appearance": "Tampilan",
+        "system": "Sistem",
+        "shortcut": "Pintasan",
+        "cleanup": "Pembersihan",
+        "pasting": "Penempelan",
+        "submitting": "Pengiriman",
+        "startup": "Saat Mulai",
+        "updates": "Pembaruan",
+        "application": "Aplikasi",
+        "overlay": "Overlay",
+        "voiceCommands": "Perintah Suara",
+        "keyboard": "Keyboard",
+        "acceleration": "Akselerasi",
+        "recording": "Perekaman"
       },
       "experimentalToggle": {
         "label": "Fitur Eksperimental",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Akselerasi transcribe.cpp",
-          "description": "Akselerasi perangkat keras untuk model transcribe.cpp (keluarga Whisper). Otomatis menggunakan GPU jika tersedia (Metal di macOS, Vulkan di Windows/Linux)."
+          "description": "Akselerasi perangkat keras untuk model transcribe.cpp (keluarga Whisper). Otomatis menggunakan GPU melalui Metal jika tersedia."
         },
         "ort": {
           "title": "Akselerasi ONNX",
-          "description": "Akselerasi perangkat keras untuk model ONNX (Parakeet, Canary, Moonshine, dll.). DirectML di Windows bersifat eksperimental. Model mungkin gagal mentranskripsikan."
+          "description": "Akselerasi perangkat keras untuk model ONNX (Parakeet, Canary, Moonshine, dll.). Model mungkin gagal mentranskripsikan."
         },
         "gpuDevice": {
           "auto": "Otomatis"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Pilih overlay perekaman: Tidak Ada menyembunyikannya, Minimal menampilkan indikator ringkas, dan Langsung menampilkan transkripsi secara waktu nyata saat Anda berbicara (hanya model yang mendukung streaming — cari lencana Streaming di pemilih model). Di Linux, 'Tidak Ada' direkomendasikan.",
+          "title": "Gaya",
+          "description": "Pilih overlay perekaman.",
           "options": {
             "none": "Tidak Ada",
             "minimal": "Minimal",
@@ -277,7 +349,7 @@
           }
         },
         "position": {
-          "title": "Posisi Overlay",
+          "title": "Posisi",
           "description": "Lokasi overlay muncul di layar selama perekaman dan transkripsi.",
           "options": {
             "bottom": "Bawah",
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Kirim Otomatis",
-        "description": "Kirim kombinasi tombol yang dipilih secara otomatis setelah teks dimasukkan. Cmd+Enter berlaku di macOS, sedangkan Windows/Linux menggunakan Super+Enter.",
+        "description": "Kirim kombinasi tombol yang dipilih secara otomatis setelah teks dimasukkan.",
         "options": {
           "off": "Nonaktif",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Hapus Kata Pengisi",
         "description": "Menghapus kata pengisi umum dari transkripsi. Nonaktifkan untuk mempertahankannya."
+      },
+      "voiceScrub": {
+        "title": "Hapus Semua dengan Suara",
+        "description": "Ucapkan kata kunci Anda untuk membuang semua yang sudah Anda ucapkan dan mulai dari awal.",
+        "keyword": {
+          "title": "Kata Kunci Hapus Semua",
+          "description": "Semua yang Anda ucapkan sebelumnya akan dibuang.",
+          "invalid": "Gunakan kata dengan huruf atau angka."
+        }
+      },
+      "voiceScratch": {
+        "title": "Hapus Kalimat dengan Suara",
+        "description": "Ucapkan kata kunci Anda untuk menghapus kalimat yang baru Anda ucapkan dan lanjutkan mendikte.",
+        "keyword": {
+          "title": "Kata Kunci Hapus Kalimat",
+          "description": "Ucapkan sebagai frasa tersendiri, dengan jeda sebelum dan sesudahnya. Kalimat sebelumnya akan dihapus.",
+          "invalid": "Gunakan kata dengan huruf atau angka."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "URL Dasar",
           "description": "URL dasar API untuk penyedia yang dipilih. Hanya penyedia kustom yang dapat diedit.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "URL dasar dikelola oleh penyedia yang dipilih."
         },
         "apiKey": {
           "title": "Kunci API",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Pilih model yang disediakan oleh penyedia yang dipilih.",
           "placeholderWithOptions": "Cari atau pilih model",
           "placeholderNoOptions": "Ketik nama model",
-          "refreshModels": "Segarkan model"
+          "refreshModels": "Segarkan model",
+          "useTyped": "Gunakan \"{{value}}\""
         }
       },
       "prompts": {
@@ -414,20 +506,56 @@
       "dayPopover": {
         "words": "Total kata",
         "appsUsed": "Aplikasi digunakan",
-        "topApp": "Aplikasi teratas"
+        "topApp": "Aplikasi teratas",
+        "captures": "Tangkapan",
+        "timeRecorded": "Durasi rekaman"
       },
       "less": "Lebih sedikit",
-      "more": "Lebih banyak"
+      "more": "Lebih banyak",
+      "captures": "Tangkapan",
+      "timeRecorded": "Durasi rekaman",
+      "marksDrawn": "Tanda digambar",
+      "duration": {
+        "seconds": "{{seconds}} dtk",
+        "minutesSeconds": "{{minutes}} mnt {{seconds}} dtk",
+        "hoursMinutes": "{{hours}} j {{minutes}} mnt"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Kamus",
-        "history": "Riwayat"
+        "history": "Riwayat",
+        "style": "Gaya"
       },
       "save": "Simpan",
       "cancel": "Batal",
       "remove": "Hapus {{word}}",
-      "duplicate": "\"{{word}}\" sudah ada"
+      "duplicate": "\"{{word}}\" sudah ada",
+      "replacements": "Penggantian",
+      "replacementsHelp": "Ucapkan frasa di sebelah kiri, dan Bespoke menulis teks di sebelah kanan.",
+      "words": "Kata",
+      "wordsHelp": "Nama, istilah khusus, dan akronim yang harus dieja Bespoke persis seperti ini.",
+      "addReplacement": "Tambah penggantian",
+      "editWord": "Edit kata",
+      "editReplacement": "Edit penggantian",
+      "wordPlaceholder": "Nama atau istilah, seperti \"IntraFi\"",
+      "writeInsteadLabel": "Tulis sebagai gantinya",
+      "writeInsteadPlaceholder": "Teks yang ditulis Bespoke sebagai gantinya",
+      "phraseLabel": "Saat Anda mengucapkan",
+      "phrasePlaceholder": "Sebuah frasa, seperti \"email saya\"",
+      "addWord": "Tambah kata",
+      "addedTag": "Ditambahkan",
+      "tryIt": "Coba",
+      "tryItHint": "Dikte dengan {{shortcut}} selagi halaman ini terbuka. Bespoke menampilkan teksnya di sini alih-alih menempelkannya.",
+      "tryItEmpty": "Bespoke tidak mendengar kata apa pun.",
+      "fixedCount_other": "{{count}} perbaikan dari kamus",
+      "pickWord": "Klik kata yang salah agar Bespoke mempelajarinya. Shift-klik kata berikutnya untuk menambahkannya.",
+      "teachLabel": "Bespoke mendengar",
+      "spellingPlaceholder": "Ejaan yang benar",
+      "wontMatch": "Bespoke tidak akan mencocokkan \"{{heard}}\" dengan kata yang sejauh ini bedanya. Tambahkan sebagai penggantian.",
+      "teachWord": "Tambah kata",
+      "teachReplacement": "Tambah sebagai penggantian",
+      "added": "Ditambahkan. Dikte kalimat itu lagi untuk memeriksanya."
     },
     "history": {
       "title": "Riwayat",
@@ -443,17 +571,33 @@
       "retranscribe": "Transkripsikan ulang",
       "retranscribeError": "Gagal mentranskripsikan ulang. Silakan coba lagi.",
       "transcribing": "Mentranskripsikan...",
-      "transcriptionFailed": "Transkripsi gagal. Anda dapat mentranskripsikan ulang menggunakan ikon coba lagi."
+      "transcriptionFailed": "Transkripsi gagal. Anda dapat mentranskripsikan ulang menggunakan ikon coba lagi.",
+      "transcript": "Transkrip",
+      "details": "Detail",
+      "recorded": "Direkam",
+      "wordCount": "Kata",
+      "postProcessed": "Pascaproses",
+      "prompt": "Prompt",
+      "copy": "Salin",
+      "copied": "Disalin",
+      "noSelection": "Pilih transkripsi untuk melihatnya di sini."
     },
     "debug": {
       "title": "Debug",
       "logDirectory": {
         "title": "Direktori Log",
-        "description": "Lokasi penyimpanan file log"
+        "description": "Lokasi penyimpanan file log."
       },
       "logLevel": {
         "title": "Tingkat Log",
-        "description": "Atur tingkat detail pencatatan log"
+        "description": "Atur tingkat detail pencatatan log.",
+        "options": {
+          "error": "Galat",
+          "warn": "Peringatan",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Trace"
+        }
       },
       "liveLogs": {
         "title": "Log Waktu Nyata",
@@ -468,34 +612,40 @@
       },
       "whatsNewPreview": {
         "title": "Pratinjau Yang Baru",
-        "description": "Buka catatan rilis terbaru yang disertakan tanpa menandainya sebagai telah dilihat",
+        "description": "Buka catatan rilis terbaru yang disertakan tanpa menandainya sebagai telah dilihat.",
         "button": "Pratinjau",
         "noNotes": "Tidak ada catatan rilis yang disertakan",
         "error": "Gagal menampilkan pratinjau catatan rilis"
       },
       "onboardingPreview": {
         "title": "Pratinjau Penyiapan Awal",
-        "description": "Pratinjau layar penyiapan awal tanpa mengubah izin, model, atau status penyelesaian",
+        "description": "Pratinjau layar penyiapan awal tanpa mengubah izin, model, atau status penyelesaian.",
         "permissionsButton": "Izin",
         "modelsButton": "Pemilihan Model",
         "exitButton": "Keluar dari Pratinjau"
       },
       "soundTheme": {
         "label": "Tema Suara",
-        "description": "Pilih tema suara untuk umpan balik saat perekaman dimulai dan dihentikan"
+        "description": "Pilih tema suara untuk umpan balik saat perekaman dimulai dan dihentikan.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Kustom"
+        },
+        "preview": "Pratinjau tema suara (memutar suara mulai lalu berhenti)"
       },
       "wordCorrectionThreshold": {
         "title": "Ambang Koreksi Kata",
-        "description": "Sensitivitas untuk koreksi kata khusus"
+        "description": "Sensitivitas untuk koreksi kata khusus."
       },
       "historyLimit": {
         "title": "Batas Riwayat",
-        "description": "Jumlah maksimum entri riwayat yang disimpan",
+        "description": "Jumlah maksimum entri riwayat yang disimpan.",
         "entries": "entri"
       },
       "recordingRetention": {
         "title": "Hapus Rekaman Secara Otomatis",
-        "description": "Hapus rekaman lama secara otomatis untuk menghemat ruang",
+        "description": "Hapus rekaman lama secara otomatis untuk menghemat ruang.",
         "never": "Tidak Pernah",
         "preserveLimit": "Simpan {{count}} terbaru",
         "days3": "Setelah 3 hari",
@@ -505,28 +655,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Mikrofon Selalu Aktif",
-        "description": "Biarkan mikrofon aktif agar respons lebih cepat"
+        "description": "Biarkan mikrofon aktif agar respons lebih cepat."
       },
       "clamshellMicrophone": {
         "title": "Mikrofon Saat Laptop Ditutup",
-        "description": "Mikrofon yang digunakan saat laptop ditutup"
+        "description": "Mikrofon yang digunakan saat laptop ditutup."
       },
       "postProcessingToggle": {
-        "label": "Pascaproses",
-        "description": "Aktifkan penyempurnaan teks berbasis AI setelah transkripsi"
+        "label": "Pascaproses AI",
+        "description": "Aktifkan penyempurnaan teks berbasis AI setelah transkripsi."
       },
       "muteWhileRecording": {
         "label": "Bisukan Saat Merekam",
-        "description": "Bisukan audio sistem selama perekaman"
+        "description": "Bisukan audio sistem selama perekaman."
       },
       "appendTrailingSpace": {
         "label": "Tambahkan Spasi di Akhir",
-        "description": "Tambahkan spasi setelah transkripsi ditempel"
+        "description": "Tambahkan spasi setelah transkripsi ditempel."
       },
       "keyboardImplementation": {
         "title": "Implementasi Keyboard",
         "description": "Pilih backend pintasan keyboard.",
-        "bindingsReset": "Pintasan keyboard tidak kompatibel dan telah dikembalikan ke nilai awal"
+        "bindingsReset": "Pintasan keyboard tidak kompatibel dan telah dikembalikan ke nilai awal",
+        "options": {
+          "globalHotkey": "Global Hotkey",
+          "keyboardListener": "Keyboard Listener"
+        }
       },
       "paths": {
         "appData": "Data Aplikasi:",
@@ -547,7 +701,7 @@
       },
       "reliablePaste": {
         "title": "Tempel Lebih Andal (Beta)",
-        "description": "Kembalikan papan klip hanya setelah aplikasi target benar-benar membaca transkripsi, bukan setelah jeda tetap. Ditujukan untuk memperbaiki kasus isi papan klip lama yang tertempel saat sistem sedang terbebani. Memerlukan metode tempel papan klip; hanya macOS dan Windows."
+        "description": "Kembalikan papan klip hanya setelah aplikasi target benar-benar membaca transkripsi, bukan setelah jeda tetap. Ditujukan untuk memperbaiki kasus isi papan klip lama yang tertempel saat sistem sedang terbebani. Memerlukan metode tempel papan klip."
       },
       "recordingBuffer": {
         "title": "Buffer Perekaman Tambahan",
@@ -578,12 +732,64 @@
       "title": "Tentang",
       "whatsNewUpdates": {
         "label": "Tampilkan Yang Baru",
-        "description": "Tampilkan catatan rilis setelah Bespoke diperbarui"
+        "description": "Tampilkan catatan rilis setelah Bespoke diperbarui."
       },
       "appDataDirectory": {
         "title": "Direktori Data Aplikasi",
-        "description": "Lokasi Bespoke menyimpan datanya"
+        "description": "Lokasi Bespoke menyimpan datanya."
       }
+    },
+    "style": {
+      "intro": "Seret aplikasi ke suatu gaya, atau klik aplikasinya.",
+      "styles": {
+        "formal": {
+          "name": "Formal",
+          "example": "Halo, apakah Anda ada waktu untuk makan siang besok? Mari bertemu pukul 12 jika Anda berkenan."
+        },
+        "casual": {
+          "name": "Santai",
+          "example": "Halo kamu ada waktu makan siang besok? Jam 12 aja kalau kamu bisa"
+        },
+        "veryCasual": {
+          "name": "Sangat santai",
+          "example": "hai km ada waktu makan siang besok? jam 12 aja kalo km bisa"
+        }
+      },
+      "board": {
+        "default": "Bawaan",
+        "defaultTitle": "Gaya bawaan",
+        "defaultHelp": "Aplikasi tanpa aturan menggunakan gaya ini. Seret Bawaan ke gaya lain untuk mengubahnya.",
+        "dropHere": "Letakkan aplikasi di sini",
+        "remove": "Hapus aturan"
+      },
+      "shelf": {
+        "title": "Tambah aplikasi",
+        "open": "Sedang terbuka",
+        "all": "Semua aplikasi",
+        "search": "Cari aplikasi",
+        "loading": "Memuat aplikasi…",
+        "noMatch": "Tidak ada aplikasi yang cocok.",
+        "noneLeft": "Semua aplikasi di sini sudah punya aturan."
+      }
+    },
+    "updates": {
+      "version": "Versi {{version}}",
+      "available": "Bespoke {{version}} tersedia.",
+      "lastChecked": "Sudah terbaru. Terakhir diperiksa {{when}}.",
+      "neverChecked": "Sudah terbaru.",
+      "disabled": "Build ini tidak memperbarui dirinya sendiri.",
+      "update": "Perbarui",
+      "checkNow": "Periksa Sekarang",
+      "automatic": {
+        "label": "Periksa Pembaruan Secara Otomatis",
+        "description": "Bespoke memeriksa sekali sehari."
+      }
+    },
+    "nav": {
+      "general": "Umum",
+      "sound": "Suara",
+      "postProcessing": "Pascaproses",
+      "app": "Aplikasi"
     }
   },
   "whatsNew": {
@@ -596,7 +802,11 @@
     "open": "Buka",
     "copy": "Salin",
     "clear": "Bersihkan",
-    "noOptionsFound": "Tidak ada opsi yang ditemukan"
+    "noOptionsFound": "Tidak ada opsi yang ditemukan",
+    "selectOption": "Pilih opsi...",
+    "unknownSize": "Ukuran tidak diketahui",
+    "yes": "Ya",
+    "no": "Tidak"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke memerlukan izin aksesibilitas untuk mengetik teks hasil transkripsi.",
@@ -616,15 +826,16 @@
     "modelLoadFailedUnknown": "model tidak dikenal",
     "pasteFailedTitle": "Gagal Menempelkan Teks",
     "pasteFailed": "Teks tidak dapat ditempelkan ke aplikasi aktif.",
-    "transcriptionFailedTitle": "Transkripsi Gagal"
+    "transcriptionFailedTitle": "Transkripsi Gagal",
+    "unknown": "Kesalahan tidak diketahui"
   },
   "appLanguage": {
-    "title": "Bahasa Aplikasi",
-    "description": "Ubah bahasa antarmuka Bespoke"
+    "title": "Bahasa",
+    "description": "Ubah bahasa antarmuka Bespoke."
   },
   "theme": {
-    "title": "Tema Aplikasi",
-    "description": "Pilih apakah Bespoke mengikuti tema sistem atau selalu menggunakan tema terang atau gelap",
+    "title": "Tema",
+    "description": "Pilih apakah Bespoke mengikuti tema sistem atau selalu menggunakan tema terang atau gelap.",
     "options": {
       "system": "Sistem",
       "light": "Terang",
@@ -644,5 +855,274 @@
     "recorderBlockedNoCulprit": "macOS untuk sementara memblokir perubahan pintasan",
     "recorderBlocked": "Pintasan tidak dapat direkam saat ini — macOS Secure Input memblokir peristiwa tombol. Selesaikan peringatan Secure Input terlebih dahulu.",
     "dismiss": "Tutup"
+  },
+  "triage": {
+    "title": "Diagnosis Masalah",
+    "showTitle": "Tunjukkan masalahnya",
+    "showHint": "Opsional. Tekan {{shortcut}} dan jelaskan apa yang Anda lihat.",
+    "captured": "Tangkapan dari {{time}} · {{duration}}",
+    "recordAgain": "Rekam Lagi",
+    "removeCapture": "Jangan Sertakan Tangkapan Ini",
+    "agentTitle": "Pilih agen",
+    "sendTitle": "Kirim prompt",
+    "sendDescription": "Bespoke menulis log dan pengaturannya ke sebuah folder, lalu membuka agen dengan prompt yang sudah siap. Anda menekan kirim, lalu agen menanyakan apa yang salah. Agen akan bertanya dulu sebelum mengubah atau memposting apa pun.",
+    "start": "Mulai Diagnosis",
+    "cancel": "Batal",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code di aplikasi Claude",
+    "claudeMissing": "Instal aplikasi Claude untuk menggunakan ini",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code di jendela terminal",
+    "claudeCodeMissing": "Kirim satu prompt ke claude di terminal untuk mengaktifkan tautannya",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT di aplikasi Codex",
+    "codexMissing": "Tidak ada aplikasi di Mac ini yang membuka tautan Codex",
+    "copy": "Salin Prompt",
+    "copyDescription": "Tempelkan ke agen coding apa pun di Mac ini",
+    "opened": "Diagnosis dimulai. Kirim prompt, lalu agen menanyakan apa yang salah.",
+    "copied": "Prompt diagnosis disalin. Tempelkan ke agen coding di Mac ini.",
+    "failed": "Tidak dapat memulai diagnosis"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Izin"
+    },
+    "retention": {
+      "title": "Simpan Rekaman",
+      "custom": "Kustom",
+      "options": {
+        "week": "Video selama 7 hari",
+        "month": "Video selama 30 hari",
+        "forever": "Selamanya"
+      },
+      "notes": {
+        "week": "Video dan audio masuk ke Tong Sampah setelah 7 hari, sisa tiap tangkapan setelah 30 hari.",
+        "month": "Video dan audio masuk ke Tong Sampah setelah 30 hari, sisa tiap tangkapan setelah 90 hari.",
+        "forever": "Tangkapan tidak pernah dihapus.",
+        "custom": "Masa simpan di config.json diatur secara manual."
+      }
+    },
+    "captures": {
+      "title": "Tangkapan",
+      "size": "Tangkapan menggunakan {{size}}.",
+      "measuring": "Mengukur…",
+      "openLatest": "Buka Terbaru",
+      "showInFinder": "Tampilkan di Finder"
+    },
+    "permissions": {
+      "granted": "Diizinkan",
+      "allow": "Izinkan",
+      "openSettings": "Buka Pengaturan Sistem",
+      "relaunch": "Diizinkan. Keluar lalu buka kembali Bespoke untuk merekam layar.",
+      "blocked": "Aktifkan {{permissions}} untuk merekam.",
+      "screenRecording": {
+        "title": "Perekaman Layar & Audio Sistem",
+        "description": "Merekam layar. Wajib."
+      },
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Merekam narasi Anda. Wajib."
+      },
+      "accessibility": {
+        "title": "Aksesibilitas",
+        "description": "Mendeteksi penekanan ⌘Z, Esc, dan S saat merekam, serta menempelkan tangkapan. Wajib."
+      },
+      "panel": {
+        "drag": "Seret {{app}} ke daftar di atas untuk mengizinkan {{permission}}",
+        "allowed": "{{app}} diizinkan",
+        "back": "Kembali",
+        "screenRecording": "Perekaman Layar",
+        "accessibility": "Aksesibilitas"
+      }
+    },
+    "capsule": {
+      "area": "Area",
+      "window": "Jendela",
+      "screen": "Layar",
+      "record": "Rekam",
+      "undo": "Urungkan",
+      "cancel": "Batal",
+      "finish": "Selesai",
+      "processing": "Memproses",
+      "copied": "Disalin",
+      "saved": "Disimpan",
+      "failed": "Tidak dapat menyimpan tangkapan",
+      "paste": "Tempel",
+      "inspect": "Periksa",
+      "marks_other": "{{count}} tanda"
+    },
+    "library": {
+      "folder": "Folder Tangkapan",
+      "record": "Rekam",
+      "empty": "Belum ada tangkapan",
+      "emptyHint": "Ketuk {{record}} untuk merekam layar di bawah penunjuk sambil Anda berbicara.",
+      "back": "Kembali ke tangkapan",
+      "contactSheet": "Lembar Kontak",
+      "keyframe": "Keyframe",
+      "keyframes_other": "{{count}} keyframe",
+      "timeline": "Linimasa",
+      "showInFinder": "Tampilkan di Finder",
+      "copy": "Salin",
+      "copied": "Disalin",
+      "copyFailed": "Tidak dapat menyalin tangkapan"
+    },
+    "picker": {
+      "fullScreenHold": "Layar penuh · {{holdKey}} untuk beralih · seret untuk area · lepas {{holdMods}} untuk merekam",
+      "fullScreen": "Layar penuh · Klik untuk merekam"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Akses Agen",
+      "off": "Agen coding membaca tangkapan Anda dari server MCP di Mac ini, pada port {{port}}.",
+      "local": "Mendengarkan di 127.0.0.1, port {{port}}. Agen di Mac ini terhubung langsung, dan mesin jarak jauh terhubung melalui tunnel SSH.",
+      "tailnet": "Mendengarkan di 127.0.0.1 dan {{address}}, port {{port}}. Mesin di tailnet Anda terhubung langsung.",
+      "tailnetWaiting": "Mendengarkan di 127.0.0.1, port {{port}}. Tailscale tidak terhubung di Mac ini. Bespoke mendengarkan di tailnet Anda setelah Tailscale terhubung.",
+      "failed": "Server tidak dapat dimulai: {{error}}",
+      "options": {
+        "off": "Mati",
+        "local": "Mac Ini",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Tambahkan ke Agen",
+      "local": "Menyalin pengaturan beserta tokennya, jadi jaga kerahasiaannya. Untuk mesin yang Anda akses melalui SSH, tambahkan juga baris SSH ke entri host-nya di ~/.ssh/config pada Mac ini.",
+      "tailnet": "Menyalin pengaturan beserta tokennya, jadi jaga kerahasiaannya. Pengaturan ini berfungsi di Mac ini dan semua mesin di tailnet Anda.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "Baris SSH"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Token baru memutus akses semua mesin yang Anda tambahkan sampai Anda menyalin pengaturan baru ke sana.",
+      "renew": "Token Baru",
+      "renewed": "Token baru dibuat. Salin lagi pengaturannya untuk tiap mesin.",
+      "failed": "Tidak dapat membuat token baru"
+    },
+    "copied": "Disalin",
+    "copyFailed": "Tidak dapat menyalin"
+  },
+  "menu": {
+    "hideApp": "Sembunyikan Bespoke",
+    "hideOthers": "Sembunyikan Lainnya",
+    "showAll": "Tampilkan Semua",
+    "quitApp": "Keluar dari Bespoke",
+    "edit": "Edit",
+    "undo": "Urungkan",
+    "redo": "Ulangi",
+    "cut": "Potong",
+    "copy": "Salin",
+    "paste": "Tempel",
+    "selectAll": "Pilih Semua",
+    "window": "Jendela",
+    "minimize": "Perkecil",
+    "closeWindow": "Tutup Jendela"
+  },
+  "languages": {
+    "auto": "Deteksi Otomatis",
+    "en": "Inggris",
+    "zh": "Tionghoa",
+    "zh-Hans": "Tionghoa (Sederhana)",
+    "zh-Hant": "Tionghoa (Tradisional)",
+    "yue": "Kanton",
+    "de": "Jerman",
+    "es": "Spanyol",
+    "ru": "Rusia",
+    "ko": "Korea",
+    "fr": "Prancis",
+    "ja": "Jepang",
+    "pt": "Portugis",
+    "tr": "Turki",
+    "pl": "Polandia",
+    "ca": "Katalan",
+    "nl": "Belanda",
+    "ar": "Arab",
+    "sv": "Swedia",
+    "it": "Italia",
+    "id": "Indonesia",
+    "hi": "Hindi",
+    "fi": "Finlandia",
+    "vi": "Vietnam",
+    "he": "Ibrani",
+    "uk": "Ukraina",
+    "el": "Yunani",
+    "ms": "Melayu",
+    "cs": "Ceko",
+    "ro": "Rumania",
+    "da": "Denmark",
+    "hu": "Hungaria",
+    "ta": "Tamil",
+    "no": "Norwegia",
+    "th": "Thai",
+    "ur": "Urdu",
+    "hr": "Kroasia",
+    "bg": "Bulgaria",
+    "lt": "Lituania",
+    "la": "Latin",
+    "mi": "Maori",
+    "ml": "Malayalam",
+    "cy": "Wales",
+    "sk": "Slovakia",
+    "te": "Telugu",
+    "fa": "Persia",
+    "lv": "Latvia",
+    "bn": "Bengali",
+    "sr": "Serbia",
+    "az": "Azerbaijan",
+    "sl": "Slovenia",
+    "kn": "Kannada",
+    "et": "Estonia",
+    "mk": "Makedonia",
+    "br": "Breton",
+    "eu": "Basque",
+    "is": "Islandia",
+    "ga": "Irlandia",
+    "hy": "Armenia",
+    "ne": "Nepali",
+    "mn": "Mongolia",
+    "bs": "Bosnia",
+    "kk": "Kazakh",
+    "sq": "Albania",
+    "sw": "Swahili",
+    "gl": "Galisia",
+    "mr": "Marathi",
+    "pa": "Punjabi",
+    "si": "Sinhala",
+    "km": "Khmer",
+    "sn": "Shona",
+    "yo": "Yoruba",
+    "so": "Somali",
+    "af": "Afrikaans",
+    "oc": "Ositan",
+    "ka": "Georgia",
+    "be": "Belarusia",
+    "tg": "Tajik",
+    "sd": "Sindhi",
+    "gu": "Gujarati",
+    "am": "Amharik",
+    "yi": "Yiddish",
+    "lo": "Lao",
+    "uz": "Uzbek",
+    "fo": "Faroe",
+    "ht": "Kreol Haiti",
+    "ps": "Pashto",
+    "tk": "Turkmen",
+    "nn": "Nynorsk",
+    "mt": "Malta",
+    "sa": "Sanskerta",
+    "lb": "Luksemburg",
+    "my": "Myanmar",
+    "bo": "Tibet",
+    "tl": "Filipino (Tagalog)",
+    "mg": "Malagasi",
+    "as": "Assam",
+    "tt": "Tatar",
+    "haw": "Hawaii",
+    "ln": "Lingala",
+    "ha": "Hausa",
+    "ba": "Bashkir",
+    "jw": "Jawa",
+    "su": "Sunda"
   }
 }

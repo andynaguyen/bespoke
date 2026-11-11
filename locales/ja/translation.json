@@ -5,12 +5,29 @@
     "model": "モデル",
     "quit": "終了",
     "cancel": "キャンセル",
-    "secureInputWarning": "⚠ Secure Input でショートカットがブロック中"
+    "secureInputWarning": "⚠ Secure Input でショートカットがブロック中",
+    "annotate": "注釈",
+    "annotateRecord": "画面を収録",
+    "annotateChoose": "収録対象を選択…",
+    "annotateOpenLatest": "最新のキャプチャを開く",
+    "checkForUpdates": "アップデートを確認…",
+    "updateTo": "{{version}} にアップデート…",
+    "triage": "問題を診断…"
   },
   "sidebar": {
     "models": "モデル",
     "stats": "統計",
-    "debug": "デバッグ"
+    "debug": "デバッグ",
+    "settings": "設定",
+    "dictate": "音声入力",
+    "dictionary": "辞書",
+    "annotate": "注釈",
+    "mcp": "MCP",
+    "update": {
+      "available": "アップデートがあります",
+      "version": "バージョン {{version}}",
+      "button": "アップデート"
+    }
   },
   "onboarding": {
     "subtitle": "開始するには、文字起こしのモデルを選択してください",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "大型で低速ですが、非常に高精度な多言語モデル。"
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "macOS に内蔵。Apple の音声モデルでこの Mac 上で動作します。"
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "話しながらリアルタイムで文字起こしを表示"
     },
     "cancel": "キャンセル",
-    "legacy": "旧式"
+    "legacy": "旧式",
+    "errors": {
+      "rescan": "モデルの再スキャンに失敗しました",
+      "delete": "モデルの削除に失敗しました"
+    },
+    "builtIn": "macOS に内蔵"
   },
   "settings": {
     "models": {
@@ -160,7 +186,7 @@
         "bindings": {
           "transcribe": {
             "name": "文字起こしのショートカット",
-            "description": "音声を録音して文字起こしするためのキーボードショートカット。"
+            "description": "キー、マウスの中央ボタン、またはサイドボタンを押して、音声を録音して文字起こしします。マウスの左右のボタンには修飾キーが必要です。"
           },
           "cancel": {
             "name": "キャンセルのショートカット",
@@ -168,13 +194,33 @@
           },
           "transcribe_with_post_process": {
             "name": "後処理のショートカット",
-            "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
+            "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)。"
+          },
+          "annotate": {
+            "name": "注釈のショートカット",
+            "description": "タップするとポインタのある画面を収録し、もう一度タップすると終了します。長押しすると範囲、ウインドウ、画面を選択できます。"
+          },
+          "annotate_paste": {
+            "name": "最後のキャプチャを貼り付け",
+            "description": "最新のキャプチャのコンタクトシートと要約を最前面のアプリに貼り付けます。"
           }
         },
         "errors": {
           "restore": "元のショートカットを復元できませんでした",
           "set": "ショートカットを設定できませんでした: {{error}}",
-          "reset": "ショートカットを元の値にリセットできませんでした"
+          "reset": "ショートカットを元の値にリセットできませんでした",
+          "updateBinding": "ショートカットの更新に失敗しました"
+        },
+        "pressKeysOrMouse": "キーまたはマウスボタンを押してください…",
+        "mouseButtons": {
+          "mouseleft": "マウス左",
+          "mouseright": "マウス右",
+          "mousemiddle": "マウス中央",
+          "mousex1": "マウス4",
+          "mousex2": "マウス5",
+          "mouse6": "マウス6",
+          "mouse7": "マウス7",
+          "mouse8": "マウス8"
         }
       },
       "language": {
@@ -193,9 +239,9 @@
           "toggle": "切り替え"
         },
         "descriptions": {
-          "hold_or_toggle": "長押しで録音、タップで切り替え",
-          "push_to_talk": "ショートカットを押している間だけ録音します",
-          "toggle": "ショートカットをタップすると録音を開始し、もう一度タップすると停止します"
+          "hold_or_toggle": "長押しで録音、タップで切り替え。",
+          "push_to_talk": "ショートカットを押している間だけ録音します。",
+          "toggle": "ショートカットをタップすると録音を開始し、もう一度タップすると停止します。"
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "サウンド",
       "microphone": {
         "title": "マイク",
-        "description": "使用するマイクデバイスを選択",
+        "description": "使用するマイクデバイスを選択。",
         "placeholder": "マイクを選択…",
-        "loading": "読み込み中…"
+        "loading": "読み込み中…",
+        "priority": {
+          "title": "優先順位",
+          "description": "音声入力と注釈は、接続されている最初のマイクから録音します。ドラッグして並べ替えます。",
+          "add": "マイクを追加",
+          "noneToAdd": "ほかに接続されているマイクはありません",
+          "inUse": "使用中",
+          "notConnected": "未接続",
+          "systemDefault": "システムのデフォルト",
+          "alwaysLast": "常に最後"
+        }
       },
       "channel": {
         "title": "入力チャンネル",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "オーディオフィードバック",
-        "description": "録音の開始と停止時にサウンドを再生"
+        "description": "録音の開始と停止時にサウンドを再生。"
       },
       "outputDevice": {
         "title": "出力デバイス",
-        "description": "フィードバック用の音声出力デバイスを選択",
+        "description": "フィードバック用の音声出力デバイスを選択。",
         "placeholder": "出力デバイスを選択…",
         "loading": "読み込み中…"
       },
       "volume": {
         "title": "音量",
-        "description": "オーディオフィードバックの音量を調整"
-      }
+        "description": "オーディオフィードバックの音量を調整。"
+      },
+      "defaultDevice": "デフォルト"
     },
     "advanced": {
       "groups": {
         "transcription": "文字起こし",
-        "experimental": "実験的"
+        "experimental": "実験的",
+        "dictation": "音声入力",
+        "appearance": "外観",
+        "system": "システム",
+        "shortcut": "ショートカット",
+        "cleanup": "クリーンアップ",
+        "pasting": "貼り付け",
+        "submitting": "送信",
+        "startup": "起動",
+        "updates": "アップデート",
+        "application": "アプリケーション",
+        "overlay": "オーバーレイ",
+        "voiceCommands": "音声コマンド",
+        "keyboard": "キーボード",
+        "acceleration": "アクセラレーション",
+        "recording": "録音"
       },
       "experimentalToggle": {
         "label": "実験的な機能",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "transcribe.cpp アクセラレーション",
-          "description": "transcribe.cpp (Whisper 系) モデルのハードウェアアクセラレーション。「自動」では利用可能な場合 GPU を使用します (macOS では Metal、Windows/Linux では Vulkan)。"
+          "description": "transcribe.cpp (Whisper 系) モデルのハードウェアアクセラレーション。「自動」では利用可能な場合 Metal 経由で GPU を使用します。"
         },
         "ort": {
           "title": "ONNX アクセラレーション",
-          "description": "ONNX モデルのハードウェアアクセラレーション (Parakeet、Canary、Moonshine など)。Windows の DirectML は実験的です。モデルの文字起こしに失敗する場合があります。"
+          "description": "ONNX モデルのハードウェアアクセラレーション (Parakeet、Canary、Moonshine など)。モデルの文字起こしに失敗する場合があります。"
         },
         "gpuDevice": {
           "auto": "自動"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "オーバーレイ",
-          "description": "録音中のオーバーレイを選択します。「なし」は非表示、「ミニマル」はコンパクトなカプセル型表示、「ライブ」はリアルタイムで文字起こしを表示します(ストリーミング対応モデルのみ。モデル選択画面の「ストリーミング」表示を確認してください)。Linux では「なし」を推奨します。",
+          "title": "スタイル",
+          "description": "録音中のオーバーレイを選択します。",
           "options": {
             "none": "なし",
             "minimal": "ミニマル",
@@ -277,7 +349,7 @@
           }
         },
         "position": {
-          "title": "オーバーレイの位置",
+          "title": "位置",
           "description": "録音と文字起こし中に表示するオーバーレイが表示される位置を選択します。",
           "options": {
             "bottom": "下",
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "自動送信",
-        "description": "テキスト挿入後に選択したキーの組み合わせを自動的に送信します。macOS では Cmd+Enter、Windows/Linux では Super+Enter が適用されます。",
+        "description": "テキスト挿入後に選択したキーの組み合わせを自動的に送信します。",
         "options": {
           "off": "オフ",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "フィラー語を削除",
         "description": "文字起こしから一般的なフィラー語を削除します。残すにはオフにしてください。"
+      },
+      "voiceScrub": {
+        "title": "音声で全消去",
+        "description": "キーワードを言うと、それまでに話した内容をすべて破棄してやり直します。",
+        "keyword": {
+          "title": "全消去キーワード",
+          "description": "これより前に話した内容はすべて破棄されます。",
+          "invalid": "文字または数字を含む語を使用してください。"
+        }
+      },
+      "voiceScratch": {
+        "title": "音声で文を削除",
+        "description": "キーワードを言うと、直前に話した文を削除して音声入力を続けます。",
+        "keyword": {
+          "title": "文削除キーワード",
+          "description": "前後に間を置いて、単独のフレーズとして話してください。その前の文が削除されます。",
+          "invalid": "文字または数字を含む語を使用してください。"
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "ベース URL",
           "description": "選択したプロバイダーの API ベース URL。カスタムプロバイダーのみ編集可能。",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "ベース URL は選択したプロバイダーが管理します。"
         },
         "apiKey": {
           "title": "API キー",
@@ -371,7 +462,8 @@
           "descriptionDefault": "選択したプロバイダーが提供するモデルを選択。",
           "placeholderWithOptions": "モデルを検索または選択",
           "placeholderNoOptions": "モデル名を入力",
-          "refreshModels": "モデルを更新"
+          "refreshModels": "モデルを更新",
+          "useTyped": "「{{value}}」を使用"
         }
       },
       "prompts": {
@@ -414,20 +506,56 @@
       "dayPopover": {
         "words": "合計単語数",
         "appsUsed": "使用したアプリ数",
-        "topApp": "最も使ったアプリ"
+        "topApp": "最も使ったアプリ",
+        "captures": "キャプチャ",
+        "timeRecorded": "収録時間"
       },
       "less": "少ない",
-      "more": "多い"
+      "more": "多い",
+      "captures": "キャプチャ",
+      "timeRecorded": "収録時間",
+      "marksDrawn": "描いたマーク",
+      "duration": {
+        "seconds": "{{seconds}}秒",
+        "minutesSeconds": "{{minutes}}分{{seconds}}秒",
+        "hoursMinutes": "{{hours}}時間{{minutes}}分"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "辞書",
-        "history": "履歴"
+        "history": "履歴",
+        "style": "スタイル"
       },
       "save": "保存",
       "cancel": "キャンセル",
       "remove": "{{word}}を削除",
-      "duplicate": "「{{word}}」は既に存在します"
+      "duplicate": "「{{word}}」は既に存在します",
+      "replacements": "置換",
+      "replacementsHelp": "左のフレーズを話すと、Bespoke は右のテキストを書き込みます。",
+      "words": "単語",
+      "wordsHelp": "Bespoke にこのとおり表記させたい名前、専門用語、略語。",
+      "addReplacement": "置換を追加",
+      "editWord": "単語を編集",
+      "editReplacement": "置換を編集",
+      "wordPlaceholder": "名前や用語(例:「IntraFi」)",
+      "writeInsteadLabel": "代わりに書き込む内容",
+      "writeInsteadPlaceholder": "Bespoke が代わりに書き込むテキスト",
+      "phraseLabel": "話す言葉",
+      "phrasePlaceholder": "フレーズ(例:「私のメール」)",
+      "addWord": "単語を追加",
+      "addedTag": "追加済み",
+      "tryIt": "試す",
+      "tryItHint": "このページを開いたまま {{shortcut}} で音声入力します。Bespoke はテキストを貼り付けずにここに表示します。",
+      "tryItEmpty": "Bespoke は言葉を聞き取れませんでした。",
+      "fixedCount_other": "辞書による修正 {{count}} 件",
+      "pickWord": "Bespoke が間違えた単語をクリックして教えます。Shift キーを押しながら次の単語をクリックすると追加できます。",
+      "teachLabel": "Bespoke が聞き取った言葉",
+      "spellingPlaceholder": "正しい表記",
+      "wontMatch": "Bespoke は「{{heard}}」をこれほど異なる単語には一致させません。置換として追加してください。",
+      "teachWord": "単語を追加",
+      "teachReplacement": "置換として追加",
+      "added": "追加しました。もう一度その文を音声入力して確認してください。"
     },
     "history": {
       "title": "履歴",
@@ -443,17 +571,33 @@
       "retranscribe": "再文字起こし",
       "retranscribeError": "再文字起こしに失敗しました。もう一度お試しください。",
       "transcribing": "文字起こし中…",
-      "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。"
+      "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。",
+      "transcript": "文字起こし",
+      "details": "詳細",
+      "recorded": "録音日時",
+      "wordCount": "単語数",
+      "postProcessed": "後処理済み",
+      "prompt": "プロンプト",
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "noSelection": "文字起こしを選択すると、ここに表示されます。"
     },
     "debug": {
       "title": "デバッグ",
       "logDirectory": {
         "title": "ログディレクトリ",
-        "description": "ログファイルの保存場所"
+        "description": "ログファイルの保存場所。"
       },
       "logLevel": {
         "title": "ログレベル",
-        "description": "ログの詳細度を設定"
+        "description": "ログの詳細度を設定。",
+        "options": {
+          "error": "エラー",
+          "warn": "警告",
+          "info": "情報",
+          "debug": "デバッグ",
+          "trace": "トレース"
+        }
       },
       "liveLogs": {
         "title": "ライブログ",
@@ -468,20 +612,26 @@
       },
       "soundTheme": {
         "label": "サウンドテーマ",
-        "description": "録音開始・停止フィードバックのサウンドテーマを選択"
+        "description": "録音開始・停止フィードバックのサウンドテーマを選択。",
+        "options": {
+          "marimba": "マリンバ",
+          "pop": "ポップ",
+          "custom": "カスタム"
+        },
+        "preview": "サウンドテーマをプレビュー (開始音と停止音を再生)"
       },
       "wordCorrectionThreshold": {
         "title": "単語修正しきい値",
-        "description": "カスタム単語修正の感度"
+        "description": "カスタム単語修正の感度。"
       },
       "historyLimit": {
         "title": "履歴上限",
-        "description": "保持する履歴エントリーの最大数",
+        "description": "保持する履歴エントリーの最大数。",
         "entries": "件"
       },
       "recordingRetention": {
         "title": "録音の自動削除",
-        "description": "古い録音を自動的に削除して容量を節約",
+        "description": "古い録音を自動的に削除して容量を節約。",
         "never": "しない",
         "preserveLimit": "最新{{count}}件を保持",
         "days3": "3日後",
@@ -491,28 +641,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "マイク常時オン",
-        "description": "より速い応答のためにマイクをアクティブに保つ"
+        "description": "より速い応答のためにマイクをアクティブに保つ。"
       },
       "clamshellMicrophone": {
         "title": "クラムシェルマイク",
-        "description": "ノートパソコンの蓋を閉じたときに使用するマイク"
+        "description": "ノートパソコンの蓋を閉じたときに使用するマイク。"
       },
       "postProcessingToggle": {
-        "label": "後処理",
-        "description": "文字起こし後の AI によるテキスト改善を有効化"
+        "label": "AI 後処理",
+        "description": "文字起こし後の AI によるテキスト改善を有効化。"
       },
       "muteWhileRecording": {
         "label": "録音中にミュート",
-        "description": "録音中にシステムオーディオをミュート"
+        "description": "録音中にシステムオーディオをミュート。"
       },
       "appendTrailingSpace": {
         "label": "末尾にスペースを追加",
-        "description": "貼り付けた文字起こしの後にスペースを追加"
+        "description": "貼り付けた文字起こしの後にスペースを追加。"
       },
       "keyboardImplementation": {
         "title": "キーボード実装",
         "description": "キーボードショートカットのバックエンドを選択してください。",
-        "bindingsReset": "キーボードショートカットに互換性がなかったため、デフォルトにリセットされました"
+        "bindingsReset": "キーボードショートカットに互換性がなかったため、デフォルトにリセットされました",
+        "options": {
+          "globalHotkey": "グローバルホットキー",
+          "keyboardListener": "キーボードリスナー"
+        }
       },
       "paths": {
         "appData": "アプリデータ:",
@@ -533,7 +687,7 @@
       },
       "reliablePaste": {
         "title": "確実な貼り付け(Beta)",
-        "description": "固定の遅延ではなく、対象アプリが実際に文字起こしを読み取った後にのみクリップボードを復元します。システム負荷が高いときに古いクリップボードの内容が貼り付けられる問題を解決するための設定です。クリップボードを使う貼り付け方法が必要です。macOS と Windows のみ。"
+        "description": "固定の遅延ではなく、対象アプリが実際に文字起こしを読み取った後にのみクリップボードを復元します。システム負荷が高いときに古いクリップボードの内容が貼り付けられる問題を解決するための設定です。クリップボードを使う貼り付け方法が必要です。"
       },
       "recordingBuffer": {
         "title": "追加録音バッファ",
@@ -561,14 +715,14 @@
       },
       "whatsNewPreview": {
         "title": "新機能をプレビュー",
-        "description": "最新の同梱リリースノートを既読にせずに開く",
+        "description": "最新の同梱リリースノートを既読にせずに開く。",
         "button": "プレビュー",
         "noNotes": "同梱リリースノートが見つかりません",
         "error": "リリースノートのプレビューに失敗しました"
       },
       "onboardingPreview": {
         "title": "オンボーディングをプレビュー",
-        "description": "権限、モデル、完了状態を変更せずにオンボーディング画面をプレビューします",
+        "description": "権限、モデル、完了状態を変更せずにオンボーディング画面をプレビューします。",
         "permissionsButton": "権限",
         "modelsButton": "モデル選択",
         "exitButton": "プレビューを終了"
@@ -578,12 +732,64 @@
       "title": "概要",
       "appDataDirectory": {
         "title": "アプリデータディレクトリ",
-        "description": "Bespoke がデータを保存する場所"
+        "description": "Bespoke がデータを保存する場所。"
       },
       "whatsNewUpdates": {
         "label": "新機能を表示",
-        "description": "Bespoke のアップデート後にリリースノートを表示"
+        "description": "Bespoke のアップデート後にリリースノートを表示。"
       }
+    },
+    "style": {
+      "intro": "アプリをスタイルにドラッグするか、アプリをクリックします。",
+      "styles": {
+        "formal": {
+          "name": "フォーマル",
+          "example": "こんにちは、明日の昼食のご都合はいかがですか?よろしければ12時にしましょう。"
+        },
+        "casual": {
+          "name": "カジュアル",
+          "example": "ねえ明日お昼空いてる?大丈夫なら12時にしよう"
+        },
+        "veryCasual": {
+          "name": "とてもカジュアル",
+          "example": "ねえ明日昼いける?12時でよくない"
+        }
+      },
+      "board": {
+        "default": "デフォルト",
+        "defaultTitle": "デフォルトのスタイル",
+        "defaultHelp": "ルールのないアプリはこのスタイルを使います。変更するには、デフォルトを別のスタイルにドラッグします。",
+        "dropHere": "ここにアプリをドロップ",
+        "remove": "ルールを削除"
+      },
+      "shelf": {
+        "title": "アプリを追加",
+        "open": "起動中",
+        "all": "すべてのアプリ",
+        "search": "アプリを検索",
+        "loading": "アプリを読み込み中…",
+        "noMatch": "一致するアプリはありません。",
+        "noneLeft": "ここのすべてのアプリにルールがあります。"
+      }
+    },
+    "updates": {
+      "version": "バージョン {{version}}",
+      "available": "Bespoke {{version}} を利用できます。",
+      "lastChecked": "最新の状態です。最終確認: {{when}}。",
+      "neverChecked": "最新の状態です。",
+      "disabled": "このビルドは自動でアップデートされません。",
+      "update": "アップデート",
+      "checkNow": "今すぐ確認",
+      "automatic": {
+        "label": "アップデートを自動的に確認",
+        "description": "Bespoke は1日に1回確認します。"
+      }
+    },
+    "nav": {
+      "general": "一般",
+      "sound": "サウンド",
+      "postProcessing": "後処理",
+      "app": "アプリ"
     }
   },
   "common": {
@@ -593,7 +799,11 @@
     "open": "開く",
     "copy": "コピー",
     "clear": "クリア",
-    "noOptionsFound": "オプションが見つかりません"
+    "noOptionsFound": "オプションが見つかりません",
+    "selectOption": "オプションを選択…",
+    "unknownSize": "サイズ不明",
+    "yes": "はい",
+    "no": "いいえ"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke が文字起こしテキストを入力するには、アクセシビリティ権限が必要です。",
@@ -613,15 +823,16 @@
     "modelLoadFailedUnknown": "不明なモデル",
     "pasteFailedTitle": "テキストの貼り付けに失敗しました",
     "pasteFailed": "アクティブなアプリにテキストを貼り付けられませんでした。",
-    "transcriptionFailedTitle": "文字起こしに失敗しました"
+    "transcriptionFailedTitle": "文字起こしに失敗しました",
+    "unknown": "不明なエラー"
   },
   "appLanguage": {
-    "title": "アプリの言語",
-    "description": "Bespoke インターフェースの言語を変更"
+    "title": "言語",
+    "description": "Bespoke インターフェースの言語を変更。"
   },
   "theme": {
-    "title": "アプリのテーマ",
-    "description": "Bespoke をシステムのテーマに合わせるか、ライトまたはダークで固定するかを選択します",
+    "title": "テーマ",
+    "description": "Bespoke をシステムのテーマに合わせるか、ライトまたはダークで固定するかを選択します。",
     "options": {
       "system": "システム",
       "light": "ライト",
@@ -644,5 +855,274 @@
     "recorderBlockedNoCulprit": "macOS が一時的にショートカットの変更をブロックしています",
     "recorderBlocked": "現在ショートカットを記録できません。macOS の Secure Input がキーイベントをブロックしています。先に Secure Input の警告を解消してください。",
     "dismiss": "閉じる"
+  },
+  "triage": {
+    "title": "問題を診断",
+    "showTitle": "問題を見せる",
+    "showHint": "任意。{{shortcut}} を押して、見えていることを話してください。",
+    "captured": "{{time}} のキャプチャ · {{duration}}",
+    "recordAgain": "もう一度収録",
+    "removeCapture": "このキャプチャを除外",
+    "agentTitle": "エージェントを選択",
+    "sendTitle": "プロンプトを送信",
+    "sendDescription": "Bespoke がログと設定をフォルダに書き出し、プロンプトを用意した状態でエージェントを開きます。送信を押すと、エージェントが何が起きたかを尋ねます。何かを変更したり投稿したりする前には確認があります。",
+    "start": "診断を開始",
+    "cancel": "キャンセル",
+    "claude": "Claude",
+    "claudeDescription": "Claude アプリの Claude Code",
+    "claudeMissing": "利用するには Claude アプリをインストールしてください",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "ターミナルウインドウの Claude Code",
+    "claudeCodeMissing": "リンクを有効にするには、ターミナルで claude にプロンプトを一度送信してください",
+    "codex": "Codex",
+    "codexDescription": "Codex アプリの ChatGPT",
+    "codexMissing": "この Mac には Codex のリンクを開けるアプリがありません",
+    "copy": "プロンプトをコピー",
+    "copyDescription": "この Mac の任意のコーディングエージェントに貼り付けます",
+    "opened": "診断を開始しました。プロンプトを送信すると、エージェントが何が起きたかを尋ねます。",
+    "copied": "診断プロンプトをコピーしました。この Mac のコーディングエージェントに貼り付けてください。",
+    "failed": "診断を開始できませんでした"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "権限"
+    },
+    "retention": {
+      "title": "収録の保持",
+      "custom": "カスタム",
+      "options": {
+        "week": "ビデオを7日間",
+        "month": "ビデオを30日間",
+        "forever": "無期限"
+      },
+      "notes": {
+        "week": "ビデオとオーディオは7日後に、各キャプチャの残りは30日後にゴミ箱に移動します。",
+        "month": "ビデオとオーディオは30日後に、各キャプチャの残りは90日後にゴミ箱に移動します。",
+        "forever": "キャプチャは削除されません。",
+        "custom": "config.json の保持期間は手動で設定されています。"
+      }
+    },
+    "captures": {
+      "title": "キャプチャ",
+      "size": "キャプチャの使用容量: {{size}}。",
+      "measuring": "計測中…",
+      "openLatest": "最新を開く",
+      "showInFinder": "Finder に表示"
+    },
+    "permissions": {
+      "granted": "許可済み",
+      "allow": "許可",
+      "openSettings": "システム設定を開く",
+      "relaunch": "許可しました。画面を収録するには Bespoke を終了して開き直してください。",
+      "blocked": "収録するには{{permissions}}をオンにしてください。",
+      "screenRecording": {
+        "title": "画面収録とシステムオーディオ録音",
+        "description": "画面を収録します。必須。"
+      },
+      "microphone": {
+        "title": "マイク",
+        "description": "ナレーションを録音します。必須。"
+      },
+      "accessibility": {
+        "title": "アクセシビリティ",
+        "description": "収録中の ⌘Z、Esc、S の入力を検知し、キャプチャを貼り付けます。必須。"
+      },
+      "panel": {
+        "drag": "{{app}} を上のリストにドラッグして{{permission}}を許可",
+        "allowed": "{{app}} は許可済みです",
+        "back": "戻る",
+        "screenRecording": "画面収録",
+        "accessibility": "アクセシビリティ"
+      }
+    },
+    "capsule": {
+      "area": "範囲",
+      "window": "ウインドウ",
+      "screen": "画面",
+      "record": "収録",
+      "undo": "取り消す",
+      "cancel": "キャンセル",
+      "finish": "終了",
+      "processing": "処理中",
+      "copied": "コピーしました",
+      "saved": "保存しました",
+      "failed": "キャプチャを保存できませんでした",
+      "paste": "貼り付け",
+      "inspect": "確認",
+      "marks_other": "マーク {{count}} 個"
+    },
+    "library": {
+      "folder": "キャプチャフォルダ",
+      "record": "収録",
+      "empty": "キャプチャはまだありません",
+      "emptyHint": "{{record}} をタップすると、話しながらポインタのある画面を収録できます。",
+      "back": "キャプチャに戻る",
+      "contactSheet": "コンタクトシート",
+      "keyframe": "キーフレーム",
+      "keyframes_other": "キーフレーム {{count}} 枚",
+      "timeline": "タイムライン",
+      "showInFinder": "Finder に表示",
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "copyFailed": "キャプチャをコピーできませんでした"
+    },
+    "picker": {
+      "fullScreenHold": "フルスクリーン · {{holdKey}} で切り替え · ドラッグで範囲指定 · {{holdMods}} を離して収録",
+      "fullScreen": "フルスクリーン · クリックして収録"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "エージェントアクセス",
+      "off": "コーディングエージェントは、この Mac のポート {{port}} の MCP サーバからキャプチャを読み取ります。",
+      "local": "127.0.0.1 のポート {{port}} で待機中。この Mac のエージェントは直接接続し、リモートマシンは SSH トンネル経由で接続します。",
+      "tailnet": "127.0.0.1 と {{address}} のポート {{port}} で待機中。tailnet 内のマシンは直接接続します。",
+      "tailnetWaiting": "127.0.0.1 のポート {{port}} で待機中。この Mac で Tailscale が接続されていません。接続されると Bespoke は tailnet で待機します。",
+      "failed": "サーバを起動できませんでした: {{error}}",
+      "options": {
+        "off": "オフ",
+        "local": "この Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "エージェントに追加",
+      "local": "トークンを含む設定をコピーします。他人に見せないでください。SSH で接続するマシンの場合は、この Mac の ~/.ssh/config のホストエントリにも SSH 行を追加してください。",
+      "tailnet": "トークンを含む設定をコピーします。他人に見せないでください。この Mac と tailnet 内のすべてのマシンで使えます。",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH 行"
+    },
+    "token": {
+      "title": "トークン",
+      "description": "新しいトークンを作ると、追加済みのすべてのマシンは、新しい設定をコピーするまで接続できなくなります。",
+      "renew": "新しいトークン",
+      "renewed": "新しいトークンを作成しました。各マシンに設定をコピーし直してください。",
+      "failed": "新しいトークンを作成できませんでした"
+    },
+    "copied": "コピーしました",
+    "copyFailed": "コピーできませんでした"
+  },
+  "menu": {
+    "hideApp": "Bespokeを非表示",
+    "hideOthers": "ほかを非表示",
+    "showAll": "すべてを表示",
+    "quitApp": "Bespokeを終了",
+    "edit": "編集",
+    "undo": "取り消す",
+    "redo": "やり直す",
+    "cut": "カット",
+    "copy": "コピー",
+    "paste": "ペースト",
+    "selectAll": "すべてを選択",
+    "window": "ウインドウ",
+    "minimize": "しまう",
+    "closeWindow": "ウインドウを閉じる"
+  },
+  "languages": {
+    "auto": "自動検出",
+    "en": "英語",
+    "zh": "中国語",
+    "zh-Hans": "中国語(簡体字)",
+    "zh-Hant": "中国語(繁体字)",
+    "yue": "広東語",
+    "de": "ドイツ語",
+    "es": "スペイン語",
+    "ru": "ロシア語",
+    "ko": "韓国語",
+    "fr": "フランス語",
+    "ja": "日本語",
+    "pt": "ポルトガル語",
+    "tr": "トルコ語",
+    "pl": "ポーランド語",
+    "ca": "カタルーニャ語",
+    "nl": "オランダ語",
+    "ar": "アラビア語",
+    "sv": "スウェーデン語",
+    "it": "イタリア語",
+    "id": "インドネシア語",
+    "hi": "ヒンディー語",
+    "fi": "フィンランド語",
+    "vi": "ベトナム語",
+    "he": "ヘブライ語",
+    "uk": "ウクライナ語",
+    "el": "ギリシャ語",
+    "ms": "マレー語",
+    "cs": "チェコ語",
+    "ro": "ルーマニア語",
+    "da": "デンマーク語",
+    "hu": "ハンガリー語",
+    "ta": "タミル語",
+    "no": "ノルウェー語",
+    "th": "タイ語",
+    "ur": "ウルドゥー語",
+    "hr": "クロアチア語",
+    "bg": "ブルガリア語",
+    "lt": "リトアニア語",
+    "la": "ラテン語",
+    "mi": "マオリ語",
+    "ml": "マラヤーラム語",
+    "cy": "ウェールズ語",
+    "sk": "スロバキア語",
+    "te": "テルグ語",
+    "fa": "ペルシャ語",
+    "lv": "ラトビア語",
+    "bn": "ベンガル語",
+    "sr": "セルビア語",
+    "az": "アゼルバイジャン語",
+    "sl": "スロベニア語",
+    "kn": "カンナダ語",
+    "et": "エストニア語",
+    "mk": "マケドニア語",
+    "br": "ブルトン語",
+    "eu": "バスク語",
+    "is": "アイスランド語",
+    "ga": "アイルランド語",
+    "hy": "アルメニア語",
+    "ne": "ネパール語",
+    "mn": "モンゴル語",
+    "bs": "ボスニア語",
+    "kk": "カザフ語",
+    "sq": "アルバニア語",
+    "sw": "スワヒリ語",
+    "gl": "ガリシア語",
+    "mr": "マラーティー語",
+    "pa": "パンジャブ語",
+    "si": "シンハラ語",
+    "km": "クメール語",
+    "sn": "ショナ語",
+    "yo": "ヨルバ語",
+    "so": "ソマリ語",
+    "af": "アフリカーンス語",
+    "oc": "オック語",
+    "ka": "ジョージア語",
+    "be": "ベラルーシ語",
+    "tg": "タジク語",
+    "sd": "シンド語",
+    "gu": "グジャラート語",
+    "am": "アムハラ語",
+    "yi": "イディッシュ語",
+    "lo": "ラオ語",
+    "uz": "ウズベク語",
+    "fo": "フェロー語",
+    "ht": "ハイチ・クレオール語",
+    "ps": "パシュトー語",
+    "tk": "トルクメン語",
+    "nn": "ニーノシュク",
+    "mt": "マルタ語",
+    "sa": "サンスクリット語",
+    "lb": "ルクセンブルク語",
+    "my": "ミャンマー語",
+    "bo": "チベット語",
+    "tl": "フィリピン語(タガログ語)",
+    "mg": "マダガスカル語",
+    "as": "アッサム語",
+    "tt": "タタール語",
+    "haw": "ハワイ語",
+    "ln": "リンガラ語",
+    "ha": "ハウサ語",
+    "ba": "バシキール語",
+    "jw": "ジャワ語",
+    "su": "スンダ語"
   }
 }

@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Afslut",
     "cancel": "Annuller",
-    "secureInputWarning": "⚠ Genveje blokeret af Secure Input"
+    "secureInputWarning": "⚠ Genveje blokeret af Secure Input",
+    "annotate": "Annotering",
+    "annotateRecord": "Optag skærm",
+    "annotateChoose": "Vælg, hvad der skal optages…",
+    "annotateOpenLatest": "Åbn seneste optagelse",
+    "checkForUpdates": "Søg efter opdateringer…",
+    "updateTo": "Opdater til {{version}}…",
+    "triage": "Undersøg et problem…"
   },
   "sidebar": {
     "models": "Modeller",
     "stats": "Statistik",
-    "debug": "Fejlfinding"
+    "debug": "Fejlfinding",
+    "settings": "Indstillinger",
+    "dictate": "Diktering",
+    "dictionary": "Ordbog",
+    "annotate": "Annotering",
+    "mcp": "MCP",
+    "update": {
+      "available": "Opdatering tilgængelig",
+      "version": "Version {{version}}",
+      "button": "Opdater"
+    }
   },
   "onboarding": {
     "subtitle": "For at komme i gang skal du vælge en transskriptionsmodel",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "En stor, langsommere, men meget nøjagtig flersproget model."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Indbygget i macOS. Kører på denne Mac med Apples talemodel."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "translation": "Kan oversætte til engelsk",
       "translate": "Oversæt",
       "streaming": "Viser live transskription, mens du taler"
-    }
+    },
+    "errors": {
+      "rescan": "Kunne ikke scanne modeller igen",
+      "delete": "Kunne ikke slette model"
+    },
+    "builtIn": "Indbygget i macOS"
   },
   "settings": {
     "general": {
@@ -140,7 +166,7 @@
         "bindings": {
           "transcribe": {
             "name": "Transskriptionsgenvej",
-            "description": "Tastaturgenvejen til at optage og transskribere din stemme."
+            "description": "Tryk på taster, den midterste museknap eller en sideknap for at optage og transskribere din stemme. Venstre og højre museknap kræver en ændringstast."
           },
           "cancel": {
             "name": "Annulleringsgenvej",
@@ -149,12 +175,32 @@
           "transcribe_with_post_process": {
             "name": "Genvej til efterbehandling",
             "description": "Valgfrit: En dedikeret genvej, der altid anvender AI-efterbehandling på din transskription."
+          },
+          "annotate": {
+            "name": "Annoteringsgenvej",
+            "description": "Tryk for at optage skærmen under markøren, og tryk igen for at afslutte. Hold nede for at vælge et område, et vindue eller skærmen."
+          },
+          "annotate_paste": {
+            "name": "Indsæt seneste optagelse",
+            "description": "Indsætter den seneste optagelses kontaktark og resumé i appen forrest."
           }
         },
         "errors": {
           "restore": "Kunne ikke gendanne den oprindelige genvej",
           "set": "Kunne ikke indstille genvej: {{error}}",
-          "reset": "Kunne ikke nulstille genvej til oprindelig indstilling"
+          "reset": "Kunne ikke nulstille genvej til oprindelig indstilling",
+          "updateBinding": "Kunne ikke opdatere genvej"
+        },
+        "pressKeysOrMouse": "Tryk på taster eller en museknap...",
+        "mouseButtons": {
+          "mouseleft": "Venstre museknap",
+          "mouseright": "Højre museknap",
+          "mousemiddle": "Midterste museknap",
+          "mousex1": "Mus 4",
+          "mousex2": "Mus 5",
+          "mouse6": "Mus 6",
+          "mouse7": "Mus 7",
+          "mouse8": "Mus 8"
         }
       },
       "language": {
@@ -173,9 +219,9 @@
           "toggle": "Skift"
         },
         "descriptions": {
-          "hold_or_toggle": "Hold nede for at optage, eller tryk kort for at slå til/fra",
-          "push_to_talk": "Optager, mens du holder genvejen nede",
-          "toggle": "Tryk på genvejen for at starte optagelsen, tryk igen for at stoppe"
+          "hold_or_toggle": "Hold nede for at optage, eller tryk kort for at slå til/fra.",
+          "push_to_talk": "Optager, mens du holder genvejen nede.",
+          "toggle": "Tryk på genvejen for at starte optagelsen, tryk igen for at stoppe."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Lyd",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Vælg din foretrukne mikrofonenhed",
+        "description": "Vælg din foretrukne mikrofonenhed.",
         "placeholder": "Vælg mikrofon...",
-        "loading": "Indlæser..."
+        "loading": "Indlæser...",
+        "priority": {
+          "title": "Prioritet",
+          "description": "Diktering og Annotering optager fra den første tilsluttede mikrofon. Træk for at ændre rækkefølgen.",
+          "add": "Tilføj mikrofon",
+          "noneToAdd": "Ingen andre mikrofoner tilsluttet",
+          "inUse": "I brug",
+          "notConnected": "Ikke tilsluttet",
+          "systemDefault": "Systemstandard",
+          "alwaysLast": "Altid sidst"
+        }
       },
       "channel": {
         "title": "Inputkanal",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Lydfeedback",
-        "description": "Afspil lyd, når optagelse starter og stopper"
+        "description": "Afspil lyd, når optagelse starter og stopper."
       },
       "outputDevice": {
         "title": "Outputenhed",
-        "description": "Vælg din foretrukne lydoutputenhed til feedbacklyde",
+        "description": "Vælg din foretrukne lydoutputenhed til feedbacklyde.",
         "placeholder": "Vælg outputenhed...",
         "loading": "Indlæser..."
       },
       "volume": {
         "title": "Lydstyrke",
-        "description": "Juster lydstyrken for lydfeedback"
-      }
+        "description": "Juster lydstyrken for lydfeedback."
+      },
+      "defaultDevice": "Standard"
     },
     "advanced": {
       "groups": {
         "transcription": "Transskription",
-        "experimental": "Eksperimentel"
+        "experimental": "Eksperimentel",
+        "dictation": "Diktering",
+        "appearance": "Udseende",
+        "system": "System",
+        "shortcut": "Genvej",
+        "cleanup": "Oprydning",
+        "pasting": "Indsætning",
+        "submitting": "Indsendelse",
+        "startup": "Opstart",
+        "updates": "Opdateringer",
+        "application": "Applikation",
+        "overlay": "Overlay",
+        "voiceCommands": "Stemmekommandoer",
+        "keyboard": "Tastatur",
+        "acceleration": "Acceleration",
+        "recording": "Optagelse"
       },
       "experimentalToggle": {
         "label": "Eksperimentelle funktioner",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "transcribe.cpp-acceleration",
-          "description": "Hardwareacceleration til transcribe.cpp-modeller (Whisper-familien). Auto bruger GPU, hvis tilgængelig (Metal på macOS, Vulkan på Windows/Linux)."
+          "description": "Hardwareacceleration til transcribe.cpp-modeller (Whisper-familien). Auto bruger GPU'en via Metal, når der er en tilgængelig."
         },
         "ort": {
           "title": "ONNX-acceleration",
-          "description": "Hardwareacceleration til ONNX-modeller (Parakeet, Canary, Moonshine osv.). DirectML på Windows er eksperimentelt. Modeller kan fejle under transskription."
+          "description": "Hardwareacceleration til ONNX-modeller (Parakeet, Canary, Moonshine osv.). Modeller kan fejle under transskription."
         },
         "gpuDevice": {
           "auto": "Automatisk"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Vælg optagelses-overlay: Ingen skjuler det, Minimal viser en kompakt pille, Live viser transskription i realtid, mens du taler (kun modeller med streaming-understøttelse — se efter Streaming-mærket i modelvælgeren). På Linux anbefales 'Ingen'.",
+          "title": "Stil",
+          "description": "Vælg optagelses-overlay.",
           "options": {
             "none": "Ingen",
             "minimal": "Minimal",
@@ -277,7 +349,7 @@
           }
         },
         "position": {
-          "title": "Overlay-placering",
+          "title": "Placering",
           "description": "Hvor overlayet vises på skærmen under optagelse og transskription.",
           "options": {
             "bottom": "Bund",
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Automatisk indsendelse",
-        "description": "Send automatisk den valgte tastekombination efter tekstindsættelse. Cmd+Enter gælder på macOS, mens Windows/Linux bruger Super+Enter.",
+        "description": "Send automatisk den valgte tastekombination efter tekstindsættelse.",
         "options": {
           "off": "Fra",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Fjern fyldord",
         "description": "Fjerner almindelige tøveord fra transskriptioner. Slå fra for at beholde dem."
+      },
+      "voiceScrub": {
+        "title": "Ryd med stemmen",
+        "description": "Sig dit nøgleord for at kassere alt, hvad du har sagt indtil nu, og starte forfra.",
+        "keyword": {
+          "title": "Nøgleord til rydning",
+          "description": "Alt, hvad du sagde før det, kasseres.",
+          "invalid": "Brug et ord med bogstaver eller tal."
+        }
+      },
+      "voiceScratch": {
+        "title": "Streg med stemmen",
+        "description": "Sig dit nøgleord for at fjerne den sætning, du lige har sagt, og fortsætte dikteringen.",
+        "keyword": {
+          "title": "Nøgleord til overstregning",
+          "description": "Sig det som en selvstændig frase med en pause på hver side. Sætningen før det fjernes.",
+          "invalid": "Brug et ord med bogstaver eller tal."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "Basis-URL",
           "description": "API-basis-URL for den valgte udbyder. Kun den brugerdefinerede udbyder kan redigeres.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "Basis-URL'en administreres af den valgte udbyder."
         },
         "apiKey": {
           "title": "API-nøgle",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Vælg en model, der udbydes af den valgte udbyder.",
           "placeholderWithOptions": "Søg eller vælg en model",
           "placeholderNoOptions": "Skriv et modelnavn",
-          "refreshModels": "Opdater modeller"
+          "refreshModels": "Opdater modeller",
+          "useTyped": "Brug \"{{value}}\""
         }
       },
       "prompts": {
@@ -414,20 +506,57 @@
       "dayPopover": {
         "words": "Ord i alt",
         "appsUsed": "Apps brugt",
-        "topApp": "Mest brugte app"
+        "topApp": "Mest brugte app",
+        "captures": "Optagelser",
+        "timeRecorded": "Optaget tid"
       },
       "less": "Mindre",
-      "more": "Mere"
+      "more": "Mere",
+      "captures": "Optagelser",
+      "timeRecorded": "Optaget tid",
+      "marksDrawn": "Tegnede markeringer",
+      "duration": {
+        "seconds": "{{seconds}} s",
+        "minutesSeconds": "{{minutes}} min {{seconds}} s",
+        "hoursMinutes": "{{hours}} t {{minutes}} min"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Ordbog",
-        "history": "Historik"
+        "history": "Historik",
+        "style": "Stil"
       },
       "save": "Gem",
       "cancel": "Annuller",
       "remove": "Fjern {{word}}",
-      "duplicate": "\"{{word}}\" findes allerede"
+      "duplicate": "\"{{word}}\" findes allerede",
+      "replacements": "Erstatninger",
+      "replacementsHelp": "Sig frasen til venstre, så skriver Bespoke teksten til højre.",
+      "words": "Ord",
+      "wordsHelp": "Navne, fagudtryk og forkortelser, som Bespoke skal stave præcis sådan.",
+      "addReplacement": "Tilføj erstatning",
+      "editWord": "Rediger ord",
+      "editReplacement": "Rediger erstatning",
+      "wordPlaceholder": "Et navn eller udtryk, f.eks. \"IntraFi\"",
+      "writeInsteadLabel": "Skriv i stedet",
+      "writeInsteadPlaceholder": "Den tekst, Bespoke skriver i stedet",
+      "phraseLabel": "Når du siger",
+      "phrasePlaceholder": "En frase, f.eks. \"min e-mail\"",
+      "addWord": "Tilføj ord",
+      "addedTag": "Tilføjet",
+      "tryIt": "Prøv det",
+      "tryItHint": "Diktér med {{shortcut}}, mens denne side er åben. Bespoke viser teksten her i stedet for at indsætte den.",
+      "tryItEmpty": "Bespoke hørte ingen ord.",
+      "fixedCount_one": "1 rettelse fra ordbogen",
+      "fixedCount_other": "{{count}} rettelser fra ordbogen",
+      "pickWord": "Klik på et ord, Bespoke tog fejl af, for at lære Bespoke det rigtige. Skift-klik på det næste ord for at tilføje det.",
+      "teachLabel": "Bespoke hørte",
+      "spellingPlaceholder": "Den rigtige stavemåde",
+      "wontMatch": "Bespoke matcher ikke \"{{heard}}\" med et så forskelligt ord. Tilføj det som en erstatning.",
+      "teachWord": "Tilføj ord",
+      "teachReplacement": "Tilføj som erstatning",
+      "added": "Tilføjet. Diktér sætningen igen for at kontrollere det."
     },
     "history": {
       "title": "Historik",
@@ -443,17 +572,33 @@
       "retranscribe": "Transskribér igen",
       "retranscribeError": "Kunne ikke transskribere igen. Prøv igen.",
       "transcribing": "Transskriberer...",
-      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet."
+      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet.",
+      "transcript": "Transskription",
+      "details": "Detaljer",
+      "recorded": "Optaget",
+      "wordCount": "Ord",
+      "postProcessed": "Efterbehandlet",
+      "prompt": "Prompt",
+      "copy": "Kopiér",
+      "copied": "Kopieret",
+      "noSelection": "Vælg en transskription for at se den her."
     },
     "debug": {
       "title": "Fejlfinding",
       "logDirectory": {
         "title": "Logmappe",
-        "description": "Placering af logfiler"
+        "description": "Placering af logfiler."
       },
       "logLevel": {
         "title": "Logniveau",
-        "description": "Detaljeringsgrad for logning"
+        "description": "Detaljeringsgrad for logning.",
+        "options": {
+          "error": "Fejl",
+          "warn": "Advarsel",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Sporing"
+        }
       },
       "liveLogs": {
         "title": "Live logs",
@@ -468,34 +613,40 @@
       },
       "whatsNewPreview": {
         "title": "Forhåndsvisning af nyheder",
-        "description": "Åbn de seneste medfølgende udgivelsesnoter uden at markere dem som set",
+        "description": "Åbn de seneste medfølgende udgivelsesnoter uden at markere dem som set.",
         "button": "Forhåndsvisning",
         "noNotes": "Ingen medfølgende udgivelsesnoter fundet",
         "error": "Kunne ikke forhåndsvise udgivelsesnoter"
       },
       "onboardingPreview": {
         "title": "Forhåndsvis introduktion",
-        "description": "Forhåndsvis introduktionsskærmene uden at ændre tilladelser, modeller eller fuldførelsesstatus",
+        "description": "Forhåndsvis introduktionsskærmene uden at ændre tilladelser, modeller eller fuldførelsesstatus.",
         "permissionsButton": "Tilladelser",
         "modelsButton": "Modelvalg",
         "exitButton": "Afslut forhåndsvisning"
       },
       "soundTheme": {
         "label": "Lydtema",
-        "description": "Vælg et lydtema til feedback ved start og stop af optagelse"
+        "description": "Vælg et lydtema til feedback ved start og stop af optagelse.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Brugerdefineret"
+        },
+        "preview": "Afspil lydtema (start og derefter stop)"
       },
       "wordCorrectionThreshold": {
         "title": "Tærskel for ordkorrektion",
-        "description": "Følsomhed for brugerdefinerede ordkorrektioner"
+        "description": "Følsomhed for brugerdefinerede ordkorrektioner."
       },
       "historyLimit": {
         "title": "Historikgrænse",
-        "description": "Maksimalt antal historikposter, der skal beholdes",
+        "description": "Maksimalt antal historikposter, der skal beholdes.",
         "entries": "poster"
       },
       "recordingRetention": {
         "title": "Automatisk sletning af optagelser",
-        "description": "Slet automatisk gamle optagelser for at spare plads",
+        "description": "Slet automatisk gamle optagelser for at spare plads.",
         "never": "Aldrig",
         "preserveLimit": "Behold de seneste {{count}}",
         "days3": "Efter 3 dage",
@@ -505,28 +656,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Altid aktiv mikrofon",
-        "description": "Hold mikrofonen aktiv for hurtigere reaktion"
+        "description": "Hold mikrofonen aktiv for hurtigere reaktion."
       },
       "clamshellMicrophone": {
         "title": "Clamshell-mikrofon",
-        "description": "Mikrofon, der skal bruges, når den bærbares låg er lukket"
+        "description": "Mikrofon, der skal bruges, når den bærbares låg er lukket."
       },
       "postProcessingToggle": {
-        "label": "Efterbehandling",
-        "description": "Aktivér AI-drevet tekstforbedring efter transskription"
+        "label": "AI-efterbehandling",
+        "description": "Aktivér AI-drevet tekstforbedring efter transskription."
       },
       "muteWhileRecording": {
         "label": "Mute under optagelse",
-        "description": "Sluk for systemlyd under optagelse"
+        "description": "Sluk for systemlyd under optagelse."
       },
       "appendTrailingSpace": {
         "label": "Tilføj efterfølgende mellemrum",
-        "description": "Tilføj et mellemrum efter indsat transskription"
+        "description": "Tilføj et mellemrum efter indsat transskription."
       },
       "keyboardImplementation": {
         "title": "Tastaturimplementering",
         "description": "Vælg backend til tastaturgenveje.",
-        "bindingsReset": "Tastaturgenveje var inkompatible og blev nulstillet til standard"
+        "bindingsReset": "Tastaturgenveje var inkompatible og blev nulstillet til standard",
+        "options": {
+          "globalHotkey": "Global genvejstast",
+          "keyboardListener": "Tastaturlytter"
+        }
       },
       "paths": {
         "appData": "Appdata:",
@@ -547,7 +702,7 @@
       },
       "reliablePaste": {
         "title": "Pålidelig indsættelse (Beta)",
-        "description": "Gendan først din udklipsholder, når målappen faktisk har læst transskriptionen, i stedet for efter en fast forsinkelse. Skal afhjælpe, at gammelt udklipsholderindhold indsættes, når systemet er belastet. Kræver en indsætningsmetode via udklipsholderen; kun macOS og Windows."
+        "description": "Gendan først udklipsholderen, når målappen faktisk har læst transskriptionen, i stedet for efter en fast forsinkelse. Skal afhjælpe, at gammelt udklipsholderindhold indsættes, når systemet er belastet. Kræver en indsætningsmetode via udklipsholderen."
       },
       "recordingBuffer": {
         "title": "Ekstra optagelsesbuffer",
@@ -578,12 +733,64 @@
       "title": "Om",
       "whatsNewUpdates": {
         "label": "Vis nyheder",
-        "description": "Vis udgivelsesnoter, efter Bespoke opdateres"
+        "description": "Vis udgivelsesnoter, efter Bespoke opdateres."
       },
       "appDataDirectory": {
         "title": "Appdatamappe",
-        "description": "Placering, hvor Bespoke gemmer sine data"
+        "description": "Placering, hvor Bespoke gemmer sine data."
       }
+    },
+    "style": {
+      "intro": "Træk en app over på en stil, eller klik på den.",
+      "styles": {
+        "formal": {
+          "name": "Formel",
+          "example": "Hej, har du tid til frokost i morgen? Lad os sige kl. 12, hvis det passer dig."
+        },
+        "casual": {
+          "name": "Afslappet",
+          "example": "Hej har du tid til frokost i morgen? Lad os sige kl 12 hvis det passer dig"
+        },
+        "veryCasual": {
+          "name": "Meget afslappet",
+          "example": "hej har du tid til frokost imorgen? lad os sige 12 hvis det passer dig"
+        }
+      },
+      "board": {
+        "default": "Standard",
+        "defaultTitle": "Standardstil",
+        "defaultHelp": "Apps uden en regel bruger denne stil. Træk Standard over på en anden stil for at ændre den.",
+        "dropHere": "Slip en app her",
+        "remove": "Fjern regel"
+      },
+      "shelf": {
+        "title": "Tilføj apps",
+        "open": "Åbne nu",
+        "all": "Alle apps",
+        "search": "Søg i apps",
+        "loading": "Indlæser apps…",
+        "noMatch": "Ingen apps matcher.",
+        "noneLeft": "Alle apps her har en regel."
+      }
+    },
+    "updates": {
+      "version": "Version {{version}}",
+      "available": "Bespoke {{version}} er tilgængelig.",
+      "lastChecked": "Opdateret. Sidst tjekket {{when}}.",
+      "neverChecked": "Opdateret.",
+      "disabled": "Denne build opdaterer ikke sig selv.",
+      "update": "Opdater",
+      "checkNow": "Tjek nu",
+      "automatic": {
+        "label": "Søg automatisk efter opdateringer",
+        "description": "Bespoke tjekker én gang om dagen."
+      }
+    },
+    "nav": {
+      "general": "Generelt",
+      "sound": "Lyd",
+      "postProcessing": "Efterbehandling",
+      "app": "App"
     }
   },
   "whatsNew": {
@@ -596,7 +803,11 @@
     "open": "Åbn",
     "copy": "Kopiér",
     "clear": "Ryd",
-    "noOptionsFound": "Ingen muligheder fundet"
+    "noOptionsFound": "Ingen muligheder fundet",
+    "selectOption": "Vælg en mulighed...",
+    "unknownSize": "Ukendt størrelse",
+    "yes": "Ja",
+    "no": "Nej"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke har brug for tilgængelighedstilladelser for at skrive den transskriberede tekst.",
@@ -616,15 +827,16 @@
     "modelLoadFailedUnknown": "ukendt model",
     "pasteFailedTitle": "Kunne ikke indsætte tekst",
     "pasteFailed": "Teksten kunne ikke indsættes i det aktive program.",
-    "transcriptionFailedTitle": "Transskription mislykkedes"
+    "transcriptionFailedTitle": "Transskription mislykkedes",
+    "unknown": "Ukendt fejl"
   },
   "appLanguage": {
-    "title": "Applikationssprog",
-    "description": "Skift sproget for Bespoke-grænsefladen"
+    "title": "Sprog",
+    "description": "Skift sproget for Bespoke-grænsefladen."
   },
   "theme": {
-    "title": "Applikationstema",
-    "description": "Vælg om Bespoke skal følge dit systemtema eller forblive lyst eller mørkt",
+    "title": "Tema",
+    "description": "Vælg om Bespoke skal følge dit systemtema eller forblive lyst eller mørkt.",
     "options": {
       "system": "System",
       "light": "Lys",
@@ -644,5 +856,276 @@
     "recorderBlockedNoCulprit": "macOS blokerer midlertidigt ændringer af genveje",
     "recorderBlocked": "Genveje kan ikke optages lige nu — macOS Secure Input blokerer tastehændelser. Løs advarslen om Secure Input først.",
     "dismiss": "Afvis"
+  },
+  "triage": {
+    "title": "Undersøg et problem",
+    "showTitle": "Vis problemet",
+    "showHint": "Valgfrit. Tryk på {{shortcut}}, og fortæl, hvad du ser.",
+    "captured": "Optagelse fra {{time}} · {{duration}}",
+    "recordAgain": "Optag igen",
+    "removeCapture": "Udelad denne optagelse",
+    "agentTitle": "Vælg en agent",
+    "sendTitle": "Send prompten",
+    "sendDescription": "Bespoke skriver sine logs og indstillinger til en mappe og åbner agenten med en klar prompt. Du trykker send, og den spørger, hvad der gik galt. Den spørger, før den ændrer noget eller slår noget op.",
+    "start": "Start undersøgelse",
+    "cancel": "Annuller",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code i Claude-appen",
+    "claudeMissing": "Installer Claude-appen for at bruge dette",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code i et terminalvindue",
+    "claudeCodeMissing": "Send én prompt til claude i en terminal for at slå dens links til",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT i Codex-appen",
+    "codexMissing": "Ingen app på denne Mac åbner Codex-links",
+    "copy": "Kopiér prompt",
+    "copyDescription": "Indsæt den i en vilkårlig kodningsagent på denne Mac",
+    "opened": "Undersøgelsen er startet. Send prompten, og agenten spørger, hvad der gik galt.",
+    "copied": "Prompten er kopieret. Indsæt den i en kodningsagent på denne Mac.",
+    "failed": "Kunne ikke starte undersøgelsen"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Tilladelser"
+    },
+    "retention": {
+      "title": "Behold optagelser",
+      "custom": "Brugerdefineret",
+      "options": {
+        "week": "Video i 7 dage",
+        "month": "Video i 30 dage",
+        "forever": "For altid"
+      },
+      "notes": {
+        "week": "Video og lyd flyttes til papirkurven efter 7 dage, resten af hver optagelse efter 30 dage.",
+        "month": "Video og lyd flyttes til papirkurven efter 30 dage, resten af hver optagelse efter 90 dage.",
+        "forever": "Optagelser slettes aldrig.",
+        "custom": "Opbevaringen i config.json er indstillet manuelt."
+      }
+    },
+    "captures": {
+      "title": "Optagelser",
+      "size": "Optagelser fylder {{size}}.",
+      "measuring": "Måler…",
+      "openLatest": "Åbn seneste",
+      "showInFinder": "Vis i Finder"
+    },
+    "permissions": {
+      "granted": "Tilladt",
+      "allow": "Tillad",
+      "openSettings": "Åbn Systemindstillinger",
+      "relaunch": "Tilladt. Afslut og genåbn Bespoke for at optage skærmen.",
+      "blocked": "Slå {{permissions}} til for at optage.",
+      "screenRecording": {
+        "title": "Skærm- og systemlydoptagelse",
+        "description": "Optager skærmen. Påkrævet."
+      },
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Optager din fortælling. Påkrævet."
+      },
+      "accessibility": {
+        "title": "Tilgængelighed",
+        "description": "Registrerer tryk på ⌘Z, Esc og S under optagelse og indsætter optagelser. Påkrævet."
+      },
+      "panel": {
+        "drag": "Træk {{app}} til listen ovenfor for {{permission}}",
+        "allowed": "{{app}} er tilladt",
+        "back": "Tilbage",
+        "screenRecording": "Skærmoptagelse",
+        "accessibility": "Tilgængelighed"
+      }
+    },
+    "capsule": {
+      "area": "Område",
+      "window": "Vindue",
+      "screen": "Skærm",
+      "record": "Optag",
+      "undo": "Fortryd",
+      "cancel": "Annuller",
+      "finish": "Afslut",
+      "processing": "Behandler",
+      "copied": "Kopieret",
+      "saved": "Gemt",
+      "failed": "Kunne ikke gemme optagelsen",
+      "paste": "Indsæt",
+      "inspect": "Undersøg",
+      "marks_one": "{{count}} markering",
+      "marks_other": "{{count}} markeringer"
+    },
+    "library": {
+      "folder": "Optagelsesmappe",
+      "record": "Optag",
+      "empty": "Ingen optagelser endnu",
+      "emptyHint": "Tryk på {{record}} for at optage skærmen under markøren, mens du taler.",
+      "back": "Tilbage til optagelser",
+      "contactSheet": "Kontaktark",
+      "keyframe": "Nøglebillede",
+      "keyframes_one": "{{count}} nøglebillede",
+      "keyframes_other": "{{count}} nøglebilleder",
+      "timeline": "Tidslinje",
+      "showInFinder": "Vis i Finder",
+      "copy": "Kopiér",
+      "copied": "Kopieret",
+      "copyFailed": "Kunne ikke kopiere optagelsen"
+    },
+    "picker": {
+      "fullScreenHold": "Fuld skærm · {{holdKey}} for at skifte · træk for et område · slip {{holdMods}} for at optage",
+      "fullScreen": "Fuld skærm · Klik for at optage"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Agentadgang",
+      "off": "Kodningsagenter læser dine optagelser fra en MCP-server på denne Mac på port {{port}}.",
+      "local": "Lytter på 127.0.0.1, port {{port}}. Agenter på denne Mac forbinder direkte, og fjernmaskiner forbinder gennem en SSH-tunnel.",
+      "tailnet": "Lytter på 127.0.0.1 og {{address}}, port {{port}}. Maskiner i dit tailnet forbinder direkte.",
+      "tailnetWaiting": "Lytter på 127.0.0.1, port {{port}}. Tailscale er ikke forbundet på denne Mac. Bespoke lytter på dit tailnet, når det forbinder.",
+      "failed": "Serveren startede ikke: {{error}}",
+      "options": {
+        "off": "Fra",
+        "local": "Denne Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Tilføj til en agent",
+      "local": "Kopierer opsætningen med tokenet, så hold den privat. For en maskine, du tilgår via SSH, skal du også tilføje SSH-linjen til dens værtspost i denne Macs ~/.ssh/config.",
+      "tailnet": "Kopierer opsætningen med tokenet, så hold den privat. Det virker på denne Mac og alle maskiner i dit tailnet.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH-linje"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Et nyt token afbryder alle maskiner, du har tilføjet, indtil du kopierer den nye opsætning derhen.",
+      "renew": "Nyt token",
+      "renewed": "Nyt token oprettet. Kopiér opsætningen igen for hver maskine.",
+      "failed": "Kunne ikke oprette et nyt token"
+    },
+    "copied": "Kopieret",
+    "copyFailed": "Kunne ikke kopiere"
+  },
+  "menu": {
+    "hideApp": "Skjul Bespoke",
+    "hideOthers": "Skjul andre",
+    "showAll": "Vis alle",
+    "quitApp": "Slut Bespoke",
+    "edit": "Rediger",
+    "undo": "Fortryd",
+    "redo": "Gentag",
+    "cut": "Klip",
+    "copy": "Kopier",
+    "paste": "Sæt ind",
+    "selectAll": "Vælg alle",
+    "window": "Vindue",
+    "minimize": "Minimer",
+    "closeWindow": "Luk vindue"
+  },
+  "languages": {
+    "auto": "Registrer automatisk",
+    "en": "Engelsk",
+    "zh": "Kinesisk",
+    "zh-Hans": "Kinesisk (forenklet)",
+    "zh-Hant": "Kinesisk (traditionelt)",
+    "yue": "Kantonesisk",
+    "de": "Tysk",
+    "es": "Spansk",
+    "ru": "Russisk",
+    "ko": "Koreansk",
+    "fr": "Fransk",
+    "ja": "Japansk",
+    "pt": "Portugisisk",
+    "tr": "Tyrkisk",
+    "pl": "Polsk",
+    "ca": "Catalansk",
+    "nl": "Hollandsk",
+    "ar": "Arabisk",
+    "sv": "Svensk",
+    "it": "Italiensk",
+    "id": "Indonesisk",
+    "hi": "Hindi",
+    "fi": "Finsk",
+    "vi": "Vietnamesisk",
+    "he": "Hebraisk",
+    "uk": "Ukrainsk",
+    "el": "Græsk",
+    "ms": "Malajisk",
+    "cs": "Tjekkisk",
+    "ro": "Rumænsk",
+    "da": "Dansk",
+    "hu": "Ungarsk",
+    "ta": "Tamil",
+    "no": "Norsk",
+    "th": "Thai",
+    "ur": "Urdu",
+    "hr": "Kroatisk",
+    "bg": "Bulgarsk",
+    "lt": "Litauisk",
+    "la": "Latin",
+    "mi": "Maori",
+    "ml": "Malayalam",
+    "cy": "Walisisk",
+    "sk": "Slovakisk",
+    "te": "Telugu",
+    "fa": "Persisk",
+    "lv": "Lettisk",
+    "bn": "Bengali",
+    "sr": "Serbisk",
+    "az": "Aserbajdsjansk",
+    "sl": "Slovensk",
+    "kn": "Kannada",
+    "et": "Estisk",
+    "mk": "Makedonsk",
+    "br": "Bretonsk",
+    "eu": "Baskisk",
+    "is": "Islandsk",
+    "ga": "Irsk",
+    "hy": "Armensk",
+    "ne": "Nepalesisk",
+    "mn": "Mongolsk",
+    "bs": "Bosnisk",
+    "kk": "Kasakhisk",
+    "sq": "Albansk",
+    "sw": "Swahili",
+    "gl": "Galicisk",
+    "mr": "Marathi",
+    "pa": "Punjabi",
+    "si": "Singalesisk",
+    "km": "Khmer",
+    "sn": "Shona",
+    "yo": "Yoruba",
+    "so": "Somalisk",
+    "af": "Afrikaans",
+    "oc": "Occitansk",
+    "ka": "Georgisk",
+    "be": "Belarusisk",
+    "tg": "Tadsjikisk",
+    "sd": "Sindhi",
+    "gu": "Gujarati",
+    "am": "Amharisk",
+    "yi": "Jiddisch",
+    "lo": "Laotisk",
+    "uz": "Usbekisk",
+    "fo": "Færøsk",
+    "ht": "Haitisk kreolsk",
+    "ps": "Pashto",
+    "tk": "Turkmensk",
+    "nn": "Nynorsk",
+    "mt": "Maltesisk",
+    "sa": "Sanskrit",
+    "lb": "Luxembourgsk",
+    "my": "Burmesisk",
+    "bo": "Tibetansk",
+    "tl": "Filippinsk (tagalog)",
+    "mg": "Malagassisk",
+    "as": "Assamesisk",
+    "tt": "Tatarisk",
+    "haw": "Hawaiiansk",
+    "ln": "Lingala",
+    "ha": "Hausa",
+    "ba": "Basjkirsk",
+    "jw": "Javanesisk",
+    "su": "Sundanesisk"
   }
 }

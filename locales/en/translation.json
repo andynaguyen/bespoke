@@ -226,7 +226,8 @@
         "errors": {
           "restore": "Failed to restore original shortcut",
           "set": "Failed to set shortcut: {{error}}",
-          "reset": "Failed to reset shortcut to original value"
+          "reset": "Failed to reset shortcut to original value",
+          "updateBinding": "Failed to update binding"
         }
       },
       "language": {
@@ -245,9 +246,9 @@
           "toggle": "Toggle"
         },
         "descriptions": {
-          "hold_or_toggle": "Hold to record or tap to toggle",
-          "push_to_talk": "Records while you hold the shortcut",
-          "toggle": "Tap the shortcut to start recording, tap again to stop"
+          "hold_or_toggle": "Hold to record or tap to toggle.",
+          "push_to_talk": "Records while you hold the shortcut.",
+          "toggle": "Tap the shortcut to start recording, tap again to stop."
         }
       }
     },
@@ -275,7 +276,7 @@
       "title": "Sound",
       "microphone": {
         "title": "Microphone",
-        "description": "Dictate and Annotate both record from this microphone",
+        "description": "Dictate and Annotate both record from this microphone.",
         "placeholder": "Select microphone...",
         "loading": "Loading...",
         "priority": {
@@ -297,18 +298,19 @@
       },
       "audioFeedback": {
         "label": "Audio Feedback",
-        "description": "Play sound when recording starts and stops"
+        "description": "Play sound when recording starts and stops."
       },
       "outputDevice": {
         "title": "Output Device",
-        "description": "Select your preferred audio output device for feedback sounds",
+        "description": "Select your preferred audio output device for feedback sounds.",
         "placeholder": "Select output device...",
         "loading": "Loading..."
       },
       "volume": {
         "title": "Volume",
-        "description": "Adjust the volume of audio feedback sounds"
-      }
+        "description": "Adjust the volume of audio feedback sounds."
+      },
+      "defaultDevice": "Default"
     },
     "advanced": {
       "groups": {
@@ -366,7 +368,7 @@
       "overlay": {
         "style": {
           "title": "Style",
-          "description": "Choose the recording overlay",
+          "description": "Choose the recording overlay.",
           "options": {
             "none": "None",
             "minimal": "Minimal",
@@ -473,7 +475,8 @@
         "baseUrl": {
           "title": "Base URL",
           "description": "API base URL for the selected provider. Only the custom provider can be edited.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "Base URL is managed by the selected provider."
         },
         "apiKey": {
           "title": "API Key",
@@ -486,7 +489,8 @@
           "descriptionDefault": "Choose a model exposed by the selected provider.",
           "placeholderWithOptions": "Search or select a model",
           "placeholderNoOptions": "Type a model name",
-          "refreshModels": "Refresh models"
+          "refreshModels": "Refresh models",
+          "useTyped": "Use \"{{value}}\""
         }
       },
       "prompts": {
@@ -642,11 +646,18 @@
       "title": "Debug",
       "logDirectory": {
         "title": "Log Directory",
-        "description": "Location where log files are stored"
+        "description": "Location where log files are stored."
       },
       "logLevel": {
         "title": "Log Level",
-        "description": "Set the verbosity of logging"
+        "description": "Set the verbosity of logging.",
+        "options": {
+          "error": "Error",
+          "warn": "Warn",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Trace"
+        }
       },
       "liveLogs": {
         "title": "Live Logs",
@@ -661,34 +672,40 @@
       },
       "whatsNewPreview": {
         "title": "Preview What's New",
-        "description": "Open the latest bundled release note without marking it as seen",
+        "description": "Open the latest bundled release note without marking it as seen.",
         "button": "Preview",
         "noNotes": "No bundled release notes found",
         "error": "Failed to preview release notes"
       },
       "onboardingPreview": {
         "title": "Preview Onboarding",
-        "description": "Preview onboarding screens without changing permissions, models, or completion state",
+        "description": "Preview onboarding screens without changing permissions, models, or completion state.",
         "permissionsButton": "Permissions",
         "modelsButton": "Model Selection",
         "exitButton": "Exit Preview"
       },
       "soundTheme": {
         "label": "Sound Theme",
-        "description": "Choose a sound theme for recording start and stop feedback"
+        "description": "Choose a sound theme for recording start and stop feedback.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Custom"
+        },
+        "preview": "Preview sound theme (plays start then stop)"
       },
       "wordCorrectionThreshold": {
         "title": "Word Correction Threshold",
-        "description": "Sensitivity for custom word corrections"
+        "description": "Sensitivity for custom word corrections."
       },
       "historyLimit": {
         "title": "History Limit",
-        "description": "Maximum number of history entries to keep",
+        "description": "Maximum number of history entries to keep.",
         "entries": "entries"
       },
       "recordingRetention": {
         "title": "Auto-Delete Recordings",
-        "description": "Automatically delete old recordings to save space",
+        "description": "Automatically delete old recordings to save space.",
         "never": "Never",
         "preserveLimit": "Keep latest {{count}}",
         "days3": "After 3 days",
@@ -698,28 +715,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Always-On Microphone",
-        "description": "Keep microphone active for faster response"
+        "description": "Keep microphone active for faster response."
       },
       "clamshellMicrophone": {
         "title": "Clamshell Microphone",
-        "description": "Microphone to use when laptop lid is closed"
+        "description": "Microphone to use when laptop lid is closed."
       },
       "postProcessingToggle": {
         "label": "AI Post-Processing",
-        "description": "Enable AI-powered text refinement after transcription"
+        "description": "Enable AI-powered text refinement after transcription."
       },
       "muteWhileRecording": {
         "label": "Mute While Recording",
-        "description": "Mute system audio during recording"
+        "description": "Mute system audio during recording."
       },
       "appendTrailingSpace": {
         "label": "Append Trailing Space",
-        "description": "Add a space after pasted transcription"
+        "description": "Add a space after pasted transcription."
       },
       "keyboardImplementation": {
         "title": "Keyboard Implementation",
         "description": "Choose the keyboard shortcut backend.",
-        "bindingsReset": "Keyboard shortcuts were incompatible and reset to defaults"
+        "bindingsReset": "Keyboard shortcuts were incompatible and reset to defaults",
+        "options": {
+          "globalHotkey": "Global Hotkey",
+          "keyboardListener": "Keyboard Listener"
+        }
       },
       "paths": {
         "appData": "App Data:",
@@ -771,24 +792,24 @@
       "title": "About",
       "whatsNewUpdates": {
         "label": "Show What's New",
-        "description": "Show release notes after Bespoke updates"
+        "description": "Show release notes after Bespoke updates."
       },
       "appDataDirectory": {
         "title": "App Data Directory",
-        "description": "Location where Bespoke stores its data"
+        "description": "Location where Bespoke stores its data."
       }
     },
     "updates": {
       "version": "Version {{version}}",
-      "available": "Bespoke {{version}} is available",
-      "lastChecked": "Up to date. Last checked {{when}}",
-      "neverChecked": "Up to date",
-      "disabled": "This build doesn't update itself",
+      "available": "Bespoke {{version}} is available.",
+      "lastChecked": "Up to date. Last checked {{when}}.",
+      "neverChecked": "Up to date.",
+      "disabled": "This build doesn't update itself.",
       "update": "Update",
       "checkNow": "Check Now",
       "automatic": {
         "label": "Check for Updates Automatically",
-        "description": "Bespoke checks once a day"
+        "description": "Bespoke checks once a day."
       }
     },
     "nav": {
@@ -808,7 +829,11 @@
     "open": "Open",
     "copy": "Copy",
     "clear": "Clear",
-    "noOptionsFound": "No options found"
+    "noOptionsFound": "No options found",
+    "selectOption": "Select an option...",
+    "unknownSize": "Unknown size",
+    "yes": "Yes",
+    "no": "No"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke needs accessibility permissions to type transcribed text.",
@@ -828,15 +853,16 @@
     "modelLoadFailedUnknown": "unknown model",
     "pasteFailedTitle": "Failed to Paste Text",
     "pasteFailed": "Text could not be pasted into the active application.",
-    "transcriptionFailedTitle": "Transcription Failed"
+    "transcriptionFailedTitle": "Transcription Failed",
+    "unknown": "Unknown error"
   },
   "appLanguage": {
     "title": "Language",
-    "description": "Change the language of the Bespoke interface"
+    "description": "Change the language of the Bespoke interface."
   },
   "theme": {
     "title": "Theme",
-    "description": "Choose whether Bespoke follows your system theme or stays light or dark",
+    "description": "Choose whether Bespoke follows your system theme or stays light or dark.",
     "options": {
       "system": "System",
       "light": "Light",
@@ -900,6 +926,13 @@
       "accessibility": {
         "title": "Accessibility",
         "description": "Sees ⌘Z, Esc and S presses while recording, and pastes captures. Required."
+      },
+      "panel": {
+        "drag": "Drag {{app}} to the list above to allow {{permission}}",
+        "allowed": "{{app}} is allowed",
+        "back": "Back",
+        "screenRecording": "Screen Recording",
+        "accessibility": "Accessibility"
       }
     },
     "capsule": {
@@ -934,6 +967,10 @@
       "copy": "Copy",
       "copied": "Copied",
       "copyFailed": "Couldn't copy the capture"
+    },
+    "picker": {
+      "fullScreenHold": "Full screen · {{holdKey}} to switch · drag for an area · release {{holdMods}} to record",
+      "fullScreen": "Full screen · Click to record"
     }
   },
   "mcp": {
@@ -967,5 +1004,127 @@
     },
     "copied": "Copied",
     "copyFailed": "Couldn't copy"
+  },
+  "menu": {
+    "hideApp": "Hide Bespoke",
+    "hideOthers": "Hide Others",
+    "showAll": "Show All",
+    "quitApp": "Quit Bespoke",
+    "edit": "Edit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All",
+    "window": "Window",
+    "minimize": "Minimize",
+    "closeWindow": "Close Window"
+  },
+  "languages": {
+    "auto": "Auto Detect",
+    "en": "English",
+    "zh": "Chinese",
+    "zh-Hans": "Chinese (Simplified)",
+    "zh-Hant": "Chinese (Traditional)",
+    "yue": "Cantonese",
+    "de": "German",
+    "es": "Spanish",
+    "ru": "Russian",
+    "ko": "Korean",
+    "fr": "French",
+    "ja": "Japanese",
+    "pt": "Portuguese",
+    "tr": "Turkish",
+    "pl": "Polish",
+    "ca": "Catalan",
+    "nl": "Dutch",
+    "ar": "Arabic",
+    "sv": "Swedish",
+    "it": "Italian",
+    "id": "Indonesian",
+    "hi": "Hindi",
+    "fi": "Finnish",
+    "vi": "Vietnamese",
+    "he": "Hebrew",
+    "uk": "Ukrainian",
+    "el": "Greek",
+    "ms": "Malay",
+    "cs": "Czech",
+    "ro": "Romanian",
+    "da": "Danish",
+    "hu": "Hungarian",
+    "ta": "Tamil",
+    "no": "Norwegian",
+    "th": "Thai",
+    "ur": "Urdu",
+    "hr": "Croatian",
+    "bg": "Bulgarian",
+    "lt": "Lithuanian",
+    "la": "Latin",
+    "mi": "Maori",
+    "ml": "Malayalam",
+    "cy": "Welsh",
+    "sk": "Slovak",
+    "te": "Telugu",
+    "fa": "Persian",
+    "lv": "Latvian",
+    "bn": "Bengali",
+    "sr": "Serbian",
+    "az": "Azerbaijani",
+    "sl": "Slovenian",
+    "kn": "Kannada",
+    "et": "Estonian",
+    "mk": "Macedonian",
+    "br": "Breton",
+    "eu": "Basque",
+    "is": "Icelandic",
+    "ga": "Irish",
+    "hy": "Armenian",
+    "ne": "Nepali",
+    "mn": "Mongolian",
+    "bs": "Bosnian",
+    "kk": "Kazakh",
+    "sq": "Albanian",
+    "sw": "Swahili",
+    "gl": "Galician",
+    "mr": "Marathi",
+    "pa": "Punjabi",
+    "si": "Sinhala",
+    "km": "Khmer",
+    "sn": "Shona",
+    "yo": "Yoruba",
+    "so": "Somali",
+    "af": "Afrikaans",
+    "oc": "Occitan",
+    "ka": "Georgian",
+    "be": "Belarusian",
+    "tg": "Tajik",
+    "sd": "Sindhi",
+    "gu": "Gujarati",
+    "am": "Amharic",
+    "yi": "Yiddish",
+    "lo": "Lao",
+    "uz": "Uzbek",
+    "fo": "Faroese",
+    "ht": "Haitian Creole",
+    "ps": "Pashto",
+    "tk": "Turkmen",
+    "nn": "Nynorsk",
+    "mt": "Maltese",
+    "sa": "Sanskrit",
+    "lb": "Luxembourgish",
+    "my": "Myanmar",
+    "bo": "Tibetan",
+    "tl": "Filipino (Tagalog)",
+    "mg": "Malagasy",
+    "as": "Assamese",
+    "tt": "Tatar",
+    "haw": "Hawaiian",
+    "ln": "Lingala",
+    "ha": "Hausa",
+    "ba": "Bashkir",
+    "jw": "Javanese",
+    "su": "Sundanese"
   }
 }

@@ -34,6 +34,7 @@ enum PermissionPanel {
     guard let raw = option("--permission", in: arguments), let kind = Kind(rawValue: raw) else {
       fail("permission-panel needs --permission screen-recording|accessibility")
     }
+    PanelText.read(arguments)
     let source = option("--from", in: arguments).flatMap(parseRect)
     let app = NSApplication.shared
     let controller = Controller(
@@ -325,22 +326,44 @@ extension PermissionPanel {
         ZStack(alignment: .leading) {
           dragText.opacity(model.phase == .granted ? 0 : 1)
             .blur(radius: model.phase == .granted ? 3 : 0)
-          (Text(appName).foregroundStyle(.primary).fontWeight(.medium) + Text(" is allowed").foregroundStyle(.secondary))
+          text(fromTemplate: PanelText.allowed)
             .opacity(model.phase == .granted ? 1 : 0)
             .blur(radius: model.phase == .granted ? 0 : 3)
         }
         .font(.system(size: 13))
         .lineLimit(1)
-        .minimumScaleFactor(0.85)
+        .minimumScaleFactor(0.7)
         Spacer(minLength: 0)
       }
     }
 
     private var dragText: Text {
-      Text("Drag ").foregroundStyle(.secondary)
-        + Text(appName).foregroundStyle(.primary).fontWeight(.medium)
-        + Text(" to the list above to allow ").foregroundStyle(.secondary)
-        + Text(kind.title).foregroundStyle(.primary).fontWeight(.medium)
+      text(fromTemplate: PanelText.drag)
+    }
+
+    private enum TemplateValue: String {
+      case app, permission
+    }
+
+    private func string(for value: TemplateValue) -> String {
+      switch value {
+      case .app: return appName
+      case .permission: return PanelText.permissionTitle ?? kind.title
+      }
+    }
+
+    private func text(fromTemplate template: String) -> Text {
+      var result = Text(verbatim: "")
+      var rest = Substring(template)
+      while let open = rest.range(of: "{{"),
+            let close = rest.range(of: "}}", range: open.upperBound..<rest.endIndex) {
+        result = result + Text(verbatim: String(rest[..<open.lowerBound])).foregroundStyle(.secondary)
+        if let value = TemplateValue(rawValue: String(rest[open.upperBound..<close.lowerBound])) {
+          result = result + Text(verbatim: string(for: value)).foregroundStyle(.primary).fontWeight(.medium)
+        }
+        rest = rest[close.upperBound...]
+      }
+      return result + Text(verbatim: String(rest)).foregroundStyle(.secondary)
     }
 
     private var appRow: some View {
@@ -385,7 +408,7 @@ extension PermissionPanel {
           .contentShape(Circle())
       }
       .buttonStyle(.plain)
-      .help("Back")
+      .help(PanelText.back)
       .onHover { hovering = $0 }
       .animation(.spring(duration: 0.25, bounce: 0), value: hovering)
     }
@@ -1103,5 +1126,19 @@ extension PermissionPanel {
       let t = min(max((x - a) / (b - a), 0), 1)
       return t * t * (3 - 2 * t)
     }
+  }
+}
+
+enum PanelText {
+  nonisolated(unsafe) static var drag = "Drag {{app}} to the list above to allow {{permission}}"
+  nonisolated(unsafe) static var allowed = "{{app}} is allowed"
+  nonisolated(unsafe) static var back = "Back"
+  nonisolated(unsafe) static var permissionTitle: String?
+
+  static func read(_ arguments: [String]) {
+    drag = option("--drag-text", in: arguments) ?? drag
+    allowed = option("--allowed-text", in: arguments) ?? allowed
+    back = option("--back-text", in: arguments) ?? back
+    permissionTitle = option("--permission-title", in: arguments)
   }
 }

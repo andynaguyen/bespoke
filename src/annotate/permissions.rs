@@ -78,6 +78,14 @@ pub fn request_screen_capture() {
     ));
 }
 
+fn translated_panel_title(permission: Permission) -> Option<gpui::SharedString> {
+    let key = match permission {
+        Permission::ScreenRecording => "annotate.permissions.panel.screenRecording",
+        _ => "annotate.permissions.panel.accessibility",
+    };
+    (crate::i18n::language() != "en").then(|| crate::i18n::t(key))
+}
+
 /// Opens the panel to drag Bespoke into for `permission`, or its pane in System Settings.
 pub fn open_permission_settings(permission: Permission) {
     crate::annotate::capture::annotate_log(format!(
@@ -88,9 +96,22 @@ pub fn open_permission_settings(permission: Permission) {
             Permission::ScreenRecording => "screen-recording",
             _ => "accessibility",
         };
+        let translated_title = translated_panel_title(permission);
+        let text = [
+            ("--drag-text", "annotate.permissions.panel.drag"),
+            ("--allowed-text", "annotate.permissions.panel.allowed"),
+            ("--back-text", "annotate.permissions.panel.back"),
+        ];
         let spawned = crate::annotate::helper::path().and_then(|helper| {
-            std::process::Command::new(helper)
-                .args(["permission-panel", "--permission", name])
+            let mut command = std::process::Command::new(helper);
+            command.args(["permission-panel", "--permission", name]);
+            for (flag, key) in text {
+                command.args([flag, crate::i18n::t(key).as_ref()]);
+            }
+            if let Some(title) = &translated_title {
+                command.args(["--permission-title", title.as_ref()]);
+            }
+            command
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())

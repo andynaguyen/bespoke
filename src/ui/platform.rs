@@ -27,7 +27,7 @@ pub fn reduce_motion() -> bool {
 pub use imp::{
     CursorScreen, accessibility_granted, launch_as_accessory, microphone_authorization,
     microphone_granted, prevent_panels_from_taking_focus, request_accessibility,
-    request_microphone, set_activation_policy_regular, set_app_appearance,
+    request_microphone, set_activation_policy_regular, set_app_appearance, set_window_menu_title,
 };
 
 pub use imp::capsule;
@@ -304,6 +304,32 @@ mod imp {
             let p = NSEvent::mouseLocation();
             let down = NSEvent::pressedMouseButtons() & 1 != 0;
             Some(([p.x, height - p.y], down))
+        }
+    }
+
+    /// Titles the Window menu, which GPUI requires to be named "Window".
+    pub fn set_window_menu_title(title: &str) {
+        let Some(mtm) = MainThreadMarker::new() else {
+            return;
+        };
+        let app = NSApplication::sharedApplication(mtm);
+        let title = NSString::from_str(title);
+        unsafe {
+            let menu: *mut AnyObject = msg_send![&*app, windowsMenu];
+            if menu.is_null() {
+                return;
+            }
+            let _: () = msg_send![menu, setTitle: &*title];
+            let parent: *mut AnyObject = msg_send![menu, supermenu];
+            if parent.is_null() {
+                return;
+            }
+            let index: isize = msg_send![parent, indexOfItemWithSubmenu: menu];
+            if index < 0 {
+                return;
+            }
+            let item: *mut AnyObject = msg_send![parent, itemAtIndex: index];
+            let _: () = msg_send![item, setTitle: &*title];
         }
     }
 

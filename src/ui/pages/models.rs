@@ -9,7 +9,7 @@ use crate::managers::model::ModelInfo;
 use crate::ui::components::{
     KeyboardFocus, RowDirection, Spinner, TextField, Tooltip, Typography, icon,
 };
-use crate::ui::languages::{model_capability_languages, supports_language_code};
+use crate::ui::languages::{language_name, model_capability_languages, supports_language_code};
 use crate::ui::model_card::{CardStatus, ModelCard, is_legacy};
 use crate::ui::shell::Toolbar;
 use crate::ui::stores::ModelStore;
@@ -73,12 +73,7 @@ impl ModelsPage {
 
     fn sync_language(&mut self, cx: &mut Context<Self>) {
         let options = model_capability_languages()
-            .map(|(code, label)| {
-                (
-                    SharedString::new_static(code),
-                    SharedString::new_static(label),
-                )
-            })
+            .map(|(code, label)| (SharedString::new_static(code), language_name(code, label)))
             .collect();
         let selected = self.language_filter.clone();
         self.language.update(cx, |picker, _| {
@@ -142,7 +137,7 @@ impl ModelsPage {
             PromptLevel::Warning,
             &t("settings.models.deleteTitle"),
             Some(&message),
-            &["Yes", "No"],
+            &[t("common.yes").as_ref(), t("common.no").as_ref()],
             cx,
         );
         let id = id.to_string();

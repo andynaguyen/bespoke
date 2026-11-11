@@ -1,3 +1,7 @@
+use gpui::SharedString;
+
+use crate::i18n::t_or;
+
 pub static LANGUAGES: &[(&str, &str)] = &[
     ("auto", "Auto Detect"),
     ("en", "English"),
@@ -130,9 +134,15 @@ pub fn unique_capability_languages(supported: &[String]) -> Vec<String> {
         .collect()
 }
 
-pub fn language_label(code: &str) -> Option<&'static str> {
-    let find = |code: &str| LANGUAGES.iter().find(|(c, _)| *c == code).map(|(_, l)| *l);
-    find(code).or_else(|| find(recognition_language(code)))
+pub fn language_name(code: &str, english: &str) -> SharedString {
+    t_or(&format!("languages.{code}"), english)
+}
+
+pub fn language_label(code: &str) -> Option<SharedString> {
+    let find = |code: &str| LANGUAGES.iter().find(|(c, _)| *c == code);
+    find(code)
+        .or_else(|| find(recognition_language(code)))
+        .map(|(code, english)| language_name(code, english))
 }
 
 pub fn selectable_languages() -> impl Iterator<Item = &'static (&'static str, &'static str)> {

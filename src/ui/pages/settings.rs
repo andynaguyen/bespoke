@@ -401,7 +401,7 @@ impl SettingsDialog {
             use crate::settings::OrtAcceleratorSetting;
             let label = |v: &str| -> SharedString {
                 match v {
-                    "auto" => "Auto".into(),
+                    "auto" => t("settings.advanced.acceleration.gpuDevice.auto"),
                     "cpu" => "CPU".into(),
                     "cuda" => "CUDA".into(),
                     "directml" => "DirectML".into(),

@@ -15,8 +15,8 @@ use crate::ui::components::{
     Typography, reset_button,
 };
 use crate::ui::languages::{
-    CHINESE_LANGUAGE_CODE, language_label, recognition_language, selectable_languages,
-    supports_language_code, unique_capability_languages,
+    CHINESE_LANGUAGE_CODE, language_label, language_name, recognition_language,
+    selectable_languages, supports_language_code, unique_capability_languages,
 };
 use crate::ui::stores::{ModelStore, SettingsStore};
 use crate::ui::theme::{Alpha, palette};
@@ -224,12 +224,7 @@ impl DictationSettings {
                         supports_language_code(&model.supported_languages, code)
                     }
             })
-            .map(|(code, label)| {
-                (
-                    SharedString::new_static(code),
-                    SharedString::new_static(label),
-                )
-            })
+            .map(|(code, label)| (SharedString::new_static(code), language_name(code, label)))
             .collect();
         let label_selected = language_label(&selected).map(|_| selected.clone());
         let updating = self.store.read(cx).is_updating("selected_language");

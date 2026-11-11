@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Afsluiten",
     "cancel": "Annuleren",
-    "secureInputWarning": "⚠ Sneltoetsen geblokkeerd door Secure Input"
+    "secureInputWarning": "⚠ Sneltoetsen geblokkeerd door Secure Input",
+    "annotate": "Annoteren",
+    "annotateRecord": "Scherm opnemen",
+    "annotateChoose": "Kies wat je opneemt…",
+    "annotateOpenLatest": "Laatste opname openen",
+    "checkForUpdates": "Controleren op updates…",
+    "updateTo": "Bijwerken naar {{version}}…",
+    "triage": "Probleem onderzoeken…"
   },
   "sidebar": {
     "models": "Modellen",
     "stats": "Statistieken",
-    "debug": "Probleemoplossing"
+    "debug": "Probleemoplossing",
+    "settings": "Instellingen",
+    "dictate": "Dicteren",
+    "dictionary": "Woordenboek",
+    "annotate": "Annoteren",
+    "mcp": "MCP",
+    "update": {
+      "available": "Update beschikbaar",
+      "version": "Versie {{version}}",
+      "button": "Bijwerken"
+    }
   },
   "onboarding": {
     "subtitle": "Kies een transcriptiemodel om aan de slag te gaan",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Een groot, trager, maar zeer nauwkeurig meertalig model."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Ingebouwd in macOS. Draait op deze Mac met het spraakmodel van Apple."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "translation": "Kan vertalen naar het Engels",
       "translate": "Vertalen",
       "streaming": "Toont live transcriptie tijdens het spreken"
-    }
+    },
+    "errors": {
+      "rescan": "Opnieuw scannen van modellen mislukt",
+      "delete": "Model verwijderen mislukt"
+    },
+    "builtIn": "Ingebouwd in macOS"
   },
   "settings": {
     "general": {
@@ -140,7 +166,7 @@
         "bindings": {
           "transcribe": {
             "name": "Sneltoets voor dicteren",
-            "description": "De sneltoets om je stem op te nemen en te transcriberen."
+            "description": "Druk op toetsen, de middelste muisknop of een zijknop om je stem op te nemen en te transcriberen. De linker- en rechtermuisknop vereisen een speciale toets."
           },
           "cancel": {
             "name": "Sneltoets voor annuleren",
@@ -149,12 +175,32 @@
           "transcribe_with_post_process": {
             "name": "Sneltoets voor naverwerking",
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
+          },
+          "annotate": {
+            "name": "Sneltoets voor annoteren",
+            "description": "Tik om het scherm onder de aanwijzer op te nemen, tik nogmaals om te stoppen. Houd vast om een gebied, een venster of het scherm te kiezen."
+          },
+          "annotate_paste": {
+            "name": "Laatste opname plakken",
+            "description": "Plakt het contactvel en de samenvatting van de laatste opname in de app op de voorgrond."
           }
         },
         "errors": {
           "restore": "Herstellen van originele sneltoets mislukt",
           "set": "Instellen van sneltoets mislukt: {{error}}",
-          "reset": "Sneltoets terugzetten naar standaardwaarde mislukt"
+          "reset": "Sneltoets terugzetten naar standaardwaarde mislukt",
+          "updateBinding": "Bijwerken van sneltoets mislukt"
+        },
+        "pressKeysOrMouse": "Druk op toetsen of een muisknop...",
+        "mouseButtons": {
+          "mouseleft": "Linkermuisknop",
+          "mouseright": "Rechtermuisknop",
+          "mousemiddle": "Middelste muisknop",
+          "mousex1": "Muisknop 4",
+          "mousex2": "Muisknop 5",
+          "mouse6": "Muisknop 6",
+          "mouse7": "Muisknop 7",
+          "mouse8": "Muisknop 8"
         }
       },
       "language": {
@@ -173,9 +219,9 @@
           "toggle": "Schakelen"
         },
         "descriptions": {
-          "hold_or_toggle": "Houd ingedrukt om op te nemen of tik om te schakelen",
-          "push_to_talk": "Neemt op zolang je de sneltoets ingedrukt houdt",
-          "toggle": "Tik op de sneltoets om de opname te starten, tik opnieuw om te stoppen"
+          "hold_or_toggle": "Houd ingedrukt om op te nemen of tik om te schakelen.",
+          "push_to_talk": "Neemt op zolang je de sneltoets ingedrukt houdt.",
+          "toggle": "Tik op de sneltoets om de opname te starten, tik opnieuw om te stoppen."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Geluid",
       "microphone": {
         "title": "Microfoon",
-        "description": "Selecteer de gewenste microfoon",
+        "description": "Selecteer de gewenste microfoon.",
         "placeholder": "Microfoon selecteren...",
-        "loading": "Laden..."
+        "loading": "Laden...",
+        "priority": {
+          "title": "Prioriteit",
+          "description": "Dicteren en Annoteren nemen op met de eerste aangesloten microfoon. Sleep om de volgorde te wijzigen.",
+          "add": "Microfoon toevoegen",
+          "noneToAdd": "Geen andere microfoons aangesloten",
+          "inUse": "In gebruik",
+          "notConnected": "Niet aangesloten",
+          "systemDefault": "Systeemstandaard",
+          "alwaysLast": "Altijd als laatste"
+        }
       },
       "channel": {
         "title": "Ingangskanaal",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Geluidsfeedback",
-        "description": "Geluid afspelen wanneer de opname start en stopt"
+        "description": "Geluid afspelen wanneer de opname start en stopt."
       },
       "outputDevice": {
         "title": "Afspeelapparaat",
-        "description": "Selecteer het gewenste audioapparaat voor feedbackgeluiden",
+        "description": "Selecteer het gewenste audioapparaat voor feedbackgeluiden.",
         "placeholder": "Afspeelapparaat selecteren...",
         "loading": "Laden..."
       },
       "volume": {
         "title": "Volume",
-        "description": "Pas het volume van de geluidsfeedback aan"
-      }
+        "description": "Pas het volume van de geluidsfeedback aan."
+      },
+      "defaultDevice": "Standaard"
     },
     "advanced": {
       "groups": {
         "transcription": "Transcriptie",
-        "experimental": "Experimenteel"
+        "experimental": "Experimenteel",
+        "dictation": "Dicteren",
+        "appearance": "Weergave",
+        "system": "Systeem",
+        "shortcut": "Sneltoets",
+        "cleanup": "Opschonen",
+        "pasting": "Plakken",
+        "submitting": "Verzenden",
+        "startup": "Opstarten",
+        "updates": "Updates",
+        "application": "Applicatie",
+        "overlay": "Overlay",
+        "voiceCommands": "Spraakopdrachten",
+        "keyboard": "Toetsenbord",
+        "acceleration": "Versnelling",
+        "recording": "Opnemen"
       },
       "experimentalToggle": {
         "label": "Experimentele functies",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "transcribe.cpp-versnelling",
-          "description": "Hardwareversnelling voor transcribe.cpp-modellen (Whisper-familie). 'Automatisch' gebruikt de GPU indien beschikbaar (Metal op macOS, Vulkan op Windows/Linux)."
+          "description": "Hardwareversnelling voor transcribe.cpp-modellen (Whisper-familie). 'Automatisch' gebruikt de GPU via Metal als die beschikbaar is."
         },
         "ort": {
           "title": "ONNX-versnelling",
-          "description": "Hardwareversnelling voor ONNX-modellen (Parakeet, Canary, Moonshine, etc.). DirectML op Windows is experimenteel; modellen kunnen daardoor haperen."
+          "description": "Hardwareversnelling voor ONNX-modellen (Parakeet, Canary, Moonshine, etc.). Modellen kunnen falen bij het transcriberen."
         },
         "gpuDevice": {
           "auto": "Automatisch"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Kies de opname-overlay: 'Geen' verbergt deze, 'Minimaal' toont een compacte balk, 'Live' toont de tekst in realtime tijdens het spreken (alleen voor streaming-modellen). Op Linux wordt 'Geen' aanbevolen.",
+          "title": "Stijl",
+          "description": "Kies de opname-overlay.",
           "options": {
             "none": "Geen",
             "minimal": "Minimaal",
@@ -277,7 +349,7 @@
           }
         },
         "position": {
-          "title": "Overlay-positie",
+          "title": "Positie",
           "description": "Waar de overlay op het scherm verschijnt tijdens het opnemen en transcriberen.",
           "options": {
             "bottom": "Onderkant",
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Automatisch verzenden",
-        "description": "Verzend automatisch de geselecteerde toetsencombinatie na het invoegen van de tekst. Cmd+Enter geldt voor macOS, Windows/Linux gebruiken Super+Enter.",
+        "description": "Verzend automatisch de geselecteerde toetsencombinatie na het invoegen van de tekst.",
         "options": {
           "off": "Uit",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Opvulwoorden verwijderen",
         "description": "Verwijdert veelvoorkomende aarzelwoorden uit transcripties. Schakel dit uit om ze te behouden."
+      },
+      "voiceScrub": {
+        "title": "Alles wissen met stem",
+        "description": "Zeg je trefwoord om alles wat je tot nu toe hebt gezegd weg te gooien en opnieuw te beginnen.",
+        "keyword": {
+          "title": "Trefwoord om alles te wissen",
+          "description": "Alles wat je daarvoor hebt gezegd, wordt weggegooid.",
+          "invalid": "Gebruik een woord met letters of cijfers."
+        }
+      },
+      "voiceScratch": {
+        "title": "Zin wissen met stem",
+        "description": "Zeg je trefwoord om de zin die je net hebt gezegd te verwijderen en verder te dicteren.",
+        "keyword": {
+          "title": "Trefwoord om zin te wissen",
+          "description": "Zeg het als losse frase, met een pauze ervoor en erna. De zin ervoor wordt verwijderd.",
+          "invalid": "Gebruik een woord met letters of cijfers."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "Basis-URL",
           "description": "API-basis-URL voor de geselecteerde provider. Alleen de aangepaste provider kan worden bewerkt.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "De basis-URL wordt beheerd door de geselecteerde provider."
         },
         "apiKey": {
           "title": "API-sleutel",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Kies een model dat door de geselecteerde provider wordt aangeboden.",
           "placeholderWithOptions": "Zoek of selecteer een model",
           "placeholderNoOptions": "Typ een modelnaam",
-          "refreshModels": "Modellen verversen"
+          "refreshModels": "Modellen verversen",
+          "useTyped": "\"{{value}}\" gebruiken"
         }
       },
       "prompts": {
@@ -414,20 +506,57 @@
       "dayPopover": {
         "words": "Totaal aantal woorden",
         "appsUsed": "Gebruikte apps",
-        "topApp": "Meest gebruikte app"
+        "topApp": "Meest gebruikte app",
+        "captures": "Opnames",
+        "timeRecorded": "Opnametijd"
       },
       "less": "Minder",
-      "more": "Meer"
+      "more": "Meer",
+      "captures": "Opnames",
+      "timeRecorded": "Opnametijd",
+      "marksDrawn": "Getekende markeringen",
+      "duration": {
+        "seconds": "{{seconds}}s",
+        "minutesSeconds": "{{minutes}}m {{seconds}}s",
+        "hoursMinutes": "{{hours}}u {{minutes}}m"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Woordenboek",
-        "history": "Geschiedenis"
+        "history": "Geschiedenis",
+        "style": "Stijl"
       },
       "save": "Opslaan",
       "cancel": "Annuleren",
       "remove": "{{word}} verwijderen",
-      "duplicate": "\"{{word}}\" bestaat al"
+      "duplicate": "\"{{word}}\" bestaat al",
+      "replacements": "Vervangingen",
+      "replacementsHelp": "Zeg de frase links, en Bespoke schrijft de tekst rechts.",
+      "words": "Woorden",
+      "wordsHelp": "Namen, vakjargon en afkortingen die Bespoke precies zo moet spellen.",
+      "addReplacement": "Vervanging toevoegen",
+      "editWord": "Woord bewerken",
+      "editReplacement": "Vervanging bewerken",
+      "wordPlaceholder": "Een naam of term, zoals \"IntraFi\"",
+      "writeInsteadLabel": "Schrijf in plaats daarvan",
+      "writeInsteadPlaceholder": "De tekst die Bespoke ervoor in de plaats schrijft",
+      "phraseLabel": "Als je zegt",
+      "phrasePlaceholder": "Een frase, zoals \"mijn e-mail\"",
+      "addWord": "Woord toevoegen",
+      "addedTag": "Toegevoegd",
+      "tryIt": "Probeer het",
+      "tryItHint": "Dicteer met {{shortcut}} terwijl deze pagina open is. Bespoke toont de tekst hier in plaats van hem te plakken.",
+      "tryItEmpty": "Bespoke heeft geen woorden gehoord.",
+      "fixedCount_one": "1 correctie uit het woordenboek",
+      "fixedCount_other": "{{count}} correcties uit het woordenboek",
+      "pickWord": "Klik op een woord dat Bespoke verkeerd had om het te leren. Shift-klik op het volgende woord om dat toe te voegen.",
+      "teachLabel": "Bespoke hoorde",
+      "spellingPlaceholder": "De juiste spelling",
+      "wontMatch": "Bespoke koppelt \"{{heard}}\" niet aan een woord dat zo anders is. Voeg het toe als vervanging.",
+      "teachWord": "Woord toevoegen",
+      "teachReplacement": "Toevoegen als vervanging",
+      "added": "Toegevoegd. Dicteer de zin nogmaals om het te controleren."
     },
     "history": {
       "title": "Geschiedenis",
@@ -443,17 +572,33 @@
       "retranscribe": "Opnieuw transcriberen",
       "retranscribeError": "Opnieuw transcriberen mislukt. Probeer het opnieuw.",
       "transcribing": "Transcriberen...",
-      "transcriptionFailed": "Transcriptie mislukt. Je kunt het opnieuw proberen via het herlaad-pictogram."
+      "transcriptionFailed": "Transcriptie mislukt. Je kunt het opnieuw proberen via het herlaad-pictogram.",
+      "transcript": "Transcriptie",
+      "details": "Details",
+      "recorded": "Opgenomen",
+      "wordCount": "Woorden",
+      "postProcessed": "Naverwerkt",
+      "prompt": "Prompt",
+      "copy": "Kopiëren",
+      "copied": "Gekopieerd",
+      "noSelection": "Selecteer een transcriptie om die hier te zien."
     },
     "debug": {
       "title": "Probleemoplossing",
       "logDirectory": {
         "title": "Logboekmap",
-        "description": "Locatie waar logbestanden worden opgeslagen"
+        "description": "Locatie waar logbestanden worden opgeslagen."
       },
       "logLevel": {
         "title": "Logboekniveau",
-        "description": "Stel de gedetailleerdheid van de logboeken in"
+        "description": "Stel de gedetailleerdheid van de logboeken in.",
+        "options": {
+          "error": "Fout",
+          "warn": "Waarschuwing",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Trace"
+        }
       },
       "liveLogs": {
         "title": "Live logboeken",
@@ -468,34 +613,40 @@
       },
       "whatsNewPreview": {
         "title": "Voorbeeld van release-notes",
-        "description": "Open de nieuwste meegeleverde release-notes zonder deze als gelezen te markeren",
+        "description": "Open de nieuwste meegeleverde release-notes zonder deze als gelezen te markeren.",
         "button": "Voorbeeld",
         "noNotes": "Geen meegeleverde release-notes gevonden",
         "error": "Voorbeeld van release-notes laden mislukt"
       },
       "onboardingPreview": {
         "title": "Voorbeeld van onboarding",
-        "description": "Bekijk de onboardingschermen zonder machtigingen, modellen of de voltooiingsstatus te wijzigen",
+        "description": "Bekijk de onboardingschermen zonder machtigingen, modellen of de voltooiingsstatus te wijzigen.",
         "permissionsButton": "Machtigingen",
         "modelsButton": "Modelselectie",
         "exitButton": "Voorbeeld sluiten"
       },
       "soundTheme": {
         "label": "Geluidsthema",
-        "description": "Kies een geluidsthema voor feedback bij het starten en stoppen van opnames"
+        "description": "Kies een geluidsthema voor feedback bij het starten en stoppen van opnames.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Aangepast"
+        },
+        "preview": "Geluidsthema beluisteren (speelt start en daarna stop)"
       },
       "wordCorrectionThreshold": {
         "title": "Drempelwaarde woordcorrectie",
-        "description": "Gevoeligheid voor eigen woordcorrecties"
+        "description": "Gevoeligheid voor eigen woordcorrecties."
       },
       "historyLimit": {
         "title": "Geschiedenislimiet",
-        "description": "Maximum aantal te bewaren geschiedenisitems",
+        "description": "Maximum aantal te bewaren geschiedenisitems.",
         "entries": "items"
       },
       "recordingRetention": {
         "title": "Opnames automatisch verwijderen",
-        "description": "Oude opnames automatisch verwijderen om ruimte te besparen",
+        "description": "Oude opnames automatisch verwijderen om ruimte te besparen.",
         "never": "Nooit",
         "preserveLimit": "Bewaar de nieuwste {{count}}",
         "days3": "Na 3 dagen",
@@ -505,28 +656,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Microfoon altijd aan",
-        "description": "Houd de microfoon actief voor een snellere reactietijd"
+        "description": "Houd de microfoon actief voor een snellere reactietijd."
       },
       "clamshellMicrophone": {
         "title": "Clamshell-microfoon",
-        "description": "Microfoon die gebruikt moet worden wanneer het laptopscherm gesloten is"
+        "description": "Microfoon die gebruikt moet worden wanneer het laptopscherm gesloten is."
       },
       "postProcessingToggle": {
-        "label": "Naverwerking",
-        "description": "Schakel AI-gestuurde tekstverfijning in na transcriptie"
+        "label": "AI-naverwerking",
+        "description": "Schakel AI-gestuurde tekstverfijning in na transcriptie."
       },
       "muteWhileRecording": {
         "label": "Dempen tijdens opname",
-        "description": "Systeemgeluid dempen tijdens het opnemen"
+        "description": "Systeemgeluid dempen tijdens het opnemen."
       },
       "appendTrailingSpace": {
         "label": "Spatie achteraan toevoegen",
-        "description": "Voeg een spatie toe na de geplakte transcriptie"
+        "description": "Voeg een spatie toe na de geplakte transcriptie."
       },
       "keyboardImplementation": {
         "title": "Toetsenbord-implementatie",
         "description": "Kies de backend voor sneltoetsen.",
-        "bindingsReset": "Sneltoetsen waren incompatibel en zijn teruggezet naar de standaardwaarden"
+        "bindingsReset": "Sneltoetsen waren incompatibel en zijn teruggezet naar de standaardwaarden",
+        "options": {
+          "globalHotkey": "Globale sneltoets",
+          "keyboardListener": "Toetsenbordlistener"
+        }
       },
       "paths": {
         "appData": "App-data:",
@@ -547,7 +702,7 @@
       },
       "reliablePaste": {
         "title": "Betrouwbaar plakken (Beta)",
-        "description": "Herstel het klembord pas nadat de doelapp de transcriptie daadwerkelijk heeft gelezen, in plaats van na een vaste vertraging. Bedoeld om te verhelpen dat bij systeembelasting de oude klembordinhoud wordt geplakt. Vereist een plakmethode via het klembord; alleen macOS en Windows."
+        "description": "Herstel het klembord pas nadat de doelapp de transcriptie daadwerkelijk heeft gelezen, in plaats van na een vaste vertraging. Bedoeld om te verhelpen dat bij systeembelasting de oude klembordinhoud wordt geplakt. Vereist een plakmethode via het klembord."
       },
       "recordingBuffer": {
         "title": "Extra opnamebuffer",
@@ -578,12 +733,64 @@
       "title": "Over Bespoke",
       "whatsNewUpdates": {
         "label": "Toon 'Wat is er nieuw'",
-        "description": "Release-notes tonen nadat Bespoke is bijgewerkt"
+        "description": "Release-notes tonen nadat Bespoke is bijgewerkt."
       },
       "appDataDirectory": {
         "title": "App-datamap",
-        "description": "Locatie waar Bespoke de gegevens opslaat"
+        "description": "Locatie waar Bespoke de gegevens opslaat."
       }
+    },
+    "style": {
+      "intro": "Sleep een app naar een stijl, of klik erop.",
+      "styles": {
+        "formal": {
+          "name": "Formeel",
+          "example": "Hé, heb je morgen tijd om te lunchen? Laten we 12 uur doen als dat je uitkomt."
+        },
+        "casual": {
+          "name": "Informeel",
+          "example": "Hé heb je morgen tijd om te lunchen? Laten we 12 uur doen als dat je uitkomt"
+        },
+        "veryCasual": {
+          "name": "Heel informeel",
+          "example": "he heb je morgen tijd om te lunchen? laten we 12 uur doen als dat je uitkomt"
+        }
+      },
+      "board": {
+        "default": "Standaard",
+        "defaultTitle": "Standaardstijl",
+        "defaultHelp": "Apps zonder regel gebruiken deze stijl. Sleep Standaard naar een andere stijl om dit te wijzigen.",
+        "dropHere": "Zet hier een app neer",
+        "remove": "Regel verwijderen"
+      },
+      "shelf": {
+        "title": "Apps toevoegen",
+        "open": "Nu geopend",
+        "all": "Alle apps",
+        "search": "Apps zoeken",
+        "loading": "Apps laden…",
+        "noMatch": "Geen apps gevonden.",
+        "noneLeft": "Elke app hier heeft een regel."
+      }
+    },
+    "updates": {
+      "version": "Versie {{version}}",
+      "available": "Bespoke {{version}} is beschikbaar.",
+      "lastChecked": "Up-to-date. Laatst gecontroleerd {{when}}.",
+      "neverChecked": "Up-to-date.",
+      "disabled": "Deze build werkt zichzelf niet bij.",
+      "update": "Bijwerken",
+      "checkNow": "Nu controleren",
+      "automatic": {
+        "label": "Automatisch controleren op updates",
+        "description": "Bespoke controleert één keer per dag."
+      }
+    },
+    "nav": {
+      "general": "Algemeen",
+      "sound": "Geluid",
+      "postProcessing": "Naverwerking",
+      "app": "App"
     }
   },
   "whatsNew": {
@@ -596,7 +803,11 @@
     "open": "Openen",
     "copy": "Kopiëren",
     "clear": "Wissen",
-    "noOptionsFound": "Geen opties gevonden"
+    "noOptionsFound": "Geen opties gevonden",
+    "selectOption": "Selecteer een optie...",
+    "unknownSize": "Onbekende grootte",
+    "yes": "Ja",
+    "no": "Nee"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke heeft toegankelijkheidsmachtigingen nodig om getranscribeerde tekst te kunnen typen.",
@@ -616,15 +827,16 @@
     "modelLoadFailedUnknown": "onbekend model",
     "pasteFailedTitle": "Tekst plakken mislukt",
     "pasteFailed": "Tekst kon niet worden geplakt in de actieve applicatie.",
-    "transcriptionFailedTitle": "Transcriptie mislukt"
+    "transcriptionFailedTitle": "Transcriptie mislukt",
+    "unknown": "Onbekende fout"
   },
   "appLanguage": {
-    "title": "Interfacetaal",
-    "description": "Wijzig de taal van de Bespoke-interface"
+    "title": "Taal",
+    "description": "Wijzig de taal van de Bespoke-interface."
   },
   "theme": {
-    "title": "App-thema",
-    "description": "Kies of Bespoke het systeemthema volgt of licht of donker blijft",
+    "title": "Thema",
+    "description": "Kies of Bespoke het systeemthema volgt of licht of donker blijft.",
     "options": {
       "system": "Systeem",
       "light": "Licht",
@@ -644,5 +856,276 @@
     "recorderBlockedNoCulprit": "macOS blokkeert tijdelijk wijzigingen aan sneltoetsen",
     "recorderBlocked": "Sneltoetsen kunnen nu niet worden opgenomen — Secure Input van macOS blokkeert toetsgebeurtenissen. Los eerst de Secure Input-waarschuwing op.",
     "dismiss": "Sluiten"
+  },
+  "triage": {
+    "title": "Probleem onderzoeken",
+    "showTitle": "Laat het probleem zien",
+    "showHint": "Optioneel. Druk op {{shortcut}} en vertel wat je ziet.",
+    "captured": "Opname van {{time}} · {{duration}}",
+    "recordAgain": "Opnieuw opnemen",
+    "removeCapture": "Deze opname weglaten",
+    "agentTitle": "Kies een agent",
+    "sendTitle": "Verstuur de prompt",
+    "sendDescription": "Bespoke schrijft zijn logboeken en instellingen naar een map en opent de agent met een kant-en-klare prompt. Jij drukt op verzenden, en de agent vraagt wat er misging. Hij vraagt het eerst voordat hij iets wijzigt of plaatst.",
+    "start": "Onderzoek starten",
+    "cancel": "Annuleren",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code in de Claude-app",
+    "claudeMissing": "Installeer de Claude-app om dit te gebruiken",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code in een terminalvenster",
+    "claudeCodeMissing": "Stuur één prompt naar claude in een terminal om de links in te schakelen",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT in de Codex-app",
+    "codexMissing": "Geen enkele app op deze Mac opent Codex-links",
+    "copy": "Prompt kopiëren",
+    "copyDescription": "Plak hem in een willekeurige coding-agent op deze Mac",
+    "opened": "Onderzoek gestart. Verstuur de prompt, en de agent vraagt wat er misging.",
+    "copied": "De onderzoeksprompt is gekopieerd. Plak hem in een coding-agent op deze Mac.",
+    "failed": "Kan onderzoek niet starten"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Machtigingen"
+    },
+    "retention": {
+      "title": "Opnames bewaren",
+      "custom": "Aangepast",
+      "options": {
+        "week": "Video 7 dagen",
+        "month": "Video 30 dagen",
+        "forever": "Voor altijd"
+      },
+      "notes": {
+        "week": "Video en audio gaan na 7 dagen naar de prullenmand, de rest van elke opname na 30 dagen.",
+        "month": "Video en audio gaan na 30 dagen naar de prullenmand, de rest van elke opname na 90 dagen.",
+        "forever": "Opnames worden nooit verwijderd.",
+        "custom": "De bewaartermijn in config.json is handmatig ingesteld."
+      }
+    },
+    "captures": {
+      "title": "Opnames",
+      "size": "Opnames gebruiken {{size}}.",
+      "measuring": "Meten…",
+      "openLatest": "Laatste openen",
+      "showInFinder": "Toon in Finder"
+    },
+    "permissions": {
+      "granted": "Toegestaan",
+      "allow": "Sta toe",
+      "openSettings": "Open Systeeminstellingen",
+      "relaunch": "Toegestaan. Stop Bespoke en open het opnieuw om het scherm op te nemen.",
+      "blocked": "Schakel {{permissions}} in om op te nemen.",
+      "screenRecording": {
+        "title": "Scherm- en systeemaudio-opname",
+        "description": "Neemt het scherm op. Vereist."
+      },
+      "microphone": {
+        "title": "Microfoon",
+        "description": "Neemt je gesproken toelichting op. Vereist."
+      },
+      "accessibility": {
+        "title": "Toegankelijkheid",
+        "description": "Ziet ⌘Z, Esc en S tijdens het opnemen, en plakt opnames. Vereist."
+      },
+      "panel": {
+        "drag": "Sleep {{app}} naar de lijst voor {{permission}}",
+        "allowed": "{{app}} is toegestaan",
+        "back": "Terug",
+        "screenRecording": "Schermopname",
+        "accessibility": "Toegankelijkheid"
+      }
+    },
+    "capsule": {
+      "area": "Gebied",
+      "window": "Venster",
+      "screen": "Scherm",
+      "record": "Opnemen",
+      "undo": "Herstel",
+      "cancel": "Annuleren",
+      "finish": "Klaar",
+      "processing": "Verwerken",
+      "copied": "Gekopieerd",
+      "saved": "Bewaard",
+      "failed": "Kan opname niet bewaren",
+      "paste": "Plakken",
+      "inspect": "Bekijken",
+      "marks_one": "{{count}} markering",
+      "marks_other": "{{count}} markeringen"
+    },
+    "library": {
+      "folder": "Map met opnames",
+      "record": "Opnemen",
+      "empty": "Nog geen opnames",
+      "emptyHint": "Tik op {{record}} om het scherm onder de aanwijzer op te nemen terwijl je praat.",
+      "back": "Terug naar opnames",
+      "contactSheet": "Contactvel",
+      "keyframe": "Keyframe",
+      "keyframes_one": "{{count}} keyframe",
+      "keyframes_other": "{{count}} keyframes",
+      "timeline": "Tijdlijn",
+      "showInFinder": "Toon in Finder",
+      "copy": "Kopiëren",
+      "copied": "Gekopieerd",
+      "copyFailed": "Kan opname niet kopiëren"
+    },
+    "picker": {
+      "fullScreenHold": "Volledig scherm · {{holdKey}} om te wisselen · sleep voor een gebied · laat {{holdMods}} los om op te nemen",
+      "fullScreen": "Volledig scherm · Klik om op te nemen"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Toegang voor agents",
+      "off": "Coding-agents lezen je opnames via een MCP-server op deze Mac, op poort {{port}}.",
+      "local": "Luistert op 127.0.0.1, poort {{port}}. Agents op deze Mac maken rechtstreeks verbinding, externe machines via een SSH-tunnel.",
+      "tailnet": "Luistert op 127.0.0.1 en {{address}}, poort {{port}}. Machines in je tailnet maken rechtstreeks verbinding.",
+      "tailnetWaiting": "Luistert op 127.0.0.1, poort {{port}}. Tailscale is niet verbonden op deze Mac. Bespoke luistert op je tailnet zodra er verbinding is.",
+      "failed": "De server is niet gestart: {{error}}",
+      "options": {
+        "off": "Uit",
+        "local": "Deze Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Toevoegen aan een agent",
+      "local": "Kopieert de configuratie met het token, dus houd die privé. Voor een machine waar je via SSH op inlogt, voeg je ook de SSH-regel toe aan de host-vermelding in ~/.ssh/config op deze Mac.",
+      "tailnet": "Kopieert de configuratie met het token, dus houd die privé. Dit werkt op deze Mac en op elke machine in je tailnet.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH-regel"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Een nieuw token sluit elke toegevoegde machine af totdat je de nieuwe configuratie daar kopieert.",
+      "renew": "Nieuw token",
+      "renewed": "Nieuw token gemaakt. Kopieer de configuratie opnieuw voor elke machine.",
+      "failed": "Kan geen nieuw token maken"
+    },
+    "copied": "Gekopieerd",
+    "copyFailed": "Kopiëren mislukt"
+  },
+  "menu": {
+    "hideApp": "Verberg Bespoke",
+    "hideOthers": "Verberg andere",
+    "showAll": "Toon alles",
+    "quitApp": "Stop Bespoke",
+    "edit": "Wijzig",
+    "undo": "Herstel",
+    "redo": "Opnieuw",
+    "cut": "Knip",
+    "copy": "Kopieer",
+    "paste": "Plak",
+    "selectAll": "Selecteer alles",
+    "window": "Venster",
+    "minimize": "Minimaliseer",
+    "closeWindow": "Sluit venster"
+  },
+  "languages": {
+    "auto": "Automatisch detecteren",
+    "en": "Engels",
+    "zh": "Chinees",
+    "zh-Hans": "Chinees (vereenvoudigd)",
+    "zh-Hant": "Chinees (traditioneel)",
+    "yue": "Kantonees",
+    "de": "Duits",
+    "es": "Spaans",
+    "ru": "Russisch",
+    "ko": "Koreaans",
+    "fr": "Frans",
+    "ja": "Japans",
+    "pt": "Portugees",
+    "tr": "Turks",
+    "pl": "Pools",
+    "ca": "Catalaans",
+    "nl": "Nederlands",
+    "ar": "Arabisch",
+    "sv": "Zweeds",
+    "it": "Italiaans",
+    "id": "Indonesisch",
+    "hi": "Hindi",
+    "fi": "Fins",
+    "vi": "Vietnamees",
+    "he": "Hebreeuws",
+    "uk": "Oekraïens",
+    "el": "Grieks",
+    "ms": "Maleis",
+    "cs": "Tsjechisch",
+    "ro": "Roemeens",
+    "da": "Deens",
+    "hu": "Hongaars",
+    "ta": "Tamil",
+    "no": "Noors",
+    "th": "Thai",
+    "ur": "Urdu",
+    "hr": "Kroatisch",
+    "bg": "Bulgaars",
+    "lt": "Litouws",
+    "la": "Latijn",
+    "mi": "Maori",
+    "ml": "Malayalam",
+    "cy": "Welsh",
+    "sk": "Slowaaks",
+    "te": "Telugu",
+    "fa": "Perzisch",
+    "lv": "Lets",
+    "bn": "Bengaals",
+    "sr": "Servisch",
+    "az": "Azerbeidzjaans",
+    "sl": "Sloveens",
+    "kn": "Kannada",
+    "et": "Ests",
+    "mk": "Macedonisch",
+    "br": "Bretons",
+    "eu": "Baskisch",
+    "is": "IJslands",
+    "ga": "Iers",
+    "hy": "Armeens",
+    "ne": "Nepalees",
+    "mn": "Mongools",
+    "bs": "Bosnisch",
+    "kk": "Kazachs",
+    "sq": "Albanees",
+    "sw": "Swahili",
+    "gl": "Galicisch",
+    "mr": "Marathi",
+    "pa": "Punjabi",
+    "si": "Singalees",
+    "km": "Khmer",
+    "sn": "Shona",
+    "yo": "Yoruba",
+    "so": "Somalisch",
+    "af": "Afrikaans",
+    "oc": "Occitaans",
+    "ka": "Georgisch",
+    "be": "Wit-Russisch",
+    "tg": "Tadzjieks",
+    "sd": "Sindhi",
+    "gu": "Gujarati",
+    "am": "Amhaars",
+    "yi": "Jiddisch",
+    "lo": "Laotiaans",
+    "uz": "Oezbeeks",
+    "fo": "Faeröers",
+    "ht": "Haïtiaans Creools",
+    "ps": "Pasjtoe",
+    "tk": "Turkmeens",
+    "nn": "Nynorsk",
+    "mt": "Maltees",
+    "sa": "Sanskriet",
+    "lb": "Luxemburgs",
+    "my": "Birmaans",
+    "bo": "Tibetaans",
+    "tl": "Filipijns (Tagalog)",
+    "mg": "Malagassisch",
+    "as": "Assamees",
+    "tt": "Tataars",
+    "haw": "Hawaïaans",
+    "ln": "Lingala",
+    "ha": "Hausa",
+    "ba": "Basjkiers",
+    "jw": "Javaans",
+    "su": "Soendanees"
   }
 }

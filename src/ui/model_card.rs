@@ -356,8 +356,7 @@ impl RenderOnce for ModelCard {
         if !languages.is_empty() {
             let (text, title) = if languages.len() == 1 {
                 let label = language_label(&languages[0])
-                    .unwrap_or(&languages[0])
-                    .to_string();
+                    .map_or_else(|| languages[0].clone(), |label| label.to_string());
                 (
                     t_with(
                         "modelSelector.capabilities.languageOnly",

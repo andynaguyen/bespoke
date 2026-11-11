@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Çıkış",
     "cancel": "İptal",
-    "secureInputWarning": "⚠ Kısayollar Secure Input tarafından engelleniyor"
+    "secureInputWarning": "⚠ Kısayollar Secure Input tarafından engelleniyor",
+    "annotate": "İşaretle",
+    "annotateRecord": "Ekranı Kaydet",
+    "annotateChoose": "Kaydedilecek Alanı Seç…",
+    "annotateOpenLatest": "Son Yakalamayı Aç",
+    "checkForUpdates": "Güncellemeleri Denetle…",
+    "updateTo": "{{version}} Sürümüne Güncelle…",
+    "triage": "Bir Sorunu İncele…"
   },
   "sidebar": {
     "models": "Modeller",
     "stats": "İstatistikler",
-    "debug": "Hata Ayıklama"
+    "debug": "Hata Ayıklama",
+    "settings": "Ayarlar",
+    "dictate": "Dikte",
+    "dictionary": "Sözlük",
+    "annotate": "İşaretle",
+    "mcp": "MCP",
+    "update": {
+      "available": "Güncelleme var",
+      "version": "Sürüm {{version}}",
+      "button": "Güncelle"
+    }
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Büyük, daha yavaş, ancak çok doğru çok dilli bir model."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "macOS'a yerleşiktir. Apple'ın konuşma modeliyle bu Mac'te çalışır."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "Konuşurken canlı transkripsiyon gösterir"
     },
     "cancel": "İptal",
-    "legacy": "Eski"
+    "legacy": "Eski",
+    "errors": {
+      "rescan": "Modeller yeniden taranamadı",
+      "delete": "Model silinemedi"
+    },
+    "builtIn": "macOS'a yerleşik"
   },
   "settings": {
     "models": {
@@ -160,7 +186,7 @@
         "bindings": {
           "transcribe": {
             "name": "Transkripsiyon Kısayolu",
-            "description": "Sesinizi kaydetmek ve metne dönüştürmek için klavye kısayolu."
+            "description": "Sesinizi kaydetmek ve metne dönüştürmek için tuşlara, farenin orta düğmesine veya yan düğmesine basın. Farenin sol ve sağ düğmeleri bir değiştirici tuş gerektirir."
           },
           "cancel": {
             "name": "İptal Kısayolu",
@@ -169,12 +195,32 @@
           "transcribe_with_post_process": {
             "name": "Son İşlem Kısayolu",
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman yapay zekâ ile son işlem uygulayan özel bir kısayol tuşu."
+          },
+          "annotate": {
+            "name": "İşaretleme Kısayolu",
+            "description": "İmlecin bulunduğu ekranı kaydetmek için bir kez basın, bitirmek için tekrar basın. Alan, pencere veya ekran seçmek için basılı tutun."
+          },
+          "annotate_paste": {
+            "name": "Son Yakalamayı Yapıştır",
+            "description": "Son yakalamanın önizleme sayfasını ve özetini öndeki uygulamaya yapıştırır."
           }
         },
         "errors": {
           "restore": "Orijinal kısayol geri yüklenemedi",
           "set": "Kısayol ayarlanamadı: {{error}}",
-          "reset": "Kısayol orijinal değerine sıfırlanamadı"
+          "reset": "Kısayol orijinal değerine sıfırlanamadı",
+          "updateBinding": "Kısayol güncellenemedi"
+        },
+        "pressKeysOrMouse": "Tuşlara veya bir fare düğmesine basın...",
+        "mouseButtons": {
+          "mouseleft": "Sol Fare",
+          "mouseright": "Sağ Fare",
+          "mousemiddle": "Orta Fare",
+          "mousex1": "Fare 4",
+          "mousex2": "Fare 5",
+          "mouse6": "Fare 6",
+          "mouse7": "Fare 7",
+          "mouse8": "Fare 8"
         }
       },
       "language": {
@@ -193,9 +239,9 @@
           "toggle": "Aç/Kapat"
         },
         "descriptions": {
-          "hold_or_toggle": "Kaydetmek için basılı tutun veya açıp kapatmak için dokunun",
-          "push_to_talk": "Kısayolu basılı tuttuğunuz sürece kaydeder",
-          "toggle": "Kaydı başlatmak için kısayola dokunun, durdurmak için tekrar dokunun"
+          "hold_or_toggle": "Kaydetmek için basılı tutun veya açıp kapatmak için dokunun.",
+          "push_to_talk": "Kısayolu basılı tuttuğunuz sürece kaydeder.",
+          "toggle": "Kaydı başlatmak için kısayola dokunun, durdurmak için tekrar dokunun."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Ses",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Tercih ettiğiniz mikrofon cihazını seçin",
+        "description": "Tercih ettiğiniz mikrofon cihazını seçin.",
         "placeholder": "Mikrofon seçin...",
-        "loading": "Yükleniyor..."
+        "loading": "Yükleniyor...",
+        "priority": {
+          "title": "Öncelik",
+          "description": "Dikte ve İşaretle, bağlı ilk mikrofondan kayıt yapar. Sıralamak için sürükleyin.",
+          "add": "Mikrofon ekle",
+          "noneToAdd": "Bağlı başka mikrofon yok",
+          "inUse": "Kullanımda",
+          "notConnected": "Bağlı değil",
+          "systemDefault": "Sistem varsayılanı",
+          "alwaysLast": "Her zaman en sonda"
+        }
       },
       "channel": {
         "title": "Giriş Kanalı",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Sesli Geri Bildirim",
-        "description": "Kayıt başladığında ve bittiğinde ses çalar"
+        "description": "Kayıt başladığında ve bittiğinde ses çalar."
       },
       "outputDevice": {
         "title": "Çıkış Cihazı",
-        "description": "Geri bildirim sesleri için ses çıkış cihazını seçin",
+        "description": "Geri bildirim sesleri için ses çıkış cihazını seçin.",
         "placeholder": "Çıkış cihazı seçin...",
         "loading": "Yükleniyor..."
       },
       "volume": {
         "title": "Ses Seviyesi",
-        "description": "Sesli geri bildirimlerin ses seviyesini ayarlayın"
-      }
+        "description": "Sesli geri bildirimlerin ses seviyesini ayarlayın."
+      },
+      "defaultDevice": "Varsayılan"
     },
     "advanced": {
       "groups": {
         "transcription": "Transkripsiyon",
-        "experimental": "Deneysel"
+        "experimental": "Deneysel",
+        "dictation": "Dikte",
+        "appearance": "Görünüm",
+        "system": "Sistem",
+        "shortcut": "Kısayol",
+        "cleanup": "Temizleme",
+        "pasting": "Yapıştırma",
+        "submitting": "Gönderme",
+        "startup": "Başlangıç",
+        "updates": "Güncellemeler",
+        "application": "Uygulama",
+        "overlay": "Ekran Katmanı",
+        "voiceCommands": "Sesli Komutlar",
+        "keyboard": "Klavye",
+        "acceleration": "Hızlandırma",
+        "recording": "Kayıt"
       },
       "experimentalToggle": {
         "label": "Deneysel Özellikler",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "transcribe.cpp Hızlandırması",
-          "description": "transcribe.cpp (Whisper ailesi) modelleri için donanım hızlandırması. Otomatik mod, mevcutsa GPU kullanır (macOS'ta Metal, Windows/Linux'ta Vulkan)."
+          "description": "transcribe.cpp (Whisper ailesi) modelleri için donanım hızlandırması. Otomatik mod, mevcutsa GPU'yu Metal üzerinden kullanır."
         },
         "ort": {
           "title": "ONNX Hızlandırma",
-          "description": "ONNX modelleri için donanım hızlandırma (Parakeet, Canary, Moonshine vb.). Windows'ta DirectML deneyseldir. Modeller transkripsiyon yapamayabilir."
+          "description": "ONNX modelleri için donanım hızlandırma (Parakeet, Canary, Moonshine vb.). Modeller transkripsiyon yapamayabilir."
         },
         "gpuDevice": {
           "auto": "Otomatik"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Ekran Katmanı",
-          "description": "Kayıt sırasında gösterilecek ekran katmanını seçin: 'Yok' katmanı gizler, 'Sade' küçük bir gösterge gösterir, 'Canlı' siz konuşurken transkripsiyonu gerçek zamanlı gösterir (yalnızca akış destekli modeller — model seçicide 'Akış' rozetini arayın). Linux'ta 'Yok' önerilir.",
+          "title": "Stil",
+          "description": "Kayıt katmanını seçin.",
           "options": {
             "none": "Yok",
             "minimal": "Sade",
@@ -277,7 +349,7 @@
           }
         },
         "position": {
-          "title": "Ekran Katmanı Konumu",
+          "title": "Konum",
           "description": "Ekran katmanının kayıt ve transkripsiyon sırasında nerede görüneceğini belirler.",
           "options": {
             "bottom": "Alt",
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Otomatik Gönder",
-        "description": "Metin eklendikten sonra seçilen tuş kombinasyonunu otomatik olarak gönderir. macOS'ta Cmd+Enter, Windows/Linux'ta Super+Enter geçerlidir.",
+        "description": "Metin eklendikten sonra seçilen tuş kombinasyonunu otomatik olarak gönderir.",
         "options": {
           "off": "Kapalı",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Dolgu Sözcüklerini Kaldır",
         "description": "Transkripsiyonlardaki yaygın duraksama sözcüklerini kaldırır. Bunları korumak için kapatın."
+      },
+      "voiceScrub": {
+        "title": "Sesle Sıfırlama",
+        "description": "O ana kadar söylediğiniz her şeyi atıp baştan başlamak için anahtar kelimenizi söyleyin.",
+        "keyword": {
+          "title": "Sıfırlama Anahtar Kelimesi",
+          "description": "Bundan önce söylediğiniz her şey atılır.",
+          "invalid": "Harf veya rakam içeren bir kelime kullanın."
+        }
+      },
+      "voiceScratch": {
+        "title": "Sesle Silme",
+        "description": "Az önce söylediğiniz cümleyi silip dikteye devam etmek için anahtar kelimenizi söyleyin.",
+        "keyword": {
+          "title": "Silme Anahtar Kelimesi",
+          "description": "Önünde ve arkasında birer duraklamayla ayrı bir ifade olarak söyleyin. Önceki cümle silinir.",
+          "invalid": "Harf veya rakam içeren bir kelime kullanın."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "Temel URL",
           "description": "Seçili sağlayıcı için API temel URL'si. Yalnızca özel sağlayıcı düzenlenebilir.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "Temel URL'yi seçili sağlayıcı yönetir."
         },
         "apiKey": {
           "title": "API Anahtarı",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Seçili sağlayıcının sunduğu bir modeli seçin.",
           "placeholderWithOptions": "Model ara veya seç",
           "placeholderNoOptions": "Model adı yazın",
-          "refreshModels": "Modelleri Yenile"
+          "refreshModels": "Modelleri Yenile",
+          "useTyped": "\"{{value}}\" kullan"
         }
       },
       "prompts": {
@@ -414,20 +506,57 @@
       "dayPopover": {
         "words": "Toplam kelime",
         "appsUsed": "Kullanılan uygulamalar",
-        "topApp": "En çok kullanılan uygulama"
+        "topApp": "En çok kullanılan uygulama",
+        "captures": "Yakalamalar",
+        "timeRecorded": "Kayıt süresi"
       },
       "less": "Az",
-      "more": "Çok"
+      "more": "Çok",
+      "captures": "Yakalamalar",
+      "timeRecorded": "Kayıt süresi",
+      "marksDrawn": "Çizilen işaretler",
+      "duration": {
+        "seconds": "{{seconds}} sn",
+        "minutesSeconds": "{{minutes}} dk {{seconds}} sn",
+        "hoursMinutes": "{{hours}} sa {{minutes}} dk"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Sözlük",
-        "history": "Geçmiş"
+        "history": "Geçmiş",
+        "style": "Stil"
       },
       "save": "Kaydet",
       "cancel": "İptal",
       "remove": "{{word}} Kaldır",
-      "duplicate": "\"{{word}}\" zaten mevcut"
+      "duplicate": "\"{{word}}\" zaten mevcut",
+      "replacements": "Değiştirmeler",
+      "replacementsHelp": "Soldaki ifadeyi söyleyin, Bespoke sağdaki metni yazsın.",
+      "words": "Kelimeler",
+      "wordsHelp": "Bespoke'un tam olarak bu şekilde yazması gereken adlar, terimler ve kısaltmalar.",
+      "addReplacement": "Değiştirme ekle",
+      "editWord": "Kelimeyi düzenle",
+      "editReplacement": "Değiştirmeyi düzenle",
+      "wordPlaceholder": "Bir ad veya terim, örneğin \"IntraFi\"",
+      "writeInsteadLabel": "Bunun yerine yaz",
+      "writeInsteadPlaceholder": "Bespoke'un yerine yazacağı metin",
+      "phraseLabel": "Şunu söylediğinizde",
+      "phrasePlaceholder": "Bir ifade, örneğin \"e-postam\"",
+      "addWord": "Kelime ekle",
+      "addedTag": "Eklendi",
+      "tryIt": "Deneyin",
+      "tryItHint": "Bu sayfa açıkken {{shortcut}} ile dikte edin. Bespoke metni yapıştırmak yerine burada gösterir.",
+      "tryItEmpty": "Bespoke hiç kelime duymadı.",
+      "fixedCount_one": "Sözlükten {{count}} düzeltme",
+      "fixedCount_other": "Sözlükten {{count}} düzeltme",
+      "pickWord": "Bespoke'a öğretmek için yanlış yazdığı kelimeye tıklayın. Sonraki kelimeyi eklemek için Shift ile tıklayın.",
+      "teachLabel": "Bespoke'un duyduğu",
+      "spellingPlaceholder": "Doğru yazımı",
+      "wontMatch": "Bespoke, \"{{heard}}\" ifadesini bu kadar farklı bir kelimeyle eşleştirmez. Değiştirme olarak ekleyin.",
+      "teachWord": "Kelime ekle",
+      "teachReplacement": "Değiştirme olarak ekle",
+      "added": "Eklendi. Kontrol etmek için cümleyi yeniden dikte edin."
     },
     "history": {
       "title": "Geçmiş",
@@ -443,17 +572,33 @@
       "retranscribe": "Yeniden transkribe et",
       "retranscribeError": "Yeniden transkripsiyon başarısız oldu. Lütfen tekrar deneyin.",
       "transcribing": "Transkribe ediliyor...",
-      "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar transkribe edebilirsiniz."
+      "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar transkribe edebilirsiniz.",
+      "transcript": "Transkript",
+      "details": "Ayrıntılar",
+      "recorded": "Kaydedilme",
+      "wordCount": "Kelime",
+      "postProcessed": "Son işlemden geçti",
+      "prompt": "Prompt",
+      "copy": "Kopyala",
+      "copied": "Kopyalandı",
+      "noSelection": "Burada görmek için bir transkripsiyon seçin."
     },
     "debug": {
       "title": "Hata Ayıklama",
       "logDirectory": {
         "title": "Log Dizini",
-        "description": "Log dosyalarının saklandığı konum"
+        "description": "Log dosyalarının saklandığı konum."
       },
       "logLevel": {
         "title": "Log Seviyesi",
-        "description": "Loglamanın ayrıntı düzeyini ayarla"
+        "description": "Loglamanın ayrıntı düzeyini ayarla.",
+        "options": {
+          "error": "Hata",
+          "warn": "Uyarı",
+          "info": "Bilgi",
+          "debug": "Hata Ayıklama",
+          "trace": "İzleme"
+        }
       },
       "liveLogs": {
         "title": "Canlı Loglar",
@@ -468,20 +613,26 @@
       },
       "soundTheme": {
         "label": "Ses Teması",
-        "description": "Kayıt başlangıç ve bitişi için sesli geri bildirim temasını seçin"
+        "description": "Kayıt başlangıç ve bitişi için sesli geri bildirim temasını seçin.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Özel"
+        },
+        "preview": "Ses temasını önizle (başlangıç ve bitiş seslerini çalar)"
       },
       "wordCorrectionThreshold": {
         "title": "Kelime Düzeltme Eşiği",
-        "description": "Özel kelime düzeltmeleri için hassasiyet"
+        "description": "Özel kelime düzeltmeleri için hassasiyet."
       },
       "historyLimit": {
         "title": "Geçmiş Limiti",
-        "description": "Saklanacak maksimum geçmiş kaydı sayısı",
+        "description": "Saklanacak maksimum geçmiş kaydı sayısı.",
         "entries": "kayıt"
       },
       "recordingRetention": {
         "title": "Kayıtları Otomatik Sil",
-        "description": "Alan tasarrufu için eski kayıtları otomatik olarak siler",
+        "description": "Alan tasarrufu için eski kayıtları otomatik olarak siler.",
         "never": "Asla",
         "preserveLimit": "Son {{count}} kaydı tut",
         "days3": "3 gün sonra",
@@ -491,28 +642,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Mikrofon Her Zaman Açık",
-        "description": "Daha hızlı yanıt için mikrofonu aktif tutar"
+        "description": "Daha hızlı yanıt için mikrofonu aktif tutar."
       },
       "clamshellMicrophone": {
         "title": "Kapalı Kapak Mikrofonu",
-        "description": "Dizüstü bilgisayar kapağı kapalıyken kullanılacak mikrofon"
+        "description": "Dizüstü bilgisayar kapağı kapalıyken kullanılacak mikrofon."
       },
       "postProcessingToggle": {
-        "label": "Son İşlem",
-        "description": "Transkripsiyon sonrası yapay zekâ destekli metin iyileştirmeyi etkinleştirir"
+        "label": "Yapay Zekâ ile Son İşlem",
+        "description": "Transkripsiyon sonrası yapay zekâ destekli metin iyileştirmeyi etkinleştirir."
       },
       "muteWhileRecording": {
         "label": "Kayıt Sırasında Sessize Al",
-        "description": "Kayıt sırasında sistem sesini kapatır"
+        "description": "Kayıt sırasında sistem sesini kapatır."
       },
       "appendTrailingSpace": {
         "label": "Sonuna Boşluk Ekle",
-        "description": "Yapıştırılan transkripsiyondan sonra boşluk ekler"
+        "description": "Yapıştırılan transkripsiyondan sonra boşluk ekler."
       },
       "keyboardImplementation": {
         "title": "Klavye Uygulaması",
         "description": "Klavye kısayolları için kullanılacak altyapıyı seçin.",
-        "bindingsReset": "Klavye kısayolları uyumsuzdu ve varsayılan ayarlara sıfırlandı"
+        "bindingsReset": "Klavye kısayolları uyumsuzdu ve varsayılan ayarlara sıfırlandı",
+        "options": {
+          "globalHotkey": "Genel Kısayol",
+          "keyboardListener": "Klavye Dinleyicisi"
+        }
       },
       "paths": {
         "appData": "Uygulama Verileri:",
@@ -533,7 +688,7 @@
       },
       "reliablePaste": {
         "title": "Güvenilir Yapıştırma (Beta)",
-        "description": "Panoyu sabit bir gecikmenin ardından değil, hedef uygulama transkripsiyonu gerçekten okuduktan sonra geri yükler. Sistem yükü altında eski pano içeriğinin yapıştırılması sorununu gidermeyi amaçlar. Pano üzerinden çalışan bir yapıştırma yöntemi gerektirir; yalnızca macOS ve Windows."
+        "description": "Panoyu sabit bir gecikmenin ardından değil, hedef uygulama transkripsiyonu gerçekten okuduktan sonra geri yükler. Sistem yükü altında eski pano içeriğinin yapıştırılması sorununu gidermeyi amaçlar. Pano üzerinden çalışan bir yapıştırma yöntemi gerektirir."
       },
       "recordingBuffer": {
         "title": "Ekstra Kayıt Tamponu",
@@ -561,14 +716,14 @@
       },
       "whatsNewPreview": {
         "title": "Yenilikleri Önizle",
-        "description": "En son paketlenmiş sürüm notunu görüldü olarak işaretlemeden aç",
+        "description": "En son paketlenmiş sürüm notunu görüldü olarak işaretlemeden aç.",
         "button": "Önizle",
         "noNotes": "Paketlenmiş sürüm notu bulunamadı",
         "error": "Sürüm notları önizlenemedi"
       },
       "onboardingPreview": {
         "title": "İlk kurulum önizlemesi",
-        "description": "İzinleri, modelleri veya tamamlanma durumunu değiştirmeden ilk kurulum ekranlarını önizleyin",
+        "description": "İzinleri, modelleri veya tamamlanma durumunu değiştirmeden ilk kurulum ekranlarını önizleyin.",
         "permissionsButton": "İzinler",
         "modelsButton": "Model seçimi",
         "exitButton": "Önizlemeden çık"
@@ -578,12 +733,64 @@
       "title": "Hakkında",
       "appDataDirectory": {
         "title": "Uygulama Veri Dizini",
-        "description": "Bespoke'un verilerini sakladığı konum"
+        "description": "Bespoke'un verilerini sakladığı konum."
       },
       "whatsNewUpdates": {
         "label": "Yenilikleri Göster",
-        "description": "Bespoke güncellemelerinden sonra sürüm notlarını göster"
+        "description": "Bespoke güncellemelerinden sonra sürüm notlarını göster."
       }
+    },
+    "style": {
+      "intro": "Bir uygulamayı bir stile sürükleyin veya uygulamaya tıklayın.",
+      "styles": {
+        "formal": {
+          "name": "Resmî",
+          "example": "Merhaba, yarın öğle yemeğine müsait misiniz? Size de uyarsa 12'de buluşalım."
+        },
+        "casual": {
+          "name": "Günlük",
+          "example": "Selam yarın öğle yemeğine müsait misin? Sana da uyarsa 12'de buluşalım"
+        },
+        "veryCasual": {
+          "name": "Çok günlük",
+          "example": "selam yarın öğle yemeğine müsait misin? uyarsa 12de buluşalım"
+        }
+      },
+      "board": {
+        "default": "Varsayılan",
+        "defaultTitle": "Varsayılan stil",
+        "defaultHelp": "Kuralı olmayan uygulamalar bu stili kullanır. Değiştirmek için Varsayılan'ı başka bir stile sürükleyin.",
+        "dropHere": "Uygulamayı buraya bırakın",
+        "remove": "Kuralı kaldır"
+      },
+      "shelf": {
+        "title": "Uygulama ekle",
+        "open": "Şu an açık",
+        "all": "Tüm uygulamalar",
+        "search": "Uygulama ara",
+        "loading": "Uygulamalar yükleniyor…",
+        "noMatch": "Eşleşen uygulama yok.",
+        "noneLeft": "Buradaki her uygulamanın bir kuralı var."
+      }
+    },
+    "updates": {
+      "version": "Sürüm {{version}}",
+      "available": "Bespoke {{version}} kullanıma sunuldu.",
+      "lastChecked": "Güncel. Son denetim: {{when}}.",
+      "neverChecked": "Güncel.",
+      "disabled": "Bu derleme kendini güncellemez.",
+      "update": "Güncelle",
+      "checkNow": "Şimdi Denetle",
+      "automatic": {
+        "label": "Güncellemeleri Otomatik Denetle",
+        "description": "Bespoke günde bir kez denetler."
+      }
+    },
+    "nav": {
+      "general": "Genel",
+      "sound": "Ses",
+      "postProcessing": "Son İşlem",
+      "app": "Uygulama"
     }
   },
   "common": {
@@ -593,7 +800,11 @@
     "open": "Aç",
     "copy": "Kopyala",
     "clear": "Temizle",
-    "noOptionsFound": "Seçenek bulunamadı"
+    "noOptionsFound": "Seçenek bulunamadı",
+    "selectOption": "Bir seçenek seçin...",
+    "unknownSize": "Bilinmeyen boyut",
+    "yes": "Evet",
+    "no": "Hayır"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke, transkribe edilen metni yazabilmek için erişilebilirlik izinlerine ihtiyaç duyar.",
@@ -613,15 +824,16 @@
     "modelLoadFailedUnknown": "bilinmeyen model",
     "pasteFailedTitle": "Metin yapıştırılamadı",
     "pasteFailed": "Metin etkin uygulamaya yapıştırılamadı.",
-    "transcriptionFailedTitle": "Transkripsiyon başarısız oldu"
+    "transcriptionFailedTitle": "Transkripsiyon başarısız oldu",
+    "unknown": "Bilinmeyen hata"
   },
   "appLanguage": {
-    "title": "Uygulama Dili",
-    "description": "Bespoke arayüzünün dilini değiştirin"
+    "title": "Dil",
+    "description": "Bespoke arayüzünün dilini değiştirin."
   },
   "theme": {
-    "title": "Uygulama Teması",
-    "description": "Bespoke'un sistem temasını izlemesini ya da açık veya koyu kalmasını seçin",
+    "title": "Tema",
+    "description": "Bespoke'un sistem temasını izlemesini ya da açık veya koyu kalmasını seçin.",
     "options": {
       "system": "Sistem",
       "light": "Açık",
@@ -644,5 +856,276 @@
     "recorderBlockedNoCulprit": "macOS geçici olarak kısayol değişikliklerini engelliyor",
     "recorderBlocked": "Şu anda kısayol kaydedilemiyor — macOS Secure Input tuş olaylarını engelliyor. Önce Secure Input uyarısını giderin.",
     "dismiss": "Kapat"
+  },
+  "triage": {
+    "title": "Bir Sorunu İncele",
+    "showTitle": "Sorunu gösterin",
+    "showHint": "İsteğe bağlı. {{shortcut}} kısayoluna basın ve gördüklerinizi anlatın.",
+    "captured": "{{time}} yakalaması · {{duration}}",
+    "recordAgain": "Yeniden Kaydet",
+    "removeCapture": "Bu Yakalamayı Çıkar",
+    "agentTitle": "Bir ajan seçin",
+    "sendTitle": "Promptu gönderin",
+    "sendDescription": "Bespoke loglarını ve ayarlarını bir klasöre yazar ve ajanı hazır bir promptla açar. Siz gönder tuşuna basarsınız, ajan da neyin yanlış gittiğini sorar. Bir şeyi değiştirmeden veya paylaşmadan önce size sorar.",
+    "start": "İncelemeyi Başlat",
+    "cancel": "İptal",
+    "claude": "Claude",
+    "claudeDescription": "Claude uygulamasında Claude Code",
+    "claudeMissing": "Bunu kullanmak için Claude uygulamasını yükleyin",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Terminal penceresinde Claude Code",
+    "claudeCodeMissing": "Bağlantılarını açmak için terminalde claude'a bir prompt gönderin",
+    "codex": "Codex",
+    "codexDescription": "Codex uygulamasında ChatGPT",
+    "codexMissing": "Bu Mac'te Codex bağlantılarını açan uygulama yok",
+    "copy": "Promptu Kopyala",
+    "copyDescription": "Bu Mac'teki herhangi bir kodlama ajanına yapıştırın",
+    "opened": "İnceleme başladı. Promptu gönderin, ajan neyin yanlış gittiğini soracak.",
+    "copied": "İnceleme promptu kopyalandı. Bu Mac'teki bir kodlama ajanına yapıştırın.",
+    "failed": "İnceleme başlatılamadı"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "İzinler"
+    },
+    "retention": {
+      "title": "Kayıtları Sakla",
+      "custom": "Özel",
+      "options": {
+        "week": "Video 7 gün",
+        "month": "Video 30 gün",
+        "forever": "Süresiz"
+      },
+      "notes": {
+        "week": "Video ve ses 7 gün sonra, yakalamanın geri kalanı 30 gün sonra Çöp Sepeti'ne gider.",
+        "month": "Video ve ses 30 gün sonra, yakalamanın geri kalanı 90 gün sonra Çöp Sepeti'ne gider.",
+        "forever": "Yakalamalar hiçbir zaman silinmez.",
+        "custom": "config.json içindeki saklama süresi elle ayarlanmış."
+      }
+    },
+    "captures": {
+      "title": "Yakalamalar",
+      "size": "Yakalamalar {{size}} kullanıyor.",
+      "measuring": "Ölçülüyor…",
+      "openLatest": "Sonuncuyu Aç",
+      "showInFinder": "Finder'da Göster"
+    },
+    "permissions": {
+      "granted": "İzin verildi",
+      "allow": "İzin Ver",
+      "openSettings": "Sistem Ayarlarını Aç",
+      "relaunch": "İzin verildi. Ekranı kaydetmek için Bespoke'tan çıkıp yeniden açın.",
+      "blocked": "Kayıt yapmak için şunları açın: {{permissions}}.",
+      "screenRecording": {
+        "title": "Ekran ve Sistem Sesi Kaydı",
+        "description": "Ekranı kaydeder. Gereklidir."
+      },
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Anlatımınızı kaydeder. Gereklidir."
+      },
+      "accessibility": {
+        "title": "Erişilebilirlik",
+        "description": "Kayıt sırasında ⌘Z, Esc ve S basışlarını algılar ve yakalamaları yapıştırır. Gereklidir."
+      },
+      "panel": {
+        "drag": "{{permission}} için {{app}} öğesini üstteki listeye sürükleyin",
+        "allowed": "{{app}} için izin verildi",
+        "back": "Geri",
+        "screenRecording": "Ekran Kaydı",
+        "accessibility": "Erişilebilirlik"
+      }
+    },
+    "capsule": {
+      "area": "Alan",
+      "window": "Pencere",
+      "screen": "Ekran",
+      "record": "Kaydet",
+      "undo": "Geri Al",
+      "cancel": "İptal",
+      "finish": "Bitir",
+      "processing": "İşleniyor",
+      "copied": "Kopyalandı",
+      "saved": "Kaydedildi",
+      "failed": "Yakalama kaydedilemedi",
+      "paste": "Yapıştır",
+      "inspect": "İncele",
+      "marks_one": "{{count}} işaret",
+      "marks_other": "{{count}} işaret"
+    },
+    "library": {
+      "folder": "Yakalamalar Klasörü",
+      "record": "Kaydet",
+      "empty": "Henüz yakalama yok",
+      "emptyHint": "Konuşurken imlecin bulunduğu ekranı kaydetmek için {{record}} kısayoluna basın.",
+      "back": "Yakalamalara dön",
+      "contactSheet": "Önizleme Sayfası",
+      "keyframe": "Ana Kare",
+      "keyframes_one": "{{count}} ana kare",
+      "keyframes_other": "{{count}} ana kare",
+      "timeline": "Zaman Çizelgesi",
+      "showInFinder": "Finder'da Göster",
+      "copy": "Kopyala",
+      "copied": "Kopyalandı",
+      "copyFailed": "Yakalama kopyalanamadı"
+    },
+    "picker": {
+      "fullScreenHold": "Tam ekran · değiştirmek için {{holdKey}} · alan için sürükleyin · kaydetmek için {{holdMods}} bırakın",
+      "fullScreen": "Tam ekran · Kaydetmek için tıklayın"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Ajan Erişimi",
+      "off": "Kodlama ajanları yakalamalarınızı bu Mac'teki bir MCP sunucusundan, {{port}} bağlantı noktasından okur.",
+      "local": "127.0.0.1, {{port}} bağlantı noktası dinleniyor. Bu Mac'teki ajanlar doğrudan, uzak makineler SSH tüneliyle bağlanır.",
+      "tailnet": "127.0.0.1 ve {{address}}, {{port}} bağlantı noktası dinleniyor. Tailnet'inizdeki makineler doğrudan bağlanır.",
+      "tailnetWaiting": "127.0.0.1, {{port}} bağlantı noktası dinleniyor. Bu Mac'te Tailscale bağlı değil. Bespoke, bağlandığında tailnet'inizi de dinler.",
+      "failed": "Sunucu başlatılamadı: {{error}}",
+      "options": {
+        "off": "Kapalı",
+        "local": "Bu Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Bir Ajana Ekle",
+      "local": "Kurulumu token ile birlikte kopyalar, bu yüzden gizli tutun. SSH ile bağlandığınız bir makine için SSH satırını bu Mac'teki ~/.ssh/config dosyasında o makinenin Host kaydına da ekleyin.",
+      "tailnet": "Kurulumu token ile birlikte kopyalar, bu yüzden gizli tutun. Bu Mac'te ve tailnet'inizdeki her makinede çalışır.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH Satırı"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Yeni token, eklediğiniz tüm makinelerin erişimini siz yeni kurulumu oraya kopyalayana kadar keser.",
+      "renew": "Yeni Token",
+      "renewed": "Yeni token oluşturuldu. Kurulumu her makine için yeniden kopyalayın.",
+      "failed": "Yeni token oluşturulamadı"
+    },
+    "copied": "Kopyalandı",
+    "copyFailed": "Kopyalanamadı"
+  },
+  "menu": {
+    "hideApp": "Bespoke'u Gizle",
+    "hideOthers": "Diğerlerini Gizle",
+    "showAll": "Tümünü Göster",
+    "quitApp": "Bespoke'tan Çık",
+    "edit": "Düzen",
+    "undo": "Geri Al",
+    "redo": "Yinele",
+    "cut": "Kes",
+    "copy": "Kopyala",
+    "paste": "Yapıştır",
+    "selectAll": "Tümünü Seç",
+    "window": "Pencere",
+    "minimize": "Küçült",
+    "closeWindow": "Pencereyi Kapat"
+  },
+  "languages": {
+    "auto": "Otomatik Algıla",
+    "en": "İngilizce",
+    "zh": "Çince",
+    "zh-Hans": "Çince (Basitleştirilmiş)",
+    "zh-Hant": "Çince (Geleneksel)",
+    "yue": "Kantonca",
+    "de": "Almanca",
+    "es": "İspanyolca",
+    "ru": "Rusça",
+    "ko": "Korece",
+    "fr": "Fransızca",
+    "ja": "Japonca",
+    "pt": "Portekizce",
+    "tr": "Türkçe",
+    "pl": "Lehçe",
+    "ca": "Katalanca",
+    "nl": "Felemenkçe",
+    "ar": "Arapça",
+    "sv": "İsveççe",
+    "it": "İtalyanca",
+    "id": "Endonezce",
+    "hi": "Hintçe",
+    "fi": "Fince",
+    "vi": "Vietnamca",
+    "he": "İbranice",
+    "uk": "Ukraynaca",
+    "el": "Yunanca",
+    "ms": "Malayca",
+    "cs": "Çekçe",
+    "ro": "Rumence",
+    "da": "Danca",
+    "hu": "Macarca",
+    "ta": "Tamilce",
+    "no": "Norveççe",
+    "th": "Tayca",
+    "ur": "Urduca",
+    "hr": "Hırvatça",
+    "bg": "Bulgarca",
+    "lt": "Litvanca",
+    "la": "Latince",
+    "mi": "Maori dili",
+    "ml": "Malayalam dili",
+    "cy": "Galce",
+    "sk": "Slovakça",
+    "te": "Telugu dili",
+    "fa": "Farsça",
+    "lv": "Letonca",
+    "bn": "Bengalce",
+    "sr": "Sırpça",
+    "az": "Azerbaycan Türkçesi",
+    "sl": "Slovence",
+    "kn": "Kannada dili",
+    "et": "Estonca",
+    "mk": "Makedonca",
+    "br": "Bretonca",
+    "eu": "Baskça",
+    "is": "İzlandaca",
+    "ga": "İrlandaca",
+    "hy": "Ermenice",
+    "ne": "Nepalce",
+    "mn": "Moğolca",
+    "bs": "Boşnakça",
+    "kk": "Kazakça",
+    "sq": "Arnavutça",
+    "sw": "Svahili dili",
+    "gl": "Galiçyaca",
+    "mr": "Marathi dili",
+    "pa": "Pencapça",
+    "si": "Sinhala dili",
+    "km": "Kmerce",
+    "sn": "Şona dili",
+    "yo": "Yoruba dili",
+    "so": "Somalice",
+    "af": "Afrikaanca",
+    "oc": "Oksitanca",
+    "ka": "Gürcüce",
+    "be": "Belarusça",
+    "tg": "Tacikçe",
+    "sd": "Sintçe",
+    "gu": "Güceratça",
+    "am": "Amharca",
+    "yi": "Yidiş",
+    "lo": "Laoca",
+    "uz": "Özbekçe",
+    "fo": "Faroe dili",
+    "ht": "Haiti Kreyolu",
+    "ps": "Peştuca",
+    "tk": "Türkmence",
+    "nn": "Nynorsk",
+    "mt": "Maltaca",
+    "sa": "Sanskritçe",
+    "lb": "Lüksemburgca",
+    "my": "Birmanca",
+    "bo": "Tibetçe",
+    "tl": "Filipince (Tagalog)",
+    "mg": "Malgaşça",
+    "as": "Assamca",
+    "tt": "Tatarca",
+    "haw": "Hawaii dili",
+    "ln": "Lingala dili",
+    "ha": "Hausa dili",
+    "ba": "Başkurtça",
+    "jw": "Cava dili",
+    "su": "Sunda dili"
   }
 }

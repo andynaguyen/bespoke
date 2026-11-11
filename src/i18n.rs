@@ -118,11 +118,14 @@ pub fn supported_language(code: &str) -> Option<&'static str> {
 }
 
 pub fn lookup(language: &str, key: &str) -> Option<&'static str> {
-    let mut node = TABLES.get(language)?;
-    for part in key.split('.') {
-        node = node.get(part)?;
-    }
-    node.as_str()
+    find_at_any_dot(TABLES.get(language)?, key)?.as_str()
+}
+
+fn find_at_any_dot<'a>(node: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    node.get(key).or_else(|| {
+        key.match_indices('.')
+            .find_map(|(dot, _)| find_at_any_dot(node.get(&key[..dot])?, &key[dot + 1..]))
+    })
 }
 
 fn resolve(key: &str) -> Option<&'static str> {
@@ -291,5 +294,10 @@ mod tests {
     fn every_locale_parses() {
         assert_eq!(TABLES.len(), LOCALES.len());
         assert!(lookup("en", "sidebar.dictate").is_some());
+    }
+
+    #[test]
+    fn finds_keys_whose_names_hold_a_dot() {
+        assert!(lookup("en", "onboarding.models.parakeet-tdt-0.6b-v3.description").is_some());
     }
 }

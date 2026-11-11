@@ -252,7 +252,7 @@ impl RenderOnce for Dropdown {
             .find(|o| Some(&o.value) == self.selected.as_ref())
             .map(|o| o.label.clone())
             .or(self.placeholder.clone())
-            .unwrap_or_else(|| "Select an option...".into());
+            .unwrap_or_else(|| crate::i18n::t("common.selectOption"));
 
         let pick: PickHandler = {
             let (options, on_select, state) =

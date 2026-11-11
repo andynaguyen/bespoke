@@ -5,12 +5,29 @@
     "model": "Mô hình",
     "quit": "Thoát",
     "cancel": "Hủy",
-    "secureInputWarning": "⚠ Phím tắt bị Secure Input chặn"
+    "secureInputWarning": "⚠ Phím tắt bị Secure Input chặn",
+    "annotate": "Chú thích",
+    "annotateRecord": "Ghi màn hình",
+    "annotateChoose": "Chọn vùng cần ghi…",
+    "annotateOpenLatest": "Mở bản ghi hình mới nhất",
+    "checkForUpdates": "Kiểm tra cập nhật…",
+    "updateTo": "Cập nhật lên {{version}}…",
+    "triage": "Phân tích sự cố…"
   },
   "sidebar": {
     "models": "Mô hình",
     "stats": "Thống kê",
-    "debug": "Gỡ lỗi"
+    "debug": "Gỡ lỗi",
+    "settings": "Cài đặt",
+    "dictate": "Đọc chính tả",
+    "dictionary": "Từ điển",
+    "annotate": "Chú thích",
+    "mcp": "MCP",
+    "update": {
+      "available": "Có bản cập nhật",
+      "version": "Phiên bản {{version}}",
+      "button": "Cập nhật"
+    }
   },
   "onboarding": {
     "subtitle": "Để bắt đầu, hãy chọn một mô hình chuyển đổi giọng nói",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Mô hình lớn, chậm hơn, nhưng rất chính xác và đa ngôn ngữ."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Tích hợp trong macOS. Chạy trên Mac này bằng mô hình giọng nói của Apple."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "Hiển thị phiên âm trực tiếp khi bạn nói"
     },
     "cancel": "Hủy",
-    "legacy": "Cũ"
+    "legacy": "Cũ",
+    "errors": {
+      "rescan": "Không thể quét lại mô hình",
+      "delete": "Không thể xóa mô hình"
+    },
+    "builtIn": "Tích hợp trong macOS"
   },
   "settings": {
     "models": {
@@ -160,7 +186,7 @@
         "bindings": {
           "transcribe": {
             "name": "Phím tắt chuyển đổi",
-            "description": "Phím tắt để ghi âm và chuyển đổi giọng nói của bạn."
+            "description": "Nhấn phím, nút giữa hoặc nút bên của chuột để ghi âm và chuyển đổi giọng nói của bạn. Nút chuột trái và phải cần có phím bổ trợ."
           },
           "cancel": {
             "name": "Phím tắt hủy",
@@ -169,12 +195,32 @@
           "transcribe_with_post_process": {
             "name": "Phím tắt xử lý sau",
             "description": "Tùy chọn: Phím tắt chuyên dụng luôn áp dụng xử lý sau bằng AI cho bản chuyển đổi của bạn."
+          },
+          "annotate": {
+            "name": "Phím tắt chú thích",
+            "description": "Nhấn để ghi màn hình dưới con trỏ, nhấn lần nữa để kết thúc. Giữ để chọn một vùng, một cửa sổ hoặc màn hình."
+          },
+          "annotate_paste": {
+            "name": "Dán bản ghi hình gần nhất",
+            "description": "Dán trang hình thu nhỏ và bản tóm tắt của bản ghi hình mới nhất vào ứng dụng phía trước."
           }
         },
         "errors": {
           "restore": "Không thể khôi phục phím tắt gốc",
           "set": "Không thể đặt phím tắt: {{error}}",
-          "reset": "Không thể đặt lại phím tắt về giá trị gốc"
+          "reset": "Không thể đặt lại phím tắt về giá trị gốc",
+          "updateBinding": "Không thể cập nhật phím tắt"
+        },
+        "pressKeysOrMouse": "Nhấn phím hoặc nút chuột...",
+        "mouseButtons": {
+          "mouseleft": "Chuột trái",
+          "mouseright": "Chuột phải",
+          "mousemiddle": "Chuột giữa",
+          "mousex1": "Chuột 4",
+          "mousex2": "Chuột 5",
+          "mouse6": "Chuột 6",
+          "mouse7": "Chuột 7",
+          "mouse8": "Chuột 8"
         }
       },
       "language": {
@@ -193,9 +239,9 @@
           "toggle": "Bật/tắt"
         },
         "descriptions": {
-          "hold_or_toggle": "Giữ để ghi âm hoặc nhấn nhanh để bật/tắt",
-          "push_to_talk": "Ghi âm trong lúc bạn giữ phím tắt",
-          "toggle": "Nhấn phím tắt để bắt đầu ghi âm, nhấn lại để dừng"
+          "hold_or_toggle": "Giữ để ghi âm hoặc nhấn nhanh để bật/tắt.",
+          "push_to_talk": "Ghi âm trong lúc bạn giữ phím tắt.",
+          "toggle": "Nhấn phím tắt để bắt đầu ghi âm, nhấn lại để dừng."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Âm thanh",
       "microphone": {
         "title": "Micrô",
-        "description": "Chọn thiết bị micrô ưa thích của bạn",
+        "description": "Chọn thiết bị micrô ưa thích của bạn.",
         "placeholder": "Chọn micrô...",
-        "loading": "Đang tải..."
+        "loading": "Đang tải...",
+        "priority": {
+          "title": "Ưu tiên",
+          "description": "Đọc chính tả và Chú thích ghi âm từ micrô đầu tiên đang kết nối. Kéo để sắp xếp lại.",
+          "add": "Thêm micrô",
+          "noneToAdd": "Không có micrô nào khác được kết nối",
+          "inUse": "Đang dùng",
+          "notConnected": "Chưa kết nối",
+          "systemDefault": "Mặc định hệ thống",
+          "alwaysLast": "Luôn ở cuối"
+        }
       },
       "channel": {
         "title": "Kênh đầu vào",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Phản hồi âm thanh",
-        "description": "Phát âm thanh khi bắt đầu và kết thúc ghi âm"
+        "description": "Phát âm thanh khi bắt đầu và kết thúc ghi âm."
       },
       "outputDevice": {
         "title": "Thiết bị đầu ra",
-        "description": "Chọn thiết bị đầu ra âm thanh ưa thích của bạn cho âm thanh phản hồi",
+        "description": "Chọn thiết bị đầu ra âm thanh ưa thích của bạn cho âm thanh phản hồi.",
         "placeholder": "Chọn thiết bị đầu ra...",
         "loading": "Đang tải..."
       },
       "volume": {
         "title": "Âm lượng",
-        "description": "Điều chỉnh âm lượng của âm thanh phản hồi"
-      }
+        "description": "Điều chỉnh âm lượng của âm thanh phản hồi."
+      },
+      "defaultDevice": "Mặc định"
     },
     "advanced": {
       "groups": {
         "transcription": "Chuyển đổi",
-        "experimental": "Thử nghiệm"
+        "experimental": "Thử nghiệm",
+        "dictation": "Đọc chính tả",
+        "appearance": "Giao diện",
+        "system": "Hệ thống",
+        "shortcut": "Phím tắt",
+        "cleanup": "Dọn dẹp",
+        "pasting": "Dán",
+        "submitting": "Gửi",
+        "startup": "Khởi động",
+        "updates": "Cập nhật",
+        "application": "Ứng dụng",
+        "overlay": "Lớp phủ",
+        "voiceCommands": "Lệnh giọng nói",
+        "keyboard": "Bàn phím",
+        "acceleration": "Tăng tốc",
+        "recording": "Ghi âm"
       },
       "experimentalToggle": {
         "label": "Tính năng thử nghiệm",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Tăng tốc Whisper",
-          "description": "Tăng tốc phần cứng cho các mô hình Whisper. Chế độ tự động sử dụng GPU nếu có (Metal trên macOS, Vulkan trên Windows/Linux)."
+          "description": "Tăng tốc phần cứng cho các mô hình transcribe.cpp (họ Whisper). Chế độ tự động dùng GPU qua Metal nếu có."
         },
         "ort": {
           "title": "Tăng tốc ONNX",
-          "description": "Tăng tốc phần cứng cho các mô hình ONNX (Parakeet, Canary, Moonshine, v.v.). DirectML trên Windows là thử nghiệm. Các mô hình có thể không chuyển đổi giọng nói được."
+          "description": "Tăng tốc phần cứng cho các mô hình ONNX (Parakeet, Canary, Moonshine, v.v.). Các mô hình có thể không chuyển đổi giọng nói được."
         },
         "gpuDevice": {
           "auto": "Tự động"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Lớp phủ",
-          "description": "Chọn lớp phủ khi ghi âm: 'Không có' sẽ ẩn nó, 'Tối giản' hiển thị một chỉ báo nhỏ gọn, 'Trực tiếp' hiển thị bản chép lời theo thời gian thực khi bạn nói (chỉ với các mô hình hỗ trợ truyền trực tiếp — hãy tìm huy hiệu 'Truyền trực tiếp' trong bộ chọn mô hình). Trên Linux, khuyến nghị chọn 'Không có'.",
+          "title": "Kiểu",
+          "description": "Chọn lớp phủ khi ghi âm.",
           "options": {
             "none": "Không có",
             "minimal": "Tối giản",
@@ -277,8 +349,8 @@
           }
         },
         "position": {
-          "title": "Vị trí lớp phủ",
-          "description": "Hiển thị lớp phủ phản hồi trực quan trong quá trình ghi âm và chuyển đổi. Trên Linux, 'Không có' được khuyến nghị.",
+          "title": "Vị trí",
+          "description": "Vị trí lớp phủ xuất hiện trên màn hình trong quá trình ghi âm và chuyển đổi.",
           "options": {
             "bottom": "Dưới",
             "top": "Trên"
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Gửi tự động",
-        "description": "Tự động gửi tổ hợp phím đã chọn sau khi chèn văn bản. Cmd+Enter áp dụng trên macOS, còn Windows/Linux dùng Super+Enter.",
+        "description": "Tự động gửi tổ hợp phím đã chọn sau khi chèn văn bản.",
         "options": {
           "off": "Tắt",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Loại bỏ từ đệm",
         "description": "Loại bỏ các từ ngập ngừng phổ biến khỏi bản chép lời. Tắt để giữ lại các từ này."
+      },
+      "voiceScrub": {
+        "title": "Xóa hết bằng giọng nói",
+        "description": "Nói từ khóa để bỏ toàn bộ những gì bạn đã nói và bắt đầu lại.",
+        "keyword": {
+          "title": "Từ khóa xóa hết",
+          "description": "Mọi điều bạn đã nói trước từ này sẽ bị bỏ.",
+          "invalid": "Hãy dùng một từ có chữ cái hoặc chữ số."
+        }
+      },
+      "voiceScratch": {
+        "title": "Xóa câu bằng giọng nói",
+        "description": "Nói từ khóa để xóa câu bạn vừa nói và đọc tiếp.",
+        "keyword": {
+          "title": "Từ khóa xóa câu",
+          "description": "Nói từ này thành một cụm riêng, ngừng một chút trước và sau. Câu trước đó sẽ bị xóa.",
+          "invalid": "Hãy dùng một từ có chữ cái hoặc chữ số."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "URL cơ sở",
           "description": "URL cơ sở API cho nhà cung cấp đã chọn. Chỉ có thể chỉnh sửa nhà cung cấp tùy chỉnh.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "URL cơ sở do nhà cung cấp đã chọn quản lý."
         },
         "apiKey": {
           "title": "Khóa API",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Chọn một mô hình được cung cấp bởi nhà cung cấp đã chọn.",
           "placeholderWithOptions": "Tìm kiếm hoặc chọn một mô hình",
           "placeholderNoOptions": "Nhập tên mô hình",
-          "refreshModels": "Làm mới mô hình"
+          "refreshModels": "Làm mới mô hình",
+          "useTyped": "Dùng \"{{value}}\""
         }
       },
       "prompts": {
@@ -414,20 +506,56 @@
       "dayPopover": {
         "words": "Tổng số từ",
         "appsUsed": "Số ứng dụng đã dùng",
-        "topApp": "Ứng dụng dùng nhiều nhất"
+        "topApp": "Ứng dụng dùng nhiều nhất",
+        "captures": "Bản ghi hình",
+        "timeRecorded": "Thời gian ghi"
       },
       "less": "Ít",
-      "more": "Nhiều"
+      "more": "Nhiều",
+      "captures": "Bản ghi hình",
+      "timeRecorded": "Thời gian ghi",
+      "marksDrawn": "Dấu đã vẽ",
+      "duration": {
+        "seconds": "{{seconds}} giây",
+        "minutesSeconds": "{{minutes}} phút {{seconds}} giây",
+        "hoursMinutes": "{{hours}} giờ {{minutes}} phút"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Từ điển",
-        "history": "Lịch sử"
+        "history": "Lịch sử",
+        "style": "Văn phong"
       },
       "save": "Lưu",
       "cancel": "Hủy",
       "remove": "Xóa {{word}}",
-      "duplicate": "\"{{word}}\" đã tồn tại"
+      "duplicate": "\"{{word}}\" đã tồn tại",
+      "replacements": "Thay thế",
+      "replacementsHelp": "Nói cụm từ bên trái, và Bespoke sẽ viết văn bản bên phải.",
+      "words": "Từ",
+      "wordsHelp": "Tên riêng, thuật ngữ và từ viết tắt mà Bespoke phải viết đúng như thế này.",
+      "addReplacement": "Thêm thay thế",
+      "editWord": "Sửa từ",
+      "editReplacement": "Sửa thay thế",
+      "wordPlaceholder": "Tên hoặc thuật ngữ, như \"IntraFi\"",
+      "writeInsteadLabel": "Viết thay bằng",
+      "writeInsteadPlaceholder": "Văn bản Bespoke viết thay vào đó",
+      "phraseLabel": "Khi bạn nói",
+      "phrasePlaceholder": "Một cụm từ, như \"email của tôi\"",
+      "addWord": "Thêm từ",
+      "addedTag": "Đã thêm",
+      "tryIt": "Dùng thử",
+      "tryItHint": "Đọc bằng {{shortcut}} khi trang này đang mở. Bespoke hiển thị văn bản ở đây thay vì dán.",
+      "tryItEmpty": "Bespoke không nghe thấy từ nào.",
+      "fixedCount_other": "{{count}} chỗ sửa từ từ điển",
+      "pickWord": "Nhấp vào từ Bespoke nghe sai để dạy nó. Giữ Shift và nhấp từ kế tiếp để thêm từ đó.",
+      "teachLabel": "Bespoke nghe thành",
+      "spellingPlaceholder": "Cách viết đúng",
+      "wontMatch": "Bespoke sẽ không khớp \"{{heard}}\" với một từ khác xa như vậy. Hãy thêm nó làm thay thế.",
+      "teachWord": "Thêm từ",
+      "teachReplacement": "Thêm làm thay thế",
+      "added": "Đã thêm. Đọc lại câu đó để kiểm tra."
     },
     "history": {
       "title": "Lịch sử",
@@ -443,17 +571,33 @@
       "retranscribe": "Phiên âm lại",
       "retranscribeError": "Không thể phiên âm lại. Vui lòng thử lại.",
       "transcribing": "Đang phiên âm...",
-      "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại."
+      "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại.",
+      "transcript": "Bản chép lời",
+      "details": "Chi tiết",
+      "recorded": "Thời điểm ghi",
+      "wordCount": "Số từ",
+      "postProcessed": "Đã xử lý sau",
+      "prompt": "Prompt",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "noSelection": "Chọn một bản chép lời để xem ở đây."
     },
     "debug": {
       "title": "Gỡ lỗi",
       "logDirectory": {
         "title": "Thư mục nhật ký",
-        "description": "Vị trí lưu trữ các tệp nhật ký"
+        "description": "Vị trí lưu trữ các tệp nhật ký."
       },
       "logLevel": {
         "title": "Mức nhật ký",
-        "description": "Đặt mức độ chi tiết của nhật ký"
+        "description": "Đặt mức độ chi tiết của nhật ký.",
+        "options": {
+          "error": "Lỗi",
+          "warn": "Cảnh báo",
+          "info": "Thông tin",
+          "debug": "Gỡ lỗi",
+          "trace": "Theo vết"
+        }
       },
       "liveLogs": {
         "title": "Nhật ký trực tiếp",
@@ -468,20 +612,26 @@
       },
       "soundTheme": {
         "label": "Chủ đề âm thanh",
-        "description": "Chọn chủ đề âm thanh cho phản hồi bắt đầu và kết thúc ghi âm"
+        "description": "Chọn chủ đề âm thanh cho phản hồi bắt đầu và kết thúc ghi âm.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Tùy chỉnh"
+        },
+        "preview": "Nghe thử chủ đề âm thanh (phát âm bắt đầu rồi âm kết thúc)"
       },
       "wordCorrectionThreshold": {
         "title": "Ngưỡng sửa từ",
-        "description": "Độ nhạy cho việc sửa từ tùy chỉnh"
+        "description": "Độ nhạy cho việc sửa từ tùy chỉnh."
       },
       "historyLimit": {
         "title": "Giới hạn lịch sử",
-        "description": "Số lượng mục lịch sử tối đa cần giữ",
+        "description": "Số lượng mục lịch sử tối đa cần giữ.",
         "entries": "mục"
       },
       "recordingRetention": {
         "title": "Tự động xóa ghi âm",
-        "description": "Tự động xóa các bản ghi âm cũ để tiết kiệm dung lượng",
+        "description": "Tự động xóa các bản ghi âm cũ để tiết kiệm dung lượng.",
         "never": "Không bao giờ",
         "preserveLimit": "Giữ {{count}} bản mới nhất",
         "days3": "Sau 3 ngày",
@@ -491,28 +641,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Micrô luôn bật",
-        "description": "Giữ micrô hoạt động để phản hồi nhanh hơn"
+        "description": "Giữ micrô hoạt động để phản hồi nhanh hơn."
       },
       "clamshellMicrophone": {
         "title": "Micrô chế độ gập",
-        "description": "Micrô sử dụng khi nắp laptop được đóng"
+        "description": "Micrô sử dụng khi nắp laptop được đóng."
       },
       "postProcessingToggle": {
-        "label": "Xử lý sau",
-        "description": "Bật tinh chỉnh văn bản bằng AI sau khi chuyển đổi"
+        "label": "Xử lý sau bằng AI",
+        "description": "Bật tinh chỉnh văn bản bằng AI sau khi chuyển đổi."
       },
       "muteWhileRecording": {
         "label": "Tắt tiếng khi ghi âm",
-        "description": "Tắt tiếng âm thanh hệ thống trong khi ghi âm"
+        "description": "Tắt tiếng âm thanh hệ thống trong khi ghi âm."
       },
       "appendTrailingSpace": {
         "label": "Thêm dấu cách cuối",
-        "description": "Thêm một dấu cách sau bản ghi đã dán"
+        "description": "Thêm một dấu cách sau bản ghi đã dán."
       },
       "keyboardImplementation": {
         "title": "Triển khai bàn phím",
         "description": "Chọn hệ thống xử lý phím tắt.",
-        "bindingsReset": "Các phím tắt không tương thích và đã được đặt lại về mặc định"
+        "bindingsReset": "Các phím tắt không tương thích và đã được đặt lại về mặc định",
+        "options": {
+          "globalHotkey": "Phím tắt toàn cục",
+          "keyboardListener": "Trình nghe bàn phím"
+        }
       },
       "paths": {
         "appData": "Dữ liệu ứng dụng:",
@@ -533,7 +687,7 @@
       },
       "reliablePaste": {
         "title": "Dán đáng tin cậy (Beta)",
-        "description": "Chỉ khôi phục bảng nhớ tạm sau khi ứng dụng đích thực sự đọc bản chép lời, thay vì sau một độ trễ cố định. Nhằm khắc phục việc nội dung bảng nhớ tạm cũ bị dán khi hệ thống bị tải nặng. Cần một phương thức dán qua bảng nhớ tạm; chỉ dành cho macOS và Windows."
+        "description": "Chỉ khôi phục bảng nhớ tạm sau khi ứng dụng đích thực sự đọc bản chép lời, thay vì sau một độ trễ cố định. Nhằm khắc phục việc nội dung bảng nhớ tạm cũ bị dán khi hệ thống bị tải nặng. Cần một phương thức dán qua bảng nhớ tạm."
       },
       "recordingBuffer": {
         "title": "Bộ đệm ghi âm thêm",
@@ -561,14 +715,14 @@
       },
       "whatsNewPreview": {
         "title": "Xem trước điểm mới",
-        "description": "Mở ghi chú phát hành mới nhất được đóng gói mà không đánh dấu là đã xem",
+        "description": "Mở ghi chú phát hành mới nhất được đóng gói mà không đánh dấu là đã xem.",
         "button": "Xem trước",
         "noNotes": "Không tìm thấy ghi chú phát hành được đóng gói",
         "error": "Không thể xem trước ghi chú phát hành"
       },
       "onboardingPreview": {
         "title": "Xem trước thiết lập ban đầu",
-        "description": "Xem trước các màn hình thiết lập mà không thay đổi quyền, mô hình hoặc trạng thái hoàn tất",
+        "description": "Xem trước các màn hình thiết lập mà không thay đổi quyền, mô hình hoặc trạng thái hoàn tất.",
         "permissionsButton": "Quyền",
         "modelsButton": "Chọn mô hình",
         "exitButton": "Thoát xem trước"
@@ -578,12 +732,64 @@
       "title": "Giới thiệu",
       "appDataDirectory": {
         "title": "Thư mục dữ liệu ứng dụng",
-        "description": "Vị trí Bespoke lưu trữ dữ liệu"
+        "description": "Vị trí Bespoke lưu trữ dữ liệu."
       },
       "whatsNewUpdates": {
         "label": "Hiển thị điểm mới",
-        "description": "Hiển thị ghi chú phát hành sau khi Bespoke cập nhật"
+        "description": "Hiển thị ghi chú phát hành sau khi Bespoke cập nhật."
       }
+    },
+    "style": {
+      "intro": "Kéo một ứng dụng vào một văn phong, hoặc nhấp vào nó.",
+      "styles": {
+        "formal": {
+          "name": "Trang trọng",
+          "example": "Chào bạn, ngày mai bạn có rảnh ăn trưa không? Mình hẹn lúc 12 giờ nếu bạn tiện nhé."
+        },
+        "casual": {
+          "name": "Thân mật",
+          "example": "Chào bạn mai rảnh ăn trưa không? Hẹn 12 giờ nếu bạn tiện nhé"
+        },
+        "veryCasual": {
+          "name": "Rất thân mật",
+          "example": "ê mai rảnh ăn trưa ko? 12h nha nếu tiện"
+        }
+      },
+      "board": {
+        "default": "Mặc định",
+        "defaultTitle": "Văn phong mặc định",
+        "defaultHelp": "Các ứng dụng chưa có quy tắc dùng văn phong này. Kéo Mặc định sang văn phong khác để đổi.",
+        "dropHere": "Thả ứng dụng vào đây",
+        "remove": "Xóa quy tắc"
+      },
+      "shelf": {
+        "title": "Thêm ứng dụng",
+        "open": "Đang mở",
+        "all": "Tất cả ứng dụng",
+        "search": "Tìm ứng dụng",
+        "loading": "Đang tải ứng dụng…",
+        "noMatch": "Không có ứng dụng phù hợp.",
+        "noneLeft": "Mọi ứng dụng ở đây đều đã có quy tắc."
+      }
+    },
+    "updates": {
+      "version": "Phiên bản {{version}}",
+      "available": "Đã có Bespoke {{version}}.",
+      "lastChecked": "Đã cập nhật mới nhất. Kiểm tra lần cuối: {{when}}.",
+      "neverChecked": "Đã cập nhật mới nhất.",
+      "disabled": "Bản dựng này không tự cập nhật.",
+      "update": "Cập nhật",
+      "checkNow": "Kiểm tra ngay",
+      "automatic": {
+        "label": "Tự động kiểm tra cập nhật",
+        "description": "Bespoke kiểm tra mỗi ngày một lần."
+      }
+    },
+    "nav": {
+      "general": "Chung",
+      "sound": "Âm thanh",
+      "postProcessing": "Xử lý sau",
+      "app": "Ứng dụng"
     }
   },
   "common": {
@@ -593,7 +799,11 @@
     "open": "Mở",
     "copy": "Sao chép",
     "clear": "Xóa",
-    "noOptionsFound": "Không tìm thấy tùy chọn"
+    "noOptionsFound": "Không tìm thấy tùy chọn",
+    "selectOption": "Chọn một tùy chọn...",
+    "unknownSize": "Không rõ kích thước",
+    "yes": "Có",
+    "no": "Không"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke cần quyền truy cập để gõ văn bản đã chuyển đổi.",
@@ -613,15 +823,16 @@
     "modelLoadFailedUnknown": "mô hình không xác định",
     "pasteFailedTitle": "Không thể dán văn bản",
     "pasteFailed": "Không thể dán văn bản vào ứng dụng đang hoạt động.",
-    "transcriptionFailedTitle": "Phiên âm thất bại"
+    "transcriptionFailedTitle": "Phiên âm thất bại",
+    "unknown": "Lỗi không xác định"
   },
   "appLanguage": {
-    "title": "Ngôn ngữ ứng dụng",
-    "description": "Thay đổi ngôn ngữ giao diện của Bespoke"
+    "title": "Ngôn ngữ",
+    "description": "Thay đổi ngôn ngữ giao diện của Bespoke."
   },
   "theme": {
-    "title": "Giao diện ứng dụng",
-    "description": "Chọn xem Bespoke theo chủ đề hệ thống hay giữ ở chế độ sáng hoặc tối",
+    "title": "Giao diện",
+    "description": "Chọn xem Bespoke theo chủ đề hệ thống hay giữ ở chế độ sáng hoặc tối.",
     "options": {
       "system": "Hệ thống",
       "light": "Sáng",
@@ -644,5 +855,274 @@
     "recorderBlockedNoCulprit": "macOS đang tạm thời chặn việc thay đổi phím tắt",
     "recorderBlocked": "Hiện không thể ghi phím tắt — Secure Input của macOS đang chặn các sự kiện phím. Hãy xử lý cảnh báo Secure Input trước.",
     "dismiss": "Bỏ qua"
+  },
+  "triage": {
+    "title": "Phân tích sự cố",
+    "showTitle": "Cho thấy sự cố",
+    "showHint": "Không bắt buộc. Nhấn {{shortcut}} và nói về những gì bạn thấy.",
+    "captured": "Bản ghi hình lúc {{time}} · {{duration}}",
+    "recordAgain": "Ghi lại",
+    "removeCapture": "Bỏ bản ghi hình này",
+    "agentTitle": "Chọn một agent",
+    "sendTitle": "Gửi prompt",
+    "sendDescription": "Bespoke ghi nhật ký và cài đặt của nó vào một thư mục rồi mở agent với prompt đã sẵn sàng. Bạn nhấn gửi, và agent sẽ hỏi có gì không ổn. Agent sẽ hỏi trước khi thay đổi hoặc đăng bất cứ thứ gì.",
+    "start": "Bắt đầu phân tích",
+    "cancel": "Hủy",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code trong ứng dụng Claude",
+    "claudeMissing": "Cài đặt ứng dụng Claude để dùng tính năng này",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code trong cửa sổ terminal",
+    "claudeCodeMissing": "Gửi một prompt cho claude trong terminal để bật liên kết của nó",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT trong ứng dụng Codex",
+    "codexMissing": "Không có ứng dụng nào trên Mac này mở được liên kết Codex",
+    "copy": "Sao chép prompt",
+    "copyDescription": "Dán vào bất kỳ agent lập trình nào trên Mac này",
+    "opened": "Đã bắt đầu phân tích. Gửi prompt, và agent sẽ hỏi có gì không ổn.",
+    "copied": "Đã sao chép prompt phân tích. Dán vào một agent lập trình trên Mac này.",
+    "failed": "Không thể bắt đầu phân tích"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Quyền"
+    },
+    "retention": {
+      "title": "Lưu bản ghi",
+      "custom": "Tùy chỉnh",
+      "options": {
+        "week": "Video trong 7 ngày",
+        "month": "Video trong 30 ngày",
+        "forever": "Mãi mãi"
+      },
+      "notes": {
+        "week": "Video và âm thanh chuyển vào Thùng rác sau 7 ngày, phần còn lại của mỗi bản ghi hình sau 30 ngày.",
+        "month": "Video và âm thanh chuyển vào Thùng rác sau 30 ngày, phần còn lại của mỗi bản ghi hình sau 90 ngày.",
+        "forever": "Bản ghi hình không bao giờ bị xóa.",
+        "custom": "Thời hạn lưu trong config.json được đặt thủ công."
+      }
+    },
+    "captures": {
+      "title": "Bản ghi hình",
+      "size": "Các bản ghi hình dùng {{size}}.",
+      "measuring": "Đang đo…",
+      "openLatest": "Mở mới nhất",
+      "showInFinder": "Hiển thị trong Finder"
+    },
+    "permissions": {
+      "granted": "Đã cho phép",
+      "allow": "Cho phép",
+      "openSettings": "Mở Cài đặt Hệ thống",
+      "relaunch": "Đã cho phép. Thoát và mở lại Bespoke để ghi màn hình.",
+      "blocked": "Bật {{permissions}} để ghi.",
+      "screenRecording": {
+        "title": "Ghi màn hình & âm thanh hệ thống",
+        "description": "Ghi màn hình. Bắt buộc."
+      },
+      "microphone": {
+        "title": "Micrô",
+        "description": "Ghi lại lời nói của bạn. Bắt buộc."
+      },
+      "accessibility": {
+        "title": "Trợ năng",
+        "description": "Nhận biết khi nhấn ⌘Z, Esc và S trong lúc ghi, và dán bản ghi hình. Bắt buộc."
+      },
+      "panel": {
+        "drag": "Kéo {{app}} vào danh sách trên để cho phép {{permission}}",
+        "allowed": "Đã cho phép {{app}}",
+        "back": "Quay lại",
+        "screenRecording": "Ghi màn hình",
+        "accessibility": "Trợ năng"
+      }
+    },
+    "capsule": {
+      "area": "Vùng",
+      "window": "Cửa sổ",
+      "screen": "Màn hình",
+      "record": "Ghi",
+      "undo": "Hoàn tác",
+      "cancel": "Hủy",
+      "finish": "Xong",
+      "processing": "Đang xử lý",
+      "copied": "Đã sao chép",
+      "saved": "Đã lưu",
+      "failed": "Không thể lưu bản ghi hình",
+      "paste": "Dán",
+      "inspect": "Xem",
+      "marks_other": "{{count}} dấu"
+    },
+    "library": {
+      "folder": "Thư mục bản ghi hình",
+      "record": "Ghi",
+      "empty": "Chưa có bản ghi hình nào",
+      "emptyHint": "Nhấn {{record}} để ghi màn hình dưới con trỏ trong lúc bạn nói.",
+      "back": "Quay lại bản ghi hình",
+      "contactSheet": "Trang hình thu nhỏ",
+      "keyframe": "Khung hình chính",
+      "keyframes_other": "{{count}} khung hình chính",
+      "timeline": "Dòng thời gian",
+      "showInFinder": "Hiển thị trong Finder",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "copyFailed": "Không thể sao chép bản ghi hình"
+    },
+    "picker": {
+      "fullScreenHold": "Toàn màn hình · {{holdKey}} để chuyển · kéo để chọn vùng · thả {{holdMods}} để ghi",
+      "fullScreen": "Toàn màn hình · Nhấp để ghi"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Quyền truy cập của agent",
+      "off": "Các agent lập trình đọc bản ghi hình của bạn từ một máy chủ MCP trên Mac này, ở cổng {{port}}.",
+      "local": "Đang lắng nghe trên 127.0.0.1, cổng {{port}}. Agent trên Mac này kết nối trực tiếp, còn máy từ xa kết nối qua đường hầm SSH.",
+      "tailnet": "Đang lắng nghe trên 127.0.0.1 và {{address}}, cổng {{port}}. Các máy trong tailnet của bạn kết nối trực tiếp.",
+      "tailnetWaiting": "Đang lắng nghe trên 127.0.0.1, cổng {{port}}. Tailscale chưa kết nối trên Mac này. Bespoke sẽ lắng nghe trên tailnet của bạn khi Tailscale kết nối.",
+      "failed": "Máy chủ không khởi động được: {{error}}",
+      "options": {
+        "off": "Tắt",
+        "local": "Mac này",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Thêm vào agent",
+      "local": "Sao chép cấu hình kèm token, vì vậy hãy giữ kín. Với máy bạn kết nối qua SSH, hãy thêm cả dòng SSH vào mục host của máy đó trong ~/.ssh/config trên Mac này.",
+      "tailnet": "Sao chép cấu hình kèm token, vì vậy hãy giữ kín. Cấu hình dùng được trên Mac này và mọi máy trong tailnet của bạn.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "Dòng SSH"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Token mới sẽ ngắt mọi máy bạn đã thêm cho đến khi bạn sao chép cấu hình mới sang đó.",
+      "renew": "Token mới",
+      "renewed": "Đã tạo token mới. Sao chép lại cấu hình cho từng máy.",
+      "failed": "Không thể tạo token mới"
+    },
+    "copied": "Đã sao chép",
+    "copyFailed": "Không thể sao chép"
+  },
+  "menu": {
+    "hideApp": "Ẩn Bespoke",
+    "hideOthers": "Ẩn ứng dụng khác",
+    "showAll": "Hiển thị tất cả",
+    "quitApp": "Thoát Bespoke",
+    "edit": "Sửa",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại",
+    "cut": "Cắt",
+    "copy": "Sao chép",
+    "paste": "Dán",
+    "selectAll": "Chọn tất cả",
+    "window": "Cửa sổ",
+    "minimize": "Thu nhỏ",
+    "closeWindow": "Đóng cửa sổ"
+  },
+  "languages": {
+    "auto": "Tự động phát hiện",
+    "en": "Tiếng Anh",
+    "zh": "Tiếng Trung",
+    "zh-Hans": "Tiếng Trung (Giản thể)",
+    "zh-Hant": "Tiếng Trung (Phồn thể)",
+    "yue": "Tiếng Quảng Đông",
+    "de": "Tiếng Đức",
+    "es": "Tiếng Tây Ban Nha",
+    "ru": "Tiếng Nga",
+    "ko": "Tiếng Hàn",
+    "fr": "Tiếng Pháp",
+    "ja": "Tiếng Nhật",
+    "pt": "Tiếng Bồ Đào Nha",
+    "tr": "Tiếng Thổ Nhĩ Kỳ",
+    "pl": "Tiếng Ba Lan",
+    "ca": "Tiếng Catalan",
+    "nl": "Tiếng Hà Lan",
+    "ar": "Tiếng Ả Rập",
+    "sv": "Tiếng Thụy Điển",
+    "it": "Tiếng Ý",
+    "id": "Tiếng Indonesia",
+    "hi": "Tiếng Hindi",
+    "fi": "Tiếng Phần Lan",
+    "vi": "Tiếng Việt",
+    "he": "Tiếng Do Thái",
+    "uk": "Tiếng Ukraina",
+    "el": "Tiếng Hy Lạp",
+    "ms": "Tiếng Mã Lai",
+    "cs": "Tiếng Séc",
+    "ro": "Tiếng Romania",
+    "da": "Tiếng Đan Mạch",
+    "hu": "Tiếng Hungary",
+    "ta": "Tiếng Tamil",
+    "no": "Tiếng Na Uy",
+    "th": "Tiếng Thái",
+    "ur": "Tiếng Urdu",
+    "hr": "Tiếng Croatia",
+    "bg": "Tiếng Bulgaria",
+    "lt": "Tiếng Litva",
+    "la": "Tiếng Latinh",
+    "mi": "Tiếng Maori",
+    "ml": "Tiếng Malayalam",
+    "cy": "Tiếng Wales",
+    "sk": "Tiếng Slovak",
+    "te": "Tiếng Telugu",
+    "fa": "Tiếng Ba Tư",
+    "lv": "Tiếng Latvia",
+    "bn": "Tiếng Bengal",
+    "sr": "Tiếng Serbia",
+    "az": "Tiếng Azerbaijan",
+    "sl": "Tiếng Slovenia",
+    "kn": "Tiếng Kannada",
+    "et": "Tiếng Estonia",
+    "mk": "Tiếng Macedonia",
+    "br": "Tiếng Breton",
+    "eu": "Tiếng Basque",
+    "is": "Tiếng Iceland",
+    "ga": "Tiếng Ireland",
+    "hy": "Tiếng Armenia",
+    "ne": "Tiếng Nepal",
+    "mn": "Tiếng Mông Cổ",
+    "bs": "Tiếng Bosnia",
+    "kk": "Tiếng Kazakh",
+    "sq": "Tiếng Albania",
+    "sw": "Tiếng Swahili",
+    "gl": "Tiếng Galicia",
+    "mr": "Tiếng Marathi",
+    "pa": "Tiếng Punjab",
+    "si": "Tiếng Sinhala",
+    "km": "Tiếng Khmer",
+    "sn": "Tiếng Shona",
+    "yo": "Tiếng Yoruba",
+    "so": "Tiếng Somali",
+    "af": "Tiếng Afrikaans",
+    "oc": "Tiếng Occitan",
+    "ka": "Tiếng Gruzia",
+    "be": "Tiếng Belarus",
+    "tg": "Tiếng Tajik",
+    "sd": "Tiếng Sindhi",
+    "gu": "Tiếng Gujarat",
+    "am": "Tiếng Amharic",
+    "yi": "Tiếng Yiddish",
+    "lo": "Tiếng Lào",
+    "uz": "Tiếng Uzbek",
+    "fo": "Tiếng Faroe",
+    "ht": "Tiếng Creole Haiti",
+    "ps": "Tiếng Pashto",
+    "tk": "Tiếng Turkmen",
+    "nn": "Tiếng Nynorsk",
+    "mt": "Tiếng Malta",
+    "sa": "Tiếng Phạn",
+    "lb": "Tiếng Luxembourg",
+    "my": "Tiếng Miến Điện",
+    "bo": "Tiếng Tây Tạng",
+    "tl": "Tiếng Philippines (Tagalog)",
+    "mg": "Tiếng Malagasy",
+    "as": "Tiếng Assam",
+    "tt": "Tiếng Tatar",
+    "haw": "Tiếng Hawaii",
+    "ln": "Tiếng Lingala",
+    "ha": "Tiếng Hausa",
+    "ba": "Tiếng Bashkir",
+    "jw": "Tiếng Java",
+    "su": "Tiếng Sunda"
   }
 }

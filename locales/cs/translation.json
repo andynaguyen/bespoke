@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Ukončit",
     "cancel": "Zrušit",
-    "secureInputWarning": "⚠ Zkratky blokuje Secure Input"
+    "secureInputWarning": "⚠ Zkratky blokuje Secure Input",
+    "annotate": "Anotace",
+    "annotateRecord": "Nahrát obrazovku",
+    "annotateChoose": "Vybrat, co nahrát…",
+    "annotateOpenLatest": "Otevřít poslední záznam",
+    "checkForUpdates": "Vyhledat aktualizace…",
+    "updateTo": "Aktualizovat na {{version}}…",
+    "triage": "Diagnostikovat problém…"
   },
   "sidebar": {
     "models": "Modely",
     "stats": "Statistiky",
-    "debug": "Ladění"
+    "debug": "Ladění",
+    "settings": "Nastavení",
+    "dictate": "Diktování",
+    "dictionary": "Slovník",
+    "annotate": "Anotace",
+    "mcp": "MCP",
+    "update": {
+      "available": "Dostupná aktualizace",
+      "version": "Verze {{version}}",
+      "button": "Aktualizovat"
+    }
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Velký, pomalejší, ale velmi přesný vícejazyčný model."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Součást macOS. Běží na tomto Macu s modelem řeči od Applu."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "Zobrazuje přepis živě, jak mluvíte"
     },
     "cancel": "Zrušit",
-    "legacy": "Zastaralé"
+    "legacy": "Zastaralé",
+    "errors": {
+      "rescan": "Nepodařilo se znovu prohledat modely",
+      "delete": "Nepodařilo se smazat model"
+    },
+    "builtIn": "Součást macOS"
   },
   "settings": {
     "models": {
@@ -160,7 +186,7 @@
         "bindings": {
           "transcribe": {
             "name": "Zkratka přepisu",
-            "description": "Klávesová zkratka pro nahrávání a přepis vašeho hlasu."
+            "description": "Stiskněte klávesy, prostřední nebo boční tlačítko myši pro nahrávání a přepis hlasu. Levé a pravé tlačítko myši vyžadují modifikační klávesu."
           },
           "cancel": {
             "name": "Zkratka zrušení",
@@ -169,12 +195,32 @@
           "transcribe_with_post_process": {
             "name": "Klávesa pro následné zpracování",
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
+          },
+          "annotate": {
+            "name": "Zkratka anotace",
+            "description": "Klepnutím nahrajete obrazovku pod ukazatelem, dalším klepnutím nahrávání ukončíte. Podržením vyberete oblast, okno nebo obrazovku."
+          },
+          "annotate_paste": {
+            "name": "Vložit poslední záznam",
+            "description": "Vloží kontaktní arch a souhrn posledního záznamu do aplikace v popředí."
           }
         },
         "errors": {
           "restore": "Nepodařilo se obnovit původní zkratku",
           "set": "Nepodařilo se nastavit zkratku: {{error}}",
-          "reset": "Nepodařilo se vrátit zkratku na původní hodnotu"
+          "reset": "Nepodařilo se vrátit zkratku na původní hodnotu",
+          "updateBinding": "Nepodařilo se aktualizovat zkratku"
+        },
+        "pressKeysOrMouse": "Stiskněte klávesy nebo tlačítko myši...",
+        "mouseButtons": {
+          "mouseleft": "Levé tlačítko",
+          "mouseright": "Pravé tlačítko",
+          "mousemiddle": "Prostřední tlačítko",
+          "mousex1": "Myš 4",
+          "mousex2": "Myš 5",
+          "mouse6": "Myš 6",
+          "mouse7": "Myš 7",
+          "mouse8": "Myš 8"
         }
       },
       "language": {
@@ -193,9 +239,9 @@
           "toggle": "Přepínat"
         },
         "descriptions": {
-          "hold_or_toggle": "Podržte pro nahrávání nebo klepněte pro přepnutí",
-          "push_to_talk": "Nahrává, dokud držíte zkratku",
-          "toggle": "Klepněte na zkratku pro zahájení nahrávání, klepněte znovu pro zastavení"
+          "hold_or_toggle": "Podržte pro nahrávání nebo klepněte pro přepnutí.",
+          "push_to_talk": "Nahrává, dokud držíte zkratku.",
+          "toggle": "Klepněte na zkratku pro zahájení nahrávání, klepněte znovu pro zastavení."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Zvuk",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Vyberte preferované zařízení mikrofonu",
+        "description": "Vyberte preferované zařízení mikrofonu.",
         "placeholder": "Vyberte mikrofon...",
-        "loading": "Načítání..."
+        "loading": "Načítání...",
+        "priority": {
+          "title": "Priorita",
+          "description": "Diktování a Anotace nahrávají z prvního připojeného mikrofonu. Přetažením změníte pořadí.",
+          "add": "Přidat mikrofon",
+          "noneToAdd": "Žádné další mikrofony nejsou připojeny",
+          "inUse": "Používá se",
+          "notConnected": "Nepřipojeno",
+          "systemDefault": "Výchozí v systému",
+          "alwaysLast": "Vždy poslední"
+        }
       },
       "channel": {
         "title": "Vstupní kanál",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Zvuková odezva",
-        "description": "Přehrát zvuk při zahájení a ukončení nahrávání"
+        "description": "Přehrát zvuk při zahájení a ukončení nahrávání."
       },
       "outputDevice": {
         "title": "Výstupní zařízení",
-        "description": "Vyberte preferované výstupní zařízení pro zvuky odezvy",
+        "description": "Vyberte preferované výstupní zařízení pro zvuky odezvy.",
         "placeholder": "Vyberte výstupní zařízení...",
         "loading": "Načítání..."
       },
       "volume": {
         "title": "Hlasitost",
-        "description": "Upravte hlasitost zvukové odezvy"
-      }
+        "description": "Upravte hlasitost zvukové odezvy."
+      },
+      "defaultDevice": "Výchozí"
     },
     "advanced": {
       "groups": {
         "transcription": "Přepis",
-        "experimental": "Experimentální"
+        "experimental": "Experimentální",
+        "dictation": "Diktování",
+        "appearance": "Vzhled",
+        "system": "Systém",
+        "shortcut": "Zkratka",
+        "cleanup": "Úklid",
+        "pasting": "Vkládání",
+        "submitting": "Odesílání",
+        "startup": "Spuštění",
+        "updates": "Aktualizace",
+        "application": "Aplikace",
+        "overlay": "Překryv",
+        "voiceCommands": "Hlasové příkazy",
+        "keyboard": "Klávesnice",
+        "acceleration": "Akcelerace",
+        "recording": "Nahrávání"
       },
       "experimentalToggle": {
         "label": "Experimentální funkce",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Akcelerace Whisper",
-          "description": "Hardwarová akcelerace pro modely Whisper. Automatický režim používá GPU, pokud je k dispozici (Metal na macOS, Vulkan na Windows/Linux)."
+          "description": "Hardwarová akcelerace pro modely transcribe.cpp (rodina Whisper). Automatický režim používá GPU přes Metal, pokud je k dispozici."
         },
         "ort": {
           "title": "Akcelerace ONNX",
-          "description": "Hardwarová akcelerace pro modely ONNX (Parakeet, Canary, Moonshine atd.). DirectML na Windows je experimentální. Modely nemusí správně přepisovat."
+          "description": "Hardwarová akcelerace pro modely ONNX (Parakeet, Canary, Moonshine atd.). Modely nemusí správně přepisovat."
         },
         "gpuDevice": {
           "auto": "Automaticky"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Překryv",
-          "description": "Vyberte překryv při nahrávání: „Žádné“ jej skryje, „Minimální“ zobrazí kompaktní indikátor, „Živě“ zobrazuje přepis v reálném čase, když mluvíte (pouze modely podporující streaming — hledejte odznak „Streaming“ ve výběru modelů). Na Linuxu se doporučuje „Žádné“.",
+          "title": "Styl",
+          "description": "Vyberte překryv při nahrávání.",
           "options": {
             "none": "Žádné",
             "minimal": "Minimální",
@@ -277,8 +349,8 @@
           }
         },
         "position": {
-          "title": "Pozice překryvu",
-          "description": "Zobrazovat vizuální překryv během nahrávání a přepisu. Na Linuxu je doporučeno 'Žádné'.",
+          "title": "Pozice",
+          "description": "Kde se překryv zobrazí na obrazovce během nahrávání a přepisu.",
           "options": {
             "bottom": "Dole",
             "top": "Nahoře"
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Automatické odeslání",
-        "description": "Automaticky odešle vybranou kombinaci kláves po vložení textu. Cmd+Enter platí pro macOS, zatímco Windows/Linux používají Super+Enter.",
+        "description": "Automaticky odešle vybranou kombinaci kláves po vložení textu.",
         "options": {
           "off": "Vypnuto",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Odstranit výplňová slova",
         "description": "Odstraňuje běžná slova vyjadřující váhání z přepisů. Vypnutím je zachováte."
+      },
+      "voiceScrub": {
+        "title": "Hlasové vymazání",
+        "description": "Řekněte klíčové slovo a zahodíte vše, co jste dosud řekli, a začnete znovu.",
+        "keyword": {
+          "title": "Slovo pro vymazání",
+          "description": "Vše, co jste řekli před ním, se zahodí.",
+          "invalid": "Použijte slovo s písmeny nebo číslicemi."
+        }
+      },
+      "voiceScratch": {
+        "title": "Hlasové škrtnutí",
+        "description": "Řekněte klíčové slovo a odstraníte větu, kterou jste právě řekli, a můžete diktovat dál.",
+        "keyword": {
+          "title": "Slovo pro škrtnutí",
+          "description": "Řekněte ho jako samostatnou frázi, s pauzou před ním i po něm. Věta před ním se odstraní.",
+          "invalid": "Použijte slovo s písmeny nebo číslicemi."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "Základní URL",
           "description": "Základní URL API pro vybraného poskytovatele. Upravitelné je pouze u vlastního poskytovatele.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "Základní URL spravuje vybraný poskytovatel."
         },
         "apiKey": {
           "title": "API klíč",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Vyberte model dostupný u vybraného poskytovatele.",
           "placeholderWithOptions": "Vyhledejte nebo vyberte model",
           "placeholderNoOptions": "Zadejte název modelu",
-          "refreshModels": "Obnovit modely"
+          "refreshModels": "Obnovit modely",
+          "useTyped": "Použít „{{value}}“"
         }
       },
       "prompts": {
@@ -418,20 +510,58 @@
       "dayPopover": {
         "words": "Celkem slov",
         "appsUsed": "Použité aplikace",
-        "topApp": "Nejčastější aplikace"
+        "topApp": "Nejčastější aplikace",
+        "captures": "Záznamy",
+        "timeRecorded": "Nahraný čas"
       },
       "less": "Méně",
-      "more": "Více"
+      "more": "Více",
+      "captures": "Záznamy",
+      "timeRecorded": "Nahraný čas",
+      "marksDrawn": "Nakreslené značky",
+      "duration": {
+        "seconds": "{{seconds}} s",
+        "minutesSeconds": "{{minutes}} min {{seconds}} s",
+        "hoursMinutes": "{{hours}} h {{minutes}} min"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Slovník",
-        "history": "Historie"
+        "history": "Historie",
+        "style": "Styl"
       },
       "save": "Uložit",
       "cancel": "Zrušit",
       "remove": "Odebrat {{word}}",
-      "duplicate": "\"{{word}}\" již existuje"
+      "duplicate": "\"{{word}}\" již existuje",
+      "replacements": "Náhrady",
+      "replacementsHelp": "Řekněte frázi vlevo a Bespoke napíše text vpravo.",
+      "words": "Slova",
+      "wordsHelp": "Jména, odborné výrazy a zkratky, které má Bespoke psát přesně takto.",
+      "addReplacement": "Přidat náhradu",
+      "editWord": "Upravit slovo",
+      "editReplacement": "Upravit náhradu",
+      "wordPlaceholder": "Jméno nebo výraz, například „IntraFi“",
+      "writeInsteadLabel": "Napsat místo toho",
+      "writeInsteadPlaceholder": "Text, který Bespoke napíše místo ní",
+      "phraseLabel": "Když řeknete",
+      "phrasePlaceholder": "Fráze, například „můj e-mail“",
+      "addWord": "Přidat slovo",
+      "addedTag": "Přidáno",
+      "tryIt": "Vyzkoušet",
+      "tryItHint": "Diktujte pomocí {{shortcut}}, když je tato stránka otevřená. Bespoke zobrazí text zde, místo aby ho vložil.",
+      "tryItEmpty": "Bespoke neslyšel žádná slova.",
+      "fixedCount_one": "1 oprava ze slovníku",
+      "fixedCount_few": "{{count}} opravy ze slovníku",
+      "fixedCount_other": "{{count}} oprav ze slovníku",
+      "pickWord": "Klikněte na slovo, které Bespoke zachytil špatně, a opravte ho. Kliknutím se Shiftem na další slovo ho přidáte.",
+      "teachLabel": "Bespoke slyšel",
+      "spellingPlaceholder": "Správný zápis",
+      "wontMatch": "Bespoke nespáruje „{{heard}}“ s tak odlišným slovem. Přidejte ho jako náhradu.",
+      "teachWord": "Přidat slovo",
+      "teachReplacement": "Přidat jako náhradu",
+      "added": "Přidáno. Nadiktujte větu znovu a ověřte to."
     },
     "history": {
       "title": "Historie",
@@ -447,17 +577,33 @@
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
-      "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování."
+      "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování.",
+      "transcript": "Přepis",
+      "details": "Podrobnosti",
+      "recorded": "Nahráno",
+      "wordCount": "Slova",
+      "postProcessed": "Následně zpracováno",
+      "prompt": "Prompt",
+      "copy": "Kopírovat",
+      "copied": "Zkopírováno",
+      "noSelection": "Vyberte přepis a zobrazí se zde."
     },
     "debug": {
       "title": "Ladění",
       "logDirectory": {
         "title": "Složka protokolů",
-        "description": "Umístění, kde jsou uloženy soubory protokolu"
+        "description": "Umístění, kde jsou uloženy soubory protokolu."
       },
       "logLevel": {
         "title": "Úroveň logování",
-        "description": "Nastavte úroveň podrobnosti logování"
+        "description": "Nastavte úroveň podrobnosti logování.",
+        "options": {
+          "error": "Chyba",
+          "warn": "Varování",
+          "info": "Info",
+          "debug": "Ladění",
+          "trace": "Trasování"
+        }
       },
       "liveLogs": {
         "title": "Živé logy",
@@ -472,20 +618,26 @@
       },
       "soundTheme": {
         "label": "Zvukový motiv",
-        "description": "Vyberte zvukový motiv pro odezvu při startu a ukončení nahrávání"
+        "description": "Vyberte zvukový motiv pro odezvu při startu a ukončení nahrávání.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Vlastní"
+        },
+        "preview": "Přehrát zvukový motiv (začátek, potom konec)"
       },
       "wordCorrectionThreshold": {
         "title": "Práh korekce slov",
-        "description": "Citlivost pro opravy vlastních slov"
+        "description": "Citlivost pro opravy vlastních slov."
       },
       "historyLimit": {
         "title": "Limit historie",
-        "description": "Maximální počet záznamů historie k uchování",
+        "description": "Maximální počet záznamů historie k uchování.",
         "entries": "záznamů"
       },
       "recordingRetention": {
         "title": "Automatické mazání nahrávek",
-        "description": "Automaticky mazat staré nahrávky pro úsporu místa",
+        "description": "Automaticky mazat staré nahrávky pro úsporu místa.",
         "never": "Nikdy",
         "preserveLimit": "Ponechat posledních {{count}}",
         "days3": "Po 3 dnech",
@@ -495,28 +647,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Vždy zapnutý mikrofon",
-        "description": "Udržovat mikrofon aktivní pro rychlejší odezvu"
+        "description": "Udržovat mikrofon aktivní pro rychlejší odezvu."
       },
       "clamshellMicrophone": {
         "title": "Mikrofon při zavřeném víku",
-        "description": "Mikrofon, který se použije při zavřeném víku notebooku"
+        "description": "Mikrofon, který se použije při zavřeném víku notebooku."
       },
       "postProcessingToggle": {
-        "label": "Následné zpracování",
-        "description": "Povolit AI vylepšení textu po přepisu"
+        "label": "AI následné zpracování",
+        "description": "Povolit AI vylepšení textu po přepisu."
       },
       "muteWhileRecording": {
         "label": "Ztlumit při nahrávání",
-        "description": "Ztlumit systémový zvuk během nahrávání"
+        "description": "Ztlumit systémový zvuk během nahrávání."
       },
       "appendTrailingSpace": {
         "label": "Přidat koncovou mezeru",
-        "description": "Přidat mezeru po vloženém přepisu"
+        "description": "Přidat mezeru po vloženém přepisu."
       },
       "keyboardImplementation": {
         "title": "Implementace klávesnice",
         "description": "Zvolte backend pro klávesové zkratky.",
-        "bindingsReset": "Klávesové zkratky byly nekompatibilní a byly obnoveny na výchozí hodnoty"
+        "bindingsReset": "Klávesové zkratky byly nekompatibilní a byly obnoveny na výchozí hodnoty",
+        "options": {
+          "globalHotkey": "Globální zkratka",
+          "keyboardListener": "Naslouchání klávesnici"
+        }
       },
       "paths": {
         "appData": "Data aplikace:",
@@ -537,7 +693,7 @@
       },
       "reliablePaste": {
         "title": "Spolehlivé vložení (Beta)",
-        "description": "Obnoví schránku teprve poté, co cílová aplikace skutečně přečte přepis, místo po pevně daném zpoždění. Má odstranit vkládání starého obsahu schránky při zatížení systému. Vyžaduje způsob vložení přes schránku; pouze macOS a Windows."
+        "description": "Obnoví schránku teprve poté, co cílová aplikace skutečně přečte přepis, místo po pevně daném zpoždění. Má odstranit vkládání starého obsahu schránky při zatížení systému. Vyžaduje způsob vložení přes schránku."
       },
       "recordingBuffer": {
         "title": "Extra vyrovnávací paměť nahrávání",
@@ -565,14 +721,14 @@
       },
       "whatsNewPreview": {
         "title": "Náhled novinek",
-        "description": "Otevřít nejnovější přibalené poznámky k vydání bez označení jako zobrazené",
+        "description": "Otevřít nejnovější přibalené poznámky k vydání bez označení jako zobrazené.",
         "button": "Náhled",
         "noNotes": "Nebyly nalezeny žádné přibalené poznámky k vydání",
         "error": "Nepodařilo se zobrazit náhled poznámek k vydání"
       },
       "onboardingPreview": {
         "title": "Náhled úvodního nastavení",
-        "description": "Prohlédněte si obrazovky úvodního nastavení beze změny oprávnění, modelů nebo stavu dokončení",
+        "description": "Prohlédněte si obrazovky úvodního nastavení beze změny oprávnění, modelů nebo stavu dokončení.",
         "permissionsButton": "Oprávnění",
         "modelsButton": "Výběr modelu",
         "exitButton": "Ukončit náhled"
@@ -582,12 +738,64 @@
       "title": "O aplikaci",
       "appDataDirectory": {
         "title": "Adresář dat aplikace",
-        "description": "Umístění, kde Bespoke ukládá data"
+        "description": "Umístění, kde Bespoke ukládá data."
       },
       "whatsNewUpdates": {
         "label": "Zobrazovat novinky",
-        "description": "Zobrazovat poznámky k vydání po aktualizacích Bespoke"
+        "description": "Zobrazovat poznámky k vydání po aktualizacích Bespoke."
       }
+    },
+    "style": {
+      "intro": "Přetáhněte aplikaci na styl nebo na ni klikněte.",
+      "styles": {
+        "formal": {
+          "name": "Formální",
+          "example": "Dobrý den, máte zítra čas na oběd? Co takhle ve 12, pokud se vám to hodí."
+        },
+        "casual": {
+          "name": "Neformální",
+          "example": "Ahoj máš zítra čas na oběd? Dáme to ve 12 jestli ti to vyhovuje"
+        },
+        "veryCasual": {
+          "name": "Velmi neformální",
+          "example": "cau mas zitra cas na obed? dame to ve 12 jestli ti to sedi"
+        }
+      },
+      "board": {
+        "default": "Výchozí",
+        "defaultTitle": "Výchozí styl",
+        "defaultHelp": "Aplikace bez pravidla používají tento styl. Přetažením položky Výchozí na jiný styl ho změníte.",
+        "dropHere": "Přetáhněte aplikaci sem",
+        "remove": "Odstranit pravidlo"
+      },
+      "shelf": {
+        "title": "Přidat aplikace",
+        "open": "Právě otevřené",
+        "all": "Všechny aplikace",
+        "search": "Hledat aplikace",
+        "loading": "Načítání aplikací…",
+        "noMatch": "Žádné aplikace neodpovídají.",
+        "noneLeft": "Každá aplikace zde má pravidlo."
+      }
+    },
+    "updates": {
+      "version": "Verze {{version}}",
+      "available": "Je k dispozici Bespoke {{version}}.",
+      "lastChecked": "Aktuální. Naposledy zkontrolováno: {{when}}.",
+      "neverChecked": "Aktuální.",
+      "disabled": "Tato verze se neaktualizuje sama.",
+      "update": "Aktualizovat",
+      "checkNow": "Zkontrolovat nyní",
+      "automatic": {
+        "label": "Automaticky vyhledávat aktualizace",
+        "description": "Bespoke kontroluje jednou denně."
+      }
+    },
+    "nav": {
+      "general": "Obecné",
+      "sound": "Zvuk",
+      "postProcessing": "Následné zpracování",
+      "app": "Aplikace"
     }
   },
   "common": {
@@ -597,7 +805,11 @@
     "open": "Otevřít",
     "copy": "Kopírovat",
     "clear": "Vymazat",
-    "noOptionsFound": "Nenalezeny žádné možnosti"
+    "noOptionsFound": "Nenalezeny žádné možnosti",
+    "selectOption": "Vyberte možnost...",
+    "unknownSize": "Neznámá velikost",
+    "yes": "Ano",
+    "no": "Ne"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke potřebuje oprávnění usnadnění přístupu, aby mohlo psát přepsaný text.",
@@ -617,15 +829,16 @@
     "modelLoadFailedUnknown": "neznámý model",
     "pasteFailedTitle": "Vložení textu se nezdařilo",
     "pasteFailed": "Text nebylo možné vložit do aktivní aplikace.",
-    "transcriptionFailedTitle": "Přepis selhal"
+    "transcriptionFailedTitle": "Přepis selhal",
+    "unknown": "Neznámá chyba"
   },
   "appLanguage": {
-    "title": "Jazyk aplikace",
-    "description": "Změňte jazyk rozhraní Bespoke"
+    "title": "Jazyk",
+    "description": "Změňte jazyk rozhraní Bespoke."
   },
   "theme": {
-    "title": "Motiv aplikace",
-    "description": "Zvolte, zda má Bespoke sledovat motiv systému, nebo zůstat světlý či tmavý",
+    "title": "Motiv",
+    "description": "Zvolte, zda má Bespoke sledovat motiv systému, nebo zůstat světlý či tmavý.",
     "options": {
       "system": "Systém",
       "light": "Světlý",
@@ -647,6 +860,281 @@
     "recorderBlockedWithCulprit": "{{name}} může blokovat změny zkratek",
     "recorderBlockedNoCulprit": "macOS dočasně blokuje změny zkratek",
     "recorderBlocked": "Zkratky teď nelze nahrát — Secure Input v macOS blokuje události kláves. Nejprve vyřešte upozornění na Secure Input.",
-    "dismiss": "Zavřít"
+    "dismiss": "Zavřít",
+    "blockedWithCulprit_few": "{{name}} může blokovat {{count}} zkratky",
+    "blockedNoCulprit_few": "macOS dočasně blokuje {{count}} zkratky"
+  },
+  "triage": {
+    "title": "Diagnostikovat problém",
+    "showTitle": "Ukažte problém",
+    "showHint": "Volitelné. Stiskněte {{shortcut}} a popište, co vidíte.",
+    "captured": "Záznam z {{time}} · {{duration}}",
+    "recordAgain": "Nahrát znovu",
+    "removeCapture": "Vynechat tento záznam",
+    "agentTitle": "Vyberte agenta",
+    "sendTitle": "Odešlete prompt",
+    "sendDescription": "Bespoke zapíše své logy a nastavení do složky a otevře agenta s připraveným promptem. Vy stisknete odeslat a agent se zeptá, co se pokazilo. Než cokoli změní nebo zveřejní, zeptá se vás.",
+    "start": "Spustit diagnostiku",
+    "cancel": "Zrušit",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code v aplikaci Claude",
+    "claudeMissing": "Pro použití nainstalujte aplikaci Claude",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code v okně terminálu",
+    "claudeCodeMissing": "Odešlete jeden prompt do claude v terminálu, tím zapnete jeho odkazy",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT v aplikaci Codex",
+    "codexMissing": "Žádná aplikace na tomto Macu neotevírá odkazy Codex",
+    "copy": "Kopírovat prompt",
+    "copyDescription": "Vložte ho do libovolného programovacího agenta na tomto Macu",
+    "opened": "Diagnostika spuštěna. Odešlete prompt a agent se zeptá, co se pokazilo.",
+    "copied": "Prompt pro diagnostiku zkopírován. Vložte ho do programovacího agenta na tomto Macu.",
+    "failed": "Diagnostiku se nepodařilo spustit"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Oprávnění"
+    },
+    "retention": {
+      "title": "Uchovávat nahrávky",
+      "custom": "Vlastní",
+      "options": {
+        "week": "Video po 7 dní",
+        "month": "Video po 30 dní",
+        "forever": "Navždy"
+      },
+      "notes": {
+        "week": "Video a zvuk se přesunou do koše po 7 dnech, zbytek každého záznamu po 30 dnech.",
+        "month": "Video a zvuk se přesunou do koše po 30 dnech, zbytek každého záznamu po 90 dnech.",
+        "forever": "Záznamy se nikdy nemažou.",
+        "custom": "Uchovávání v config.json bylo nastaveno ručně."
+      }
+    },
+    "captures": {
+      "title": "Záznamy",
+      "size": "Záznamy zabírají {{size}}.",
+      "measuring": "Měření…",
+      "openLatest": "Otevřít poslední",
+      "showInFinder": "Zobrazit ve Finderu"
+    },
+    "permissions": {
+      "granted": "Povoleno",
+      "allow": "Povolit",
+      "openSettings": "Otevřít Nastavení systému",
+      "relaunch": "Povoleno. Ukončete a znovu otevřete Bespoke, abyste mohli nahrávat obrazovku.",
+      "blocked": "Pro nahrávání zapněte {{permissions}}.",
+      "screenRecording": {
+        "title": "Záznam obrazovky a systémového zvuku",
+        "description": "Nahrává obrazovku. Povinné."
+      },
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Nahrává váš komentář. Povinné."
+      },
+      "accessibility": {
+        "title": "Zpřístupnění",
+        "description": "Zachytává stisky ⌘Z, Esc a S během nahrávání a vkládá záznamy. Povinné."
+      },
+      "panel": {
+        "drag": "Přetáhněte {{app}} do seznamu výše pro {{permission}}",
+        "allowed": "{{app}} je povolen",
+        "back": "Zpět",
+        "screenRecording": "Záznam obrazovky",
+        "accessibility": "Zpřístupnění"
+      }
+    },
+    "capsule": {
+      "area": "Oblast",
+      "window": "Okno",
+      "screen": "Obrazovka",
+      "record": "Nahrát",
+      "undo": "Zpět",
+      "cancel": "Zrušit",
+      "finish": "Dokončit",
+      "processing": "Zpracování",
+      "copied": "Zkopírováno",
+      "saved": "Uloženo",
+      "failed": "Záznam se nepodařilo uložit",
+      "paste": "Vložit",
+      "inspect": "Prohlédnout",
+      "marks_one": "{{count}} značka",
+      "marks_few": "{{count}} značky",
+      "marks_other": "{{count}} značek"
+    },
+    "library": {
+      "folder": "Složka záznamů",
+      "record": "Nahrát",
+      "empty": "Zatím žádné záznamy",
+      "emptyHint": "Klepnutím na {{record}} nahrajete obrazovku pod ukazatelem, zatímco mluvíte.",
+      "back": "Zpět na záznamy",
+      "contactSheet": "Kontaktní arch",
+      "keyframe": "Klíčový snímek",
+      "keyframes_one": "{{count}} klíčový snímek",
+      "keyframes_few": "{{count}} klíčové snímky",
+      "keyframes_other": "{{count}} klíčových snímků",
+      "timeline": "Časová osa",
+      "showInFinder": "Zobrazit ve Finderu",
+      "copy": "Kopírovat",
+      "copied": "Zkopírováno",
+      "copyFailed": "Záznam se nepodařilo zkopírovat"
+    },
+    "picker": {
+      "fullScreenHold": "Celá obrazovka · {{holdKey}} přepne · tažením vyberete oblast · uvolněním {{holdMods}} začnete nahrávat",
+      "fullScreen": "Celá obrazovka · Kliknutím začnete nahrávat"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Přístup agentů",
+      "off": "Programovací agenti čtou vaše záznamy z MCP serveru na tomto Macu, na portu {{port}}.",
+      "local": "Naslouchá na 127.0.0.1, port {{port}}. Agenti na tomto Macu se připojují přímo, vzdálené počítače přes tunel SSH.",
+      "tailnet": "Naslouchá na 127.0.0.1 a {{address}}, port {{port}}. Počítače ve vašem tailnetu se připojují přímo.",
+      "tailnetWaiting": "Naslouchá na 127.0.0.1, port {{port}}. Tailscale není na tomto Macu připojen. Jakmile se připojí, Bespoke bude naslouchat ve vašem tailnetu.",
+      "failed": "Server se nespustil: {{error}}",
+      "options": {
+        "off": "Vypnuto",
+        "local": "Tento Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Přidat k agentovi",
+      "local": "Zkopíruje nastavení s tokenem, proto ho uchovejte v soukromí. U počítače, ke kterému se připojujete přes SSH, přidejte také řádek SSH do jeho záznamu v ~/.ssh/config na tomto Macu.",
+      "tailnet": "Zkopíruje nastavení s tokenem, proto ho uchovejte v soukromí. Funguje na tomto Macu a na každém počítači ve vašem tailnetu.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "Řádek SSH"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Nový token odpojí všechny přidané počítače, dokud na ně nezkopírujete nové nastavení.",
+      "renew": "Nový token",
+      "renewed": "Nový token vytvořen. Zkopírujte nastavení znovu pro každý počítač.",
+      "failed": "Nový token se nepodařilo vytvořit"
+    },
+    "copied": "Zkopírováno",
+    "copyFailed": "Nepodařilo se zkopírovat"
+  },
+  "menu": {
+    "hideApp": "Skrýt Bespoke",
+    "hideOthers": "Skrýt ostatní",
+    "showAll": "Zobrazit vše",
+    "quitApp": "Ukončit Bespoke",
+    "edit": "Úpravy",
+    "undo": "Odvolat",
+    "redo": "Zopakovat",
+    "cut": "Vyjmout",
+    "copy": "Kopírovat",
+    "paste": "Vložit",
+    "selectAll": "Vybrat vše",
+    "window": "Okno",
+    "minimize": "Minimalizovat",
+    "closeWindow": "Zavřít okno"
+  },
+  "languages": {
+    "auto": "Automatická detekce",
+    "en": "Angličtina",
+    "zh": "Čínština",
+    "zh-Hans": "Čínština (zjednodušená)",
+    "zh-Hant": "Čínština (tradiční)",
+    "yue": "Kantonština",
+    "de": "Němčina",
+    "es": "Španělština",
+    "ru": "Ruština",
+    "ko": "Korejština",
+    "fr": "Francouzština",
+    "ja": "Japonština",
+    "pt": "Portugalština",
+    "tr": "Turečtina",
+    "pl": "Polština",
+    "ca": "Katalánština",
+    "nl": "Nizozemština",
+    "ar": "Arabština",
+    "sv": "Švédština",
+    "it": "Italština",
+    "id": "Indonéština",
+    "hi": "Hindština",
+    "fi": "Finština",
+    "vi": "Vietnamština",
+    "he": "Hebrejština",
+    "uk": "Ukrajinština",
+    "el": "Řečtina",
+    "ms": "Malajština",
+    "cs": "Čeština",
+    "ro": "Rumunština",
+    "da": "Dánština",
+    "hu": "Maďarština",
+    "ta": "Tamilština",
+    "no": "Norština",
+    "th": "Thajština",
+    "ur": "Urdština",
+    "hr": "Chorvatština",
+    "bg": "Bulharština",
+    "lt": "Litevština",
+    "la": "Latina",
+    "mi": "Maorština",
+    "ml": "Malajálamština",
+    "cy": "Velština",
+    "sk": "Slovenština",
+    "te": "Telugština",
+    "fa": "Perština",
+    "lv": "Lotyština",
+    "bn": "Bengálština",
+    "sr": "Srbština",
+    "az": "Ázerbájdžánština",
+    "sl": "Slovinština",
+    "kn": "Kannadština",
+    "et": "Estonština",
+    "mk": "Makedonština",
+    "br": "Bretonština",
+    "eu": "Baskičtina",
+    "is": "Islandština",
+    "ga": "Irština",
+    "hy": "Arménština",
+    "ne": "Nepálština",
+    "mn": "Mongolština",
+    "bs": "Bosenština",
+    "kk": "Kazaština",
+    "sq": "Albánština",
+    "sw": "Svahilština",
+    "gl": "Galicijština",
+    "mr": "Maráthština",
+    "pa": "Paňdžábština",
+    "si": "Sinhálština",
+    "km": "Khmérština",
+    "sn": "Šonština",
+    "yo": "Jorubština",
+    "so": "Somálština",
+    "af": "Afrikánština",
+    "oc": "Okcitánština",
+    "ka": "Gruzínština",
+    "be": "Běloruština",
+    "tg": "Tádžičtina",
+    "sd": "Sindhština",
+    "gu": "Gudžarátština",
+    "am": "Amharština",
+    "yi": "Jidiš",
+    "lo": "Laoština",
+    "uz": "Uzbečtina",
+    "fo": "Faerština",
+    "ht": "Haitská kreolština",
+    "ps": "Paštština",
+    "tk": "Turkmenština",
+    "nn": "Nynorsk",
+    "mt": "Maltština",
+    "sa": "Sanskrt",
+    "lb": "Lucemburština",
+    "my": "Barmština",
+    "bo": "Tibetština",
+    "tl": "Filipínština (tagalog)",
+    "mg": "Malgaština",
+    "as": "Ásámština",
+    "tt": "Tatarština",
+    "haw": "Havajština",
+    "ln": "Lingalština",
+    "ha": "Hauština",
+    "ba": "Baškirština",
+    "jw": "Javánština",
+    "su": "Sundština"
   }
 }

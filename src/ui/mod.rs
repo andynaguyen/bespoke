@@ -108,39 +108,48 @@ pub fn init(
     set_menus(cx);
 }
 
+pub fn apply_language(code: &str, cx: &mut App) {
+    crate::i18n::set_language(code);
+    set_menus(cx);
+    cx.refresh_windows();
+}
+
 fn set_menus(cx: &mut App) {
+    use crate::i18n::t;
     use gpui_component::input;
     cx.set_menus(vec![
         Menu {
             name: "Bespoke".into(),
             items: vec![
-                MenuItem::action("Hide Bespoke", HideApp),
-                MenuItem::action("Hide Others", HideOtherApps),
-                MenuItem::action("Show All", ShowAllApps),
+                MenuItem::action(t("menu.hideApp"), HideApp),
+                MenuItem::action(t("menu.hideOthers"), HideOtherApps),
+                MenuItem::action(t("menu.showAll"), ShowAllApps),
                 MenuItem::separator(),
-                MenuItem::action("Quit Bespoke", Quit),
+                MenuItem::action(t("menu.quitApp"), Quit),
             ],
         },
         Menu {
-            name: "Edit".into(),
+            name: t("menu.edit"),
             items: vec![
-                MenuItem::os_action("Undo", input::Undo, OsAction::Undo),
-                MenuItem::os_action("Redo", input::Redo, OsAction::Redo),
+                MenuItem::os_action(t("menu.undo"), input::Undo, OsAction::Undo),
+                MenuItem::os_action(t("menu.redo"), input::Redo, OsAction::Redo),
                 MenuItem::separator(),
-                MenuItem::os_action("Cut", input::Cut, OsAction::Cut),
-                MenuItem::os_action("Copy", input::Copy, OsAction::Copy),
-                MenuItem::os_action("Paste", input::Paste, OsAction::Paste),
-                MenuItem::os_action("Select All", input::SelectAll, OsAction::SelectAll),
+                MenuItem::os_action(t("menu.cut"), input::Cut, OsAction::Cut),
+                MenuItem::os_action(t("menu.copy"), input::Copy, OsAction::Copy),
+                MenuItem::os_action(t("menu.paste"), input::Paste, OsAction::Paste),
+                MenuItem::os_action(t("menu.selectAll"), input::SelectAll, OsAction::SelectAll),
             ],
         },
         Menu {
             name: "Window".into(),
             items: vec![
-                MenuItem::action("Minimize", Minimize),
-                MenuItem::action("Close Window", CloseWindow),
+                MenuItem::action(t("menu.minimize"), Minimize),
+                MenuItem::action(t("menu.closeWindow"), CloseWindow),
             ],
         },
     ]);
+    // GPUI finds the Window menu by this English name, so it gets its title afterwards.
+    platform::set_window_menu_title(&t("menu.window"));
 }
 
 pub fn init_stores(cx: &mut App) {

@@ -1520,7 +1520,12 @@ impl Render for TargetPickerWindow {
                 let w = (a[0] - b[0]).abs().max(1.0);
                 let h = (a[1] - b[1]).abs().max(1.0);
                 (
-                    [(a[0].min(b[0]) - origin[0]) * k, (a[1].min(b[1]) - origin[1]) * k, w * k, h * k],
+                    [
+                        (a[0].min(b[0]) - origin[0]) * k,
+                        (a[1].min(b[1]) - origin[1]) * k,
+                        w * k,
+                        h * k,
+                    ],
                     format!("{} × {}", w.round() as i32, h.round() as i32),
                 )
             }),
@@ -1542,17 +1547,22 @@ impl Render for TargetPickerWindow {
                     t.frame.width as f32,
                     t.frame.height as f32,
                 ]);
-                ([(rx - origin[0]) * k, (ry - origin[1]) * k, rw * k, rh * k], title)
+                (
+                    [(rx - origin[0]) * k, (ry - origin[1]) * k, rw * k, rh * k],
+                    title,
+                )
             }),
             SelectionMode::Screen if hold => Some((
                 [0.0, 0.0, screen[0], screen[1]],
-                format!(
-                    "Full screen · {hold_key} to switch · drag for an area · release {hold_mods} to record"
-                ),
+                crate::i18n::t_with(
+                    "annotate.picker.fullScreenHold",
+                    &[("holdKey", &hold_key), ("holdMods", &hold_mods)],
+                )
+                .to_string(),
             )),
             SelectionMode::Screen => Some((
                 [0.0, 0.0, screen[0], screen[1]],
-                "Full screen · Click to record".to_string(),
+                crate::i18n::t("annotate.picker.fullScreen").to_string(),
             )),
         }
         .map(|(rect, label)| (clip_rect(rect, screen), label));

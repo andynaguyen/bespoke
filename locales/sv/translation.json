@@ -5,12 +5,29 @@
     "model": "Modell",
     "quit": "Avsluta",
     "cancel": "Avbryt",
-    "secureInputWarning": "⚠ Kortkommandon blockeras av Secure Input"
+    "secureInputWarning": "⚠ Kortkommandon blockeras av Secure Input",
+    "annotate": "Annotera",
+    "annotateRecord": "Spela in skärmen",
+    "annotateChoose": "Välj vad som ska spelas in…",
+    "annotateOpenLatest": "Öppna senaste inspelningen",
+    "checkForUpdates": "Sök efter uppdateringar…",
+    "updateTo": "Uppdatera till {{version}}…",
+    "triage": "Undersök ett problem…"
   },
   "sidebar": {
     "models": "Modeller",
     "stats": "Statistik",
-    "debug": "Felsökning"
+    "debug": "Felsökning",
+    "settings": "Inställningar",
+    "dictate": "Diktera",
+    "dictionary": "Ordlista",
+    "annotate": "Annotera",
+    "mcp": "MCP",
+    "update": {
+      "available": "Uppdatering tillgänglig",
+      "version": "Version {{version}}",
+      "button": "Uppdatera"
+    }
   },
   "onboarding": {
     "subtitle": "För att komma igång, välj en transkriptionsmodell",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "En stor, långsammare, men mycket noggrann flerspråkig modell."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Inbyggd i macOS. Körs på den här Macen med Apples talmodell."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "translate": "Översätt till engelska",
       "streaming": "Visar transkription i realtid medan du talar"
     },
-    "legacy": "Äldre"
+    "legacy": "Äldre",
+    "errors": {
+      "rescan": "Misslyckades med att söka igenom modeller igen",
+      "delete": "Misslyckades med att ta bort modell"
+    },
+    "builtIn": "Inbyggd i macOS"
   },
   "settings": {
     "general": {
@@ -140,7 +166,7 @@
         "bindings": {
           "transcribe": {
             "name": "Kortkommando för transkribering",
-            "description": "Kortkommandot för att spela in och transkribera din röst."
+            "description": "Tryck på tangenter, mittenknappen eller en sidoknapp på musen för att spela in och transkribera din röst. Vänster och höger musknapp kräver en specialtangent."
           },
           "cancel": {
             "name": "Kortkommando för att avbryta",
@@ -149,12 +175,32 @@
           "transcribe_with_post_process": {
             "name": "Snabbkommando för efterbearbetning",
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
+          },
+          "annotate": {
+            "name": "Kortkommando för annotering",
+            "description": "Tryck för att spela in skärmen under pekaren, tryck igen för att avsluta. Håll ned för att välja ett område, ett fönster eller skärmen."
+          },
+          "annotate_paste": {
+            "name": "Klistra in senaste inspelningen",
+            "description": "Klistrar in den senaste inspelningens kontaktkarta och sammanfattning i appen längst fram."
           }
         },
         "errors": {
           "restore": "Misslyckades med att återställa ursprungligt kortkommando",
           "set": "Misslyckades med att ställa in kortkommando: {{error}}",
-          "reset": "Misslyckades med att återställa kortkommando till ursprungsvärdet"
+          "reset": "Misslyckades med att återställa kortkommando till ursprungsvärdet",
+          "updateBinding": "Misslyckades med att uppdatera kortkommando"
+        },
+        "pressKeysOrMouse": "Tryck på tangenter eller en musknapp...",
+        "mouseButtons": {
+          "mouseleft": "Vänster musknapp",
+          "mouseright": "Höger musknapp",
+          "mousemiddle": "Mittenknapp",
+          "mousex1": "Musknapp 4",
+          "mousex2": "Musknapp 5",
+          "mouse6": "Musknapp 6",
+          "mouse7": "Musknapp 7",
+          "mouse8": "Musknapp 8"
         }
       },
       "language": {
@@ -173,9 +219,9 @@
           "toggle": "Växla"
         },
         "descriptions": {
-          "hold_or_toggle": "Håll nere för att spela in eller tryck kort för att växla",
-          "push_to_talk": "Spelar in så länge du håller genvägen nedtryckt",
-          "toggle": "Tryck på genvägen för att starta inspelningen, tryck igen för att stoppa"
+          "hold_or_toggle": "Håll nere för att spela in eller tryck kort för att växla.",
+          "push_to_talk": "Spelar in så länge du håller genvägen nedtryckt.",
+          "toggle": "Tryck på genvägen för att starta inspelningen, tryck igen för att stoppa."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Ljud",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Välj din föredragna mikrofonenhet",
+        "description": "Välj din föredragna mikrofonenhet.",
         "placeholder": "Välj mikrofon...",
-        "loading": "Laddar..."
+        "loading": "Laddar...",
+        "priority": {
+          "title": "Prioritet",
+          "description": "Diktera och Annotera spelar in från den första anslutna mikrofonen. Dra för att ändra ordning.",
+          "add": "Lägg till mikrofon",
+          "noneToAdd": "Inga andra mikrofoner anslutna",
+          "inUse": "Används",
+          "notConnected": "Inte ansluten",
+          "systemDefault": "Systemets standard",
+          "alwaysLast": "Alltid sist"
+        }
       },
       "channel": {
         "title": "Ingångskanal",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Ljudåterkoppling",
-        "description": "Spela upp ljud när inspelningen startar och stoppar"
+        "description": "Spela upp ljud när inspelningen startar och stoppar."
       },
       "outputDevice": {
         "title": "Utmatningsenhet",
-        "description": "Välj din föredragna ljudutmatningsenhet för återkopplingsljud",
+        "description": "Välj din föredragna ljudutmatningsenhet för återkopplingsljud.",
         "placeholder": "Välj utmatningsenhet...",
         "loading": "Laddar..."
       },
       "volume": {
         "title": "Volym",
-        "description": "Justera volymen för ljudåterkopplingsljud"
-      }
+        "description": "Justera volymen för ljudåterkopplingsljud."
+      },
+      "defaultDevice": "Standard"
     },
     "advanced": {
       "groups": {
         "transcription": "Transkription",
-        "experimental": "Experimentellt"
+        "experimental": "Experimentellt",
+        "dictation": "Diktering",
+        "appearance": "Utseende",
+        "system": "System",
+        "shortcut": "Kortkommando",
+        "cleanup": "Rensning",
+        "pasting": "Inklistring",
+        "submitting": "Skicka",
+        "startup": "Start",
+        "updates": "Uppdateringar",
+        "application": "Program",
+        "overlay": "Overlay",
+        "voiceCommands": "Röstkommandon",
+        "keyboard": "Tangentbord",
+        "acceleration": "Acceleration",
+        "recording": "Inspelning"
       },
       "experimentalToggle": {
         "label": "Experimentella funktioner",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Whisper-acceleration",
-          "description": "Hårdvaruacceleration för Whisper-modeller. Auto använder GPU om tillgängligt (Metal på macOS, Vulkan på Windows/Linux)."
+          "description": "Hårdvaruacceleration för transcribe.cpp-modeller (Whisper-familjen). Auto använder GPU:n via Metal när en finns tillgänglig."
         },
         "ort": {
           "title": "ONNX-acceleration",
-          "description": "Hårdvaruacceleration för ONNX-modeller (Parakeet, Canary, Moonshine, etc.). DirectML på Windows är experimentellt. Modeller kan misslyckas med att transkribera."
+          "description": "Hårdvaruacceleration för ONNX-modeller (Parakeet, Canary, Moonshine, etc.). Modeller kan misslyckas med att transkribera."
         },
         "gpuDevice": {
           "auto": "Automatiskt"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Välj inspelningsöverlägget: ”Ingen” döljer det, ”Minimal” visar en kompakt indikator, ”Live” visar transkriberingen i realtid medan du talar (endast modeller med streamingstöd — leta efter Streaming-märket i modellväljaren). På Linux rekommenderas ”Ingen”.",
+          "title": "Stil",
+          "description": "Välj inspelningsöverlägget.",
           "options": {
             "none": "Ingen",
             "minimal": "Minimal",
@@ -277,8 +349,8 @@
           }
         },
         "position": {
-          "title": "Överlagringsposition",
-          "description": "Visa visuell återkoppling under inspelning och transkription. På Linux rekommenderas 'Ingen'.",
+          "title": "Position",
+          "description": "Var överlägget visas på skärmen under inspelning och transkription.",
           "options": {
             "bottom": "Nederst",
             "top": "Överst"
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Skicka automatiskt",
-        "description": "Skicka automatiskt den valda tangentkombinationen efter textinsättning. Cmd+Enter gäller på macOS, medan Windows/Linux använder Super+Enter.",
+        "description": "Skicka automatiskt den valda tangentkombinationen efter textinsättning.",
         "options": {
           "off": "Av",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Ta bort utfyllnadsord",
         "description": "Tar bort vanliga tvekljud från transkriberingar. Stäng av för att behålla dem."
+      },
+      "voiceScrub": {
+        "title": "Röstrensning",
+        "description": "Säg ditt nyckelord för att kasta bort allt du sagt hittills och börja om.",
+        "keyword": {
+          "title": "Nyckelord för rensning",
+          "description": "Allt du sagt före det kastas bort.",
+          "invalid": "Använd ett ord med bokstäver eller siffror."
+        }
+      },
+      "voiceScratch": {
+        "title": "Röststrykning",
+        "description": "Säg ditt nyckelord för att ta bort meningen du just sa och fortsätta diktera.",
+        "keyword": {
+          "title": "Nyckelord för strykning",
+          "description": "Säg det som en egen fras, med en paus före och efter. Meningen före det tas bort.",
+          "invalid": "Använd ett ord med bokstäver eller siffror."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "Bas-URL",
           "description": "API-bas-URL för den valda leverantören. Endast den anpassade leverantören kan redigeras.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "Bas-URL:en hanteras av den valda leverantören."
         },
         "apiKey": {
           "title": "API-nyckel",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Välj en modell som exponeras av den valda leverantören.",
           "placeholderWithOptions": "Sök eller välj en modell",
           "placeholderNoOptions": "Ange ett modellnamn",
-          "refreshModels": "Uppdatera modeller"
+          "refreshModels": "Uppdatera modeller",
+          "useTyped": "Använd \"{{value}}\""
         }
       },
       "prompts": {
@@ -414,20 +506,57 @@
       "dayPopover": {
         "words": "Totalt antal ord",
         "appsUsed": "Använda appar",
-        "topApp": "Mest använda app"
+        "topApp": "Mest använda app",
+        "captures": "Inspelningar",
+        "timeRecorded": "Inspelad tid"
       },
       "less": "Mindre",
-      "more": "Mer"
+      "more": "Mer",
+      "captures": "Inspelningar",
+      "timeRecorded": "Inspelad tid",
+      "marksDrawn": "Ritade markeringar",
+      "duration": {
+        "seconds": "{{seconds}} s",
+        "minutesSeconds": "{{minutes}} min {{seconds}} s",
+        "hoursMinutes": "{{hours}} h {{minutes}} min"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Ordlista",
-        "history": "Historik"
+        "history": "Historik",
+        "style": "Stil"
       },
       "save": "Spara",
       "cancel": "Avbryt",
       "remove": "Ta bort {{word}}",
-      "duplicate": "\"{{word}}\" finns redan"
+      "duplicate": "\"{{word}}\" finns redan",
+      "replacements": "Ersättningar",
+      "replacementsHelp": "Säg frasen till vänster, så skriver Bespoke texten till höger.",
+      "words": "Ord",
+      "wordsHelp": "Namn, fackuttryck och förkortningar som Bespoke ska stava exakt så här.",
+      "addReplacement": "Lägg till ersättning",
+      "editWord": "Redigera ord",
+      "editReplacement": "Redigera ersättning",
+      "wordPlaceholder": "Ett namn eller en term, till exempel \"IntraFi\"",
+      "writeInsteadLabel": "Skriv i stället",
+      "writeInsteadPlaceholder": "Texten som Bespoke skriver i stället",
+      "phraseLabel": "När du säger",
+      "phrasePlaceholder": "En fras, till exempel \"min e-post\"",
+      "addWord": "Lägg till ord",
+      "addedTag": "Tillagt",
+      "tryIt": "Prova",
+      "tryItHint": "Diktera med {{shortcut}} medan den här sidan är öppen. Bespoke visar texten här i stället för att klistra in den.",
+      "tryItEmpty": "Bespoke hörde inga ord.",
+      "fixedCount_one": "1 korrigering från ordlistan",
+      "fixedCount_other": "{{count}} korrigeringar från ordlistan",
+      "pickWord": "Klicka på ett ord som Bespoke fick fel för att lära den. Skift-klicka på nästa ord för att lägga till det.",
+      "teachLabel": "Bespoke hörde",
+      "spellingPlaceholder": "Rätt stavning",
+      "wontMatch": "Bespoke matchar inte \"{{heard}}\" mot ett så olikt ord. Lägg till det som en ersättning.",
+      "teachWord": "Lägg till ord",
+      "teachReplacement": "Lägg till som ersättning",
+      "added": "Tillagt. Diktera meningen igen för att kontrollera det."
     },
     "history": {
       "title": "Historik",
@@ -443,17 +572,33 @@
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
-      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök."
+      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök.",
+      "transcript": "Transkription",
+      "details": "Detaljer",
+      "recorded": "Inspelad",
+      "wordCount": "Ord",
+      "postProcessed": "Efterbearbetad",
+      "prompt": "Prompt",
+      "copy": "Kopiera",
+      "copied": "Kopierad",
+      "noSelection": "Välj en transkription för att se den här."
     },
     "debug": {
       "title": "Felsökning",
       "logDirectory": {
         "title": "Loggmapp",
-        "description": "Plats där loggfiler lagras"
+        "description": "Plats där loggfiler lagras."
       },
       "logLevel": {
         "title": "Loggnivå",
-        "description": "Ställ in loggningens detaljrikedom"
+        "description": "Ställ in loggningens detaljrikedom.",
+        "options": {
+          "error": "Fel",
+          "warn": "Varning",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Spårning"
+        }
       },
       "liveLogs": {
         "title": "Liveloggar",
@@ -468,20 +613,26 @@
       },
       "soundTheme": {
         "label": "Ljudtema",
-        "description": "Välj ett ljudtema för återkoppling vid start och stopp av inspelning"
+        "description": "Välj ett ljudtema för återkoppling vid start och stopp av inspelning.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Anpassat"
+        },
+        "preview": "Förhandslyssna på ljudtema (spelar start och sedan stopp)"
       },
       "wordCorrectionThreshold": {
         "title": "Tröskelvärde för ordkorrigering",
-        "description": "Känslighet för anpassade ordkorrigeringar"
+        "description": "Känslighet för anpassade ordkorrigeringar."
       },
       "historyLimit": {
         "title": "Historikgräns",
-        "description": "Maximalt antal historikposter som ska sparas",
+        "description": "Maximalt antal historikposter som ska sparas.",
         "entries": "poster"
       },
       "recordingRetention": {
         "title": "Radera inspelningar automatiskt",
-        "description": "Radera gamla inspelningar automatiskt för att spara utrymme",
+        "description": "Radera gamla inspelningar automatiskt för att spara utrymme.",
         "never": "Aldrig",
         "preserveLimit": "Behåll de senaste {{count}}",
         "days3": "Efter 3 dagar",
@@ -491,28 +642,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Alltid påslagen mikrofon",
-        "description": "Håll mikrofonen aktiv för snabbare svar"
+        "description": "Håll mikrofonen aktiv för snabbare svar."
       },
       "clamshellMicrophone": {
         "title": "Clamshell-mikrofon",
-        "description": "Mikrofon som ska användas när bärbara datorns lock är stängt"
+        "description": "Mikrofon som ska användas när bärbara datorns lock är stängt."
       },
       "postProcessingToggle": {
-        "label": "Efterbearbetning",
-        "description": "Aktivera AI-driven textförfining efter transkription"
+        "label": "AI-efterbearbetning",
+        "description": "Aktivera AI-driven textförfining efter transkription."
       },
       "muteWhileRecording": {
         "label": "Ljudlös under inspelning",
-        "description": "Stäng av systemljudet under inspelning"
+        "description": "Stäng av systemljudet under inspelning."
       },
       "appendTrailingSpace": {
         "label": "Lägg till avslutande mellanslag",
-        "description": "Lägg till ett mellanslag efter klistrad transkription"
+        "description": "Lägg till ett mellanslag efter klistrad transkription."
       },
       "keyboardImplementation": {
         "title": "Tangentbordsimplementering",
         "description": "Välj tangentbordsgenvägens implementation.",
-        "bindingsReset": "Kortkommandona var inkompatibla och återställdes till standardvärden"
+        "bindingsReset": "Kortkommandona var inkompatibla och återställdes till standardvärden",
+        "options": {
+          "globalHotkey": "Globalt kortkommando",
+          "keyboardListener": "Tangentbordslyssnare"
+        }
       },
       "paths": {
         "appData": "Appdata:",
@@ -533,7 +688,7 @@
       },
       "reliablePaste": {
         "title": "Tillförlitlig inklistring (Beta)",
-        "description": "Återställ urklipp först när målappen faktiskt har läst transkriptionen, i stället för efter en fast fördröjning. Avsett att åtgärda att det gamla urklippsinnehållet klistras in när systemet är belastat. Kräver en klistra-in-metod via urklipp; endast macOS och Windows."
+        "description": "Återställ urklipp först när målappen faktiskt har läst transkriptionen, i stället för efter en fast fördröjning. Avsett att åtgärda att det gamla urklippsinnehållet klistras in när systemet är belastat. Kräver en klistra-in-metod via urklipp."
       },
       "recordingBuffer": {
         "title": "Extra inspelningsbuffert",
@@ -561,14 +716,14 @@
       },
       "whatsNewPreview": {
         "title": "Förhandsvisa nyheter",
-        "description": "Öppna den senaste medföljande versionsinformationen utan att markera den som visad",
+        "description": "Öppna den senaste medföljande versionsinformationen utan att markera den som visad.",
         "button": "Förhandsvisa",
         "noNotes": "Ingen medföljande versionsinformation hittades",
         "error": "Det gick inte att förhandsvisa versionsinformationen"
       },
       "onboardingPreview": {
         "title": "Förhandsvisa introduktionen",
-        "description": "Förhandsvisa introduktionsskärmarna utan att ändra behörigheter, modeller eller slutförandestatus",
+        "description": "Förhandsvisa introduktionsskärmarna utan att ändra behörigheter, modeller eller slutförandestatus.",
         "permissionsButton": "Behörigheter",
         "modelsButton": "Modellval",
         "exitButton": "Avsluta förhandsvisning"
@@ -578,12 +733,64 @@
       "title": "Om",
       "appDataDirectory": {
         "title": "Mapp för appdata",
-        "description": "Plats där Bespoke lagrar sina data"
+        "description": "Plats där Bespoke lagrar sina data."
       },
       "whatsNewUpdates": {
         "label": "Visa nyheter",
-        "description": "Visa versionsinformation efter Bespoke-uppdateringar"
+        "description": "Visa versionsinformation efter Bespoke-uppdateringar."
       }
+    },
+    "style": {
+      "intro": "Dra en app till en stil, eller klicka på den.",
+      "styles": {
+        "formal": {
+          "name": "Formell",
+          "example": "Hej, är du ledig för lunch i morgon? Vi kan ses klockan 12 om det passar dig."
+        },
+        "casual": {
+          "name": "Vardaglig",
+          "example": "Hej är du ledig för lunch imorgon? Vi kan ses kl 12 om det passar dig"
+        },
+        "veryCasual": {
+          "name": "Mycket vardaglig",
+          "example": "hej är du ledig för lunch imorgon? vi kan ses kl 12 om det passar dig"
+        }
+      },
+      "board": {
+        "default": "Standard",
+        "defaultTitle": "Standardstil",
+        "defaultHelp": "Appar utan regel använder den här stilen. Dra Standard till en annan stil för att ändra den.",
+        "dropHere": "Släpp en app här",
+        "remove": "Ta bort regel"
+      },
+      "shelf": {
+        "title": "Lägg till appar",
+        "open": "Öppna just nu",
+        "all": "Alla appar",
+        "search": "Sök appar",
+        "loading": "Läser in appar…",
+        "noMatch": "Inga appar matchar.",
+        "noneLeft": "Alla appar här har en regel."
+      }
+    },
+    "updates": {
+      "version": "Version {{version}}",
+      "available": "Bespoke {{version}} är tillgänglig.",
+      "lastChecked": "Uppdaterad. Senast kontrollerad {{when}}.",
+      "neverChecked": "Uppdaterad.",
+      "disabled": "Den här versionen uppdaterar sig inte själv.",
+      "update": "Uppdatera",
+      "checkNow": "Sök nu",
+      "automatic": {
+        "label": "Sök efter uppdateringar automatiskt",
+        "description": "Bespoke söker en gång om dagen."
+      }
+    },
+    "nav": {
+      "general": "Allmänt",
+      "sound": "Ljud",
+      "postProcessing": "Efterbearbetning",
+      "app": "App"
     }
   },
   "common": {
@@ -593,7 +800,11 @@
     "open": "Öppna",
     "copy": "Kopiera",
     "clear": "Rensa",
-    "noOptionsFound": "Inga alternativ hittades"
+    "noOptionsFound": "Inga alternativ hittades",
+    "selectOption": "Välj ett alternativ...",
+    "unknownSize": "Okänd storlek",
+    "yes": "Ja",
+    "no": "Nej"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke behöver behörighet för hjälpmedel för att kunna skriva transkriberad text.",
@@ -613,15 +824,16 @@
     "noInputDevice": "Ingen ljudenhet hittades. Anslut en mikrofon eller ett headset och försök igen.",
     "pasteFailedTitle": "Det gick inte att klistra in texten",
     "pasteFailed": "Texten kunde inte klistras in i det aktiva programmet.",
-    "transcriptionFailedTitle": "Transkriptionen misslyckades"
+    "transcriptionFailedTitle": "Transkriptionen misslyckades",
+    "unknown": "Okänt fel"
   },
   "appLanguage": {
-    "title": "Applikationsspråk",
-    "description": "Ändra språket i Bespoke-gränssnittet"
+    "title": "Språk",
+    "description": "Ändra språket i Bespoke-gränssnittet."
   },
   "theme": {
-    "title": "Apptema",
-    "description": "Välj om Bespoke ska följa systemets tema eller förbli ljust eller mörkt",
+    "title": "Tema",
+    "description": "Välj om Bespoke ska följa systemets tema eller förbli ljust eller mörkt.",
     "options": {
       "system": "System",
       "light": "Ljust",
@@ -644,5 +856,276 @@
     "recorderBlockedNoCulprit": "macOS blockerar tillfälligt ändringar av kortkommandon",
     "recorderBlocked": "Det går inte att spela in kortkommandon just nu — macOS Secure Input blockerar tangenthändelser. Lös varningen om Secure Input först.",
     "dismiss": "Avfärda"
+  },
+  "triage": {
+    "title": "Undersök ett problem",
+    "showTitle": "Visa problemet",
+    "showHint": "Valfritt. Tryck på {{shortcut}} och berätta vad du ser.",
+    "captured": "Inspelning från {{time}} · {{duration}}",
+    "recordAgain": "Spela in igen",
+    "removeCapture": "Utelämna den här inspelningen",
+    "agentTitle": "Välj en agent",
+    "sendTitle": "Skicka prompten",
+    "sendDescription": "Bespoke skriver sina loggar och inställningar till en mapp och öppnar agenten med en färdig prompt. Du trycker på skicka, och agenten frågar vad som gick fel. Den frågar innan den ändrar eller publicerar något.",
+    "start": "Starta undersökning",
+    "cancel": "Avbryt",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code i Claude-appen",
+    "claudeMissing": "Installera Claude-appen för att använda detta",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code i ett terminalfönster",
+    "claudeCodeMissing": "Skicka en prompt till claude i en terminal för att aktivera dess länkar",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT i Codex-appen",
+    "codexMissing": "Ingen app på den här Macen öppnar Codex-länkar",
+    "copy": "Kopiera prompt",
+    "copyDescription": "Klistra in den i valfri kodningsagent på den här Macen",
+    "opened": "Undersökningen har startat. Skicka prompten, så frågar agenten vad som gick fel.",
+    "copied": "Undersökningsprompten har kopierats. Klistra in den i en kodningsagent på den här Macen.",
+    "failed": "Det gick inte att starta undersökningen"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Behörigheter"
+    },
+    "retention": {
+      "title": "Behåll inspelningar",
+      "custom": "Anpassat",
+      "options": {
+        "week": "Video i 7 dagar",
+        "month": "Video i 30 dagar",
+        "forever": "För alltid"
+      },
+      "notes": {
+        "week": "Video och ljud flyttas till papperskorgen efter 7 dagar, resten av varje inspelning efter 30 dagar.",
+        "month": "Video och ljud flyttas till papperskorgen efter 30 dagar, resten av varje inspelning efter 90 dagar.",
+        "forever": "Inspelningar tas aldrig bort.",
+        "custom": "Lagringstiden i config.json har ställts in manuellt."
+      }
+    },
+    "captures": {
+      "title": "Inspelningar",
+      "size": "Inspelningar använder {{size}}.",
+      "measuring": "Mäter…",
+      "openLatest": "Öppna senaste",
+      "showInFinder": "Visa i Finder"
+    },
+    "permissions": {
+      "granted": "Tillåten",
+      "allow": "Tillåt",
+      "openSettings": "Öppna Systeminställningar",
+      "relaunch": "Tillåten. Avsluta och öppna Bespoke igen för att spela in skärmen.",
+      "blocked": "Aktivera {{permissions}} för att spela in.",
+      "screenRecording": {
+        "title": "Skärm- och systemljudsinspelning",
+        "description": "Spelar in skärmen. Krävs."
+      },
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Spelar in din berättarröst. Krävs."
+      },
+      "accessibility": {
+        "title": "Hjälpmedel",
+        "description": "Ser tryck på ⌘Z, Esc och S under inspelning och klistrar in inspelningar. Krävs."
+      },
+      "panel": {
+        "drag": "Dra {{app}} till listan för att tillåta {{permission}}",
+        "allowed": "{{app}} är tillåten",
+        "back": "Tillbaka",
+        "screenRecording": "Skärminspelning",
+        "accessibility": "Hjälpmedel"
+      }
+    },
+    "capsule": {
+      "area": "Område",
+      "window": "Fönster",
+      "screen": "Skärm",
+      "record": "Spela in",
+      "undo": "Ångra",
+      "cancel": "Avbryt",
+      "finish": "Avsluta",
+      "processing": "Bearbetar",
+      "copied": "Kopierad",
+      "saved": "Sparad",
+      "failed": "Det gick inte att spara inspelningen",
+      "paste": "Klistra in",
+      "inspect": "Granska",
+      "marks_one": "{{count}} markering",
+      "marks_other": "{{count}} markeringar"
+    },
+    "library": {
+      "folder": "Inspelningsmapp",
+      "record": "Spela in",
+      "empty": "Inga inspelningar ännu",
+      "emptyHint": "Tryck på {{record}} för att spela in skärmen under pekaren medan du pratar.",
+      "back": "Tillbaka till inspelningar",
+      "contactSheet": "Kontaktkarta",
+      "keyframe": "Nyckelbildruta",
+      "keyframes_one": "{{count}} nyckelbildruta",
+      "keyframes_other": "{{count}} nyckelbildrutor",
+      "timeline": "Tidslinje",
+      "showInFinder": "Visa i Finder",
+      "copy": "Kopiera",
+      "copied": "Kopierad",
+      "copyFailed": "Det gick inte att kopiera inspelningen"
+    },
+    "picker": {
+      "fullScreenHold": "Helskärm · {{holdKey}} för att växla · dra för ett område · släpp {{holdMods}} för att spela in",
+      "fullScreen": "Helskärm · Klicka för att spela in"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Agentåtkomst",
+      "off": "Kodningsagenter läser dina inspelningar från en MCP-server på den här Macen, på port {{port}}.",
+      "local": "Lyssnar på 127.0.0.1, port {{port}}. Agenter på den här Macen ansluter direkt, och fjärrdatorer ansluter via en SSH-tunnel.",
+      "tailnet": "Lyssnar på 127.0.0.1 och {{address}}, port {{port}}. Datorer i ditt tailnet ansluter direkt.",
+      "tailnetWaiting": "Lyssnar på 127.0.0.1, port {{port}}. Tailscale är inte anslutet på den här Macen. Bespoke lyssnar på ditt tailnet så snart det ansluter.",
+      "failed": "Servern startade inte: {{error}}",
+      "options": {
+        "off": "Av",
+        "local": "Den här Macen",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Lägg till i en agent",
+      "local": "Kopierar konfigurationen med token, så håll den privat. För en dator du ansluter till via SSH lägger du också till SSH-raden i dess värdpost i ~/.ssh/config på den här Macen.",
+      "tailnet": "Kopierar konfigurationen med token, så håll den privat. Den fungerar på den här Macen och på alla datorer i ditt tailnet.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH-rad"
+    },
+    "token": {
+      "title": "Token",
+      "description": "En ny token kopplar bort alla datorer du lagt till tills du kopierar den nya konfigurationen dit.",
+      "renew": "Ny token",
+      "renewed": "Ny token skapad. Kopiera konfigurationen igen för varje dator.",
+      "failed": "Det gick inte att skapa en ny token"
+    },
+    "copied": "Kopierad",
+    "copyFailed": "Det gick inte att kopiera"
+  },
+  "menu": {
+    "hideApp": "Göm Bespoke",
+    "hideOthers": "Göm övriga",
+    "showAll": "Visa alla",
+    "quitApp": "Avsluta Bespoke",
+    "edit": "Redigera",
+    "undo": "Ångra",
+    "redo": "Gör om",
+    "cut": "Klipp ut",
+    "copy": "Kopiera",
+    "paste": "Klistra in",
+    "selectAll": "Markera alla",
+    "window": "Fönster",
+    "minimize": "Minimera",
+    "closeWindow": "Stäng fönster"
+  },
+  "languages": {
+    "auto": "Identifiera automatiskt",
+    "en": "Engelska",
+    "zh": "Kinesiska",
+    "zh-Hans": "Kinesiska (förenklad)",
+    "zh-Hant": "Kinesiska (traditionell)",
+    "yue": "Kantonesiska",
+    "de": "Tyska",
+    "es": "Spanska",
+    "ru": "Ryska",
+    "ko": "Koreanska",
+    "fr": "Franska",
+    "ja": "Japanska",
+    "pt": "Portugisiska",
+    "tr": "Turkiska",
+    "pl": "Polska",
+    "ca": "Katalanska",
+    "nl": "Nederländska",
+    "ar": "Arabiska",
+    "sv": "Svenska",
+    "it": "Italienska",
+    "id": "Indonesiska",
+    "hi": "Hindi",
+    "fi": "Finska",
+    "vi": "Vietnamesiska",
+    "he": "Hebreiska",
+    "uk": "Ukrainska",
+    "el": "Grekiska",
+    "ms": "Malajiska",
+    "cs": "Tjeckiska",
+    "ro": "Rumänska",
+    "da": "Danska",
+    "hu": "Ungerska",
+    "ta": "Tamil",
+    "no": "Norska",
+    "th": "Thailändska",
+    "ur": "Urdu",
+    "hr": "Kroatiska",
+    "bg": "Bulgariska",
+    "lt": "Litauiska",
+    "la": "Latin",
+    "mi": "Maori",
+    "ml": "Malayalam",
+    "cy": "Walesiska",
+    "sk": "Slovakiska",
+    "te": "Telugu",
+    "fa": "Persiska",
+    "lv": "Lettiska",
+    "bn": "Bengali",
+    "sr": "Serbiska",
+    "az": "Azerbajdzjanska",
+    "sl": "Slovenska",
+    "kn": "Kannada",
+    "et": "Estniska",
+    "mk": "Makedonska",
+    "br": "Bretonska",
+    "eu": "Baskiska",
+    "is": "Isländska",
+    "ga": "Iriska",
+    "hy": "Armeniska",
+    "ne": "Nepalesiska",
+    "mn": "Mongoliska",
+    "bs": "Bosniska",
+    "kk": "Kazakiska",
+    "sq": "Albanska",
+    "sw": "Swahili",
+    "gl": "Galiciska",
+    "mr": "Marathi",
+    "pa": "Punjabi",
+    "si": "Singalesiska",
+    "km": "Khmer",
+    "sn": "Shona",
+    "yo": "Yoruba",
+    "so": "Somaliska",
+    "af": "Afrikaans",
+    "oc": "Occitanska",
+    "ka": "Georgiska",
+    "be": "Belarusiska",
+    "tg": "Tadzjikiska",
+    "sd": "Sindhi",
+    "gu": "Gujarati",
+    "am": "Amhariska",
+    "yi": "Jiddisch",
+    "lo": "Laotiska",
+    "uz": "Uzbekiska",
+    "fo": "Färöiska",
+    "ht": "Haitisk kreol",
+    "ps": "Pashto",
+    "tk": "Turkmeniska",
+    "nn": "Nynorska",
+    "mt": "Maltesiska",
+    "sa": "Sanskrit",
+    "lb": "Luxemburgiska",
+    "my": "Burmesiska",
+    "bo": "Tibetanska",
+    "tl": "Filippinska (tagalog)",
+    "mg": "Malagassiska",
+    "as": "Assamesiska",
+    "tt": "Tatariska",
+    "haw": "Hawaiiska",
+    "ln": "Lingala",
+    "ha": "Hausa",
+    "ba": "Basjkiriska",
+    "jw": "Javanesiska",
+    "su": "Sundanesiska"
   }
 }

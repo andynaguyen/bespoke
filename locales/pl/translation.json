@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Zamknij",
     "cancel": "Anuluj",
-    "secureInputWarning": "⚠ Skróty zablokowane przez Secure Input"
+    "secureInputWarning": "⚠ Skróty zablokowane przez Secure Input",
+    "annotate": "Adnotacje",
+    "annotateRecord": "Nagraj ekran",
+    "annotateChoose": "Wybierz, co nagrać…",
+    "annotateOpenLatest": "Otwórz ostatnie nagranie",
+    "checkForUpdates": "Sprawdź aktualizacje…",
+    "updateTo": "Aktualizuj do {{version}}…",
+    "triage": "Zbadaj problem…"
   },
   "sidebar": {
     "models": "Modele",
     "stats": "Statystyki",
-    "debug": "Debugowanie"
+    "debug": "Debugowanie",
+    "settings": "Ustawienia",
+    "dictate": "Dyktowanie",
+    "dictionary": "Słownik",
+    "annotate": "Adnotacje",
+    "mcp": "MCP",
+    "update": {
+      "available": "Dostępna aktualizacja",
+      "version": "Wersja {{version}}",
+      "button": "Aktualizuj"
+    }
   },
   "onboarding": {
     "subtitle": "Aby rozpocząć, wybierz model transkrypcji",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Duży, wolniejszy, ale bardzo dokładny model wielojęzyczny."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Wbudowany w macOS. Działa na tym Macu z modelem mowy Apple."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "Pokazuje transkrypcję na żywo podczas mówienia"
     },
     "cancel": "Anuluj",
-    "legacy": "Przestarzałe"
+    "legacy": "Przestarzałe",
+    "errors": {
+      "rescan": "Nie udało się ponownie przeskanować modeli",
+      "delete": "Nie udało się usunąć modelu"
+    },
+    "builtIn": "Wbudowany w macOS"
   },
   "settings": {
     "models": {
@@ -160,7 +186,7 @@
         "bindings": {
           "transcribe": {
             "name": "Skrót transkrypcji",
-            "description": "Skrót klawiaturowy do nagrywania i transkrypcji głosu."
+            "description": "Naciśnij klawisze, środkowy lub boczny przycisk myszy, aby nagrać i transkrybować głos. Lewy i prawy przycisk myszy wymagają klawisza modyfikującego."
           },
           "cancel": {
             "name": "Skrót anulowania",
@@ -169,12 +195,32 @@
           "transcribe_with_post_process": {
             "name": "Skrót postprocessingu",
             "description": "Opcjonalnie: Dedykowany skrót klawiszowy, który zawsze stosuje postprocessing AI do transkrypcji."
+          },
+          "annotate": {
+            "name": "Skrót adnotacji",
+            "description": "Stuknij, aby nagrać ekran pod wskaźnikiem, stuknij ponownie, aby zakończyć. Przytrzymaj, aby wybrać obszar, okno lub ekran."
+          },
+          "annotate_paste": {
+            "name": "Wklej ostatnie nagranie",
+            "description": "Wkleja stykówkę i podsumowanie ostatniego nagrania do aplikacji na pierwszym planie."
           }
         },
         "errors": {
           "restore": "Nie udało się przywrócić oryginalnego skrótu",
           "set": "Nie udało się ustawić skrótu: {{error}}",
-          "reset": "Nie udało się zresetować skrótu do wartości domyślnej"
+          "reset": "Nie udało się zresetować skrótu do wartości domyślnej",
+          "updateBinding": "Nie udało się zaktualizować skrótu"
+        },
+        "pressKeysOrMouse": "Naciśnij klawisze lub przycisk myszy...",
+        "mouseButtons": {
+          "mouseleft": "Lewy przycisk myszy",
+          "mouseright": "Prawy przycisk myszy",
+          "mousemiddle": "Środkowy przycisk myszy",
+          "mousex1": "Mysz 4",
+          "mousex2": "Mysz 5",
+          "mouse6": "Mysz 6",
+          "mouse7": "Mysz 7",
+          "mouse8": "Mysz 8"
         }
       },
       "language": {
@@ -193,9 +239,9 @@
           "toggle": "Przełączaj"
         },
         "descriptions": {
-          "hold_or_toggle": "Przytrzymaj, aby nagrywać, lub dotknij, aby przełączyć",
-          "push_to_talk": "Nagrywa, dopóki trzymasz skrót",
-          "toggle": "Dotknij skrótu, aby rozpocząć nagrywanie, dotknij ponownie, aby zatrzymać"
+          "hold_or_toggle": "Przytrzymaj, aby nagrywać, lub dotknij, aby przełączyć.",
+          "push_to_talk": "Nagrywa, dopóki trzymasz skrót.",
+          "toggle": "Dotknij skrótu, aby rozpocząć nagrywanie, dotknij ponownie, aby zatrzymać."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Dźwięk",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Wybierz preferowane urządzenie mikrofonowe",
+        "description": "Wybierz preferowane urządzenie mikrofonowe.",
         "placeholder": "Wybierz mikrofon...",
-        "loading": "Wczytywanie..."
+        "loading": "Wczytywanie...",
+        "priority": {
+          "title": "Priorytet",
+          "description": "Dyktowanie i Adnotacje nagrywają z pierwszego podłączonego mikrofonu. Przeciągnij, aby zmienić kolejność.",
+          "add": "Dodaj mikrofon",
+          "noneToAdd": "Brak innych podłączonych mikrofonów",
+          "inUse": "W użyciu",
+          "notConnected": "Niepodłączony",
+          "systemDefault": "Domyślny systemowy",
+          "alwaysLast": "Zawsze ostatni"
+        }
       },
       "channel": {
         "title": "Kanał wejściowy",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Informacja dźwiękowa",
-        "description": "Odtwarzaj dźwięk przy rozpoczęciu i zakończeniu nagrywania"
+        "description": "Odtwarzaj dźwięk przy rozpoczęciu i zakończeniu nagrywania."
       },
       "outputDevice": {
         "title": "Urządzenie wyjściowe",
-        "description": "Wybierz preferowane urządzenie audio do odtwarzania dźwięków",
+        "description": "Wybierz preferowane urządzenie audio do odtwarzania dźwięków.",
         "placeholder": "Wybierz urządzenie wyjściowe...",
         "loading": "Wczytywanie..."
       },
       "volume": {
         "title": "Głośność",
-        "description": "Dostosuj głośność dźwięków informacyjnych"
-      }
+        "description": "Dostosuj głośność dźwięków informacyjnych."
+      },
+      "defaultDevice": "Domyślne"
     },
     "advanced": {
       "groups": {
         "transcription": "Transkrypcja",
-        "experimental": "Eksperymentalne"
+        "experimental": "Eksperymentalne",
+        "dictation": "Dyktowanie",
+        "appearance": "Wygląd",
+        "system": "System",
+        "shortcut": "Skrót",
+        "cleanup": "Czyszczenie",
+        "pasting": "Wklejanie",
+        "submitting": "Wysyłanie",
+        "startup": "Uruchamianie",
+        "updates": "Aktualizacje",
+        "application": "Aplikacja",
+        "overlay": "Nakładka",
+        "voiceCommands": "Polecenia głosowe",
+        "keyboard": "Klawiatura",
+        "acceleration": "Akceleracja",
+        "recording": "Nagrywanie"
       },
       "experimentalToggle": {
         "label": "Funkcje Eksperymentalne",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Akceleracja Whisper",
-          "description": "Akceleracja sprzętowa dla modeli Whisper. Tryb automatyczny używa GPU, jeśli jest dostępny (Metal na macOS, Vulkan na Windows/Linux)."
+          "description": "Akceleracja sprzętowa dla modeli transcribe.cpp (z rodziny Whisper). Tryb automatyczny używa GPU przez Metal, jeśli jest dostępny."
         },
         "ort": {
           "title": "Akceleracja ONNX",
-          "description": "Akceleracja sprzętowa dla modeli ONNX (Parakeet, Canary, Moonshine itp.). DirectML na Windows jest eksperymentalne. Modele mogą nie transkrybować poprawnie."
+          "description": "Akceleracja sprzętowa dla modeli ONNX (Parakeet, Canary, Moonshine itp.). Modele mogą nie transkrybować poprawnie."
         },
         "gpuDevice": {
           "auto": "Automatycznie"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Nakładka",
-          "description": "Wybierz nakładkę nagrywania: „Brak“ ją ukrywa, „Minimalna“ pokazuje kompaktowy wskaźnik, „Na żywo“ wyświetla transkrypcję w czasie rzeczywistym podczas mówienia (tylko modele obsługujące streaming — poszukaj etykiety „Streaming“ w selektorze modeli). W systemie Linux zalecana jest opcja „Brak“.",
+          "title": "Styl",
+          "description": "Wybierz nakładkę nagrywania.",
           "options": {
             "none": "Brak",
             "minimal": "Minimalna",
@@ -277,8 +349,8 @@
           }
         },
         "position": {
-          "title": "Pozycja nakładki",
-          "description": "Wyświetlaj wizualną nakładkę podczas nagrywania i transkrypcji. Na Linuxie zalecane 'Brak'.",
+          "title": "Pozycja",
+          "description": "Miejsce na ekranie, w którym nakładka pojawia się podczas nagrywania i transkrypcji.",
           "options": {
             "bottom": "Dół",
             "top": "Góra"
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Automatyczne wysyłanie",
-        "description": "Automatycznie wysyła wybraną kombinację klawiszy po wstawieniu tekstu. Cmd+Enter dotyczy macOS, natomiast Windows/Linux używają Super+Enter.",
+        "description": "Automatycznie wysyła wybraną kombinację klawiszy po wstawieniu tekstu.",
         "options": {
           "off": "Wyłączone",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Usuń wyrazy wypełniające",
         "description": "Usuwa typowe słowa wyrażające wahanie z transkrypcji. Wyłącz, aby je zachować."
+      },
+      "voiceScrub": {
+        "title": "Czyszczenie głosem",
+        "description": "Wypowiedz słowo kluczowe, aby odrzucić wszystko, co dotąd powiedziano, i zacząć od nowa.",
+        "keyword": {
+          "title": "Słowo do czyszczenia",
+          "description": "Wszystko, co powiedziano przed nim, zostanie odrzucone.",
+          "invalid": "Użyj słowa z literami lub cyframi."
+        }
+      },
+      "voiceScratch": {
+        "title": "Skreślanie głosem",
+        "description": "Wypowiedz słowo kluczowe, aby usunąć właśnie powiedziane zdanie i dyktować dalej.",
+        "keyword": {
+          "title": "Słowo do skreślania",
+          "description": "Wypowiedz je jako osobną frazę, z pauzą przed i po. Zdanie przed nim zostanie usunięte.",
+          "invalid": "Użyj słowa z literami lub cyframi."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "Adres bazowy",
           "description": "Bazowy adres API dla wybranego dostawcy. Tylko dostawca niestandardowy może być edytowany.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "Bazowym adresem URL zarządza wybrany dostawca."
         },
         "apiKey": {
           "title": "Klucz API",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Wybierz model udostępniony przez wybranego dostawcę.",
           "placeholderWithOptions": "Wyszukaj lub wybierz model",
           "placeholderNoOptions": "Wpisz nazwę modelu",
-          "refreshModels": "Odśwież modele"
+          "refreshModels": "Odśwież modele",
+          "useTyped": "Użyj „{{value}}”"
         }
       },
       "prompts": {
@@ -418,20 +510,58 @@
       "dayPopover": {
         "words": "Łącznie słów",
         "appsUsed": "Użyte aplikacje",
-        "topApp": "Najczęstsza aplikacja"
+        "topApp": "Najczęstsza aplikacja",
+        "captures": "Nagrania",
+        "timeRecorded": "Czas nagrań"
       },
       "less": "Mniej",
-      "more": "Więcej"
+      "more": "Więcej",
+      "captures": "Nagrania",
+      "timeRecorded": "Czas nagrań",
+      "marksDrawn": "Narysowane znaczniki",
+      "duration": {
+        "seconds": "{{seconds}} s",
+        "minutesSeconds": "{{minutes}} min {{seconds}} s",
+        "hoursMinutes": "{{hours}} godz. {{minutes}} min"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Słownik",
-        "history": "Historia"
+        "history": "Historia",
+        "style": "Styl"
       },
       "save": "Zapisz",
       "cancel": "Anuluj",
       "remove": "Usuń {{word}}",
-      "duplicate": "\"{{word}}\" już istnieje"
+      "duplicate": "\"{{word}}\" już istnieje",
+      "replacements": "Zamienniki",
+      "replacementsHelp": "Wypowiedz frazę z lewej, a Bespoke zapisze tekst z prawej.",
+      "words": "Słowa",
+      "wordsHelp": "Nazwy, żargon i skróty, które Bespoke ma zapisywać dokładnie w ten sposób.",
+      "addReplacement": "Dodaj zamiennik",
+      "editWord": "Edytuj słowo",
+      "editReplacement": "Edytuj zamiennik",
+      "wordPlaceholder": "Nazwa lub termin, np. „IntraFi”",
+      "writeInsteadLabel": "Zapisz zamiast tego",
+      "writeInsteadPlaceholder": "Tekst, który Bespoke zapisze w zamian",
+      "phraseLabel": "Gdy powiesz",
+      "phrasePlaceholder": "Fraza, np. „mój e-mail”",
+      "addWord": "Dodaj słowo",
+      "addedTag": "Dodano",
+      "tryIt": "Wypróbuj",
+      "tryItHint": "Dyktuj za pomocą {{shortcut}}, gdy ta strona jest otwarta. Bespoke pokaże tekst tutaj, zamiast go wkleić.",
+      "tryItEmpty": "Bespoke nie usłyszał żadnych słów.",
+      "fixedCount_one": "1 poprawka ze słownika",
+      "fixedCount_few": "{{count}} poprawki ze słownika",
+      "fixedCount_many": "{{count}} poprawek ze słownika",
+      "pickWord": "Kliknij słowo, które Bespoke zapisał błędnie, aby go nauczyć. Kliknij z Shift następne słowo, aby je dodać.",
+      "teachLabel": "Bespoke usłyszał",
+      "spellingPlaceholder": "Poprawna pisownia",
+      "wontMatch": "Bespoke nie dopasuje „{{heard}}” do tak odmiennego słowa. Dodaj je jako zamiennik.",
+      "teachWord": "Dodaj słowo",
+      "teachReplacement": "Dodaj jako zamiennik",
+      "added": "Dodano. Podyktuj zdanie jeszcze raz, aby to sprawdzić."
     },
     "history": {
       "title": "Historia",
@@ -447,17 +577,33 @@
       "retranscribe": "Transkrybuj ponownie",
       "retranscribeError": "Nie udało się ponownie transkrybować. Spróbuj ponownie.",
       "transcribing": "Transkrybuję...",
-      "transcriptionFailed": "Transkrypcja nie powiodła się. Możesz transkrybować ponownie za pomocą ikony ponowienia."
+      "transcriptionFailed": "Transkrypcja nie powiodła się. Możesz transkrybować ponownie za pomocą ikony ponowienia.",
+      "transcript": "Transkrypcja",
+      "details": "Szczegóły",
+      "recorded": "Nagrano",
+      "wordCount": "Słowa",
+      "postProcessed": "Po postprocessingu",
+      "prompt": "Prompt",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "noSelection": "Wybierz transkrypcję, aby ją tu zobaczyć."
     },
     "debug": {
       "title": "Debugowanie",
       "logDirectory": {
         "title": "Katalog logów",
-        "description": "Miejsce przechowywania plików logów"
+        "description": "Miejsce przechowywania plików logów."
       },
       "logLevel": {
         "title": "Poziom logów",
-        "description": "Ustaw poziom szczegółowości logowania"
+        "description": "Ustaw poziom szczegółowości logowania.",
+        "options": {
+          "error": "Błąd",
+          "warn": "Ostrzeżenie",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Śledzenie"
+        }
       },
       "liveLogs": {
         "title": "Logi na żywo",
@@ -472,20 +618,26 @@
       },
       "soundTheme": {
         "label": "Motyw dźwiękowy",
-        "description": "Wybierz motyw dźwiękowy dla informacji o rozpoczęciu i zakończeniu nagrywania"
+        "description": "Wybierz motyw dźwiękowy dla informacji o rozpoczęciu i zakończeniu nagrywania.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Własny"
+        },
+        "preview": "Odsłuchaj motyw dźwiękowy (odtwarza start, potem stop)"
       },
       "wordCorrectionThreshold": {
         "title": "Próg korekty słów",
-        "description": "Czułość dla własnych korekt słów"
+        "description": "Czułość dla własnych korekt słów."
       },
       "historyLimit": {
         "title": "Limit historii",
-        "description": "Maksymalna liczba wpisów w historii",
+        "description": "Maksymalna liczba wpisów w historii.",
         "entries": "wpisy"
       },
       "recordingRetention": {
         "title": "Automatyczne usuwanie nagrań",
-        "description": "Automatycznie usuwaj stare nagrania, aby zaoszczędzić miejsce",
+        "description": "Automatycznie usuwaj stare nagrania, aby zaoszczędzić miejsce.",
         "never": "Nigdy",
         "preserveLimit": "Zachowaj ostatnie {{count}}",
         "days3": "Po 3 dniach",
@@ -495,28 +647,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Mikrofon zawsze aktywny",
-        "description": "Utrzymuj mikrofon aktywny dla szybszej reakcji"
+        "description": "Utrzymuj mikrofon aktywny dla szybszej reakcji."
       },
       "clamshellMicrophone": {
         "title": "Mikrofon przy zamkniętej pokrywie",
-        "description": "Mikrofon używany, gdy pokrywa laptopa jest zamknięta"
+        "description": "Mikrofon używany, gdy pokrywa laptopa jest zamknięta."
       },
       "postProcessingToggle": {
-        "label": "Postprocess",
-        "description": "Włącz AI do ulepszania tekstu po transkrypcji"
+        "label": "Postprocessing AI",
+        "description": "Włącz AI do ulepszania tekstu po transkrypcji."
       },
       "muteWhileRecording": {
         "label": "Wycisz podczas nagrywania",
-        "description": "Wycisz dźwięk systemu podczas nagrywania"
+        "description": "Wycisz dźwięk systemu podczas nagrywania."
       },
       "appendTrailingSpace": {
         "label": "Dodaj spację na końcu",
-        "description": "Dodaj spację po wklejonej transkrypcji"
+        "description": "Dodaj spację po wklejonej transkrypcji."
       },
       "keyboardImplementation": {
         "title": "Implementacja klawiatury",
         "description": "Wybierz backend dla skrótów klawiaturowych.",
-        "bindingsReset": "Skróty klawiaturowe były niekompatybilne i zostały zresetowane do wartości domyślnych"
+        "bindingsReset": "Skróty klawiaturowe były niekompatybilne i zostały zresetowane do wartości domyślnych",
+        "options": {
+          "globalHotkey": "Globalny skrót",
+          "keyboardListener": "Nasłuch klawiatury"
+        }
       },
       "paths": {
         "appData": "Dane aplikacji:",
@@ -537,7 +693,7 @@
       },
       "reliablePaste": {
         "title": "Niezawodne wklejanie (Beta)",
-        "description": "Przywracaj schowek dopiero po tym, jak docelowa aplikacja faktycznie odczyta transkrypcję, a nie po ustalonym opóźnieniu. Ma naprawić wklejanie starej zawartości schowka przy obciążeniu systemu. Wymaga metody wklejania przez schowek; tylko macOS i Windows."
+        "description": "Przywracaj schowek dopiero po tym, jak docelowa aplikacja faktycznie odczyta transkrypcję, a nie po ustalonym opóźnieniu. Ma naprawić wklejanie starej zawartości schowka przy obciążeniu systemu. Wymaga metody wklejania przez schowek."
       },
       "recordingBuffer": {
         "title": "Dodatkowy bufor nagrywania",
@@ -565,14 +721,14 @@
       },
       "whatsNewPreview": {
         "title": "Podgląd nowości",
-        "description": "Otwórz najnowsze dołączone informacje o wydaniu bez oznaczania ich jako wyświetlone",
+        "description": "Otwórz najnowsze dołączone informacje o wydaniu bez oznaczania ich jako wyświetlone.",
         "button": "Podgląd",
         "noNotes": "Nie znaleziono dołączonych informacji o wydaniu",
         "error": "Nie udało się wyświetlić podglądu informacji o wydaniu"
       },
       "onboardingPreview": {
         "title": "Podgląd konfiguracji początkowej",
-        "description": "Wyświetl ekrany konfiguracji początkowej bez zmiany uprawnień, modeli ani stanu ukończenia",
+        "description": "Wyświetl ekrany konfiguracji początkowej bez zmiany uprawnień, modeli ani stanu ukończenia.",
         "permissionsButton": "Uprawnienia",
         "modelsButton": "Wybór modelu",
         "exitButton": "Zakończ podgląd"
@@ -582,12 +738,64 @@
       "title": "O programie",
       "appDataDirectory": {
         "title": "Katalog danych aplikacji",
-        "description": "Miejsce, gdzie Bespoke przechowuje swoje dane"
+        "description": "Miejsce, gdzie Bespoke przechowuje swoje dane."
       },
       "whatsNewUpdates": {
         "label": "Pokaż nowości",
-        "description": "Pokazuj informacje o wydaniu po aktualizacjach Bespoke"
+        "description": "Pokazuj informacje o wydaniu po aktualizacjach Bespoke."
       }
+    },
+    "style": {
+      "intro": "Przeciągnij aplikację na styl lub ją kliknij.",
+      "styles": {
+        "formal": {
+          "name": "Formalny",
+          "example": "Cześć, masz jutro czas na lunch? Może o 12, jeśli Ci pasuje."
+        },
+        "casual": {
+          "name": "Swobodny",
+          "example": "Cześć masz jutro czas na lunch? Może o 12 jeśli ci pasuje"
+        },
+        "veryCasual": {
+          "name": "Bardzo swobodny",
+          "example": "czesc masz jutro czas na lunch? moze o 12 jesli ci pasuje"
+        }
+      },
+      "board": {
+        "default": "Domyślny",
+        "defaultTitle": "Styl domyślny",
+        "defaultHelp": "Aplikacje bez reguły używają tego stylu. Przeciągnij Domyślny na inny styl, aby to zmienić.",
+        "dropHere": "Upuść tu aplikację",
+        "remove": "Usuń regułę"
+      },
+      "shelf": {
+        "title": "Dodaj aplikacje",
+        "open": "Otwarte teraz",
+        "all": "Wszystkie aplikacje",
+        "search": "Szukaj aplikacji",
+        "loading": "Wczytywanie aplikacji…",
+        "noMatch": "Brak pasujących aplikacji.",
+        "noneLeft": "Każda aplikacja tutaj ma regułę."
+      }
+    },
+    "updates": {
+      "version": "Wersja {{version}}",
+      "available": "Dostępny jest Bespoke {{version}}.",
+      "lastChecked": "Aktualny. Ostatnio sprawdzono: {{when}}.",
+      "neverChecked": "Aktualny.",
+      "disabled": "Ta kompilacja nie aktualizuje się sama.",
+      "update": "Aktualizuj",
+      "checkNow": "Sprawdź teraz",
+      "automatic": {
+        "label": "Automatycznie sprawdzaj aktualizacje",
+        "description": "Bespoke sprawdza raz dziennie."
+      }
+    },
+    "nav": {
+      "general": "Ogólne",
+      "sound": "Dźwięk",
+      "postProcessing": "Postprocessing",
+      "app": "Aplikacja"
     }
   },
   "common": {
@@ -597,7 +805,11 @@
     "open": "Otwórz",
     "copy": "Kopiuj",
     "clear": "Wyczyść",
-    "noOptionsFound": "Nie znaleziono opcji"
+    "noOptionsFound": "Nie znaleziono opcji",
+    "selectOption": "Wybierz opcję...",
+    "unknownSize": "Nieznany rozmiar",
+    "yes": "Tak",
+    "no": "Nie"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke potrzebuje uprawnień dostępności, aby wpisywać transkrybowany tekst.",
@@ -617,17 +829,18 @@
     "modelLoadFailedUnknown": "nieznany model",
     "pasteFailedTitle": "Nie udało się wkleić tekstu",
     "pasteFailed": "Nie można było wkleić tekstu do aktywnej aplikacji.",
-    "transcriptionFailedTitle": "Transkrypcja nie powiodła się"
+    "transcriptionFailedTitle": "Transkrypcja nie powiodła się",
+    "unknown": "Nieznany błąd"
   },
   "appLanguage": {
-    "title": "Język aplikacji",
-    "description": "Zmień język interfejsu Bespoke"
+    "title": "Język",
+    "description": "Zmień język interfejsu Bespoke."
   },
   "theme": {
-    "title": "Motyw aplikacji",
-    "description": "Wybierz, czy Bespoke ma podążać za motywem systemu, czy pozostać jasny lub ciemny",
+    "title": "Motyw",
+    "description": "Wybierz, czy Bespoke ma podążać za motywem systemu, czy pozostać jasny lub ciemny.",
     "options": {
-      "system": "System",
+      "system": "Systemowy",
       "light": "Jasny",
       "dark": "Ciemny"
     }
@@ -647,6 +860,283 @@
     "recorderBlockedWithCulprit": "{{name}} może blokować zmiany skrótów",
     "recorderBlockedNoCulprit": "macOS tymczasowo blokuje zmiany skrótów",
     "recorderBlocked": "Nie można teraz nagrać skrótu — Secure Input w macOS blokuje zdarzenia klawiszy. Najpierw rozwiąż ostrzeżenie o Secure Input.",
-    "dismiss": "Odrzuć"
+    "dismiss": "Odrzuć",
+    "blockedWithCulprit_few": "{{name}} może blokować {{count}} skróty",
+    "blockedWithCulprit_many": "{{name}} może blokować {{count}} skrótów",
+    "blockedNoCulprit_few": "macOS tymczasowo blokuje {{count}} skróty",
+    "blockedNoCulprit_many": "macOS tymczasowo blokuje {{count}} skrótów"
+  },
+  "triage": {
+    "title": "Zbadaj problem",
+    "showTitle": "Pokaż problem",
+    "showHint": "Opcjonalnie. Naciśnij {{shortcut}} i opowiedz, co widzisz.",
+    "captured": "Nagranie z {{time}} · {{duration}}",
+    "recordAgain": "Nagraj ponownie",
+    "removeCapture": "Pomiń to nagranie",
+    "agentTitle": "Wybierz agenta",
+    "sendTitle": "Wyślij prompt",
+    "sendDescription": "Bespoke zapisuje logi i ustawienia w folderze i otwiera agenta z gotowym promptem. Naciskasz „Wyślij”, a agent pyta, co poszło nie tak. Zanim coś zmieni lub opublikuje, poprosi o zgodę.",
+    "start": "Rozpocznij badanie",
+    "cancel": "Anuluj",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code w aplikacji Claude",
+    "claudeMissing": "Zainstaluj aplikację Claude, aby tego użyć",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code w oknie terminala",
+    "claudeCodeMissing": "Wyślij jeden prompt do claude w terminalu, aby włączyć jego linki",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT w aplikacji Codex",
+    "codexMissing": "Żadna aplikacja na tym Macu nie otwiera linków Codex",
+    "copy": "Kopiuj prompt",
+    "copyDescription": "Wklej go do dowolnego agenta programistycznego na tym Macu",
+    "opened": "Rozpoczęto badanie. Wyślij prompt, a agent zapyta, co poszło nie tak.",
+    "copied": "Skopiowano prompt badania. Wklej go do agenta programistycznego na tym Macu.",
+    "failed": "Nie udało się rozpocząć badania"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Uprawnienia"
+    },
+    "retention": {
+      "title": "Przechowuj nagrania",
+      "custom": "Własne",
+      "options": {
+        "week": "Wideo przez 7 dni",
+        "month": "Wideo przez 30 dni",
+        "forever": "Zawsze"
+      },
+      "notes": {
+        "week": "Wideo i dźwięk trafiają do Kosza po 7 dniach, reszta każdego nagrania po 30 dniach.",
+        "month": "Wideo i dźwięk trafiają do Kosza po 30 dniach, reszta każdego nagrania po 90 dniach.",
+        "forever": "Nagrania nigdy nie są usuwane.",
+        "custom": "Okres przechowywania w config.json ustawiono ręcznie."
+      }
+    },
+    "captures": {
+      "title": "Nagrania",
+      "size": "Nagrania zajmują {{size}}.",
+      "measuring": "Obliczanie…",
+      "openLatest": "Otwórz ostatnie",
+      "showInFinder": "Pokaż w Finderze"
+    },
+    "permissions": {
+      "granted": "Dozwolone",
+      "allow": "Zezwól",
+      "openSettings": "Otwórz Ustawienia systemowe",
+      "relaunch": "Dozwolone. Zakończ i otwórz ponownie Bespoke, aby nagrywać ekran.",
+      "blocked": "Włącz {{permissions}}, aby nagrywać.",
+      "screenRecording": {
+        "title": "Nagrywanie ekranu i dźwięku systemowego",
+        "description": "Nagrywa ekran. Wymagane."
+      },
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Nagrywa Twój komentarz głosowy. Wymagane."
+      },
+      "accessibility": {
+        "title": "Dostępność",
+        "description": "Wykrywa naciśnięcia ⌘Z, Esc i S podczas nagrywania oraz wkleja nagrania. Wymagane."
+      },
+      "panel": {
+        "drag": "Przeciągnij {{app}} na listę: {{permission}}",
+        "allowed": "{{app}} ma dostęp",
+        "back": "Wstecz",
+        "screenRecording": "Nagrywanie ekranu",
+        "accessibility": "Dostępność"
+      }
+    },
+    "capsule": {
+      "area": "Obszar",
+      "window": "Okno",
+      "screen": "Ekran",
+      "record": "Nagraj",
+      "undo": "Cofnij",
+      "cancel": "Anuluj",
+      "finish": "Zakończ",
+      "processing": "Przetwarzanie",
+      "copied": "Skopiowano",
+      "saved": "Zapisano",
+      "failed": "Nie udało się zapisać nagrania",
+      "paste": "Wklej",
+      "inspect": "Podgląd",
+      "marks_one": "{{count}} znacznik",
+      "marks_few": "{{count}} znaczniki",
+      "marks_many": "{{count}} znaczników"
+    },
+    "library": {
+      "folder": "Folder nagrań",
+      "record": "Nagraj",
+      "empty": "Brak nagrań",
+      "emptyHint": "Stuknij {{record}}, aby nagrać ekran pod wskaźnikiem, gdy mówisz.",
+      "back": "Wróć do nagrań",
+      "contactSheet": "Stykówka",
+      "keyframe": "Klatka kluczowa",
+      "keyframes_one": "{{count}} klatka kluczowa",
+      "keyframes_few": "{{count}} klatki kluczowe",
+      "keyframes_many": "{{count}} klatek kluczowych",
+      "timeline": "Oś czasu",
+      "showInFinder": "Pokaż w Finderze",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "copyFailed": "Nie udało się skopiować nagrania"
+    },
+    "picker": {
+      "fullScreenHold": "Pełny ekran · {{holdKey}}, aby przełączyć · przeciągnij, aby wybrać obszar · puść {{holdMods}}, aby nagrać",
+      "fullScreen": "Pełny ekran · Kliknij, aby nagrać"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Dostęp agentów",
+      "off": "Agenci programistyczni odczytują Twoje nagrania z serwera MCP na tym Macu, na porcie {{port}}.",
+      "local": "Nasłuch na 127.0.0.1, port {{port}}. Agenci na tym Macu łączą się bezpośrednio, a zdalne maszyny przez tunel SSH.",
+      "tailnet": "Nasłuch na 127.0.0.1 i {{address}}, port {{port}}. Maszyny w Twoim tailnecie łączą się bezpośrednio.",
+      "tailnetWaiting": "Nasłuch na 127.0.0.1, port {{port}}. Tailscale nie jest połączony na tym Macu. Bespoke zacznie nasłuchiwać w Twoim tailnecie po połączeniu.",
+      "failed": "Serwer się nie uruchomił: {{error}}",
+      "options": {
+        "off": "Wyłączone",
+        "local": "Ten Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Dodaj do agenta",
+      "local": "Kopiuje konfigurację z tokenem, więc zachowaj ją dla siebie. Dla maszyny, z którą łączysz się przez SSH, dodaj też linię SSH do jej wpisu hosta w ~/.ssh/config na tym Macu.",
+      "tailnet": "Kopiuje konfigurację z tokenem, więc zachowaj ją dla siebie. Działa na tym Macu i na każdej maszynie w Twoim tailnecie.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "Linia SSH"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Nowy token odcina każdą dodaną maszynę, dopóki nie skopiujesz tam nowej konfiguracji.",
+      "renew": "Nowy token",
+      "renewed": "Utworzono nowy token. Skopiuj konfigurację ponownie dla każdej maszyny.",
+      "failed": "Nie udało się utworzyć nowego tokenu"
+    },
+    "copied": "Skopiowano",
+    "copyFailed": "Nie udało się skopiować"
+  },
+  "menu": {
+    "hideApp": "Ukryj Bespoke",
+    "hideOthers": "Ukryj pozostałe",
+    "showAll": "Pokaż wszystkie",
+    "quitApp": "Zakończ Bespoke",
+    "edit": "Edycja",
+    "undo": "Cofnij",
+    "redo": "Przywróć",
+    "cut": "Wytnij",
+    "copy": "Kopiuj",
+    "paste": "Wklej",
+    "selectAll": "Zaznacz wszystko",
+    "window": "Okno",
+    "minimize": "Minimalizuj",
+    "closeWindow": "Zamknij okno"
+  },
+  "languages": {
+    "auto": "Wykryj automatycznie",
+    "en": "Angielski",
+    "zh": "Chiński",
+    "zh-Hans": "Chiński (uproszczony)",
+    "zh-Hant": "Chiński (tradycyjny)",
+    "yue": "Kantoński",
+    "de": "Niemiecki",
+    "es": "Hiszpański",
+    "ru": "Rosyjski",
+    "ko": "Koreański",
+    "fr": "Francuski",
+    "ja": "Japoński",
+    "pt": "Portugalski",
+    "tr": "Turecki",
+    "pl": "Polski",
+    "ca": "Kataloński",
+    "nl": "Niderlandzki",
+    "ar": "Arabski",
+    "sv": "Szwedzki",
+    "it": "Włoski",
+    "id": "Indonezyjski",
+    "hi": "Hindi",
+    "fi": "Fiński",
+    "vi": "Wietnamski",
+    "he": "Hebrajski",
+    "uk": "Ukraiński",
+    "el": "Grecki",
+    "ms": "Malajski",
+    "cs": "Czeski",
+    "ro": "Rumuński",
+    "da": "Duński",
+    "hu": "Węgierski",
+    "ta": "Tamilski",
+    "no": "Norweski",
+    "th": "Tajski",
+    "ur": "Urdu",
+    "hr": "Chorwacki",
+    "bg": "Bułgarski",
+    "lt": "Litewski",
+    "la": "Łacina",
+    "mi": "Maoryski",
+    "ml": "Malajalam",
+    "cy": "Walijski",
+    "sk": "Słowacki",
+    "te": "Telugu",
+    "fa": "Perski",
+    "lv": "Łotewski",
+    "bn": "Bengalski",
+    "sr": "Serbski",
+    "az": "Azerski",
+    "sl": "Słoweński",
+    "kn": "Kannada",
+    "et": "Estoński",
+    "mk": "Macedoński",
+    "br": "Bretoński",
+    "eu": "Baskijski",
+    "is": "Islandzki",
+    "ga": "Irlandzki",
+    "hy": "Ormiański",
+    "ne": "Nepalski",
+    "mn": "Mongolski",
+    "bs": "Bośniacki",
+    "kk": "Kazachski",
+    "sq": "Albański",
+    "sw": "Suahili",
+    "gl": "Galicyjski",
+    "mr": "Marathi",
+    "pa": "Pendżabski",
+    "si": "Syngaleski",
+    "km": "Khmerski",
+    "sn": "Shona",
+    "yo": "Joruba",
+    "so": "Somalijski",
+    "af": "Afrikaans",
+    "oc": "Oksytański",
+    "ka": "Gruziński",
+    "be": "Białoruski",
+    "tg": "Tadżycki",
+    "sd": "Sindhi",
+    "gu": "Gudżarati",
+    "am": "Amharski",
+    "yi": "Jidysz",
+    "lo": "Laotański",
+    "uz": "Uzbecki",
+    "fo": "Farerski",
+    "ht": "Kreolski haitański",
+    "ps": "Paszto",
+    "tk": "Turkmeński",
+    "nn": "Nynorsk",
+    "mt": "Maltański",
+    "sa": "Sanskryt",
+    "lb": "Luksemburski",
+    "my": "Birmański",
+    "bo": "Tybetański",
+    "tl": "Filipiński (tagalski)",
+    "mg": "Malgaski",
+    "as": "Asamski",
+    "tt": "Tatarski",
+    "haw": "Hawajski",
+    "ln": "Lingala",
+    "ha": "Hausa",
+    "ba": "Baszkirski",
+    "jw": "Jawajski",
+    "su": "Sundajski"
   }
 }

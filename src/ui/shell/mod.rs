@@ -402,7 +402,12 @@ impl MainWindow {
                     _ => toast::error(
                         t_with(
                             "errors.recordingFailed",
-                            &[("error", &detail.unwrap_or("Unknown error"))],
+                            &[(
+                                "error",
+                                &detail
+                                    .map(str::to_string)
+                                    .unwrap_or_else(|| t("errors.unknown").to_string()),
+                            )],
                         ),
                         cx,
                     ),

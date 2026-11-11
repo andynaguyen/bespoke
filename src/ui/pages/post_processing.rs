@@ -8,7 +8,7 @@ use gpui::{
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::app_handle::AppHandle;
-use crate::i18n::t;
+use crate::i18n::{t, t_with};
 use crate::settings::{APPLE_INTELLIGENCE_PROVIDER_ID, AppSettings};
 use crate::shortcut;
 use crate::ui::components::{
@@ -395,7 +395,10 @@ impl PostProcessingApi {
                 );
             }
             if let Some(typed) = create {
-                let label = format!("Use \"{typed}\"");
+                let label = t_with(
+                    "settings.postProcessing.api.model.useTyped",
+                    &[("value", &typed)],
+                );
                 menu = menu.child(
                     div()
                         .id("model-option-create")
@@ -651,7 +654,7 @@ impl Render for PostProcessingApi {
                                 .when(base_url_updating, |el| {
                                     el.tooltip(|window, cx| {
                                         Tooltip::text(
-                                            "Base URL is managed by the selected provider.",
+                                            t("settings.postProcessing.api.baseUrl.managed"),
                                             window,
                                             cx,
                                         )

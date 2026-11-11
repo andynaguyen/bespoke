@@ -5,12 +5,29 @@
     "model": "模型",
     "quit": "退出",
     "cancel": "取消",
-    "secureInputWarning": "⚠ 快捷键被 Secure Input 阻止"
+    "secureInputWarning": "⚠ 快捷键被 Secure Input 阻止",
+    "annotate": "标注",
+    "annotateRecord": "录制屏幕",
+    "annotateChoose": "选择录制范围…",
+    "annotateOpenLatest": "打开最新录屏",
+    "checkForUpdates": "检查更新…",
+    "updateTo": "更新到 {{version}}…",
+    "triage": "排查问题…"
   },
   "sidebar": {
     "models": "模型",
     "stats": "统计",
-    "debug": "调试"
+    "debug": "调试",
+    "settings": "设置",
+    "dictate": "听写",
+    "dictionary": "词典",
+    "annotate": "标注",
+    "mcp": "MCP",
+    "update": {
+      "available": "有可用更新",
+      "version": "版本 {{version}}",
+      "button": "更新"
+    }
   },
   "onboarding": {
     "subtitle": "请选择一个转录模型以开始使用",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "大型模型，速度较慢，但多语言识别非常准确。"
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "macOS 内置。使用 Apple 的语音模型在这台 Mac 上运行。"
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "在您说话时实时显示转录"
     },
     "cancel": "取消",
-    "legacy": "旧版"
+    "legacy": "旧版",
+    "errors": {
+      "rescan": "重新扫描模型失败",
+      "delete": "删除模型失败"
+    },
+    "builtIn": "macOS 内置"
   },
   "settings": {
     "models": {
@@ -160,7 +186,7 @@
         "bindings": {
           "transcribe": {
             "name": "转录快捷键",
-            "description": "用于录制和转录语音的键盘快捷键。"
+            "description": "按下按键、鼠标中键或侧键来录制和转录语音。鼠标左键和右键需要配合修饰键。"
           },
           "cancel": {
             "name": "取消快捷键",
@@ -169,12 +195,32 @@
           "transcribe_with_post_process": {
             "name": "后处理快捷键",
             "description": "可选：一个专用快捷键，始终对您的转录应用 AI 后处理。"
+          },
+          "annotate": {
+            "name": "标注快捷键",
+            "description": "轻按以录制指针所在的屏幕，再按一次结束。按住可选择区域、窗口或屏幕。"
+          },
+          "annotate_paste": {
+            "name": "粘贴最新录屏",
+            "description": "将最新录屏的缩略图总览和摘要粘贴到最前面的应用中。"
           }
         },
         "errors": {
           "restore": "无法恢复原始快捷键",
           "set": "无法设置快捷键: {{error}}",
-          "reset": "无法将快捷键重置为原始值"
+          "reset": "无法将快捷键重置为原始值",
+          "updateBinding": "更新快捷键失败"
+        },
+        "pressKeysOrMouse": "请按下按键或鼠标按钮...",
+        "mouseButtons": {
+          "mouseleft": "鼠标左键",
+          "mouseright": "鼠标右键",
+          "mousemiddle": "鼠标中键",
+          "mousex1": "鼠标 4",
+          "mousex2": "鼠标 5",
+          "mouse6": "鼠标 6",
+          "mouse7": "鼠标 7",
+          "mouse8": "鼠标 8"
         }
       },
       "language": {
@@ -193,9 +239,9 @@
           "toggle": "切换"
         },
         "descriptions": {
-          "hold_or_toggle": "按住录音，或轻按切换",
-          "push_to_talk": "按住快捷键期间录音",
-          "toggle": "轻按快捷键开始录音，再次轻按停止"
+          "hold_or_toggle": "按住录音，或轻按切换。",
+          "push_to_talk": "按住快捷键期间录音。",
+          "toggle": "轻按快捷键开始录音，再次轻按停止。"
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "声音",
       "microphone": {
         "title": "麦克风",
-        "description": "选择您偏好的麦克风设备",
+        "description": "选择您偏好的麦克风设备。",
         "placeholder": "选择麦克风...",
-        "loading": "加载中..."
+        "loading": "加载中...",
+        "priority": {
+          "title": "优先级",
+          "description": "听写和标注使用第一个已连接的麦克风录音。拖动可调整顺序。",
+          "add": "添加麦克风",
+          "noneToAdd": "没有其他已连接的麦克风",
+          "inUse": "使用中",
+          "notConnected": "未连接",
+          "systemDefault": "系统默认",
+          "alwaysLast": "始终排在最后"
+        }
       },
       "channel": {
         "title": "输入通道",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "音频反馈",
-        "description": "录制开始和停止时播放声音"
+        "description": "录制开始和停止时播放声音。"
       },
       "outputDevice": {
         "title": "输出设备",
-        "description": "选择用于反馈声音的音频输出设备",
+        "description": "选择用于反馈声音的音频输出设备。",
         "placeholder": "选择输出设备...",
         "loading": "加载中..."
       },
       "volume": {
         "title": "音量",
-        "description": "调整音频反馈的音量"
-      }
+        "description": "调整音频反馈的音量。"
+      },
+      "defaultDevice": "默认"
     },
     "advanced": {
       "groups": {
         "transcription": "转录",
-        "experimental": "实验性"
+        "experimental": "实验性",
+        "dictation": "听写",
+        "appearance": "外观",
+        "system": "系统",
+        "shortcut": "快捷键",
+        "cleanup": "清理",
+        "pasting": "粘贴",
+        "submitting": "提交",
+        "startup": "启动",
+        "updates": "更新",
+        "application": "应用",
+        "overlay": "悬浮窗",
+        "voiceCommands": "语音命令",
+        "keyboard": "键盘",
+        "acceleration": "加速",
+        "recording": "录音"
       },
       "experimentalToggle": {
         "label": "实验性功能",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Whisper 加速",
-          "description": "Whisper 模型的硬件加速。自动模式在可用时使用 GPU（macOS 上使用 Metal，Windows/Linux 上使用 Vulkan）。"
+          "description": "transcribe.cpp（Whisper 系列）模型的硬件加速。自动模式在可用时通过 Metal 使用 GPU。"
         },
         "ort": {
           "title": "ONNX 加速",
-          "description": "ONNX 模型的硬件加速（Parakeet、Canary、Moonshine 等）。Windows 上的 DirectML 为实验性功能。模型可能无法正常转录。"
+          "description": "ONNX 模型的硬件加速（Parakeet、Canary、Moonshine 等）。模型可能无法正常转录。"
         },
         "gpuDevice": {
           "auto": "自动"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "悬浮窗",
-          "description": "选择录音悬浮窗的样式：「无」会隐藏悬浮窗，「精简」显示小巧的胶囊状指示，「实时」在您说话时实时显示转录内容（仅限支持流式的模型——请在模型选择器中查找「流式」标签）。在 Linux 上建议选择「无」。",
+          "title": "样式",
+          "description": "选择录音悬浮窗。",
           "options": {
             "none": "无",
             "minimal": "精简",
@@ -277,8 +349,8 @@
           }
         },
         "position": {
-          "title": "悬浮窗位置",
-          "description": "在录制和转录期间显示可视反馈悬浮窗。在 Linux 上建议选择「无」。",
+          "title": "位置",
+          "description": "录制和转录期间悬浮窗在屏幕上显示的位置。",
           "options": {
             "bottom": "底部",
             "top": "顶部"
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "自动提交",
-        "description": "在文本插入后自动发送所选的按键组合。macOS 上使用 Cmd+Enter，Windows/Linux 上使用 Super+Enter。",
+        "description": "在文本插入后自动发送所选的按键组合。",
         "options": {
           "off": "关闭",
           "enter": "回车",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "移除语气词",
         "description": "从转录中移除常见的语气词。关闭此选项即可保留这些词。"
+      },
+      "voiceScrub": {
+        "title": "语音清空",
+        "description": "说出关键词，即可丢弃到目前为止说的所有内容并重新开始。",
+        "keyword": {
+          "title": "清空关键词",
+          "description": "在它之前说的所有内容都会被丢弃。",
+          "invalid": "请使用包含字母或数字的词。"
+        }
+      },
+      "voiceScratch": {
+        "title": "语音删句",
+        "description": "说出关键词，即可删除刚说的那句话并继续听写。",
+        "keyword": {
+          "title": "删句关键词",
+          "description": "单独说出它，前后各停顿一下。它前面的那句话会被删除。",
+          "invalid": "请使用包含字母或数字的词。"
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "基础 URL",
           "description": "所选提供商的 API 基础 URL。仅自定义提供商可编辑。",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "基础 URL 由所选提供商管理。"
         },
         "apiKey": {
           "title": "API 密钥",
@@ -371,7 +462,8 @@
           "descriptionDefault": "选择所选提供商提供的模型。",
           "placeholderWithOptions": "搜索或选择模型",
           "placeholderNoOptions": "输入模型名称",
-          "refreshModels": "刷新模型"
+          "refreshModels": "刷新模型",
+          "useTyped": "使用 \"{{value}}\""
         }
       },
       "prompts": {
@@ -414,20 +506,56 @@
       "dayPopover": {
         "words": "总字数",
         "appsUsed": "使用的应用数",
-        "topApp": "最常用应用"
+        "topApp": "最常用应用",
+        "captures": "录屏",
+        "timeRecorded": "录制时长"
       },
       "less": "少",
-      "more": "多"
+      "more": "多",
+      "captures": "录屏",
+      "timeRecorded": "录制时长",
+      "marksDrawn": "绘制的标记",
+      "duration": {
+        "seconds": "{{seconds}} 秒",
+        "minutesSeconds": "{{minutes}} 分 {{seconds}} 秒",
+        "hoursMinutes": "{{hours}} 小时 {{minutes}} 分"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "词典",
-        "history": "历史记录"
+        "history": "历史记录",
+        "style": "风格"
       },
       "save": "保存",
       "cancel": "取消",
       "remove": "删除 {{word}}",
-      "duplicate": "\"{{word}}\" 已存在"
+      "duplicate": "\"{{word}}\" 已存在",
+      "replacements": "替换项",
+      "replacementsHelp": "说出左侧的短语，Bespoke 就会写出右侧的文本。",
+      "words": "词语",
+      "wordsHelp": "Bespoke 应严格按此拼写的名称、术语和缩写。",
+      "addReplacement": "添加替换项",
+      "editWord": "编辑词语",
+      "editReplacement": "编辑替换项",
+      "wordPlaceholder": "名称或术语，例如 \"IntraFi\"",
+      "writeInsteadLabel": "改写为",
+      "writeInsteadPlaceholder": "Bespoke 将写入的替换文本",
+      "phraseLabel": "当您说",
+      "phrasePlaceholder": "短语，例如 \"我的邮箱\"",
+      "addWord": "添加词语",
+      "addedTag": "已添加",
+      "tryIt": "试一试",
+      "tryItHint": "在此页面打开时用 {{shortcut}} 听写。Bespoke 会在这里显示文本，而不是粘贴。",
+      "tryItEmpty": "Bespoke 没有听到任何词语。",
+      "fixedCount_other": "词典修正了 {{count}} 处",
+      "pickWord": "点击 Bespoke 听错的词来教它。按住 Shift 点击下一个词可将其加入。",
+      "teachLabel": "Bespoke 听到的是",
+      "spellingPlaceholder": "正确的拼写",
+      "wontMatch": "Bespoke 不会把 \"{{heard}}\" 匹配到差别这么大的词。请将其添加为替换项。",
+      "teachWord": "添加词语",
+      "teachReplacement": "添加为替换项",
+      "added": "已添加。请再听写一遍这句话以进行检查。"
     },
     "history": {
       "title": "历史记录",
@@ -443,17 +571,33 @@
       "retranscribe": "重新转录",
       "retranscribeError": "重新转录失败。请重试。",
       "transcribing": "转录中...",
-      "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。"
+      "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。",
+      "transcript": "转录文本",
+      "details": "详细信息",
+      "recorded": "录制时间",
+      "wordCount": "字数",
+      "postProcessed": "已后处理",
+      "prompt": "提示词",
+      "copy": "复制",
+      "copied": "已复制",
+      "noSelection": "选择一条转录以在此查看。"
     },
     "debug": {
       "title": "调试",
       "logDirectory": {
         "title": "日志目录",
-        "description": "日志文件的存储位置"
+        "description": "日志文件的存储位置。"
       },
       "logLevel": {
         "title": "日志级别",
-        "description": "设置日志的详细程度"
+        "description": "设置日志的详细程度。",
+        "options": {
+          "error": "错误",
+          "warn": "警告",
+          "info": "信息",
+          "debug": "调试",
+          "trace": "跟踪"
+        }
       },
       "liveLogs": {
         "title": "实时日志",
@@ -468,20 +612,26 @@
       },
       "soundTheme": {
         "label": "声音主题",
-        "description": "选择录制开始和停止反馈的声音主题"
+        "description": "选择录制开始和停止反馈的声音主题。",
+        "options": {
+          "marimba": "马林巴",
+          "pop": "Pop",
+          "custom": "自定义"
+        },
+        "preview": "试听声音主题（依次播放开始和结束音）"
       },
       "wordCorrectionThreshold": {
         "title": "词汇修正阈值",
-        "description": "自定义词汇修正的灵敏度"
+        "description": "自定义词汇修正的灵敏度。"
       },
       "historyLimit": {
         "title": "历史记录上限",
-        "description": "保留的最大历史条目数",
+        "description": "保留的最大历史条目数。",
         "entries": "条"
       },
       "recordingRetention": {
         "title": "自动删除录音",
-        "description": "自动删除旧录音以节省空间",
+        "description": "自动删除旧录音以节省空间。",
         "never": "从不",
         "preserveLimit": "保留最新 {{count}} 条",
         "days3": "3 天后",
@@ -491,28 +641,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "麦克风常开",
-        "description": "保持麦克风活跃以获得更快的响应"
+        "description": "保持麦克风活跃以获得更快的响应。"
       },
       "clamshellMicrophone": {
         "title": "合盖麦克风",
-        "description": "笔记本电脑盖子关闭时使用的麦克风"
+        "description": "笔记本电脑盖子关闭时使用的麦克风。"
       },
       "postProcessingToggle": {
-        "label": "后处理",
-        "description": "启用转录后的 AI 文本优化"
+        "label": "AI 后处理",
+        "description": "启用转录后的 AI 文本优化。"
       },
       "muteWhileRecording": {
         "label": "录制时静音",
-        "description": "录制期间静音系统音频"
+        "description": "录制期间静音系统音频。"
       },
       "appendTrailingSpace": {
         "label": "追加尾部空格",
-        "description": "在粘贴的转录后添加空格"
+        "description": "在粘贴的转录后添加空格。"
       },
       "keyboardImplementation": {
         "title": "键盘实现",
         "description": "选择键盘快捷键的后端。",
-        "bindingsReset": "键盘快捷键不兼容，已重置为默认值"
+        "bindingsReset": "键盘快捷键不兼容，已重置为默认值",
+        "options": {
+          "globalHotkey": "全局热键",
+          "keyboardListener": "键盘监听器"
+        }
       },
       "paths": {
         "appData": "应用数据:",
@@ -533,7 +687,7 @@
       },
       "reliablePaste": {
         "title": "可靠粘贴（Beta）",
-        "description": "在目标应用程序真正读取转录文本之后再恢复剪贴板，而不是等待固定延迟。用于解决系统负载较高时粘贴旧剪贴板内容的问题。需要使用剪贴板类的粘贴方式；仅支持 macOS 和 Windows。"
+        "description": "在目标应用程序真正读取转录文本之后再恢复剪贴板，而不是等待固定延迟。用于解决系统负载较高时粘贴旧剪贴板内容的问题。需要使用剪贴板类的粘贴方式。"
       },
       "recordingBuffer": {
         "title": "额外录音缓冲",
@@ -561,14 +715,14 @@
       },
       "whatsNewPreview": {
         "title": "预览新功能",
-        "description": "打开最新内置发行说明，且不标记为已查看",
+        "description": "打开最新内置发行说明，且不标记为已查看。",
         "button": "预览",
         "noNotes": "未找到内置发行说明",
         "error": "无法预览发行说明"
       },
       "onboardingPreview": {
         "title": "预览新手引导",
-        "description": "预览新手引导界面，而不更改权限、模型或完成状态",
+        "description": "预览新手引导界面，而不更改权限、模型或完成状态。",
         "permissionsButton": "权限",
         "modelsButton": "模型选择",
         "exitButton": "退出预览"
@@ -578,12 +732,64 @@
       "title": "关于",
       "appDataDirectory": {
         "title": "应用数据目录",
-        "description": "Bespoke 存储数据的位置"
+        "description": "Bespoke 存储数据的位置。"
       },
       "whatsNewUpdates": {
         "label": "显示新功能",
-        "description": "Bespoke 更新后显示发行说明"
+        "description": "Bespoke 更新后显示发行说明。"
       }
+    },
+    "style": {
+      "intro": "将应用拖到某个风格上，或点击应用。",
+      "styles": {
+        "formal": {
+          "name": "正式",
+          "example": "您好，明天中午有空一起吃午饭吗？如果方便的话，我们 12 点见。"
+        },
+        "casual": {
+          "name": "随意",
+          "example": "嗨 明天中午有空一起吃饭吗？方便的话 12 点见"
+        },
+        "veryCasual": {
+          "name": "非常随意",
+          "example": "嗨 明天有空吃饭不 方便的话12点见"
+        }
+      },
+      "board": {
+        "default": "默认",
+        "defaultTitle": "默认风格",
+        "defaultHelp": "没有规则的应用使用此风格。将“默认”拖到其他风格上即可更改。",
+        "dropHere": "将应用拖放到这里",
+        "remove": "移除规则"
+      },
+      "shelf": {
+        "title": "添加应用",
+        "open": "当前打开",
+        "all": "所有应用",
+        "search": "搜索应用",
+        "loading": "正在加载应用…",
+        "noMatch": "没有匹配的应用。",
+        "noneLeft": "这里的每个应用都已有规则。"
+      }
+    },
+    "updates": {
+      "version": "版本 {{version}}",
+      "available": "Bespoke {{version}} 现已推出。",
+      "lastChecked": "已是最新版本。上次检查：{{when}}。",
+      "neverChecked": "已是最新版本。",
+      "disabled": "此版本不会自动更新。",
+      "update": "更新",
+      "checkNow": "立即检查",
+      "automatic": {
+        "label": "自动检查更新",
+        "description": "Bespoke 每天检查一次。"
+      }
+    },
+    "nav": {
+      "general": "通用",
+      "sound": "声音",
+      "postProcessing": "后处理",
+      "app": "应用"
     }
   },
   "common": {
@@ -593,7 +799,11 @@
     "open": "打开",
     "copy": "复制",
     "clear": "清除",
-    "noOptionsFound": "未找到选项"
+    "noOptionsFound": "未找到选项",
+    "selectOption": "选择一个选项...",
+    "unknownSize": "大小未知",
+    "yes": "是",
+    "no": "否"
   },
   "accessibility": {
     "permissionsDescription": "Bespoke 需要辅助功能权限才能输入转录的文字。",
@@ -613,15 +823,16 @@
     "modelLoadFailedUnknown": "未知模型",
     "pasteFailedTitle": "粘贴文本失败",
     "pasteFailed": "无法将文本粘贴到当前活动的应用程序中。",
-    "transcriptionFailedTitle": "转录失败"
+    "transcriptionFailedTitle": "转录失败",
+    "unknown": "未知错误"
   },
   "appLanguage": {
-    "title": "应用语言",
-    "description": "更改 Bespoke 界面的语言"
+    "title": "语言",
+    "description": "更改 Bespoke 界面的语言。"
   },
   "theme": {
-    "title": "应用主题",
-    "description": "选择 Bespoke 跟随系统主题，还是保持浅色或深色",
+    "title": "主题",
+    "description": "选择 Bespoke 跟随系统主题，还是保持浅色或深色。",
     "options": {
       "system": "跟随系统",
       "light": "浅色",
@@ -644,5 +855,274 @@
     "recorderBlockedNoCulprit": "macOS 正在暂时阻止快捷键更改",
     "recorderBlocked": "当前无法录制快捷键——macOS 的 Secure Input 正在阻止按键事件。请先解决 Secure Input 警告。",
     "dismiss": "关闭"
+  },
+  "triage": {
+    "title": "排查问题",
+    "showTitle": "展示问题",
+    "showHint": "可选。按 {{shortcut}}，边看边讲解您看到的情况。",
+    "captured": "{{time}} 的录屏 · {{duration}}",
+    "recordAgain": "重新录制",
+    "removeCapture": "不附带此录屏",
+    "agentTitle": "选择智能体",
+    "sendTitle": "发送提示词",
+    "sendDescription": "Bespoke 会将日志和设置写入一个文件夹，并打开智能体，提示词已准备好。您点击发送后，它会询问哪里出了问题。在更改或发布任何内容之前，它都会先征求您的同意。",
+    "start": "开始排查",
+    "cancel": "取消",
+    "claude": "Claude",
+    "claudeDescription": "Claude 应用中的 Claude Code",
+    "claudeMissing": "请安装 Claude 应用以使用此功能",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "终端窗口中的 Claude Code",
+    "claudeCodeMissing": "在终端中向 claude 发送一条提示词，以启用其链接",
+    "codex": "Codex",
+    "codexDescription": "Codex 应用中的 ChatGPT",
+    "codexMissing": "这台 Mac 上没有能打开 Codex 链接的应用",
+    "copy": "复制提示词",
+    "copyDescription": "粘贴到这台 Mac 上的任意编程智能体中",
+    "opened": "排查已开始。发送提示词后，智能体会询问哪里出了问题。",
+    "copied": "已复制排查提示词。请粘贴到这台 Mac 上的编程智能体中。",
+    "failed": "无法开始排查"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "权限"
+    },
+    "retention": {
+      "title": "保留录制内容",
+      "custom": "自定义",
+      "options": {
+        "week": "视频保留 7 天",
+        "month": "视频保留 30 天",
+        "forever": "永久"
+      },
+      "notes": {
+        "week": "视频和音频在 7 天后移到废纸篓，录屏的其余内容在 30 天后移到废纸篓。",
+        "month": "视频和音频在 30 天后移到废纸篓，录屏的其余内容在 90 天后移到废纸篓。",
+        "forever": "录屏永不删除。",
+        "custom": "config.json 中的保留期限是手动设置的。"
+      }
+    },
+    "captures": {
+      "title": "录屏",
+      "size": "录屏占用 {{size}}。",
+      "measuring": "正在计算…",
+      "openLatest": "打开最新",
+      "showInFinder": "在访达中显示"
+    },
+    "permissions": {
+      "granted": "已允许",
+      "allow": "允许",
+      "openSettings": "打开系统设置",
+      "relaunch": "已允许。请退出并重新打开 Bespoke 以录制屏幕。",
+      "blocked": "请打开{{permissions}}以进行录制。",
+      "screenRecording": {
+        "title": "录屏与系统录音",
+        "description": "录制屏幕。必需。"
+      },
+      "microphone": {
+        "title": "麦克风",
+        "description": "录制您的讲解。必需。"
+      },
+      "accessibility": {
+        "title": "辅助功能",
+        "description": "录制时检测 ⌘Z、Esc 和 S 按键，并粘贴录屏。必需。"
+      },
+      "panel": {
+        "drag": "将 {{app}} 拖到上方列表以允许{{permission}}",
+        "allowed": "已允许 {{app}}",
+        "back": "返回",
+        "screenRecording": "录屏",
+        "accessibility": "辅助功能"
+      }
+    },
+    "capsule": {
+      "area": "区域",
+      "window": "窗口",
+      "screen": "屏幕",
+      "record": "录制",
+      "undo": "撤销",
+      "cancel": "取消",
+      "finish": "完成",
+      "processing": "处理中",
+      "copied": "已复制",
+      "saved": "已保存",
+      "failed": "无法保存录屏",
+      "paste": "粘贴",
+      "inspect": "查看",
+      "marks_other": "{{count}} 个标记"
+    },
+    "library": {
+      "folder": "录屏文件夹",
+      "record": "录制",
+      "empty": "还没有录屏",
+      "emptyHint": "轻按 {{record}}，一边讲解一边录制指针所在的屏幕。",
+      "back": "返回录屏",
+      "contactSheet": "缩略图总览",
+      "keyframe": "关键帧",
+      "keyframes_other": "{{count}} 个关键帧",
+      "timeline": "时间线",
+      "showInFinder": "在访达中显示",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyFailed": "无法复制录屏"
+    },
+    "picker": {
+      "fullScreenHold": "全屏 · 按 {{holdKey}} 切换 · 拖动选择区域 · 松开 {{holdMods}} 开始录制",
+      "fullScreen": "全屏 · 点按以录制"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "智能体访问",
+      "off": "编程智能体通过这台 Mac 上的 MCP 服务器读取您的录屏，端口为 {{port}}。",
+      "local": "正在监听 127.0.0.1，端口 {{port}}。这台 Mac 上的智能体直接连接，远程机器通过 SSH 隧道连接。",
+      "tailnet": "正在监听 127.0.0.1 和 {{address}}，端口 {{port}}。您 tailnet 中的机器可直接连接。",
+      "tailnetWaiting": "正在监听 127.0.0.1，端口 {{port}}。这台 Mac 尚未连接 Tailscale。连接后，Bespoke 将在您的 tailnet 上监听。",
+      "failed": "服务器未能启动：{{error}}",
+      "options": {
+        "off": "关闭",
+        "local": "这台 Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "添加到智能体",
+      "local": "复制包含令牌的配置，请妥善保管。对于您通过 SSH 登录的机器，还需将 SSH 行添加到这台 Mac 的 ~/.ssh/config 中该机器的 Host 条目。",
+      "tailnet": "复制包含令牌的配置，请妥善保管。它可在这台 Mac 和您 tailnet 中的每台机器上使用。",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "SSH 行"
+    },
+    "token": {
+      "title": "令牌",
+      "description": "新令牌会断开您添加的所有机器，直到您将新配置复制到这些机器上。",
+      "renew": "新令牌",
+      "renewed": "已生成新令牌。请为每台机器重新复制配置。",
+      "failed": "无法生成新令牌"
+    },
+    "copied": "已复制",
+    "copyFailed": "无法复制"
+  },
+  "menu": {
+    "hideApp": "隐藏 Bespoke",
+    "hideOthers": "隐藏其他",
+    "showAll": "全部显示",
+    "quitApp": "退出 Bespoke",
+    "edit": "编辑",
+    "undo": "撤销",
+    "redo": "重做",
+    "cut": "剪切",
+    "copy": "拷贝",
+    "paste": "粘贴",
+    "selectAll": "全选",
+    "window": "窗口",
+    "minimize": "最小化",
+    "closeWindow": "关闭窗口"
+  },
+  "languages": {
+    "auto": "自动检测",
+    "en": "英语",
+    "zh": "中文",
+    "zh-Hans": "中文（简体）",
+    "zh-Hant": "中文（繁体）",
+    "yue": "粤语",
+    "de": "德语",
+    "es": "西班牙语",
+    "ru": "俄语",
+    "ko": "韩语",
+    "fr": "法语",
+    "ja": "日语",
+    "pt": "葡萄牙语",
+    "tr": "土耳其语",
+    "pl": "波兰语",
+    "ca": "加泰罗尼亚语",
+    "nl": "荷兰语",
+    "ar": "阿拉伯语",
+    "sv": "瑞典语",
+    "it": "意大利语",
+    "id": "印度尼西亚语",
+    "hi": "印地语",
+    "fi": "芬兰语",
+    "vi": "越南语",
+    "he": "希伯来语",
+    "uk": "乌克兰语",
+    "el": "希腊语",
+    "ms": "马来语",
+    "cs": "捷克语",
+    "ro": "罗马尼亚语",
+    "da": "丹麦语",
+    "hu": "匈牙利语",
+    "ta": "泰米尔语",
+    "no": "挪威语",
+    "th": "泰语",
+    "ur": "乌尔都语",
+    "hr": "克罗地亚语",
+    "bg": "保加利亚语",
+    "lt": "立陶宛语",
+    "la": "拉丁语",
+    "mi": "毛利语",
+    "ml": "马拉雅拉姆语",
+    "cy": "威尔士语",
+    "sk": "斯洛伐克语",
+    "te": "泰卢固语",
+    "fa": "波斯语",
+    "lv": "拉脱维亚语",
+    "bn": "孟加拉语",
+    "sr": "塞尔维亚语",
+    "az": "阿塞拜疆语",
+    "sl": "斯洛文尼亚语",
+    "kn": "卡纳达语",
+    "et": "爱沙尼亚语",
+    "mk": "马其顿语",
+    "br": "布列塔尼语",
+    "eu": "巴斯克语",
+    "is": "冰岛语",
+    "ga": "爱尔兰语",
+    "hy": "亚美尼亚语",
+    "ne": "尼泊尔语",
+    "mn": "蒙古语",
+    "bs": "波斯尼亚语",
+    "kk": "哈萨克语",
+    "sq": "阿尔巴尼亚语",
+    "sw": "斯瓦希里语",
+    "gl": "加利西亚语",
+    "mr": "马拉地语",
+    "pa": "旁遮普语",
+    "si": "僧伽罗语",
+    "km": "高棉语",
+    "sn": "绍纳语",
+    "yo": "约鲁巴语",
+    "so": "索马里语",
+    "af": "南非荷兰语",
+    "oc": "奥克语",
+    "ka": "格鲁吉亚语",
+    "be": "白俄罗斯语",
+    "tg": "塔吉克语",
+    "sd": "信德语",
+    "gu": "古吉拉特语",
+    "am": "阿姆哈拉语",
+    "yi": "意第绪语",
+    "lo": "老挝语",
+    "uz": "乌兹别克语",
+    "fo": "法罗语",
+    "ht": "海地克里奥尔语",
+    "ps": "普什图语",
+    "tk": "土库曼语",
+    "nn": "新挪威语",
+    "mt": "马耳他语",
+    "sa": "梵语",
+    "lb": "卢森堡语",
+    "my": "缅甸语",
+    "bo": "藏语",
+    "tl": "菲律宾语（他加禄语）",
+    "mg": "马尔加什语",
+    "as": "阿萨姆语",
+    "tt": "鞑靼语",
+    "haw": "夏威夷语",
+    "ln": "林加拉语",
+    "ha": "豪萨语",
+    "ba": "巴什基尔语",
+    "jw": "爪哇语",
+    "su": "巽他语"
   }
 }

@@ -5,12 +5,29 @@
     "model": "Model",
     "quit": "Surt",
     "cancel": "Cancel·la",
-    "secureInputWarning": "⚠ Dreceres blocades per l'entrada segura"
+    "secureInputWarning": "⚠ Dreceres blocades per l'entrada segura",
+    "annotate": "Anotació",
+    "annotateRecord": "Enregistra la pantalla",
+    "annotateChoose": "Tria què vols enregistrar…",
+    "annotateOpenLatest": "Obre l'última captura",
+    "checkForUpdates": "Cerca actualitzacions…",
+    "updateTo": "Actualitza a la {{version}}…",
+    "triage": "Diagnostica un problema…"
   },
   "sidebar": {
     "models": "Models",
     "stats": "Estadístiques",
-    "debug": "Depuració"
+    "debug": "Depuració",
+    "settings": "Configuració",
+    "dictate": "Dictat",
+    "dictionary": "Diccionari",
+    "annotate": "Anotació",
+    "mcp": "MCP",
+    "update": {
+      "available": "Actualització disponible",
+      "version": "Versió {{version}}",
+      "button": "Actualitza"
+    }
   },
   "onboarding": {
     "subtitle": "Per començar, trieu un model de transcripció",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Un model multilingüe gran, més lent, però molt precís."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Integrat al macOS. S'executa en aquest Mac amb el model de veu d'Apple."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "translation": "Pot traduir a l'anglès",
       "translate": "Tradueix",
       "streaming": "Mostra la transcripció en temps real mentre parleu"
-    }
+    },
+    "errors": {
+      "rescan": "No s'han pogut tornar a cercar els models",
+      "delete": "No s'ha pogut suprimir el model"
+    },
+    "builtIn": "Integrat al macOS"
   },
   "settings": {
     "general": {
@@ -140,7 +166,7 @@
         "bindings": {
           "transcribe": {
             "name": "Drecera de transcripció",
-            "description": "La drecera de teclat per enregistrar i transcriure la vostra veu."
+            "description": "Premeu tecles, el botó central o un botó lateral del ratolí per enregistrar i transcriure la vostra veu. Els botons esquerre i dret del ratolí requereixen una tecla modificadora."
           },
           "cancel": {
             "name": "Drecera de cancel·lació",
@@ -149,12 +175,32 @@
           "transcribe_with_post_process": {
             "name": "Drecera de postprocessament",
             "description": "Opcional: una drecera específica que sempre aplica postprocessament amb IA a la transcripció."
+          },
+          "annotate": {
+            "name": "Drecera d'anotació",
+            "description": "Toqueu per enregistrar la pantalla que hi ha sota el punter i torneu a tocar per acabar. Manteniu-la premuda per triar una àrea, una finestra o la pantalla."
+          },
+          "annotate_paste": {
+            "name": "Enganxa l'última captura",
+            "description": "Enganxa el full de contactes i el resum de l'última captura a l'aplicació en primer pla."
           }
         },
         "errors": {
           "restore": "No s'ha pogut restaurar la drecera original",
           "set": "No s'ha pogut definir la drecera: {{error}}",
-          "reset": "No s'ha pogut restablir la drecera al valor original"
+          "reset": "No s'ha pogut restablir la drecera al valor original",
+          "updateBinding": "No s'ha pogut actualitzar la drecera"
+        },
+        "pressKeysOrMouse": "Premeu tecles o un botó del ratolí...",
+        "mouseButtons": {
+          "mouseleft": "Botó esquerre",
+          "mouseright": "Botó dret",
+          "mousemiddle": "Botó central",
+          "mousex1": "Ratolí 4",
+          "mousex2": "Ratolí 5",
+          "mouse6": "Ratolí 6",
+          "mouse7": "Ratolí 7",
+          "mouse8": "Ratolí 8"
         }
       },
       "language": {
@@ -173,9 +219,9 @@
           "toggle": "Commuta"
         },
         "descriptions": {
-          "hold_or_toggle": "Manteniu-la premuda per enregistrar o feu una pulsació breu per iniciar o aturar l'enregistrament",
-          "push_to_talk": "Enregistreu mentre manteniu premuda la drecera",
-          "toggle": "Premeu la drecera per iniciar l'enregistrament i torneu-la a prémer per aturar-lo"
+          "hold_or_toggle": "Manteniu-la premuda per enregistrar o feu una pulsació breu per iniciar o aturar l'enregistrament.",
+          "push_to_talk": "Enregistreu mentre manteniu premuda la drecera.",
+          "toggle": "Premeu la drecera per iniciar l'enregistrament i torneu-la a prémer per aturar-lo."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "So",
       "microphone": {
         "title": "Micròfon",
-        "description": "Selecciona el micròfon preferit",
+        "description": "Selecciona el micròfon preferit.",
         "placeholder": "Seleccionaun micròfon...",
-        "loading": "S'està carregant..."
+        "loading": "S'està carregant...",
+        "priority": {
+          "title": "Prioritat",
+          "description": "Dictat i Anotació enregistren des del primer micròfon connectat. Arrossegueu per reordenar.",
+          "add": "Afegeix un micròfon",
+          "noneToAdd": "No hi ha cap altre micròfon connectat",
+          "inUse": "En ús",
+          "notConnected": "No connectat",
+          "systemDefault": "Predeterminat del sistema",
+          "alwaysLast": "Sempre l'últim"
+        }
       },
       "channel": {
         "title": "Canal d'entrada",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Avisos sonors",
-        "description": "Reprodueix un so quan s'inicia i s'atura l'enregistrament"
+        "description": "Reprodueix un so quan s'inicia i s'atura l'enregistrament."
       },
       "outputDevice": {
         "title": "Dispositiu de sortida",
-        "description": "Selecciona el dispositiu de sortida d'àudio preferit per als avisos sonors",
+        "description": "Selecciona el dispositiu de sortida d'àudio preferit per als avisos sonors.",
         "placeholder": "Selecciona un dispositiu de sortida...",
         "loading": "S'està carregant..."
       },
       "volume": {
         "title": "Volum",
-        "description": "Ajusta el volum dels avisos sonors"
-      }
+        "description": "Ajusta el volum dels avisos sonors."
+      },
+      "defaultDevice": "Predeterminat"
     },
     "advanced": {
       "groups": {
         "transcription": "Transcripció",
-        "experimental": "Experimental"
+        "experimental": "Experimental",
+        "dictation": "Dictat",
+        "appearance": "Aparença",
+        "system": "Sistema",
+        "shortcut": "Drecera",
+        "cleanup": "Neteja",
+        "pasting": "Enganxament",
+        "submitting": "Enviament",
+        "startup": "Inici",
+        "updates": "Actualitzacions",
+        "application": "Aplicació",
+        "overlay": "Finestra superposada",
+        "voiceCommands": "Ordres de veu",
+        "keyboard": "Teclat",
+        "acceleration": "Acceleració",
+        "recording": "Enregistrament"
       },
       "experimentalToggle": {
         "label": "Funcions experimentals",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Acceleració del transcribe.cpp",
-          "description": "Acceleració per maquinari dels models del transcribe.cpp (família Whisper). L'opció automàtica utilitza la GPU si està disponible (Metal al macOS, Vulkan al Windows i al Linux)."
+          "description": "Acceleració per maquinari dels models del transcribe.cpp (família Whisper). L'opció automàtica utilitza la GPU amb Metal si n'hi ha una disponible."
         },
         "ort": {
           "title": "Acceleració ONNX",
-          "description": "Acceleració per maquinari dels models ONNX (Parakeet, Canary, Moonshine, etc.). El DirectML al Windows és experimental. És possible que els models no puguin transcriure."
+          "description": "Acceleració per maquinari dels models ONNX (Parakeet, Canary, Moonshine, etc.). És possible que els models no puguin transcriure."
         },
         "gpuDevice": {
           "auto": "Automàtica"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Finestra superposada",
-          "description": "Tria la finestra superposada d'enregistrament: Cap l'amaga, Mínima mostra un indicador compacte i En directe mostra la transcripció en temps real mentre parleu (només amb models compatibles; cerqueu el distintiu En temps real al selector de models). Al Linux es recomana Cap.",
+          "title": "Estil",
+          "description": "Trieu la finestra superposada d'enregistrament.",
           "options": {
             "none": "Cap",
             "minimal": "Mínima",
@@ -277,7 +349,7 @@
           }
         },
         "position": {
-          "title": "Posició de la finestra superposada",
+          "title": "Posició",
           "description": "On apareix la finestra superposada a la pantalla durant l'enregistrament i la transcripció.",
           "options": {
             "bottom": "A baix",
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Enviament automàtic",
-        "description": "Envia automàticament la combinació de tecles seleccionada després d'inserir el text. S'utilitza Cmd+Enter al macOS i Super+Enter al Windows i al Linux.",
+        "description": "Envia automàticament la combinació de tecles seleccionada després d'inserir el text.",
         "options": {
           "off": "Desactivat",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Elimina les falques",
         "description": "Elimina les expressions de vacil·lació habituals de les transcripcions. Desactiveu aquesta opció per conservar-les."
+      },
+      "voiceScrub": {
+        "title": "Esborrat per veu",
+        "description": "Digueu la paraula clau per descartar tot el que heu dit fins ara i començar de nou.",
+        "keyword": {
+          "title": "Paraula d'esborrat",
+          "description": "Es descarta tot el que heu dit abans d'aquesta paraula.",
+          "invalid": "Utilitzeu una paraula amb lletres o números."
+        }
+      },
+      "voiceScratch": {
+        "title": "Ratllat per veu",
+        "description": "Digueu la paraula clau per eliminar la frase que acabeu de dir i continuar dictant.",
+        "keyword": {
+          "title": "Paraula de ratllat",
+          "description": "Digueu-la com una frase a part, amb una pausa abans i després. S'elimina la frase anterior.",
+          "invalid": "Utilitzeu una paraula amb lletres o números."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "URL de base",
           "description": "URL de base de l'API del proveïdor seleccionat. Només es pot editar la del proveïdor personalitzat.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "El proveïdor seleccionat gestiona l'URL de base."
         },
         "apiKey": {
           "title": "Clau de l'API",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Trieu un model ofert pel proveïdor seleccionat.",
           "placeholderWithOptions": "Cerqueu o seleccioneu un model",
           "placeholderNoOptions": "Escriviu el nom d'un model",
-          "refreshModels": "Actualitzeu els models"
+          "refreshModels": "Actualitzeu els models",
+          "useTyped": "Utilitza «{{value}}»"
         }
       },
       "prompts": {
@@ -416,20 +508,57 @@
       "dayPopover": {
         "words": "Paraules totals",
         "appsUsed": "Aplicacions utilitzades",
-        "topApp": "Aplicació principal"
+        "topApp": "Aplicació principal",
+        "captures": "Captures",
+        "timeRecorded": "Temps enregistrat"
       },
       "less": "Menys",
-      "more": "Més"
+      "more": "Més",
+      "captures": "Captures",
+      "timeRecorded": "Temps enregistrat",
+      "marksDrawn": "Marques dibuixades",
+      "duration": {
+        "seconds": "{{seconds}} s",
+        "minutesSeconds": "{{minutes}} min {{seconds}} s",
+        "hoursMinutes": "{{hours}} h {{minutes}} min"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Diccionari",
-        "history": "Historial"
+        "history": "Historial",
+        "style": "Estil"
       },
       "save": "Desa",
       "cancel": "Cancel·la",
       "remove": "Suprimiu {{word}}",
-      "duplicate": "«{{word}}» ja existeix"
+      "duplicate": "«{{word}}» ja existeix",
+      "replacements": "Substitucions",
+      "replacementsHelp": "Digueu la frase de l'esquerra i el Bespoke escriurà el text de la dreta.",
+      "words": "Paraules",
+      "wordsHelp": "Noms, argot i sigles que el Bespoke ha d'escriure exactament així.",
+      "addReplacement": "Afegeix una substitució",
+      "editWord": "Edita la paraula",
+      "editReplacement": "Edita la substitució",
+      "wordPlaceholder": "Un nom o terme, com ara «IntraFi»",
+      "writeInsteadLabel": "Escriu en lloc d'això",
+      "writeInsteadPlaceholder": "El text que el Bespoke escriu al seu lloc",
+      "phraseLabel": "Quan digueu",
+      "phrasePlaceholder": "Una frase, com ara «el meu correu»",
+      "addWord": "Afegeix una paraula",
+      "addedTag": "Afegit",
+      "tryIt": "Proveu-ho",
+      "tryItHint": "Dicteu amb {{shortcut}} mentre aquesta pàgina és oberta. El Bespoke mostra el text aquí en lloc d'enganxar-lo.",
+      "tryItEmpty": "El Bespoke no ha sentit cap paraula.",
+      "fixedCount_one": "1 correcció del diccionari",
+      "fixedCount_other": "{{count}} correccions del diccionari",
+      "pickWord": "Feu clic en una paraula que el Bespoke hagi entès malament per ensenyar-li-la. Feu Maj-clic a la paraula següent per afegir-la.",
+      "teachLabel": "El Bespoke ha sentit",
+      "spellingPlaceholder": "L'escriptura correcta",
+      "wontMatch": "El Bespoke no farà coincidir «{{heard}}» amb una paraula tan diferent. Afegiu-la com a substitució.",
+      "teachWord": "Afegeix la paraula",
+      "teachReplacement": "Afegeix com a substitució",
+      "added": "Afegit. Torneu a dictar la frase per comprovar-ho."
     },
     "history": {
       "title": "Historial",
@@ -445,17 +574,33 @@
       "retranscribe": "Torneu a transcriure",
       "retranscribeError": "No s'ha pogut tornar a transcriure. Torneu-ho a provar.",
       "transcribing": "S'està transcrivint...",
-      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent."
+      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent.",
+      "transcript": "Transcripció",
+      "details": "Detalls",
+      "recorded": "Enregistrat",
+      "wordCount": "Paraules",
+      "postProcessed": "Postprocessat",
+      "prompt": "Indicació",
+      "copy": "Copia",
+      "copied": "Copiat",
+      "noSelection": "Seleccioneu una transcripció per veure-la aquí."
     },
     "debug": {
       "title": "Depuració",
       "logDirectory": {
         "title": "Directori de registres",
-        "description": "Ubicació on es desen els fitxers de registre"
+        "description": "Ubicació on es desen els fitxers de registre."
       },
       "logLevel": {
         "title": "Nivell de registre",
-        "description": "Establiu el nivell de detall dels registres"
+        "description": "Establiu el nivell de detall dels registres.",
+        "options": {
+          "error": "Error",
+          "warn": "Avís",
+          "info": "Informació",
+          "debug": "Depuració",
+          "trace": "Traça"
+        }
       },
       "liveLogs": {
         "title": "Registres en directe",
@@ -470,34 +615,40 @@
       },
       "whatsNewPreview": {
         "title": "Previsualització de les novetats",
-        "description": "Obre les últimes notes de la versió incloses sense marcar-les com a llegides",
+        "description": "Obre les últimes notes de la versió incloses sense marcar-les com a llegides.",
         "button": "Previsualitzeu",
         "noNotes": "No s'han trobat notes de la versió incloses",
         "error": "No s'han pogut previsualitzar les notes de la versió"
       },
       "onboardingPreview": {
         "title": "Previsualització de la configuració inicial",
-        "description": "Previsualitza les pantalles de configuració inicial sense canviar els permisos, os models ni l'estat de compleció",
+        "description": "Previsualitza les pantalles de configuració inicial sense canviar els permisos, os models ni l'estat de compleció.",
         "permissionsButton": "Permisos",
         "modelsButton": "Selecció del model",
         "exitButton": "Sortiu de la previsualització"
       },
       "soundTheme": {
         "label": "Tema de so",
-        "description": "Trieu un tema de so per als avisos d'inici i d'aturada de l'enregistrament"
+        "description": "Trieu un tema de so per als avisos d'inici i d'aturada de l'enregistrament.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Personalitzat"
+        },
+        "preview": "Previsualitza el tema de so (reprodueix l'inici i després l'aturada)"
       },
       "wordCorrectionThreshold": {
         "title": "Llindar de correcció de paraules",
-        "description": "Sensibilitat de les correccions de paraules personalitzades"
+        "description": "Sensibilitat de les correccions de paraules personalitzades."
       },
       "historyLimit": {
         "title": "Límit de l'historial",
-        "description": "Nombre màxim d'entrades de l'historial que es conservaran",
+        "description": "Nombre màxim d'entrades de l'historial que es conservaran.",
         "entries": "entrades"
       },
       "recordingRetention": {
         "title": "Supressió automàtica d'enregistraments",
-        "description": "Suprimeix automàticament els enregistraments antics per estalviar espai",
+        "description": "Suprimeix automàticament els enregistraments antics per estalviar espai.",
         "never": "Mai",
         "preserveLimit": "Conserva els últims {{count}}",
         "days3": "Al cap de 3 dies",
@@ -507,28 +658,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Micròfon sempre actiu",
-        "description": "Mantén el micròfon actiu per respondre més de pressa"
+        "description": "Mantén el micròfon actiu per respondre més de pressa."
       },
       "clamshellMicrophone": {
         "title": "Micròfon amb la tapa tancada",
-        "description": "Micròfon que s'utilitzarà quan la tapa del portàtil estigui tancada"
+        "description": "Micròfon que s'utilitzarà quan la tapa del portàtil estigui tancada."
       },
       "postProcessingToggle": {
-        "label": "Postprocessament",
-        "description": "Activa la millora del text amb IA després de la transcripció"
+        "label": "Postprocessament amb IA",
+        "description": "Activa la millora del text amb IA després de la transcripció."
       },
       "muteWhileRecording": {
         "label": "Silencia durant l'enregistrament",
-        "description": "Silencia l'àudio del sistema durant l'enregistrament"
+        "description": "Silencia l'àudio del sistema durant l'enregistrament."
       },
       "appendTrailingSpace": {
         "label": "Afegiu un espai al final",
-        "description": "Afegeix un espai après de la transcripció enganxada"
+        "description": "Afegeix un espai après de la transcripció enganxada."
       },
       "keyboardImplementation": {
         "title": "Implementació del teclat",
         "description": "Tria el motor de dreceres de teclat.",
-        "bindingsReset": "Les dreceres de teclat eren incompatibles i s'han restablert als valors per defecte"
+        "bindingsReset": "Les dreceres de teclat eren incompatibles i s'han restablert als valors per defecte",
+        "options": {
+          "globalHotkey": "Drecera global",
+          "keyboardListener": "Escolta del teclat"
+        }
       },
       "paths": {
         "appData": "Dades de l'aplicació:",
@@ -549,7 +704,7 @@
       },
       "reliablePaste": {
         "title": "Enganxament fiable (beta)",
-        "description": "Restaura el porta-retalls només quan l'aplicació de destinació ha llegit la transcripció, en lloc de fer-ho després d'un retard fix. Pensat per evitar que s'enganxi el contingut antic del porta-retalls quan el sistema està carregat. Requereix un mètode d'enganxament amb el porta-retalls; només al macOS i al Windows."
+        "description": "Restaura el porta-retalls només quan l'aplicació de destinació ha llegit la transcripció, en lloc de fer-ho després d'un retard fix. Pensat per evitar que s'enganxi el contingut antic del porta-retalls quan el sistema està carregat. Requereix un mètode d'enganxament amb el porta-retalls."
       },
       "recordingBuffer": {
         "title": "Marge addicional d'enregistrament",
@@ -580,12 +735,64 @@
       "title": "Quant a",
       "whatsNewUpdates": {
         "label": "Mostra les novetats",
-        "description": "Mostra les notes de la versió després d'actualitzar el Bespoke"
+        "description": "Mostra les notes de la versió després d'actualitzar el Bespoke."
       },
       "appDataDirectory": {
         "title": "Directori de dades de l'aplicació",
-        "description": "Ubicació on el Bespoke desa les dades"
+        "description": "Ubicació on el Bespoke desa les dades."
       }
+    },
+    "style": {
+      "intro": "Arrossegueu una aplicació a un estil o feu-hi clic.",
+      "styles": {
+        "formal": {
+          "name": "Formal",
+          "example": "Hola, teniu temps per dinar demà? Podríem quedar a les 12, si us va bé."
+        },
+        "casual": {
+          "name": "Informal",
+          "example": "Hola tens temps per dinar demà? Quedem a les 12 si et va bé"
+        },
+        "veryCasual": {
+          "name": "Molt informal",
+          "example": "ei tens temps per dinar dema? quedem a les 12 si et va be"
+        }
+      },
+      "board": {
+        "default": "Predeterminat",
+        "defaultTitle": "Estil predeterminat",
+        "defaultHelp": "Les aplicacions sense regla utilitzen aquest estil. Arrossegueu Predeterminat a un altre estil per canviar-lo.",
+        "dropHere": "Deixeu anar una aplicació aquí",
+        "remove": "Elimina la regla"
+      },
+      "shelf": {
+        "title": "Afegeix aplicacions",
+        "open": "Obertes ara",
+        "all": "Totes les aplicacions",
+        "search": "Cerca aplicacions",
+        "loading": "S'estan carregant les aplicacions…",
+        "noMatch": "Cap aplicació coincideix.",
+        "noneLeft": "Totes les aplicacions d'aquí tenen una regla."
+      }
+    },
+    "updates": {
+      "version": "Versió {{version}}",
+      "available": "El Bespoke {{version}} està disponible.",
+      "lastChecked": "Actualitzat. Última comprovació: {{when}}.",
+      "neverChecked": "Actualitzat.",
+      "disabled": "Aquesta compilació no s'actualitza sola.",
+      "update": "Actualitza",
+      "checkNow": "Comprova ara",
+      "automatic": {
+        "label": "Cerca actualitzacions automàticament",
+        "description": "El Bespoke comprova una vegada al dia."
+      }
+    },
+    "nav": {
+      "general": "General",
+      "sound": "So",
+      "postProcessing": "Postprocessament",
+      "app": "Aplicació"
     }
   },
   "whatsNew": {
@@ -598,7 +805,11 @@
     "open": "Obre",
     "copy": "Copia",
     "clear": "Neteja",
-    "noOptionsFound": "No s'ha trobat cap opció"
+    "noOptionsFound": "No s'ha trobat cap opció",
+    "selectOption": "Seleccioneu una opció...",
+    "unknownSize": "Mida desconeguda",
+    "yes": "Sí",
+    "no": "No"
   },
   "accessibility": {
     "permissionsDescription": "El Bespoke necessita permisos d'accessibilitat per escriure el text transcrit.",
@@ -618,15 +829,16 @@
     "modelLoadFailedUnknown": "model desconegut",
     "pasteFailedTitle": "No s'ha pogut enganxar el text",
     "pasteFailed": "No s'ha pogut enganxar el text a l'aplicació activa.",
-    "transcriptionFailedTitle": "La transcripció ha fallat"
+    "transcriptionFailedTitle": "La transcripció ha fallat",
+    "unknown": "Error desconegut"
   },
   "appLanguage": {
-    "title": "Llengua de l'aplicació",
-    "description": "Canvia la llengua de la interfície del Bespoke"
+    "title": "Llengua",
+    "description": "Canvia la llengua de la interfície del Bespoke."
   },
   "theme": {
-    "title": "Tema de l'aplicació",
-    "description": "Tria si el Bespoke segueix el tema del sistema o es manté en mode clar o fosc",
+    "title": "Tema",
+    "description": "Tria si el Bespoke segueix el tema del sistema o es manté en mode clar o fosc.",
     "options": {
       "system": "Sistema",
       "light": "Clar",
@@ -646,5 +858,276 @@
     "recorderBlockedNoCulprit": "El macOS està blocant temporalment els canvis de dreceres",
     "recorderBlocked": "Ara no se'n poden enregistrar dreceres: l'entrada segura del macOS bloca els esdeveniments de tecla. Resol primer l'avís d'entrada segura.",
     "dismiss": "Descarta"
+  },
+  "triage": {
+    "title": "Diagnostica un problema",
+    "showTitle": "Mostreu el problema",
+    "showHint": "Opcional. Premeu {{shortcut}} i expliqueu el que veieu.",
+    "captured": "Captura de les {{time}} · {{duration}}",
+    "recordAgain": "Torna a enregistrar",
+    "removeCapture": "Exclou aquesta captura",
+    "agentTitle": "Trieu un agent",
+    "sendTitle": "Envieu la indicació",
+    "sendDescription": "El Bespoke escriu els registres i la configuració en una carpeta i obre l'agent amb una indicació a punt. Premeu Envia i us preguntarà què ha fallat. Us ho demanarà abans de canviar res o de publicar.",
+    "start": "Inicia el diagnòstic",
+    "cancel": "Cancel·la",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code a l'aplicació Claude",
+    "claudeMissing": "Instal·leu l'aplicació Claude per fer-ho servir",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code en una finestra del terminal",
+    "claudeCodeMissing": "Envieu una indicació a claude en un terminal per activar-ne els enllaços",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT a l'aplicació Codex",
+    "codexMissing": "Cap aplicació d'aquest Mac obre els enllaços de Codex",
+    "copy": "Copia la indicació",
+    "copyDescription": "Enganxeu-la a qualsevol agent de programació d'aquest Mac",
+    "opened": "Diagnòstic iniciat. Envieu la indicació i l'agent us preguntarà què ha fallat.",
+    "copied": "S'ha copiat la indicació de diagnòstic. Enganxeu-la a un agent de programació d'aquest Mac.",
+    "failed": "No s'ha pogut iniciar el diagnòstic"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Permisos"
+    },
+    "retention": {
+      "title": "Conserva els enregistraments",
+      "custom": "Personalitzat",
+      "options": {
+        "week": "Vídeo durant 7 dies",
+        "month": "Vídeo durant 30 dies",
+        "forever": "Per sempre"
+      },
+      "notes": {
+        "week": "El vídeo i l'àudio van a la paperera al cap de 7 dies, i la resta de cada captura al cap de 30 dies.",
+        "month": "El vídeo i l'àudio van a la paperera al cap de 30 dies, i la resta de cada captura al cap de 90 dies.",
+        "forever": "Les captures no se suprimeixen mai.",
+        "custom": "La conservació de config.json s'ha definit manualment."
+      }
+    },
+    "captures": {
+      "title": "Captures",
+      "size": "Les captures ocupen {{size}}.",
+      "measuring": "S'està mesurant…",
+      "openLatest": "Obre l'última",
+      "showInFinder": "Mostra al Finder"
+    },
+    "permissions": {
+      "granted": "Permès",
+      "allow": "Permet",
+      "openSettings": "Obre la configuració del sistema",
+      "relaunch": "Permès. Sortiu del Bespoke i torneu-lo a obrir per enregistrar la pantalla.",
+      "blocked": "Activeu {{permissions}} per enregistrar.",
+      "screenRecording": {
+        "title": "Gravació de pantalla i àudio del sistema",
+        "description": "Enregistra la pantalla. Obligatori."
+      },
+      "microphone": {
+        "title": "Micròfon",
+        "description": "Enregistra la vostra narració. Obligatori."
+      },
+      "accessibility": {
+        "title": "Accessibilitat",
+        "description": "Detecta les pulsacions de ⌘Z, Esc i S durant l'enregistrament, i enganxa les captures. Obligatori."
+      },
+      "panel": {
+        "drag": "Arrossegueu {{app}} a la llista per permetre {{permission}}",
+        "allowed": "{{app}} té permís",
+        "back": "Enrere",
+        "screenRecording": "Gravació de pantalla",
+        "accessibility": "Accessibilitat"
+      }
+    },
+    "capsule": {
+      "area": "Àrea",
+      "window": "Finestra",
+      "screen": "Pantalla",
+      "record": "Enregistra",
+      "undo": "Desfés",
+      "cancel": "Cancel·la",
+      "finish": "Acaba",
+      "processing": "S'està processant",
+      "copied": "Copiat",
+      "saved": "Desat",
+      "failed": "No s'ha pogut desar la captura",
+      "paste": "Enganxa",
+      "inspect": "Inspecciona",
+      "marks_one": "{{count}} marca",
+      "marks_other": "{{count}} marques"
+    },
+    "library": {
+      "folder": "Carpeta de captures",
+      "record": "Enregistra",
+      "empty": "Encara no hi ha captures",
+      "emptyHint": "Toqueu {{record}} per enregistrar la pantalla que hi ha sota el punter mentre parleu.",
+      "back": "Torna a les captures",
+      "contactSheet": "Full de contactes",
+      "keyframe": "Fotograma clau",
+      "keyframes_one": "{{count}} fotograma clau",
+      "keyframes_other": "{{count}} fotogrames clau",
+      "timeline": "Línia de temps",
+      "showInFinder": "Mostra al Finder",
+      "copy": "Copia",
+      "copied": "Copiat",
+      "copyFailed": "No s'ha pogut copiar la captura"
+    },
+    "picker": {
+      "fullScreenHold": "Pantalla completa · {{holdKey}} per canviar · arrossegueu per a una àrea · deixeu anar {{holdMods}} per enregistrar",
+      "fullScreen": "Pantalla completa · Feu clic per enregistrar"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Accés d'agents",
+      "off": "Els agents de programació llegeixen les vostres captures des d'un servidor MCP d'aquest Mac, al port {{port}}.",
+      "local": "Escolta a 127.0.0.1, port {{port}}. Els agents d'aquest Mac s'hi connecten directament, i les màquines remotes a través d'un túnel SSH.",
+      "tailnet": "Escolta a 127.0.0.1 i {{address}}, port {{port}}. Les màquines de la vostra tailnet s'hi connecten directament.",
+      "tailnetWaiting": "Escolta a 127.0.0.1, port {{port}}. Tailscale no està connectat en aquest Mac. El Bespoke escoltarà a la vostra tailnet quan es connecti.",
+      "failed": "El servidor no s'ha iniciat: {{error}}",
+      "options": {
+        "off": "Desactivat",
+        "local": "Aquest Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Afegeix a un agent",
+      "local": "Copia la configuració amb el testimoni, així que manteniu-la en privat. Per a una màquina a què accediu per SSH, afegiu també la línia SSH a la seva entrada d'amfitrió a ~/.ssh/config d'aquest Mac.",
+      "tailnet": "Copia la configuració amb el testimoni, així que manteniu-la en privat. Funciona en aquest Mac i a totes les màquines de la vostra tailnet.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "Línia SSH"
+    },
+    "token": {
+      "title": "Testimoni",
+      "description": "Un testimoni nou talla l'accés a totes les màquines que hàgiu afegit fins que hi copieu la configuració nova.",
+      "renew": "Testimoni nou",
+      "renewed": "S'ha creat un testimoni nou. Torneu a copiar la configuració per a cada màquina.",
+      "failed": "No s'ha pogut crear un testimoni nou"
+    },
+    "copied": "Copiat",
+    "copyFailed": "No s'ha pogut copiar"
+  },
+  "menu": {
+    "hideApp": "Ocultar el Bespoke",
+    "hideOthers": "Ocultar els altres",
+    "showAll": "Mostrar-ho tot",
+    "quitApp": "Sortir del Bespoke",
+    "edit": "Edició",
+    "undo": "Desfer",
+    "redo": "Refer",
+    "cut": "Retallar",
+    "copy": "Copiar",
+    "paste": "Enganxar",
+    "selectAll": "Seleccionar-ho tot",
+    "window": "Finestra",
+    "minimize": "Minimitzar",
+    "closeWindow": "Tancar la finestra"
+  },
+  "languages": {
+    "auto": "Detecció automàtica",
+    "en": "Anglès",
+    "zh": "Xinès",
+    "zh-Hans": "Xinès (simplificat)",
+    "zh-Hant": "Xinès (tradicional)",
+    "yue": "Cantonès",
+    "de": "Alemany",
+    "es": "Castellà",
+    "ru": "Rus",
+    "ko": "Coreà",
+    "fr": "Francès",
+    "ja": "Japonès",
+    "pt": "Portuguès",
+    "tr": "Turc",
+    "pl": "Polonès",
+    "ca": "Català",
+    "nl": "Neerlandès",
+    "ar": "Àrab",
+    "sv": "Suec",
+    "it": "Italià",
+    "id": "Indonesi",
+    "hi": "Hindi",
+    "fi": "Finès",
+    "vi": "Vietnamita",
+    "he": "Hebreu",
+    "uk": "Ucraïnès",
+    "el": "Grec",
+    "ms": "Malai",
+    "cs": "Txec",
+    "ro": "Romanès",
+    "da": "Danès",
+    "hu": "Hongarès",
+    "ta": "Tàmil",
+    "no": "Noruec",
+    "th": "Tai",
+    "ur": "Urdú",
+    "hr": "Croat",
+    "bg": "Búlgar",
+    "lt": "Lituà",
+    "la": "Llatí",
+    "mi": "Maori",
+    "ml": "Malaiàlam",
+    "cy": "Gal·lès",
+    "sk": "Eslovac",
+    "te": "Telugu",
+    "fa": "Persa",
+    "lv": "Letó",
+    "bn": "Bengalí",
+    "sr": "Serbi",
+    "az": "Àzeri",
+    "sl": "Eslovè",
+    "kn": "Kannada",
+    "et": "Estonià",
+    "mk": "Macedoni",
+    "br": "Bretó",
+    "eu": "Basc",
+    "is": "Islandès",
+    "ga": "Irlandès",
+    "hy": "Armeni",
+    "ne": "Nepalès",
+    "mn": "Mongol",
+    "bs": "Bosnià",
+    "kk": "Kazakh",
+    "sq": "Albanès",
+    "sw": "Suahili",
+    "gl": "Gallec",
+    "mr": "Marathi",
+    "pa": "Panjabi",
+    "si": "Singalès",
+    "km": "Khmer",
+    "sn": "Xona",
+    "yo": "Ioruba",
+    "so": "Somali",
+    "af": "Afrikaans",
+    "oc": "Occità",
+    "ka": "Georgià",
+    "be": "Bielorús",
+    "tg": "Tadjik",
+    "sd": "Sindi",
+    "gu": "Gujarati",
+    "am": "Amhàric",
+    "yi": "Ídix",
+    "lo": "Laosià",
+    "uz": "Uzbek",
+    "fo": "Feroès",
+    "ht": "Crioll haitià",
+    "ps": "Paixtu",
+    "tk": "Turkmè",
+    "nn": "Nynorsk",
+    "mt": "Maltès",
+    "sa": "Sànscrit",
+    "lb": "Luxemburguès",
+    "my": "Birmà",
+    "bo": "Tibetà",
+    "tl": "Filipí (tagal)",
+    "mg": "Malgaix",
+    "as": "Assamès",
+    "tt": "Tàtar",
+    "haw": "Hawaià",
+    "ln": "Lingala",
+    "ha": "Haussa",
+    "ba": "Baixkir",
+    "jw": "Javanès",
+    "su": "Sundanès"
   }
 }

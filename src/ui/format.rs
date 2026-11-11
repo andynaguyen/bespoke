@@ -9,7 +9,7 @@ pub fn model_size(size_mb: u64) -> String {
 
 fn model_size_with(size_mb: u64, decimal: &str) -> String {
     if size_mb == 0 {
-        return "Unknown size".into();
+        return t("common.unknownSize").to_string();
     }
     let size_mb = size_mb as f64;
     let formatted = if size_mb >= 1024. {

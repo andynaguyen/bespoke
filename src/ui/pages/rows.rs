@@ -113,7 +113,14 @@ pub fn shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
 fn device_options(devices: &[AudioDevice]) -> Vec<DropdownOption> {
     devices
         .iter()
-        .map(|d| DropdownOption::new(d.name.clone(), d.name.clone()))
+        .map(|d| {
+            let label = if d.name == "Default" {
+                t("settings.sound.defaultDevice")
+            } else {
+                d.name.clone().into()
+            };
+            DropdownOption::new(d.name.clone(), label)
+        })
         .collect()
 }
 
@@ -550,8 +557,7 @@ pub fn app_language(s: &AppSettings, cx: &App) -> AnyElement {
         selected,
         cx,
         |code, cx| {
-            crate::i18n::set_language(code);
-            cx.refresh_windows();
+            crate::ui::apply_language(code, cx);
             let code = code.to_string();
             let stored = code.clone();
             set(
@@ -901,8 +907,14 @@ pub fn keyboard_implementation(s: &AppSettings, cx: &App) -> AnyElement {
         "settings.debug.keyboardImplementation.title",
         "settings.debug.keyboardImplementation.description",
         vec![
-            DropdownOption::new("tauri", "Global Hotkey"),
-            DropdownOption::new("handy_keys", "Keyboard Listener"),
+            DropdownOption::new(
+                "tauri",
+                t("settings.debug.keyboardImplementation.options.globalHotkey"),
+            ),
+            DropdownOption::new(
+                "handy_keys",
+                t("settings.debug.keyboardImplementation.options.keyboardListener"),
+            ),
         ],
         selected,
         cx,
@@ -999,11 +1011,11 @@ pub fn log_level(s: &AppSettings, cx: &App) -> AnyElement {
         "settings.debug.logLevel.title",
         "settings.debug.logLevel.description",
         vec![
-            DropdownOption::new("error", "Error"),
-            DropdownOption::new("warn", "Warn"),
-            DropdownOption::new("info", "Info"),
-            DropdownOption::new("debug", "Debug"),
-            DropdownOption::new("trace", "Trace"),
+            DropdownOption::new("error", t("settings.debug.logLevel.options.error")),
+            DropdownOption::new("warn", t("settings.debug.logLevel.options.warn")),
+            DropdownOption::new("info", t("settings.debug.logLevel.options.info")),
+            DropdownOption::new("debug", t("settings.debug.logLevel.options.debug")),
+            DropdownOption::new("trace", t("settings.debug.logLevel.options.trace")),
         ],
         selected,
         cx,
@@ -1029,11 +1041,14 @@ pub fn sound_theme(s: &AppSettings, cx: &App) -> AnyElement {
     let p = palette(cx);
     let custom = store(cx).custom_sounds;
     let mut options = vec![
-        DropdownOption::new("marimba", "Marimba"),
-        DropdownOption::new("pop", "Pop"),
+        DropdownOption::new("marimba", t("settings.debug.soundTheme.options.marimba")),
+        DropdownOption::new("pop", t("settings.debug.soundTheme.options.pop")),
     ];
     if custom.start && custom.stop {
-        options.push(DropdownOption::new("custom", "Custom"));
+        options.push(DropdownOption::new(
+            "custom",
+            t("settings.debug.soundTheme.options.custom"),
+        ));
     }
     let selected = match s.sound_theme {
         SoundTheme::Marimba => "marimba",
@@ -1071,7 +1086,7 @@ pub fn sound_theme(s: &AppSettings, cx: &App) -> AnyElement {
                     Button::new("preview-sound")
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::Sm)
-                        .title("Preview sound theme (plays start then stop)")
+                        .title(t("settings.debug.soundTheme.preview"))
                         .child(icon("play").size(rems(1.)).text_color(p.text))
                         .on_click(|_, _, _| {
                             let app = AppHandle::global().clone();

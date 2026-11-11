@@ -5,12 +5,29 @@
     "model": "Modelo",
     "quit": "Sair",
     "cancel": "Cancelar",
-    "secureInputWarning": "⚠ Atalhos bloqueados pelo Secure Input"
+    "secureInputWarning": "⚠ Atalhos bloqueados pelo Secure Input",
+    "annotate": "Anotar",
+    "annotateRecord": "Gravar Tela",
+    "annotateChoose": "Escolher o Que Gravar…",
+    "annotateOpenLatest": "Abrir Última Captura",
+    "checkForUpdates": "Buscar Atualizações…",
+    "updateTo": "Atualizar para {{version}}…",
+    "triage": "Analisar um Problema…"
   },
   "sidebar": {
     "models": "Modelos",
     "stats": "Estatísticas",
-    "debug": "Depuração"
+    "debug": "Depuração",
+    "settings": "Configurações",
+    "dictate": "Ditar",
+    "dictionary": "Dicionário",
+    "annotate": "Anotar",
+    "mcp": "MCP",
+    "update": {
+      "available": "Atualização disponível",
+      "version": "Versão {{version}}",
+      "button": "Atualizar"
+    }
   },
   "onboarding": {
     "subtitle": "Para começar, escolha um modelo de transcrição",
@@ -88,6 +105,10 @@
       "cohere-int8": {
         "name": "Cohere",
         "description": "Um modelo grande, mais lento, mas muito preciso e multilíngue."
+      },
+      "apple-speech": {
+        "name": "Apple Speech",
+        "description": "Integrado ao macOS. Roda neste Mac com o modelo de fala da Apple."
       }
     },
     "errors": {
@@ -132,7 +153,12 @@
       "streaming": "Mostra a transcrição ao vivo enquanto você fala"
     },
     "cancel": "Cancelar",
-    "legacy": "Legado"
+    "legacy": "Legado",
+    "errors": {
+      "rescan": "Falha ao reescanear modelos",
+      "delete": "Falha ao excluir modelo"
+    },
+    "builtIn": "Integrado ao macOS"
   },
   "settings": {
     "general": {
@@ -140,7 +166,7 @@
         "bindings": {
           "transcribe": {
             "name": "Atalho de Transcrição",
-            "description": "O atalho de teclado para gravar e transcrever sua voz."
+            "description": "Pressione teclas, o botão do meio ou um botão lateral do mouse para gravar e transcrever sua voz. Os botões esquerdo e direito do mouse exigem uma tecla modificadora."
           },
           "cancel": {
             "name": "Atalho de Cancelar",
@@ -149,12 +175,32 @@
           "transcribe_with_post_process": {
             "name": "Tecla de Pós-Processamento",
             "description": "Opcional: Uma tecla de atalho dedicada que sempre aplica pós-processamento com IA à sua transcrição."
+          },
+          "annotate": {
+            "name": "Atalho de Anotar",
+            "description": "Toque para gravar a tela sob o ponteiro e toque novamente para terminar. Mantenha pressionado para escolher uma área, uma janela ou a tela."
+          },
+          "annotate_paste": {
+            "name": "Colar Última Captura",
+            "description": "Cola a folha de contato e o resumo da última captura no app em primeiro plano."
           }
         },
         "errors": {
           "restore": "Falha ao restaurar atalho original",
           "set": "Falha ao definir atalho: {{error}}",
-          "reset": "Falha ao redefinir atalho para o valor original"
+          "reset": "Falha ao redefinir atalho para o valor original",
+          "updateBinding": "Falha ao atualizar atalho"
+        },
+        "pressKeysOrMouse": "Pressione teclas ou um botão do mouse...",
+        "mouseButtons": {
+          "mouseleft": "Botão esquerdo",
+          "mouseright": "Botão direito",
+          "mousemiddle": "Botão do meio",
+          "mousex1": "Mouse 4",
+          "mousex2": "Mouse 5",
+          "mouse6": "Mouse 6",
+          "mouse7": "Mouse 7",
+          "mouse8": "Mouse 8"
         }
       },
       "language": {
@@ -173,9 +219,9 @@
           "toggle": "Alternar"
         },
         "descriptions": {
-          "hold_or_toggle": "Segure para gravar ou toque para alternar",
-          "push_to_talk": "Grava enquanto você mantém o atalho pressionado",
-          "toggle": "Toque no atalho para começar a gravar, toque novamente para parar"
+          "hold_or_toggle": "Segure para gravar ou toque para alternar.",
+          "push_to_talk": "Grava enquanto você mantém o atalho pressionado.",
+          "toggle": "Toque no atalho para começar a gravar, toque novamente para parar."
         }
       }
     },
@@ -203,9 +249,19 @@
       "title": "Som",
       "microphone": {
         "title": "Microfone",
-        "description": "Selecione seu dispositivo de microfone preferido",
+        "description": "Selecione seu dispositivo de microfone preferido.",
         "placeholder": "Selecionar microfone...",
-        "loading": "Carregando..."
+        "loading": "Carregando...",
+        "priority": {
+          "title": "Prioridade",
+          "description": "Ditar e Anotar gravam do primeiro microfone conectado. Arraste para reordenar.",
+          "add": "Adicionar microfone",
+          "noneToAdd": "Nenhum outro microfone conectado",
+          "inUse": "Em uso",
+          "notConnected": "Não conectado",
+          "systemDefault": "Padrão do sistema",
+          "alwaysLast": "Sempre por último"
+        }
       },
       "channel": {
         "title": "Canal de entrada",
@@ -215,23 +271,39 @@
       },
       "audioFeedback": {
         "label": "Feedback de Áudio",
-        "description": "Reproduzir som quando a gravação iniciar e parar"
+        "description": "Reproduzir som quando a gravação iniciar e parar."
       },
       "outputDevice": {
         "title": "Dispositivo de Saída",
-        "description": "Selecione seu dispositivo de saída de áudio preferido para sons de feedback",
+        "description": "Selecione seu dispositivo de saída de áudio preferido para sons de feedback.",
         "placeholder": "Selecionar dispositivo de saída...",
         "loading": "Carregando..."
       },
       "volume": {
         "title": "Volume",
-        "description": "Ajustar o volume dos sons de feedback de áudio"
-      }
+        "description": "Ajustar o volume dos sons de feedback de áudio."
+      },
+      "defaultDevice": "Padrão"
     },
     "advanced": {
       "groups": {
         "transcription": "Transcrição",
-        "experimental": "Experimental"
+        "experimental": "Experimental",
+        "dictation": "Ditado",
+        "appearance": "Aparência",
+        "system": "Sistema",
+        "shortcut": "Atalho",
+        "cleanup": "Limpeza",
+        "pasting": "Colagem",
+        "submitting": "Envio",
+        "startup": "Inicialização",
+        "updates": "Atualizações",
+        "application": "Aplicativo",
+        "overlay": "Sobreposição",
+        "voiceCommands": "Comandos de Voz",
+        "keyboard": "Teclado",
+        "acceleration": "Aceleração",
+        "recording": "Gravação"
       },
       "experimentalToggle": {
         "label": "Recursos Experimentais",
@@ -244,11 +316,11 @@
       "acceleration": {
         "transcribe": {
           "title": "Aceleração Whisper",
-          "description": "Aceleração por hardware para modelos Whisper. Auto usa GPU se disponível (Metal no macOS, Vulkan no Windows/Linux)."
+          "description": "Aceleração por hardware para modelos transcribe.cpp (família Whisper). Auto usa a GPU via Metal quando disponível."
         },
         "ort": {
           "title": "Aceleração ONNX",
-          "description": "Aceleração por hardware para modelos ONNX (Parakeet, Canary, Moonshine, etc.). DirectML no Windows é experimental. Os modelos podem falhar na transcrição."
+          "description": "Aceleração por hardware para modelos ONNX (Parakeet, Canary, Moonshine, etc.). Os modelos podem falhar na transcrição."
         },
         "gpuDevice": {
           "auto": "Automático"
@@ -268,8 +340,8 @@
       },
       "overlay": {
         "style": {
-          "title": "Sobreposição",
-          "description": "Escolha a sobreposição de gravação: 'Nenhum' a oculta, 'Minimalista' mostra um indicador compacto, 'Ao vivo' mostra a transcrição em tempo real enquanto você fala (apenas modelos com suporte a streaming — procure o selo 'Streaming' no seletor de modelos). No Linux, recomenda-se 'Nenhum'.",
+          "title": "Estilo",
+          "description": "Escolha a sobreposição de gravação.",
           "options": {
             "none": "Nenhum",
             "minimal": "Minimalista",
@@ -277,8 +349,8 @@
           }
         },
         "position": {
-          "title": "Posição da Sobreposição",
-          "description": "Exibir sobreposição de feedback visual durante gravação e transcrição. No Linux, 'Nenhum' é recomendado.",
+          "title": "Posição",
+          "description": "Onde a sobreposição aparece na tela durante a gravação e a transcrição.",
           "options": {
             "bottom": "Inferior",
             "top": "Superior"
@@ -304,7 +376,7 @@
       },
       "autoSubmit": {
         "title": "Envio automático",
-        "description": "Envia automaticamente a combinação de teclas selecionada após a inserção do texto. Cmd+Enter aplica-se no macOS, enquanto Windows/Linux usam Super+Enter.",
+        "description": "Envia automaticamente a combinação de teclas selecionada após a inserção do texto.",
         "options": {
           "off": "Desativado",
           "enter": "Enter",
@@ -344,6 +416,24 @@
       "fillerWordRemoval": {
         "title": "Remover palavras de preenchimento",
         "description": "Remove hesitações comuns das transcrições. Desative para mantê-las."
+      },
+      "voiceScrub": {
+        "title": "Limpeza por Voz",
+        "description": "Diga sua palavra-chave para descartar tudo o que você disse até agora e recomeçar.",
+        "keyword": {
+          "title": "Palavra-chave de Limpeza",
+          "description": "Tudo o que você disse antes dela é descartado.",
+          "invalid": "Use uma palavra com letras ou números."
+        }
+      },
+      "voiceScratch": {
+        "title": "Apagar Frase por Voz",
+        "description": "Diga sua palavra-chave para remover a frase que você acabou de dizer e continuar ditando.",
+        "keyword": {
+          "title": "Palavra-chave para Apagar",
+          "description": "Diga como uma expressão isolada, com uma pausa antes e depois. A frase anterior é removida.",
+          "invalid": "Use uma palavra com letras ou números."
+        }
       }
     },
     "postProcessing": {
@@ -358,7 +448,8 @@
         "baseUrl": {
           "title": "URL Base",
           "description": "URL base da API para o provedor selecionado. Apenas o provedor personalizado pode ser editado.",
-          "placeholder": "https://api.openai.com/v1"
+          "placeholder": "https://api.openai.com/v1",
+          "managed": "A URL base é gerenciada pelo provedor selecionado."
         },
         "apiKey": {
           "title": "Chave da API",
@@ -371,7 +462,8 @@
           "descriptionDefault": "Escolha um modelo exposto pelo provedor selecionado.",
           "placeholderWithOptions": "Buscar ou selecionar um modelo",
           "placeholderNoOptions": "Digite o nome de um modelo",
-          "refreshModels": "Atualizar modelos"
+          "refreshModels": "Atualizar modelos",
+          "useTyped": "Usar \"{{value}}\""
         }
       },
       "prompts": {
@@ -416,20 +508,57 @@
       "dayPopover": {
         "words": "Total de palavras",
         "appsUsed": "Apps usados",
-        "topApp": "App principal"
+        "topApp": "App principal",
+        "captures": "Capturas",
+        "timeRecorded": "Tempo gravado"
       },
       "less": "Menos",
-      "more": "Mais"
+      "more": "Mais",
+      "captures": "Capturas",
+      "timeRecorded": "Tempo gravado",
+      "marksDrawn": "Marcações desenhadas",
+      "duration": {
+        "seconds": "{{seconds}}s",
+        "minutesSeconds": "{{minutes}}min {{seconds}}s",
+        "hoursMinutes": "{{hours}}h {{minutes}}min"
+      }
     },
     "dictionary": {
       "tabs": {
         "dictionary": "Dicionário",
-        "history": "Histórico"
+        "history": "Histórico",
+        "style": "Estilo"
       },
       "save": "Salvar",
       "cancel": "Cancelar",
       "remove": "Remover {{word}}",
-      "duplicate": "\"{{word}}\" já existe"
+      "duplicate": "\"{{word}}\" já existe",
+      "replacements": "Substituições",
+      "replacementsHelp": "Diga a expressão à esquerda, e o Bespoke escreve o texto à direita.",
+      "words": "Palavras",
+      "wordsHelp": "Nomes, jargões e siglas que o Bespoke deve escrever exatamente assim.",
+      "addReplacement": "Adicionar substituição",
+      "editWord": "Editar palavra",
+      "editReplacement": "Editar substituição",
+      "wordPlaceholder": "Um nome ou termo, como \"IntraFi\"",
+      "writeInsteadLabel": "Escrever em vez disso",
+      "writeInsteadPlaceholder": "O texto que o Bespoke escreve no lugar",
+      "phraseLabel": "Quando você disser",
+      "phrasePlaceholder": "Uma expressão, como \"meu e-mail\"",
+      "addWord": "Adicionar palavra",
+      "addedTag": "Adicionada",
+      "tryIt": "Experimente",
+      "tryItHint": "Dite com {{shortcut}} enquanto esta página estiver aberta. O Bespoke mostra o texto aqui em vez de colá-lo.",
+      "tryItEmpty": "O Bespoke não ouviu nenhuma palavra.",
+      "fixedCount_one": "1 correção do dicionário",
+      "fixedCount_other": "{{count}} correções do dicionário",
+      "pickWord": "Clique em uma palavra que o Bespoke errou para ensiná-la. Clique com Shift na próxima palavra para adicioná-la.",
+      "teachLabel": "O Bespoke ouviu",
+      "spellingPlaceholder": "A grafia correta",
+      "wontMatch": "O Bespoke não associa \"{{heard}}\" a uma palavra tão diferente. Adicione como substituição.",
+      "teachWord": "Adicionar palavra",
+      "teachReplacement": "Adicionar como substituição",
+      "added": "Adicionada. Dite a frase novamente para verificar."
     },
     "history": {
       "title": "Histórico",
@@ -445,17 +574,33 @@
       "retranscribe": "Re-transcrever",
       "retranscribeError": "Falha ao re-transcrever. Por favor, tente novamente.",
       "transcribing": "Transcrevendo...",
-      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente."
+      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente.",
+      "transcript": "Transcrição",
+      "details": "Detalhes",
+      "recorded": "Gravado",
+      "wordCount": "Palavras",
+      "postProcessed": "Pós-processado",
+      "prompt": "Prompt",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "noSelection": "Selecione uma transcrição para vê-la aqui."
     },
     "debug": {
       "title": "Depuração",
       "logDirectory": {
         "title": "Diretório de Logs",
-        "description": "Local onde os arquivos de log são armazenados"
+        "description": "Local onde os arquivos de log são armazenados."
       },
       "logLevel": {
         "title": "Nível de Log",
-        "description": "Definir a verbosidade do registro"
+        "description": "Definir a verbosidade do registro.",
+        "options": {
+          "error": "Erro",
+          "warn": "Aviso",
+          "info": "Info",
+          "debug": "Debug",
+          "trace": "Trace"
+        }
       },
       "liveLogs": {
         "title": "Logs ao Vivo",
@@ -470,20 +615,26 @@
       },
       "soundTheme": {
         "label": "Tema de Som",
-        "description": "Escolha um tema de som para feedback de início e parada de gravação"
+        "description": "Escolha um tema de som para feedback de início e parada de gravação.",
+        "options": {
+          "marimba": "Marimba",
+          "pop": "Pop",
+          "custom": "Personalizado"
+        },
+        "preview": "Ouvir tema de som (toca início e depois fim)"
       },
       "wordCorrectionThreshold": {
         "title": "Limite de Correção de Palavras",
-        "description": "Sensibilidade para correções de palavras personalizadas"
+        "description": "Sensibilidade para correções de palavras personalizadas."
       },
       "historyLimit": {
         "title": "Limite de Histórico",
-        "description": "Número máximo de entradas de histórico a manter",
+        "description": "Número máximo de entradas de histórico a manter.",
         "entries": "entradas"
       },
       "recordingRetention": {
         "title": "Excluir Gravações Automaticamente",
-        "description": "Excluir automaticamente gravações antigas para economizar espaço",
+        "description": "Excluir automaticamente gravações antigas para economizar espaço.",
         "never": "Nunca",
         "preserveLimit": "Manter as últimas {{count}}",
         "days3": "Após 3 dias",
@@ -493,28 +644,32 @@
       },
       "alwaysOnMicrophone": {
         "label": "Microfone Sempre Ativo",
-        "description": "Manter microfone ativo para resposta mais rápida"
+        "description": "Manter microfone ativo para resposta mais rápida."
       },
       "clamshellMicrophone": {
         "title": "Microfone em Modo Fechado",
-        "description": "Microfone a usar quando a tampa do laptop está fechada"
+        "description": "Microfone a usar quando a tampa do laptop está fechada."
       },
       "postProcessingToggle": {
-        "label": "Pós-Processamento",
-        "description": "Habilitar refinamento de texto com IA após a transcrição"
+        "label": "Pós-Processamento com IA",
+        "description": "Habilitar refinamento de texto com IA após a transcrição."
       },
       "muteWhileRecording": {
         "label": "Silenciar Durante Gravação",
-        "description": "Silenciar áudio do sistema durante a gravação"
+        "description": "Silenciar áudio do sistema durante a gravação."
       },
       "appendTrailingSpace": {
         "label": "Adicionar Espaço Final",
-        "description": "Adicionar um espaço após a transcrição colada"
+        "description": "Adicionar um espaço após a transcrição colada."
       },
       "keyboardImplementation": {
         "title": "Implementação do Teclado",
         "description": "Escolha o sistema responsável pelos atalhos de teclado.",
-        "bindingsReset": "Os atalhos de teclado eram incompatíveis e foram redefinidos para os padrões"
+        "bindingsReset": "Os atalhos de teclado eram incompatíveis e foram redefinidos para os padrões",
+        "options": {
+          "globalHotkey": "Atalho Global",
+          "keyboardListener": "Monitor de Teclado"
+        }
       },
       "paths": {
         "appData": "Dados do App:",
@@ -535,7 +690,7 @@
       },
       "reliablePaste": {
         "title": "Colagem confiável (Beta)",
-        "description": "Restaura a área de transferência somente depois que o aplicativo de destino realmente lê a transcrição, em vez de após um atraso fixo. Serve para corrigir a colagem do conteúdo antigo da área de transferência quando o sistema está sobrecarregado. Requer um método de colar via área de transferência; apenas macOS e Windows."
+        "description": "Restaura a área de transferência somente depois que o aplicativo de destino realmente lê a transcrição, em vez de após um atraso fixo. Serve para corrigir a colagem do conteúdo antigo da área de transferência quando o sistema está sobrecarregado. Requer um método de colar via área de transferência."
       },
       "recordingBuffer": {
         "title": "Buffer de gravação extra",
@@ -563,14 +718,14 @@
       },
       "whatsNewPreview": {
         "title": "Pré-visualizar novidades",
-        "description": "Abrir a nota de versão incorporada mais recente sem marcá-la como vista",
+        "description": "Abrir a nota de versão incorporada mais recente sem marcá-la como vista.",
         "button": "Pré-visualizar",
         "noNotes": "Nenhuma nota de versão incorporada encontrada",
         "error": "Falha ao pré-visualizar as notas de versão"
       },
       "onboardingPreview": {
         "title": "Pré-visualizar configuração inicial",
-        "description": "Pré-visualize os ecrãs de configuração sem alterar permissões, modelos ou o estado de conclusão",
+        "description": "Pré-visualize os ecrãs de configuração sem alterar permissões, modelos ou o estado de conclusão.",
         "permissionsButton": "Permissões",
         "modelsButton": "Seleção de modelo",
         "exitButton": "Sair da pré-visualização"
@@ -580,12 +735,64 @@
       "title": "Sobre",
       "appDataDirectory": {
         "title": "Diretório de Dados do App",
-        "description": "Local onde o Bespoke armazena seus dados"
+        "description": "Local onde o Bespoke armazena seus dados."
       },
       "whatsNewUpdates": {
         "label": "Mostrar novidades",
-        "description": "Mostrar notas de versão após atualizações do Bespoke"
+        "description": "Mostrar notas de versão após atualizações do Bespoke."
       }
+    },
+    "style": {
+      "intro": "Arraste um app para um estilo, ou clique nele.",
+      "styles": {
+        "formal": {
+          "name": "Formal",
+          "example": "Oi, você está livre para almoçar amanhã? Vamos às 12, se for bom para você."
+        },
+        "casual": {
+          "name": "Casual",
+          "example": "Oi você está livre para almoçar amanhã? Vamos às 12 se for bom para você"
+        },
+        "veryCasual": {
+          "name": "Muito casual",
+          "example": "oi vc ta livre pra almocar amanha? vamos as 12 se for bom pra vc"
+        }
+      },
+      "board": {
+        "default": "Padrão",
+        "defaultTitle": "Estilo padrão",
+        "defaultHelp": "Apps sem regra usam este estilo. Arraste Padrão para outro estilo para alterá-lo.",
+        "dropHere": "Solte um app aqui",
+        "remove": "Remover regra"
+      },
+      "shelf": {
+        "title": "Adicionar apps",
+        "open": "Abertos agora",
+        "all": "Todos os apps",
+        "search": "Buscar apps",
+        "loading": "Carregando apps…",
+        "noMatch": "Nenhum app encontrado.",
+        "noneLeft": "Todos os apps aqui têm uma regra."
+      }
+    },
+    "updates": {
+      "version": "Versão {{version}}",
+      "available": "Bespoke {{version}} está disponível.",
+      "lastChecked": "Atualizado. Última verificação: {{when}}.",
+      "neverChecked": "Atualizado.",
+      "disabled": "Esta versão não se atualiza sozinha.",
+      "update": "Atualizar",
+      "checkNow": "Verificar Agora",
+      "automatic": {
+        "label": "Buscar Atualizações Automaticamente",
+        "description": "O Bespoke verifica uma vez por dia."
+      }
+    },
+    "nav": {
+      "general": "Geral",
+      "sound": "Som",
+      "postProcessing": "Pós-processamento",
+      "app": "App"
     }
   },
   "common": {
@@ -595,7 +802,11 @@
     "open": "Abrir",
     "copy": "Copiar",
     "clear": "Limpar",
-    "noOptionsFound": "Nenhuma opção encontrada"
+    "noOptionsFound": "Nenhuma opção encontrada",
+    "selectOption": "Selecione uma opção...",
+    "unknownSize": "Tamanho desconhecido",
+    "yes": "Sim",
+    "no": "Não"
   },
   "accessibility": {
     "permissionsDescription": "O Bespoke precisa de permissões de acessibilidade para digitar o texto transcrito.",
@@ -615,15 +826,16 @@
     "modelLoadFailedUnknown": "modelo desconhecido",
     "pasteFailedTitle": "Falha ao colar o texto",
     "pasteFailed": "Não foi possível colar o texto no aplicativo ativo.",
-    "transcriptionFailedTitle": "Falha na transcrição"
+    "transcriptionFailedTitle": "Falha na transcrição",
+    "unknown": "Erro desconhecido"
   },
   "appLanguage": {
-    "title": "Idioma da Aplicação",
-    "description": "Alterar o idioma da interface do Bespoke"
+    "title": "Idioma",
+    "description": "Alterar o idioma da interface do Bespoke."
   },
   "theme": {
-    "title": "Tema do aplicativo",
-    "description": "Escolha se o Bespoke segue o tema do sistema ou permanece claro ou escuro",
+    "title": "Tema",
+    "description": "Escolha se o Bespoke segue o tema do sistema ou permanece claro ou escuro.",
     "options": {
       "system": "Sistema",
       "light": "Claro",
@@ -646,5 +858,276 @@
     "recorderBlockedNoCulprit": "O macOS está bloqueando temporariamente alterações nos atalhos",
     "recorderBlocked": "Não é possível gravar atalhos agora — o Secure Input do macOS está bloqueando os eventos de tecla. Resolva primeiro o aviso do Secure Input.",
     "dismiss": "Dispensar"
+  },
+  "triage": {
+    "title": "Analisar um Problema",
+    "showTitle": "Mostre o problema",
+    "showHint": "Opcional. Pressione {{shortcut}} e descreva o que você vê.",
+    "captured": "Captura de {{time}} · {{duration}}",
+    "recordAgain": "Gravar Novamente",
+    "removeCapture": "Deixar Esta Captura de Fora",
+    "agentTitle": "Escolha um agente",
+    "sendTitle": "Envie o prompt",
+    "sendDescription": "O Bespoke grava seus logs e configurações em uma pasta e abre o agente com um prompt pronto. Você pressiona enviar, e ele pergunta o que deu errado. Ele pede sua permissão antes de alterar ou publicar qualquer coisa.",
+    "start": "Iniciar Análise",
+    "cancel": "Cancelar",
+    "claude": "Claude",
+    "claudeDescription": "Claude Code no app Claude",
+    "claudeMissing": "Instale o app Claude para usar isto",
+    "claudeCode": "Claude Code",
+    "claudeCodeDescription": "Claude Code em uma janela do terminal",
+    "claudeCodeMissing": "Envie um prompt para claude em um terminal para ativar os links dele",
+    "codex": "Codex",
+    "codexDescription": "ChatGPT no app Codex",
+    "codexMissing": "Nenhum app neste Mac abre links do Codex",
+    "copy": "Copiar Prompt",
+    "copyDescription": "Cole em qualquer agente de programação neste Mac",
+    "opened": "Análise iniciada. Envie o prompt, e o agente pergunta o que deu errado.",
+    "copied": "Prompt de análise copiado. Cole em um agente de programação neste Mac.",
+    "failed": "Não foi possível iniciar a análise"
+  },
+  "annotate": {
+    "groups": {
+      "permissions": "Permissões"
+    },
+    "retention": {
+      "title": "Manter Gravações",
+      "custom": "Personalizado",
+      "options": {
+        "week": "Vídeo por 7 dias",
+        "month": "Vídeo por 30 dias",
+        "forever": "Para sempre"
+      },
+      "notes": {
+        "week": "Vídeo e áudio vão para a Lixeira após 7 dias, e o restante de cada captura após 30 dias.",
+        "month": "Vídeo e áudio vão para a Lixeira após 30 dias, e o restante de cada captura após 90 dias.",
+        "forever": "As capturas nunca são excluídas.",
+        "custom": "A retenção em config.json foi definida manualmente."
+      }
+    },
+    "captures": {
+      "title": "Capturas",
+      "size": "As capturas usam {{size}}.",
+      "measuring": "Medindo…",
+      "openLatest": "Abrir Última",
+      "showInFinder": "Mostrar no Finder"
+    },
+    "permissions": {
+      "granted": "Permitido",
+      "allow": "Permitir",
+      "openSettings": "Abrir Ajustes do Sistema",
+      "relaunch": "Permitido. Encerre e reabra o Bespoke para gravar a tela.",
+      "blocked": "Ative {{permissions}} para gravar.",
+      "screenRecording": {
+        "title": "Gravação de Tela e Áudio do Sistema",
+        "description": "Grava a tela. Obrigatório."
+      },
+      "microphone": {
+        "title": "Microfone",
+        "description": "Grava sua narração. Obrigatório."
+      },
+      "accessibility": {
+        "title": "Acessibilidade",
+        "description": "Detecta ⌘Z, Esc e S durante a gravação e cola as capturas. Obrigatório."
+      },
+      "panel": {
+        "drag": "Arraste {{app}} à lista para permitir {{permission}}",
+        "allowed": "{{app}} está permitido",
+        "back": "Voltar",
+        "screenRecording": "Gravação de Tela",
+        "accessibility": "Acessibilidade"
+      }
+    },
+    "capsule": {
+      "area": "Área",
+      "window": "Janela",
+      "screen": "Tela",
+      "record": "Gravar",
+      "undo": "Desfazer",
+      "cancel": "Cancelar",
+      "finish": "Concluir",
+      "processing": "Processando",
+      "copied": "Copiado",
+      "saved": "Salvo",
+      "failed": "Não foi possível salvar a captura",
+      "paste": "Colar",
+      "inspect": "Inspecionar",
+      "marks_one": "{{count}} marcação",
+      "marks_other": "{{count}} marcações"
+    },
+    "library": {
+      "folder": "Pasta de Capturas",
+      "record": "Gravar",
+      "empty": "Nenhuma captura ainda",
+      "emptyHint": "Toque em {{record}} para gravar a tela sob o ponteiro enquanto fala.",
+      "back": "Voltar às capturas",
+      "contactSheet": "Folha de Contato",
+      "keyframe": "Quadro-chave",
+      "keyframes_one": "{{count}} quadro-chave",
+      "keyframes_other": "{{count}} quadros-chave",
+      "timeline": "Linha do Tempo",
+      "showInFinder": "Mostrar no Finder",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copyFailed": "Não foi possível copiar a captura"
+    },
+    "picker": {
+      "fullScreenHold": "Tela cheia · {{holdKey}} para alternar · arraste para uma área · solte {{holdMods}} para gravar",
+      "fullScreen": "Tela cheia · Clique para gravar"
+    }
+  },
+  "mcp": {
+    "access": {
+      "title": "Acesso de Agentes",
+      "off": "Agentes de programação leem suas capturas de um servidor MCP neste Mac, na porta {{port}}.",
+      "local": "Escutando em 127.0.0.1, porta {{port}}. Agentes neste Mac se conectam diretamente, e máquinas remotas se conectam por um túnel SSH.",
+      "tailnet": "Escutando em 127.0.0.1 e {{address}}, porta {{port}}. Máquinas na sua tailnet se conectam diretamente.",
+      "tailnetWaiting": "Escutando em 127.0.0.1, porta {{port}}. O Tailscale não está conectado neste Mac. O Bespoke escuta na sua tailnet assim que ele se conectar.",
+      "failed": "O servidor não iniciou: {{error}}",
+      "options": {
+        "off": "Desativado",
+        "local": "Este Mac",
+        "tailnet": "Tailnet"
+      }
+    },
+    "agents": {
+      "title": "Adicionar a um Agente",
+      "local": "Copia a configuração com o token, então mantenha-a em sigilo. Para uma máquina que você acessa por SSH, adicione também a linha SSH à entrada do host em ~/.ssh/config neste Mac.",
+      "tailnet": "Copia a configuração com o token, então mantenha-a em sigilo. Funciona neste Mac e em todas as máquinas da sua tailnet.",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "ssh": "Linha SSH"
+    },
+    "token": {
+      "title": "Token",
+      "description": "Um novo token desconecta todas as máquinas adicionadas até que você copie a nova configuração nelas.",
+      "renew": "Novo Token",
+      "renewed": "Novo token criado. Copie a configuração novamente para cada máquina.",
+      "failed": "Não foi possível criar um novo token"
+    },
+    "copied": "Copiado",
+    "copyFailed": "Não foi possível copiar"
+  },
+  "menu": {
+    "hideApp": "Ocultar Bespoke",
+    "hideOthers": "Ocultar Outros",
+    "showAll": "Mostrar Tudo",
+    "quitApp": "Encerrar Bespoke",
+    "edit": "Editar",
+    "undo": "Desfazer",
+    "redo": "Refazer",
+    "cut": "Cortar",
+    "copy": "Copiar",
+    "paste": "Colar",
+    "selectAll": "Selecionar Tudo",
+    "window": "Janela",
+    "minimize": "Minimizar",
+    "closeWindow": "Fechar Janela"
+  },
+  "languages": {
+    "auto": "Detecção Automática",
+    "en": "Inglês",
+    "zh": "Chinês",
+    "zh-Hans": "Chinês (Simplificado)",
+    "zh-Hant": "Chinês (Tradicional)",
+    "yue": "Cantonês",
+    "de": "Alemão",
+    "es": "Espanhol",
+    "ru": "Russo",
+    "ko": "Coreano",
+    "fr": "Francês",
+    "ja": "Japonês",
+    "pt": "Português",
+    "tr": "Turco",
+    "pl": "Polonês",
+    "ca": "Catalão",
+    "nl": "Holandês",
+    "ar": "Árabe",
+    "sv": "Sueco",
+    "it": "Italiano",
+    "id": "Indonésio",
+    "hi": "Hindi",
+    "fi": "Finlandês",
+    "vi": "Vietnamita",
+    "he": "Hebraico",
+    "uk": "Ucraniano",
+    "el": "Grego",
+    "ms": "Malaio",
+    "cs": "Tcheco",
+    "ro": "Romeno",
+    "da": "Dinamarquês",
+    "hu": "Húngaro",
+    "ta": "Tâmil",
+    "no": "Norueguês",
+    "th": "Tailandês",
+    "ur": "Urdu",
+    "hr": "Croata",
+    "bg": "Búlgaro",
+    "lt": "Lituano",
+    "la": "Latim",
+    "mi": "Maori",
+    "ml": "Malaiala",
+    "cy": "Galês",
+    "sk": "Eslovaco",
+    "te": "Télugo",
+    "fa": "Persa",
+    "lv": "Letão",
+    "bn": "Bengali",
+    "sr": "Sérvio",
+    "az": "Azerbaijano",
+    "sl": "Esloveno",
+    "kn": "Canarês",
+    "et": "Estoniano",
+    "mk": "Macedônio",
+    "br": "Bretão",
+    "eu": "Basco",
+    "is": "Islandês",
+    "ga": "Irlandês",
+    "hy": "Armênio",
+    "ne": "Nepalês",
+    "mn": "Mongol",
+    "bs": "Bósnio",
+    "kk": "Cazaque",
+    "sq": "Albanês",
+    "sw": "Suaíli",
+    "gl": "Galego",
+    "mr": "Marata",
+    "pa": "Punjabi",
+    "si": "Cingalês",
+    "km": "Khmer",
+    "sn": "Shona",
+    "yo": "Iorubá",
+    "so": "Somali",
+    "af": "Africâner",
+    "oc": "Occitano",
+    "ka": "Georgiano",
+    "be": "Bielorrusso",
+    "tg": "Tajique",
+    "sd": "Sindi",
+    "gu": "Guzerate",
+    "am": "Amárico",
+    "yi": "Iídiche",
+    "lo": "Laosiano",
+    "uz": "Uzbeque",
+    "fo": "Feroês",
+    "ht": "Crioulo Haitiano",
+    "ps": "Pachto",
+    "tk": "Turcomeno",
+    "nn": "Nynorsk",
+    "mt": "Maltês",
+    "sa": "Sânscrito",
+    "lb": "Luxemburguês",
+    "my": "Birmanês",
+    "bo": "Tibetano",
+    "tl": "Filipino (Tagalo)",
+    "mg": "Malgaxe",
+    "as": "Assamês",
+    "tt": "Tártaro",
+    "haw": "Havaiano",
+    "ln": "Lingala",
+    "ha": "Hauçá",
+    "ba": "Basquir",
+    "jw": "Javanês",
+    "su": "Sundanês"
   }
 }

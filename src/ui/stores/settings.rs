@@ -337,9 +337,9 @@ fn binding_outcome(
     if response.success {
         Ok(())
     } else {
-        Err(response
-            .error
-            .unwrap_or_else(|| "Failed to update binding".to_string()))
+        Err(response.error.unwrap_or_else(|| {
+            crate::i18n::t("settings.general.shortcut.errors.updateBinding").to_string()
+        }))
     }
 }
 
