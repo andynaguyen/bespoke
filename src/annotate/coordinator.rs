@@ -14,7 +14,7 @@ use macos::{install_status_bar, reduce_motion};
 
 use crate::annotate::audio::AudioRecorder;
 use crate::annotate::capture::{
-    LiveOverlayEvent, ScreenCaptureSession, SharedCaptureTelemetry, ShortcutConfig, annotate_log,
+    LiveOverlayEvent, ScreenCaptureSession, SharedCaptureTelemetry, Shortcuts, annotate_log,
     current_mouse_screen, discover_target, list_selectable_windows, record_external_frontmost_app,
     region_target, selectable_window_at, shortcut_from_key_and_mods, start_global_input_tap,
 };
@@ -414,25 +414,48 @@ impl Coordinator {
                 return;
             }
             self.hold_mods = crate::annotate::capture::modifier_flags();
-            self.telemetry.take_escape();
+            self.telemetry
+                .record_press_flags
+                .store(self.hold_mods, std::sync::atomic::Ordering::Release);
+            self.telemetry.take_cancel();
         }
         if let Some(mode) = self.selection_mode() {
             self.switcher.follow(mode);
         }
-        let action = self.switcher.press(self.clock_ms(), activity);
+        let pressed_ms = self
+            .telemetry
+            .record_pressed_at()
+            .map_or_else(|| self.clock_ms(), |at| self.clock_ms_at(at));
+        let action =
+            self.switcher
+                .press(pressed_ms, activity, crate::annotate::shortcut_behavior());
         self.apply_switcher(action, cx);
+    }
+
+    fn clock_ms_at(&self, at: Instant) -> u64 {
+        at.saturating_duration_since(self.clock).as_millis() as u64
     }
 
     pub fn tick_switcher(&mut self, cx: &mut Context<Self>) {
         if !self.switcher.is_held() {
             return;
         }
-        if self.switcher.is_switching() && !self.is_selecting() {
+        let ended = if self.switcher.is_holding() {
+            !self.is_recording()
+        } else {
+            self.switcher.is_switching() && !self.is_selecting()
+        };
+        if ended {
             self.switcher.reset();
             return;
         }
-        let action = if self.telemetry.take_escape() {
+        let action = if self.telemetry.take_cancel() {
             self.switcher.escape()
+        } else if self.switcher.is_holding() {
+            match self.telemetry.take_record_released() {
+                Some(at) => self.switcher.release(self.clock_ms_at(at)),
+                None => crate::annotate::hold::Action::None,
+            }
         } else {
             let mods = crate::annotate::capture::modifier_flags();
             let held = self.hold_mods != 0 && mods & self.hold_mods == self.hold_mods;
@@ -458,7 +481,7 @@ impl Coordinator {
             Action::Show(mode) => self.show_switcher_mode(mode, cx),
             Action::Commit(mode) => self.commit_switcher(mode, cx),
             Action::Cancel => {
-                if self.is_selecting() {
+                if self.is_selecting() || self.is_recording() {
                     self.cancel_recording(cx);
                 }
             }
@@ -950,6 +973,7 @@ impl Coordinator {
             clock,
             reduced_motion: self.reduced_motion,
             shortcut: self.shortcut_label(),
+            cancel: self.telemetry.cancel_label(),
         }
     }
 
@@ -1920,15 +1944,15 @@ pub fn capturing() -> bool {
     CAPTURING.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// Starts Annotate in Bespoke's app, with the record and paste combos the key tap matches first.
-pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
+/// Starts Annotate in Bespoke's app, with the record, paste and cancel combos the key tap matches
+/// first.
+pub fn start(shortcuts: Shortcuts, cx: &mut App) {
     annotate_log(format!("start pid={}", std::process::id()));
     cx.on_window_closed(|cx| cx.defer(macos::hand_back_keys))
         .detach();
     let (ui_sender, ui_receiver) = flume::unbounded();
     let telemetry = SharedCaptureTelemetry::new(ui_sender);
-    let (record, paste) = shortcuts;
-    telemetry.set_shortcuts(record, paste);
+    telemetry.set_shortcuts(shortcuts);
     crate::annotate::capture::set_telemetry(Arc::clone(&telemetry));
     start_global_input_tap(Arc::clone(&telemetry));
     crate::annotate::retention::start();
@@ -2007,7 +2031,7 @@ pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
                 }
                 if loop_coord.read(cx).switcher.is_held() {
                     loop_coord.update(cx, |coord, cx| coord.tick_switcher(cx));
-                } else if loop_coord.read(cx).telemetry.take_escape()
+                } else if loop_coord.read(cx).telemetry.take_cancel()
                     && (loop_coord.read(cx).is_selecting() || loop_coord.read(cx).is_recording())
                 {
                     loop_coord.update(cx, |coord, cx| coord.cancel_recording(cx));

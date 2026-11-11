@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "Skrót adnotacji",
-            "description": "Stuknij, aby nagrać ekran pod wskaźnikiem, stuknij ponownie, aby zakończyć. Przytrzymaj, aby wybrać obszar, okno lub ekran."
+            "description": "Nagrywa ekran pod wskaźnikiem, Twój głos i to, co rysujesz."
+          },
+          "annotate_cancel": {
+            "name": "Skrót anulowania",
+            "description": "Skrót klawiaturowy do anulowania bieżącego nagrywania."
           },
           "annotate_paste": {
             "name": "Wklej ostatnie nagranie",
@@ -966,6 +970,7 @@
       "record": "Nagraj",
       "empty": "Brak nagrań",
       "emptyHint": "Stuknij {{record}}, aby nagrać ekran pod wskaźnikiem, gdy mówisz.",
+      "emptyHintHold": "Przytrzymaj {{record}}, aby nagrać ekran pod wskaźnikiem, gdy mówisz.",
       "back": "Wróć do nagrań",
       "contactSheet": "Stykówka",
       "keyframe": "Klatka kluczowa",
@@ -977,6 +982,15 @@
       "copy": "Kopiuj",
       "copied": "Skopiowano",
       "copyFailed": "Nie udało się skopiować nagrania"
+    },
+    "shortcutActivation": {
+      "title": "Zachowanie skrótu",
+      "description": "Wybierz, jak skrót adnotacji rozpoczyna i zatrzymuje nagrywanie.",
+      "descriptions": {
+        "hold_or_toggle": "Przytrzymaj, aby nagrywać, lub dotknij, aby przełączyć.",
+        "push_to_talk": "Nagrywa, dopóki trzymasz skrót.",
+        "toggle": "Stuknij, aby nagrać ekran pod wskaźnikiem, stuknij ponownie, aby zakończyć. Przytrzymaj, aby wybrać obszar, okno lub ekran."
+      }
     },
     "picker": {
       "fullScreenHold": "Pełny ekran · {{holdKey}}, aby przełączyć · przeciągnij, aby wybrać obszar · puść {{holdMods}}, aby nagrać",

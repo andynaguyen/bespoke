@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "Raccourci Annoter",
-            "description": "Appuyez brièvement pour enregistrer l'écran sous le pointeur, puis à nouveau pour terminer. Maintenez pour choisir une zone, une fenêtre ou l'écran."
+            "description": "Enregistre l'écran sous le pointeur, votre voix et ce que vous dessinez."
+          },
+          "annotate_cancel": {
+            "name": "Raccourci d'Annulation",
+            "description": "Le raccourci clavier pour annuler l'enregistrement en cours."
           },
           "annotate_paste": {
             "name": "Coller la dernière capture",
@@ -958,6 +962,7 @@
       "record": "Enregistrer",
       "empty": "Aucune capture pour l'instant",
       "emptyHint": "Appuyez sur {{record}} pour enregistrer l'écran sous le pointeur pendant que vous parlez.",
+      "emptyHintHold": "Maintenez {{record}} pour enregistrer l'écran sous le pointeur pendant que vous parlez.",
       "back": "Retour aux captures",
       "contactSheet": "Planche contact",
       "keyframe": "Image clé",
@@ -968,6 +973,15 @@
       "copy": "Copier",
       "copied": "Copié",
       "copyFailed": "Impossible de copier la capture"
+    },
+    "shortcutActivation": {
+      "title": "Comportement du raccourci",
+      "description": "Choisissez comment le raccourci d'annotation démarre et arrête l'enregistrement.",
+      "descriptions": {
+        "hold_or_toggle": "Maintenez pour enregistrer ou appuyez brièvement pour basculer.",
+        "push_to_talk": "Enregistre tant que le raccourci est maintenu.",
+        "toggle": "Appuyez brièvement pour enregistrer l'écran sous le pointeur, puis à nouveau pour terminer. Maintenez pour choisir une zone, une fenêtre ou l'écran."
+      }
     },
     "picker": {
       "fullScreenHold": "Plein écran · {{holdKey}} pour changer · glissez pour une zone · relâchez {{holdMods}} pour enregistrer",

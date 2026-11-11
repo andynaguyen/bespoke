@@ -286,7 +286,11 @@
           },
           "annotate": {
             "name": "Annotate Shortcut",
-            "description": "Tap to record the screen under the pointer, tap again to finish. Hold it to choose an area, a window or the screen."
+            "description": "Records the screen under the pointer, your voice and what you draw."
+          },
+          "annotate_cancel": {
+            "name": "Cancel Shortcut",
+            "description": "The keyboard shortcut to cancel the current recording."
           },
           "annotate_paste": {
             "name": "Paste Last Capture",
@@ -1026,6 +1030,7 @@
       "record": "Record",
       "empty": "No captures yet",
       "emptyHint": "Tap {{record}} to record the screen under the pointer while you talk.",
+      "emptyHintHold": "Hold {{record}} to record the screen under the pointer while you talk.",
       "back": "Back to captures",
       "contactSheet": "Contact Sheet",
       "keyframe": "Keyframe",
@@ -1036,6 +1041,15 @@
       "copy": "Copy",
       "copied": "Copied",
       "copyFailed": "Couldn't copy the capture"
+    },
+    "shortcutActivation": {
+      "title": "Shortcut Behavior",
+      "description": "Choose how the Annotate shortcut starts and stops recording.",
+      "descriptions": {
+        "hold_or_toggle": "Hold to record or tap to toggle.",
+        "push_to_talk": "Records while you hold the shortcut.",
+        "toggle": "Tap to record the screen under the pointer, tap again to finish. Hold it to choose an area, a window or the screen."
+      }
     },
     "picker": {
       "fullScreenHold": "Full screen · {{holdKey}} to switch · drag for an area · release {{holdMods}} to record",

@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "İşaretleme Kısayolu",
-            "description": "İmlecin bulunduğu ekranı kaydetmek için bir kez basın, bitirmek için tekrar basın. Alan, pencere veya ekran seçmek için basılı tutun."
+            "description": "İmlecin bulunduğu ekranı, sesinizi ve çizdiklerinizi kaydeder."
+          },
+          "annotate_cancel": {
+            "name": "İptal Kısayolu",
+            "description": "Mevcut kaydı iptal etmek için klavye kısayolu."
           },
           "annotate_paste": {
             "name": "Son Yakalamayı Yapıştır",
@@ -956,6 +960,7 @@
       "record": "Kaydet",
       "empty": "Henüz yakalama yok",
       "emptyHint": "Konuşurken imlecin bulunduğu ekranı kaydetmek için {{record}} kısayoluna basın.",
+      "emptyHintHold": "Konuşurken imlecin bulunduğu ekranı kaydetmek için {{record}} kısayolunu basılı tutun.",
       "back": "Yakalamalara dön",
       "contactSheet": "Önizleme Sayfası",
       "keyframe": "Ana Kare",
@@ -966,6 +971,15 @@
       "copy": "Kopyala",
       "copied": "Kopyalandı",
       "copyFailed": "Yakalama kopyalanamadı"
+    },
+    "shortcutActivation": {
+      "title": "Kısayol davranışı",
+      "description": "İşaretleme kısayolunun kaydı nasıl başlatıp durduracağını seçin.",
+      "descriptions": {
+        "hold_or_toggle": "Kaydetmek için basılı tutun veya açıp kapatmak için dokunun.",
+        "push_to_talk": "Kısayolu basılı tuttuğunuz sürece kaydeder.",
+        "toggle": "İmlecin bulunduğu ekranı kaydetmek için bir kez basın, bitirmek için tekrar basın. Alan, pencere veya ekran seçmek için basılı tutun."
+      }
     },
     "picker": {
       "fullScreenHold": "Tam ekran · değiştirmek için {{holdKey}} · alan için sürükleyin · kaydetmek için {{holdMods}} bırakın",

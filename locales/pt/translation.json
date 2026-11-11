@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "Atalho de Anotar",
-            "description": "Toque para gravar a tela sob o ponteiro e toque novamente para terminar. Mantenha pressionado para escolher uma área, uma janela ou a tela."
+            "description": "Grava a tela sob o ponteiro, sua voz e o que você desenha."
+          },
+          "annotate_cancel": {
+            "name": "Atalho de Cancelar",
+            "description": "O atalho de teclado para cancelar a gravação atual."
           },
           "annotate_paste": {
             "name": "Colar Última Captura",
@@ -958,6 +962,7 @@
       "record": "Gravar",
       "empty": "Nenhuma captura ainda",
       "emptyHint": "Toque em {{record}} para gravar a tela sob o ponteiro enquanto fala.",
+      "emptyHintHold": "Mantenha {{record}} pressionado para gravar a tela sob o ponteiro enquanto fala.",
       "back": "Voltar às capturas",
       "contactSheet": "Folha de Contato",
       "keyframe": "Quadro-chave",
@@ -968,6 +973,15 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "copyFailed": "Não foi possível copiar a captura"
+    },
+    "shortcutActivation": {
+      "title": "Comportamento do atalho",
+      "description": "Escolha como o atalho de anotação inicia e para a gravação.",
+      "descriptions": {
+        "hold_or_toggle": "Segure para gravar ou toque para alternar.",
+        "push_to_talk": "Grava enquanto você mantém o atalho pressionado.",
+        "toggle": "Toque para gravar a tela sob o ponteiro e toque novamente para terminar. Mantenha pressionado para escolher uma área, uma janela ou a tela."
+      }
     },
     "picker": {
       "fullScreenHold": "Tela cheia · {{holdKey}} para alternar · arraste para uma área · solte {{holdMods}} para gravar",

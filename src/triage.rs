@@ -476,6 +476,10 @@ fn settings(app: &AppHandle) -> Vec<String> {
         format!("Language: {}", s.selected_language),
         format!("Shortcuts: {}", bindings.join(", ")),
         format!("Shortcut activation: {:?}", s.shortcut_activation),
+        format!(
+            "Annotate shortcut activation: {:?}",
+            s.annotate_shortcut_activation
+        ),
         format!("Keyboard implementation: {:?}", s.keyboard_implementation),
         format!(
             "Microphones: {}{}",

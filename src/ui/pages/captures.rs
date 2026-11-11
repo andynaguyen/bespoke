@@ -26,7 +26,13 @@ const COLUMNS: usize = 3;
 
 fn empty_hint(cx: &App) -> impl IntoElement {
     let p = palette(cx);
-    let hint = t("annotate.library.emptyHint");
+    let hold = SettingsStore::get(cx).annotate_shortcut_activation
+        == crate::settings::ShortcutActivation::PushToTalk;
+    let hint = t(if hold {
+        "annotate.library.emptyHintHold"
+    } else {
+        "annotate.library.emptyHint"
+    });
     let line = div()
         .flex()
         .row_dir()

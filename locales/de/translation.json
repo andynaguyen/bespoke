@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "Annotieren-Tastenkürzel",
-            "description": "Antippen, um den Bildschirm unter dem Zeiger aufzunehmen, erneut antippen zum Beenden. Gedrückt halten, um einen Bereich, ein Fenster oder den Bildschirm zu wählen."
+            "description": "Nimmt den Bildschirm unter dem Zeiger, deine Stimme und deine Zeichnungen auf."
+          },
+          "annotate_cancel": {
+            "name": "Abbrechen-Tastenkürzel",
+            "description": "Das Tastenkürzel zum Abbrechen der aktuellen Aufnahme."
           },
           "annotate_paste": {
             "name": "Letzte Aufzeichnung einfügen",
@@ -956,6 +960,7 @@
       "record": "Aufnehmen",
       "empty": "Noch keine Aufzeichnungen",
       "emptyHint": "Tippe {{record}}, um den Bildschirm unter dem Zeiger aufzunehmen, während du sprichst.",
+      "emptyHintHold": "Halte {{record}} gedrückt, um den Bildschirm unter dem Zeiger aufzunehmen, während du sprichst.",
       "back": "Zurück zu den Aufzeichnungen",
       "contactSheet": "Kontaktabzug",
       "keyframe": "Keyframe",
@@ -966,6 +971,15 @@
       "copy": "Kopieren",
       "copied": "Kopiert",
       "copyFailed": "Aufzeichnung konnte nicht kopiert werden"
+    },
+    "shortcutActivation": {
+      "title": "Verhalten der Tastenkombination",
+      "description": "Wähle aus, wie das Annotieren-Tastenkürzel die Aufnahme startet und beendet.",
+      "descriptions": {
+        "hold_or_toggle": "Gedrückt halten zum Aufnehmen oder antippen zum Umschalten.",
+        "push_to_talk": "Nimmt auf, solange die Tastenkombination gedrückt bleibt.",
+        "toggle": "Antippen, um den Bildschirm unter dem Zeiger aufzunehmen, erneut antippen zum Beenden. Gedrückt halten, um einen Bereich, ein Fenster oder den Bildschirm zu wählen."
+      }
     },
     "picker": {
       "fullScreenHold": "Vollbild · {{holdKey}} zum Wechseln · ziehen für einen Bereich · {{holdMods}} loslassen zum Aufnehmen",

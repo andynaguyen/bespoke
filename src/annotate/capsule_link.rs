@@ -32,6 +32,7 @@ pub struct PillSnapshot {
     pub clock: String,
     pub reduced_motion: bool,
     pub shortcut: String,
+    pub cancel: String,
 }
 
 #[derive(Clone, Debug)]

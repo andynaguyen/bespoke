@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "Phím tắt chú thích",
-            "description": "Nhấn để ghi màn hình dưới con trỏ, nhấn lần nữa để kết thúc. Giữ để chọn một vùng, một cửa sổ hoặc màn hình."
+            "description": "Ghi lại màn hình dưới con trỏ, giọng nói của bạn và những gì bạn vẽ."
+          },
+          "annotate_cancel": {
+            "name": "Phím tắt hủy",
+            "description": "Phím tắt để hủy bản ghi hiện tại."
           },
           "annotate_paste": {
             "name": "Dán bản ghi hình gần nhất",
@@ -954,6 +958,7 @@
       "record": "Ghi",
       "empty": "Chưa có bản ghi hình nào",
       "emptyHint": "Nhấn {{record}} để ghi màn hình dưới con trỏ trong lúc bạn nói.",
+      "emptyHintHold": "Nhấn giữ {{record}} để ghi màn hình dưới con trỏ trong lúc bạn nói.",
       "back": "Quay lại bản ghi hình",
       "contactSheet": "Trang hình thu nhỏ",
       "keyframe": "Khung hình chính",
@@ -963,6 +968,15 @@
       "copy": "Sao chép",
       "copied": "Đã sao chép",
       "copyFailed": "Không thể sao chép bản ghi hình"
+    },
+    "shortcutActivation": {
+      "title": "Hành vi phím tắt",
+      "description": "Chọn cách phím tắt chú thích bắt đầu và dừng ghi hình.",
+      "descriptions": {
+        "hold_or_toggle": "Giữ để ghi âm hoặc nhấn nhanh để bật/tắt.",
+        "push_to_talk": "Ghi âm trong lúc bạn giữ phím tắt.",
+        "toggle": "Nhấn để ghi màn hình dưới con trỏ, nhấn lần nữa để kết thúc. Giữ để chọn một vùng, một cửa sổ hoặc màn hình."
+      }
     },
     "picker": {
       "fullScreenHold": "Toàn màn hình · {{holdKey}} để chuyển · kéo để chọn vùng · thả {{holdMods}} để ghi",

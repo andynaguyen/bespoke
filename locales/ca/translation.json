@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "Drecera d'anotació",
-            "description": "Toqueu per enregistrar la pantalla que hi ha sota el punter i torneu a tocar per acabar. Manteniu-la premuda per triar una àrea, una finestra o la pantalla."
+            "description": "Enregistra la pantalla que hi ha sota el punter, la vostra veu i el que dibuixeu."
+          },
+          "annotate_cancel": {
+            "name": "Drecera de cancel·lació",
+            "description": "La drecera de teclat per cancel·lar l'enregistrament actual."
           },
           "annotate_paste": {
             "name": "Enganxa l'última captura",
@@ -958,6 +962,7 @@
       "record": "Enregistra",
       "empty": "Encara no hi ha captures",
       "emptyHint": "Toqueu {{record}} per enregistrar la pantalla que hi ha sota el punter mentre parleu.",
+      "emptyHintHold": "Manteniu premut {{record}} per enregistrar la pantalla que hi ha sota el punter mentre parleu.",
       "back": "Torna a les captures",
       "contactSheet": "Full de contactes",
       "keyframe": "Fotograma clau",
@@ -968,6 +973,15 @@
       "copy": "Copia",
       "copied": "Copiat",
       "copyFailed": "No s'ha pogut copiar la captura"
+    },
+    "shortcutActivation": {
+      "title": "Comportament de la drecera",
+      "description": "Trieu com la drecera d'anotació inicia i atura l'enregistrament.",
+      "descriptions": {
+        "hold_or_toggle": "Manteniu-la premuda per enregistrar o feu una pulsació breu per iniciar o aturar l'enregistrament.",
+        "push_to_talk": "Enregistreu mentre manteniu premuda la drecera.",
+        "toggle": "Toqueu per enregistrar la pantalla que hi ha sota el punter i torneu a tocar per acabar. Manteniu-la premuda per triar una àrea, una finestra o la pantalla."
+      }
     },
     "picker": {
       "fullScreenHold": "Pantalla completa · {{holdKey}} per canviar · arrossegueu per a una àrea · deixeu anar {{holdMods}} per enregistrar",

@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "标注快捷键",
-            "description": "轻按以录制指针所在的屏幕，再按一次结束。按住可选择区域、窗口或屏幕。"
+            "description": "录制指针所在的屏幕、你的声音和你画的内容。"
+          },
+          "annotate_cancel": {
+            "name": "取消快捷键",
+            "description": "用于取消当前录制的键盘快捷键。"
           },
           "annotate_paste": {
             "name": "粘贴最新录屏",
@@ -954,6 +958,7 @@
       "record": "录制",
       "empty": "还没有录屏",
       "emptyHint": "轻按 {{record}}，一边讲解一边录制指针所在的屏幕。",
+      "emptyHintHold": "按住 {{record}}，一边讲解一边录制指针所在的屏幕。",
       "back": "返回录屏",
       "contactSheet": "缩略图总览",
       "keyframe": "关键帧",
@@ -963,6 +968,15 @@
       "copy": "复制",
       "copied": "已复制",
       "copyFailed": "无法复制录屏"
+    },
+    "shortcutActivation": {
+      "title": "快捷键行为",
+      "description": "选择标注快捷键开始和停止录制的方式。",
+      "descriptions": {
+        "hold_or_toggle": "按住录音，或轻按切换。",
+        "push_to_talk": "按住快捷键期间录音。",
+        "toggle": "轻按以录制指针所在的屏幕，再按一次结束。按住可选择区域、窗口或屏幕。"
+      }
     },
     "picker": {
       "fullScreenHold": "全屏 · 按 {{holdKey}} 切换 · 拖动选择区域 · 松开 {{holdMods}} 开始录制",

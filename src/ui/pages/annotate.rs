@@ -110,6 +110,7 @@ pub(super) fn shortcut_label(
 /// permission rows the System page shows.
 pub struct AnnotateSettings {
     record_shortcut: Entity<ShortcutInput>,
+    cancel_shortcut: Entity<ShortcutInput>,
     paste_shortcut: Entity<ShortcutInput>,
     grants: Option<Grants>,
     requested: BTreeSet<Permission>,
@@ -142,6 +143,7 @@ impl AnnotateSettings {
         });
         let mut page = Self {
             record_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::RECORD_BINDING, cx)),
+            cancel_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::CANCEL_BINDING, cx)),
             paste_shortcut: cx.new(|cx| ShortcutInput::new(crate::annotate::PASTE_BINDING, cx)),
             grants: None,
             requested: BTreeSet::new(),
@@ -420,6 +422,11 @@ impl AnnotateSettings {
             AnnotateSettingsPage::Shortcut => vec![
                 SettingsGroup::new()
                     .child(self.record_shortcut.clone())
+                    .child(super::rows::annotate_shortcut_activation(
+                        &SettingsStore::global(cx).read(cx).settings,
+                        cx,
+                    ))
+                    .child(self.cancel_shortcut.clone())
                     .child(self.paste_shortcut.clone())
                     .into_any_element(),
             ],

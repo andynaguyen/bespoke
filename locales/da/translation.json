@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "Annoteringsgenvej",
-            "description": "Tryk for at optage skærmen under markøren, og tryk igen for at afslutte. Hold nede for at vælge et område, et vindue eller skærmen."
+            "description": "Optager skærmen under markøren, din stemme og det, du tegner."
+          },
+          "annotate_cancel": {
+            "name": "Annulleringsgenvej",
+            "description": "Tastaturgenvejen til at annullere den aktuelle optagelse."
           },
           "annotate_paste": {
             "name": "Indsæt seneste optagelse",
@@ -956,6 +960,7 @@
       "record": "Optag",
       "empty": "Ingen optagelser endnu",
       "emptyHint": "Tryk på {{record}} for at optage skærmen under markøren, mens du taler.",
+      "emptyHintHold": "Hold {{record}} nede for at optage skærmen under markøren, mens du taler.",
       "back": "Tilbage til optagelser",
       "contactSheet": "Kontaktark",
       "keyframe": "Nøglebillede",
@@ -966,6 +971,15 @@
       "copy": "Kopiér",
       "copied": "Kopieret",
       "copyFailed": "Kunne ikke kopiere optagelsen"
+    },
+    "shortcutActivation": {
+      "title": "Genvejens adfærd",
+      "description": "Vælg, hvordan annoteringsgenvejen starter og stopper optagelsen.",
+      "descriptions": {
+        "hold_or_toggle": "Hold nede for at optage, eller tryk kort for at slå til/fra.",
+        "push_to_talk": "Optager, mens du holder genvejen nede.",
+        "toggle": "Tryk for at optage skærmen under markøren, og tryk igen for at afslutte. Hold nede for at vælge et område, et vindue eller skærmen."
+      }
     },
     "picker": {
       "fullScreenHold": "Fuld skærm · {{holdKey}} for at skifte · træk for et område · slip {{holdMods}} for at optage",

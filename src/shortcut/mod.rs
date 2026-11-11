@@ -60,6 +60,10 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
     }
 }
 
+pub fn registers_globally(id: &str) -> bool {
+    id != "cancel" && id != crate::annotate::CANCEL_BINDING
+}
+
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     let settings = get_settings(app);
     match settings.keyboard_implementation {
@@ -110,6 +114,29 @@ pub fn change_binding(
         }) {
             return Err(format!("Shortcut '{}' is already in use", binding));
         }
+    }
+
+    if crate::annotate::clashes_with_cancel(&settings, &id, &binding) {
+        return Err(format!("Shortcut '{}' is already in use", binding));
+    }
+
+    if id == crate::annotate::CANCEL_BINDING {
+        if crate::annotate::capture::shortcut_from_binding(&binding).is_none() {
+            return Err(
+                "Annotate's cancel shortcut must be a key, with or without modifiers".into(),
+            );
+        }
+        let mut b = binding_to_modify;
+        b.current_binding = binding;
+        settings.bindings.insert(id.clone(), b.clone());
+        crate::annotate::sync_shortcuts(&settings);
+        settings::update(&app, |settings| {
+            settings.bindings.insert(id, b);
+        });
+        return Ok(BindingResponse {
+            success: true,
+            error: None,
+        });
     }
 
     if id == "cancel"
@@ -182,7 +209,7 @@ fn startup_bindings(app: &AppHandle) -> Vec<(String, ShortcutBinding)> {
         .bindings
         .into_iter()
         .filter(|(id, _)| {
-            id != "cancel"
+            registers_globally(id)
                 && (id != "transcribe_with_post_process" || user_settings.post_process_enabled)
         })
         .map(|(id, default_binding)| {
@@ -199,7 +226,7 @@ fn startup_bindings(app: &AppHandle) -> Vec<(String, ShortcutBinding)> {
 pub fn suspend_all_shortcuts(app: &AppHandle) {
     crate::annotate::capture::pause_shortcuts(true);
     for (id, binding) in settings::get_bindings(app) {
-        if id == "cancel" {
+        if !registers_globally(&id) {
             continue;
         }
         if let Err(e) = unregister_shortcut(app, binding) {
@@ -215,7 +242,7 @@ pub fn resume_all_shortcuts(app: &AppHandle) {
     crate::annotate::capture::pause_shortcuts(false);
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
-        if id == "cancel" {
+        if !registers_globally(id) {
             continue;
         }
         if id == "transcribe_with_post_process" && !settings.post_process_enabled {
@@ -311,7 +338,7 @@ fn unregister_all_shortcuts(app: &AppHandle, implementation: KeyboardImplementat
     let bindings = settings::get_bindings(app);
 
     for (id, binding) in bindings {
-        if id == "cancel" {
+        if !registers_globally(&id) {
             continue;
         }
 
@@ -338,7 +365,7 @@ fn register_all_shortcuts_for_implementation(
     let mut current_settings = settings::get_settings(app);
 
     for (id, default_binding) in &default_bindings {
-        if id == "cancel" {
+        if !registers_globally(id) {
             continue;
         }
 
@@ -419,6 +446,16 @@ pub fn change_shortcut_activation_setting(
     activation: ShortcutActivation,
 ) -> Result<(), String> {
     settings::update(&app, |settings| settings.shortcut_activation = activation);
+    Ok(())
+}
+
+pub fn change_annotate_shortcut_activation_setting(
+    app: AppHandle,
+    activation: ShortcutActivation,
+) -> Result<(), String> {
+    settings::update(&app, |settings| {
+        settings.annotate_shortcut_activation = activation;
+    });
     Ok(())
 }
 

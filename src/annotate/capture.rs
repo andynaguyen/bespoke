@@ -157,7 +157,22 @@ impl ShortcutKind {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Shortcuts {
+    pub record: ShortcutConfig,
+    pub paste: ShortcutConfig,
+    pub cancel: ShortcutConfig,
+}
+
 impl ShortcutConfig {
+    pub fn default_cancel() -> Self {
+        Self {
+            key_code: u32::from(KEY_ESCAPE),
+            carbon_modifiers: 0,
+            label: shortcut_label(0, ESCAPE_LABEL),
+        }
+    }
+
     pub fn default_record() -> Self {
         Self {
             key_code: u32::from(layout_s_keycode()),
@@ -246,11 +261,21 @@ pub fn pause_shortcuts(paused: bool) {
     }
 }
 
-/// Sets the record and paste combos the key tap matches. Does nothing before Annotate starts,
-/// which takes the first ones from `coordinator::start`.
-pub fn set_shortcuts(record: ShortcutConfig, paste: ShortcutConfig) {
+/// Sets the record, paste and cancel combos the key tap matches. Does nothing before Annotate
+/// starts, which takes the first ones from `coordinator::start`.
+pub fn set_shortcuts(shortcuts: Shortcuts) {
     if let Some(telemetry) = TELEMETRY.get() {
-        telemetry.set_shortcuts(record, paste);
+        telemetry.set_shortcuts(shortcuts);
+    }
+}
+
+/// Notes when Bespoke's shortcut listener saw the record binding released.
+pub fn record_released() {
+    if let Some(telemetry) = TELEMETRY.get() {
+        *telemetry
+            .record_released_at
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Instant::now());
     }
 }
 
@@ -259,7 +284,7 @@ pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
     let mut modifiers = 0;
     let mut key = None;
     for token in binding.split('+').map(|t| t.trim().to_ascii_lowercase()) {
-        match token.as_str() {
+        match without_side(&token) {
             "cmd" | "command" | "meta" | "super" => modifiers |= CARBON_CMD_KEY,
             "ctrl" | "control" => modifiers |= CARBON_CONTROL_KEY,
             "opt" | "option" | "alt" => modifiers |= CARBON_OPTION_KEY,
@@ -270,20 +295,36 @@ pub fn shortcut_from_binding(binding: &str) -> Option<ShortcutConfig> {
         }
     }
     let key = key?;
-    let (key_code, label) = named_key(&key).or_else(|| {
-        let mut chars = key.chars();
-        let ch = chars.next()?;
-        if chars.next().is_some() {
-            return None;
-        }
-        let code = key_code_for_char(ch)?;
-        Some((u32::from(code), ch.to_uppercase().collect()))
-    })?;
+    let (key_code, label) = named_key(&key)
+        .or_else(|| {
+            let mut chars = key.chars();
+            let ch = chars.next()?;
+            if chars.next().is_some() {
+                return None;
+            }
+            let code = key_code_for_char(ch)?;
+            Some((u32::from(code), ch.to_uppercase().collect()))
+        })
+        .or_else(|| listener_key_code(&key))?;
     Some(ShortcutConfig {
         key_code,
         carbon_modifiers: modifiers,
         label: shortcut_label(modifiers, &label),
     })
+}
+
+fn without_side(modifier: &str) -> &str {
+    modifier
+        .strip_suffix("_left")
+        .or_else(|| modifier.strip_suffix("_right"))
+        .unwrap_or(modifier)
+}
+
+fn listener_key_code(name: &str) -> Option<(u32, String)> {
+    let key = name.parse::<crate::shortcut::keys::Key>().ok()?;
+    let code = (0..=u16::from(u8::MAX))
+        .find(|&code| crate::shortcut::keys::keycode_to_key(code) == Some(key))?;
+    Some((u32::from(code), key.to_string()))
 }
 
 fn named_key(name: &str) -> Option<(u32, String)> {
@@ -304,6 +345,7 @@ fn named_key(name: &str) -> Option<(u32, String)> {
         "right" | "rightarrow" => (124, "→"),
         "down" | "downarrow" => (125, "↓"),
         "up" | "uparrow" => (126, "↑"),
+        "escape" | "esc" => (u32::from(KEY_ESCAPE), ESCAPE_LABEL),
         _ => return None,
     };
     Some((code, label.to_owned()))
@@ -367,6 +409,18 @@ pub fn shortcut_matches(
     }
     let is_key = keycode == layout_code || keycode == kind.ansi_code();
     cfg.is_default_for(kind) && is_key && alt && (shift || (ctrl && cmd))
+}
+
+pub fn cancel_matches(
+    cancel: &ShortcutConfig,
+    keycode: u16,
+    pressed: u32,
+    record_press_mods: u32,
+) -> bool {
+    let wanted = cancel.carbon_modifiers;
+    u32::from(keycode) == cancel.key_code
+        && pressed & wanted == wanted
+        && pressed & !(wanted | record_press_mods) == 0
 }
 
 fn clean_label(input: &str) -> String {
@@ -590,6 +644,10 @@ pub struct SharedCaptureTelemetry {
     pub capture_mode: AtomicU64,
     pub shortcut: Mutex<ShortcutConfig>,
     pub paste_shortcut: Mutex<ShortcutConfig>,
+    pub cancel_shortcut: Mutex<ShortcutConfig>,
+    pub record_press_flags: AtomicU64,
+    record_pressed_at: Mutex<Option<Instant>>,
+    record_released_at: Mutex<Option<Instant>>,
     pub shortcuts_paused: AtomicBool,
     pub started_at: Mutex<Instant>,
     pub picker_started_at: Mutex<Instant>,
@@ -609,7 +667,7 @@ pub struct SharedCaptureTelemetry {
     tap_starting: AtomicBool,
     tap_tried_ms: AtomicU64,
     tap_live: AtomicBool,
-    escape_pressed: AtomicBool,
+    cancel_pressed: AtomicBool,
     pub start_glow: AtomicBool,
     mouse_live: AtomicBool,
     last_shortcut_ms: AtomicU64,
@@ -626,6 +684,10 @@ impl SharedCaptureTelemetry {
             capture_mode: AtomicU64::new(0),
             shortcut: Mutex::new(ShortcutConfig::default_record()),
             paste_shortcut: Mutex::new(ShortcutConfig::default_paste()),
+            cancel_shortcut: Mutex::new(ShortcutConfig::default_cancel()),
+            record_press_flags: AtomicU64::new(0),
+            record_pressed_at: Mutex::new(None),
+            record_released_at: Mutex::new(None),
             shortcuts_paused: AtomicBool::new(false),
             started_at: Mutex::new(Instant::now()),
             picker_started_at: Mutex::new(Instant::now()),
@@ -651,7 +713,7 @@ impl SharedCaptureTelemetry {
             tap_starting: AtomicBool::new(false),
             tap_tried_ms: AtomicU64::new(0),
             tap_live: AtomicBool::new(false),
-            escape_pressed: AtomicBool::new(false),
+            cancel_pressed: AtomicBool::new(false),
             start_glow: AtomicBool::new(false),
             mouse_live: AtomicBool::new(false),
             last_shortcut_ms: AtomicU64::new(0),
@@ -660,16 +722,51 @@ impl SharedCaptureTelemetry {
         })
     }
 
-    /// Sets the record and paste combos the key tap matches.
-    pub fn set_shortcuts(&self, record: ShortcutConfig, paste: ShortcutConfig) {
-        *self
-            .shortcut
+    pub fn set_shortcuts(&self, shortcuts: Shortcuts) {
+        let set = |slot: &Mutex<ShortcutConfig>, config| {
+            *slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = config;
+        };
+        set(&self.shortcut, shortcuts.record);
+        set(&self.paste_shortcut, shortcuts.paste);
+        set(&self.cancel_shortcut, shortcuts.cancel);
+    }
+
+    pub fn matches_cancel(&self, keycode: u16, flags: u64) -> bool {
+        let held = carbon_modifiers(self.record_press_flags.load(Ordering::Acquire));
+        cancel_matches(
+            &self
+                .cancel_shortcut
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            keycode,
+            carbon_modifiers(flags),
+            held,
+        )
+    }
+
+    pub fn cancel_label(&self) -> String {
+        self.cancel_shortcut
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = record;
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .label
+            .clone()
+    }
+
+    pub fn record_pressed_at(&self) -> Option<Instant> {
         *self
-            .paste_shortcut
+            .record_pressed_at
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = paste;
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// The record binding's release since its last press, once.
+    pub fn take_record_released(&self) -> Option<Instant> {
+        self.record_released_at
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
     }
 
     pub fn emit_capture_shortcut(&self) {
@@ -688,6 +785,11 @@ impl SharedCaptureTelemetry {
                 .is_ok()
         {
             annotate_log("emit_capture_shortcut");
+            *self
+                .record_pressed_at
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Instant::now());
+            self.take_record_released();
             let _ = self.ui_sender.try_send(LiveOverlayEvent::CaptureShortcut);
         }
     }
@@ -817,8 +919,8 @@ impl SharedCaptureTelemetry {
         annotate_log(format!("session clicks from {clicks}, keys from {keys}"));
     }
 
-    pub fn take_escape(&self) -> bool {
-        self.escape_pressed.swap(false, Ordering::AcqRel)
+    pub fn take_cancel(&self) -> bool {
+        self.cancel_pressed.swap(false, Ordering::AcqRel)
     }
 
     pub fn elapsed_ms(&self) -> u64 {
@@ -1512,6 +1614,58 @@ mod tests {
         assert_eq!(shortcut_parts("Ctrl+Alt+Ä"), ("Ctrl+Alt", "Ä"));
         assert_eq!(shortcut_parts("Ctrl++"), ("Ctrl", "+"));
         assert_eq!(shortcut_parts(""), ("", ""));
+    }
+
+    #[test]
+    fn the_cancel_shortcut_allows_the_record_modifiers_still_held() {
+        let esc = shortcut_from_binding("escape").expect("escape parses");
+        assert_eq!(esc, ShortcutConfig::default_cancel());
+        let switcher = CARBON_OPTION_KEY | CARBON_SHIFT_KEY;
+        assert!(cancel_matches(&esc, KEY_ESCAPE, 0, 0), "Esc");
+        assert!(
+            cancel_matches(&esc, KEY_ESCAPE, switcher, switcher),
+            "Esc in the switcher"
+        );
+        assert!(
+            !cancel_matches(&esc, KEY_ESCAPE, switcher, 0),
+            "Option-Shift-Esc with nothing held"
+        );
+        assert!(
+            !cancel_matches(&esc, KEY_ESCAPE, CARBON_CMD_KEY, switcher),
+            "Cmd-Esc"
+        );
+        assert!(!cancel_matches(&esc, KEY_S, 0, 0), "another key");
+
+        let custom = shortcut_from_binding("ctrl+x").expect("ctrl+x parses");
+        let x = custom.key_code as u16;
+        assert!(cancel_matches(&custom, x, CARBON_CONTROL_KEY, 0), "Ctrl-X");
+        assert!(
+            cancel_matches(&custom, x, CARBON_CONTROL_KEY | switcher, switcher),
+            "Ctrl-X in the switcher"
+        );
+        assert!(!cancel_matches(&custom, x, 0, 0), "X alone");
+        assert!(
+            !cancel_matches(&custom, x, CARBON_CONTROL_KEY | CARBON_CMD_KEY, switcher),
+            "Cmd-Ctrl-X"
+        );
+    }
+
+    #[test]
+    fn bindings_from_the_settings_recorder_parse() {
+        let sided = shortcut_from_binding("ctrl_left+option_right+x").expect("sided modifiers");
+        let plain = shortcut_from_binding("ctrl+option+x").expect("plain modifiers");
+        assert_eq!(sided, plain);
+        let f18 = shortcut_from_binding("command_left+f18").expect("a key named by the listener");
+        assert_eq!(f18.carbon_modifiers, CARBON_CMD_KEY);
+        assert_eq!(f18.key_code, 79);
+        assert!(
+            shortcut_from_binding("fn+x").is_none(),
+            "the tap can't see fn"
+        );
+        assert!(
+            shortcut_from_binding("option+mousex2").is_none(),
+            "a mouse button"
+        );
     }
 
     #[test]

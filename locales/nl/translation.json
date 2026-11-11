@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "Sneltoets voor annoteren",
-            "description": "Tik om het scherm onder de aanwijzer op te nemen, tik nogmaals om te stoppen. Houd vast om een gebied, een venster of het scherm te kiezen."
+            "description": "Neemt het scherm onder de aanwijzer, je stem en wat je tekent op."
+          },
+          "annotate_cancel": {
+            "name": "Sneltoets voor annuleren",
+            "description": "De sneltoets om de huidige opname te annuleren."
           },
           "annotate_paste": {
             "name": "Laatste opname plakken",
@@ -956,6 +960,7 @@
       "record": "Opnemen",
       "empty": "Nog geen opnames",
       "emptyHint": "Tik op {{record}} om het scherm onder de aanwijzer op te nemen terwijl je praat.",
+      "emptyHintHold": "Houd {{record}} ingedrukt om het scherm onder de aanwijzer op te nemen terwijl je praat.",
       "back": "Terug naar opnames",
       "contactSheet": "Contactvel",
       "keyframe": "Keyframe",
@@ -966,6 +971,15 @@
       "copy": "Kopiëren",
       "copied": "Gekopieerd",
       "copyFailed": "Kan opname niet kopiëren"
+    },
+    "shortcutActivation": {
+      "title": "Gedrag van sneltoets",
+      "description": "Kies hoe de sneltoets voor annoteren de opname start en stopt.",
+      "descriptions": {
+        "hold_or_toggle": "Houd ingedrukt om op te nemen of tik om te schakelen.",
+        "push_to_talk": "Neemt op zolang je de sneltoets ingedrukt houdt.",
+        "toggle": "Tik om het scherm onder de aanwijzer op te nemen, tik nogmaals om te stoppen. Houd vast om een gebied, een venster of het scherm te kiezen."
+      }
     },
     "picker": {
       "fullScreenHold": "Volledig scherm · {{holdKey}} om te wisselen · sleep voor een gebied · laat {{holdMods}} los om op te nemen",

@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "Zkratka anotace",
-            "description": "Klepnutím nahrajete obrazovku pod ukazatelem, dalším klepnutím nahrávání ukončíte. Podržením vyberete oblast, okno nebo obrazovku."
+            "description": "Nahrává obrazovku pod ukazatelem, váš hlas a to, co kreslíte."
+          },
+          "annotate_cancel": {
+            "name": "Zkratka zrušení",
+            "description": "Klávesová zkratka pro zrušení aktuálního nahrávání."
           },
           "annotate_paste": {
             "name": "Vložit poslední záznam",
@@ -964,6 +968,7 @@
       "record": "Nahrát",
       "empty": "Zatím žádné záznamy",
       "emptyHint": "Klepnutím na {{record}} nahrajete obrazovku pod ukazatelem, zatímco mluvíte.",
+      "emptyHintHold": "Podržením {{record}} nahrajete obrazovku pod ukazatelem, zatímco mluvíte.",
       "back": "Zpět na záznamy",
       "contactSheet": "Kontaktní arch",
       "keyframe": "Klíčový snímek",
@@ -975,6 +980,15 @@
       "copy": "Kopírovat",
       "copied": "Zkopírováno",
       "copyFailed": "Záznam se nepodařilo zkopírovat"
+    },
+    "shortcutActivation": {
+      "title": "Chování zkratky",
+      "description": "Zvolte, jak má zkratka anotace spouštět a zastavovat nahrávání.",
+      "descriptions": {
+        "hold_or_toggle": "Podržte pro nahrávání nebo klepněte pro přepnutí.",
+        "push_to_talk": "Nahrává, dokud držíte zkratku.",
+        "toggle": "Klepnutím nahrajete obrazovku pod ukazatelem, dalším klepnutím nahrávání ukončíte. Podržením vyberete oblast, okno nebo obrazovku."
+      }
     },
     "picker": {
       "fullScreenHold": "Celá obrazovka · {{holdKey}} přepne · tažením vyberete oblast · uvolněním {{holdMods}} začnete nahrávat",

@@ -198,7 +198,11 @@
           },
           "annotate": {
             "name": "Atajo de Anotar",
-            "description": "Toca para grabar la pantalla bajo el puntero y toca de nuevo para terminar. Mantén pulsado para elegir un área, una ventana o la pantalla."
+            "description": "Graba la pantalla bajo el puntero, tu voz y lo que dibujas."
+          },
+          "annotate_cancel": {
+            "name": "Atajo de cancelar",
+            "description": "El atajo de teclado para cancelar la grabación actual."
           },
           "annotate_paste": {
             "name": "Pegar la última captura",
@@ -958,6 +962,7 @@
       "record": "Grabar",
       "empty": "Aún no hay capturas",
       "emptyHint": "Toca {{record}} para grabar la pantalla bajo el puntero mientras hablas.",
+      "emptyHintHold": "Mantén pulsado {{record}} para grabar la pantalla bajo el puntero mientras hablas.",
       "back": "Volver a las capturas",
       "contactSheet": "Hoja de contactos",
       "keyframe": "Fotograma clave",
@@ -968,6 +973,15 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "copyFailed": "No se pudo copiar la captura"
+    },
+    "shortcutActivation": {
+      "title": "Comportamiento del atajo",
+      "description": "Elige cómo inicia y detiene la grabación el atajo de anotación.",
+      "descriptions": {
+        "hold_or_toggle": "Mantén pulsado para grabar o toca para alternar.",
+        "push_to_talk": "Graba mientras mantienes pulsado el atajo.",
+        "toggle": "Toca para grabar la pantalla bajo el puntero y toca de nuevo para terminar. Mantén pulsado para elegir un área, una ventana o la pantalla."
+      }
     },
     "picker": {
       "fullScreenHold": "Pantalla completa · {{holdKey}} para cambiar · arrastra para un área · suelta {{holdMods}} para grabar",

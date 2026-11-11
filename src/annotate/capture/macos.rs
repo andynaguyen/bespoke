@@ -60,7 +60,8 @@ const FLAG_ALTERNATE: u64 = 1 << 19;
 const FLAG_COMMAND: u64 = 1 << 20;
 
 pub const KEY_S: u16 = 1;
-const KEY_ESCAPE: u16 = 53;
+pub const KEY_ESCAPE: u16 = 53;
+pub const ESCAPE_LABEL: &str = "esc";
 const KEY_Z: u16 = 6;
 pub const KEY_V: u16 = 9;
 
@@ -343,6 +344,18 @@ pub fn request_screen_capture() -> bool {
 pub fn modifier_flags() -> u64 {
     let flags = unsafe { CGEventSourceFlagsState(0) | CGEventSourceFlagsState(1) };
     flags & (FLAG_COMMAND | FLAG_CONTROL | FLAG_ALTERNATE | FLAG_SHIFT)
+}
+
+pub fn carbon_modifiers(flags: u64) -> u32 {
+    [
+        (FLAG_COMMAND, super::CARBON_CMD_KEY),
+        (FLAG_CONTROL, super::CARBON_CONTROL_KEY),
+        (FLAG_ALTERNATE, super::CARBON_OPTION_KEY),
+        (FLAG_SHIFT, super::CARBON_SHIFT_KEY),
+    ]
+    .into_iter()
+    .filter(|(flag, _)| flags & flag != 0)
+    .fold(0, |bits, (_, bit)| bits | bit)
 }
 
 pub fn shortcut_from_key_and_mods(
@@ -1416,8 +1429,8 @@ unsafe extern "C" fn key_tap_callback(
         }
         return event;
     }
-    if keycode == KEY_ESCAPE && !cmd && !ctrl {
-        telemetry.escape_pressed.store(true, Ordering::Release);
+    if telemetry.matches_cancel(keycode, flags) {
+        telemetry.cancel_pressed.store(true, Ordering::Release);
     }
     if !telemetry.active.load(Ordering::Acquire) {
         return event;

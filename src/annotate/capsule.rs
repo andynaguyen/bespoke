@@ -83,6 +83,7 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
             clock: "0:21".into(),
             reduced_motion: false,
             shortcut: "⌥⇧S".into(),
+            cancel: "esc".into(),
         },
         anchor,
     );
@@ -566,7 +567,7 @@ impl AnnotateCapsule {
                         )
                         .child(icon("overlay-cancel").size(px(11.)))
                         .child(self.hint(
-                            "esc",
+                            &snapshot.cancel,
                             c.keycap,
                             c.text.a(0.75),
                             c,

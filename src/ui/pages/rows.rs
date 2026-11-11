@@ -63,6 +63,46 @@ pub fn dropdown(
 }
 
 pub fn shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
+    activation_row(
+        "shortcut_activation",
+        "settings.general.shortcutActivation",
+        s.shortcut_activation,
+        cx,
+        |activation, cx| {
+            set(
+                cx,
+                "shortcut_activation",
+                move |s| s.shortcut_activation = activation,
+                move |app| shortcut::change_shortcut_activation_setting(app, activation),
+            );
+        },
+    )
+}
+
+pub fn annotate_shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
+    activation_row(
+        "annotate_shortcut_activation",
+        "annotate.shortcutActivation",
+        s.annotate_shortcut_activation,
+        cx,
+        |activation, cx| {
+            set(
+                cx,
+                "annotate_shortcut_activation",
+                move |s| s.annotate_shortcut_activation = activation,
+                move |app| shortcut::change_annotate_shortcut_activation_setting(app, activation),
+            );
+        },
+    )
+}
+
+fn activation_row(
+    key: &'static str,
+    prefix: &str,
+    selected: ShortcutActivation,
+    cx: &App,
+    on_select: impl Fn(ShortcutActivation, &mut App) + 'static,
+) -> AnyElement {
     let option = |value: &str, label: &str| {
         DropdownOption::new(
             value.to_string(),
@@ -70,20 +110,18 @@ pub fn shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
                 "settings.general.shortcutActivation.options.{label}"
             )),
         )
-        .description(t(&format!(
-            "settings.general.shortcutActivation.descriptions.{value}"
-        )))
+        .description(t(&format!("{prefix}.descriptions.{value}")))
     };
-    let selected = match s.shortcut_activation {
+    let selected = match selected {
         ShortcutActivation::HoldOrToggle => "hold_or_toggle",
         ShortcutActivation::PushToTalk => "push_to_talk",
         ShortcutActivation::Toggle => "toggle",
     };
-    SettingContainer::new(t("settings.general.shortcutActivation.title"))
-        .description(t("settings.general.shortcutActivation.description"))
+    SettingContainer::new(t(&format!("{prefix}.title")))
+        .description(t(&format!("{prefix}.description")))
         .child(
             Dropdown::new(
-                "shortcut_activation",
+                key,
                 vec![
                     option("hold_or_toggle", "holdOrToggle"),
                     option("push_to_talk", "pushToTalk"),
@@ -92,19 +130,14 @@ pub fn shortcut_activation(s: &AppSettings, cx: &App) -> AnyElement {
             )
             .selected(Some(selected))
             .menu_end_aligned(rems(20.))
-            .disabled(store(cx).is_updating("shortcut_activation"))
-            .on_select(|value, _, cx| {
+            .disabled(store(cx).is_updating(key))
+            .on_select(move |value, _, cx| {
                 let activation = match value.as_ref() {
                     "push_to_talk" => ShortcutActivation::PushToTalk,
                     "toggle" => ShortcutActivation::Toggle,
                     _ => ShortcutActivation::HoldOrToggle,
                 };
-                set(
-                    cx,
-                    "shortcut_activation",
-                    move |s| s.shortcut_activation = activation,
-                    move |app| shortcut::change_shortcut_activation_setting(app, activation),
-                );
+                on_select(activation, cx);
             }),
         )
         .into_any_element()

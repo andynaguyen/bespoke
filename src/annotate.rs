@@ -26,16 +26,17 @@ use std::sync::{Arc, Mutex};
 
 use gpui::App;
 
-use crate::annotate::capture::{ShortcutConfig, ShortcutKind};
+use crate::annotate::capture::{ShortcutConfig, ShortcutKind, Shortcuts};
 use crate::annotate::handoff::Finished;
 use crate::annotate::permissions::Permission;
 use crate::app_handle::AppHandle;
 use crate::managers::history::{CaptureUsage, HistoryManager};
-use crate::settings::{AppSettings, get_settings};
+use crate::settings::{AppSettings, ShortcutActivation, get_settings};
 use crate::ui::pages::settings::SettingsSection;
 
 pub const RECORD_BINDING: &str = "annotate";
 pub const PASTE_BINDING: &str = "annotate_paste";
+pub const CANCEL_BINDING: &str = "annotate_cancel";
 
 /// Emitted when a capture's bundle is written, so open views can pick it up.
 pub const CAPTURE_FINISHED: &str = "annotate-capture-finished";
@@ -158,27 +159,59 @@ fn capture_usage(capture: Finished) -> CaptureUsage {
     }
 }
 
-/// A press of one of the Annotate bindings. Releases are ignored: Scrawl polls the modifiers to
-/// tell a tap (record the screen) from a hold (the target switcher).
 pub fn handle_shortcut(binding_id: &str, is_pressed: bool) {
-    if !is_pressed {
+    if binding_id == PASTE_BINDING {
+        if is_pressed {
+            crate::annotate::capture::press(ShortcutKind::Paste);
+        }
         return;
     }
-    let kind = if binding_id == PASTE_BINDING {
-        ShortcutKind::Paste
+    if is_pressed {
+        crate::annotate::capture::press(ShortcutKind::Record);
     } else {
-        ShortcutKind::Record
+        crate::annotate::capture::record_released();
+    }
+}
+
+pub fn shortcut_behavior() -> hold::ShortcutBehavior {
+    AppHandle::try_global().map_or(
+        hold::ShortcutBehavior {
+            activation: ShortcutActivation::Toggle,
+            tap_ms: hold::TAP_MS,
+        },
+        |app| {
+            let settings = get_settings(app);
+            hold::ShortcutBehavior {
+                activation: settings.annotate_shortcut_activation,
+                tap_ms: settings.hold_threshold_ms,
+            }
+        },
+    )
+}
+
+/// Whether setting binding `id` to `binding` gives Annotate's record and cancel bindings the
+/// same combo.
+pub fn clashes_with_cancel(settings: &AppSettings, id: &str, binding: &str) -> bool {
+    let other = match id {
+        RECORD_BINDING => CANCEL_BINDING,
+        CANCEL_BINDING => RECORD_BINDING,
+        _ => return false,
     };
-    crate::annotate::capture::press(kind);
+    let combo = |binding: &str| {
+        crate::annotate::capture::shortcut_from_binding(binding)
+            .map(|config| (config.key_code, config.carbon_modifiers))
+    };
+    let Some(other) = settings.bindings.get(other) else {
+        return false;
+    };
+    combo(binding).is_some_and(|this| Some(this) == combo(&other.current_binding))
 }
 
 pub fn sync_shortcuts(settings: &AppSettings) {
-    let (record, paste) = shortcuts(settings);
-    crate::annotate::capture::set_shortcuts(record, paste);
+    crate::annotate::capture::set_shortcuts(shortcuts(settings));
 }
 
-/// The record and paste combos for the Annotate bindings in `settings`.
-fn shortcuts(settings: &AppSettings) -> (ShortcutConfig, ShortcutConfig) {
+fn shortcuts(settings: &AppSettings) -> Shortcuts {
     let config = |id: &str, kind: ShortcutKind| {
         let Some(binding) = settings.bindings.get(id) else {
             return kind.default_config();
@@ -191,8 +224,34 @@ fn shortcuts(settings: &AppSettings) -> (ShortcutConfig, ShortcutConfig) {
             },
         )
     };
-    (
-        config(RECORD_BINDING, ShortcutKind::Record),
-        config(PASTE_BINDING, ShortcutKind::Paste),
-    )
+    let cancel = settings.bindings.get(CANCEL_BINDING).map_or_else(
+        ShortcutConfig::default_cancel,
+        |binding| {
+            crate::annotate::capture::shortcut_from_binding(&binding.current_binding)
+                .unwrap_or_else(ShortcutConfig::default_cancel)
+        },
+    );
+    Shortcuts {
+        record: config(RECORD_BINDING, ShortcutKind::Record),
+        paste: config(PASTE_BINDING, ShortcutKind::Paste),
+        cancel,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn record_and_cancel_cannot_share_a_combo_from_either_side() {
+        let settings = crate::settings::get_default_settings();
+        assert!(clashes_with_cancel(&settings, RECORD_BINDING, "escape"));
+        assert!(clashes_with_cancel(
+            &settings,
+            CANCEL_BINDING,
+            "option_left+shift_left+s"
+        ));
+        assert!(!clashes_with_cancel(&settings, CANCEL_BINDING, "ctrl+x"));
+        assert!(!clashes_with_cancel(&settings, PASTE_BINDING, "escape"));
+    }
 }

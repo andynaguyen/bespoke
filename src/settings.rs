@@ -320,6 +320,7 @@ pub struct AppSettings {
     #[serde(default)]
     pub bindings: HashMap<String, ShortcutBinding>,
     pub shortcut_activation: ShortcutActivation,
+    pub annotate_shortcut_activation: ShortcutActivation,
     pub hold_threshold_ms: u64,
     pub audio_feedback: bool,
     pub audio_feedback_volume: f32,
@@ -749,8 +750,14 @@ pub fn get_default_settings() -> AppSettings {
         (
             crate::annotate::RECORD_BINDING,
             "Annotate",
-            "Records the screen, your voice and what you draw. Tap to record the screen, hold to choose what to record.",
+            "Records the screen, your voice and what you draw.",
             "option+shift+s",
+        ),
+        (
+            crate::annotate::CANCEL_BINDING,
+            "Cancel Annotate",
+            "Cancels the current Annotate recording.",
+            "escape",
         ),
         (
             crate::annotate::PASTE_BINDING,
@@ -785,6 +792,7 @@ pub fn get_default_settings() -> AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
         shortcut_activation: ShortcutActivation::default(),
+        annotate_shortcut_activation: ShortcutActivation::Toggle,
         hold_threshold_ms: default_hold_threshold_ms(),
         audio_feedback: false,
         audio_feedback_volume: default_audio_feedback_volume(),
@@ -1147,6 +1155,10 @@ mod tests {
         assert_eq!(
             settings.shortcut_activation,
             ShortcutActivation::HoldOrToggle
+        );
+        assert_eq!(
+            settings.annotate_shortcut_activation,
+            ShortcutActivation::Toggle
         );
         assert_eq!(settings.hold_threshold_ms, default_hold_threshold_ms());
         assert!(!settings.audio_feedback);

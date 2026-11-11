@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "주석 단축키",
-            "description": "탭하면 포인터가 있는 화면을 녹화하고, 다시 탭하면 끝납니다. 길게 누르면 영역, 윈도우 또는 화면을 선택합니다."
+            "description": "포인터가 있는 화면, 목소리, 그린 내용을 녹화합니다."
+          },
+          "annotate_cancel": {
+            "name": "취소 단축키",
+            "description": "현재 녹음을 취소하는 키보드 단축키입니다."
           },
           "annotate_paste": {
             "name": "마지막 캡처 붙여넣기",
@@ -954,6 +958,7 @@
       "record": "녹화",
       "empty": "아직 캡처가 없습니다",
       "emptyHint": "{{record}}을(를) 탭하면 말하는 동안 포인터가 있는 화면을 녹화합니다.",
+      "emptyHintHold": "{{record}}을(를) 길게 누르면 말하는 동안 포인터가 있는 화면을 녹화합니다.",
       "back": "캡처로 돌아가기",
       "contactSheet": "콘택트 시트",
       "keyframe": "키프레임",
@@ -963,6 +968,15 @@
       "copy": "복사",
       "copied": "복사됨",
       "copyFailed": "캡처를 복사할 수 없습니다"
+    },
+    "shortcutActivation": {
+      "title": "단축키 동작",
+      "description": "주석 단축키로 녹화를 시작하고 중지하는 방식을 선택합니다.",
+      "descriptions": {
+        "hold_or_toggle": "길게 누르면 녹음, 탭하면 전환.",
+        "push_to_talk": "단축키를 누르고 있는 동안 녹음합니다.",
+        "toggle": "탭하면 포인터가 있는 화면을 녹화하고, 다시 탭하면 끝납니다. 길게 누르면 영역, 윈도우 또는 화면을 선택합니다."
+      }
     },
     "picker": {
       "fullScreenHold": "전체 화면 · {{holdKey}}(으)로 전환 · 드래그하여 영역 지정 · {{holdMods}}을(를) 놓아 녹화",

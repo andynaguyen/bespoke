@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "Pintasan Anotasi",
-            "description": "Ketuk untuk merekam layar di bawah penunjuk, ketuk lagi untuk selesai. Tahan untuk memilih area, jendela, atau layar."
+            "description": "Merekam layar di bawah penunjuk, suara Anda, dan apa yang Anda gambar."
+          },
+          "annotate_cancel": {
+            "name": "Pintasan Batal",
+            "description": "Pintasan keyboard untuk membatalkan perekaman saat ini."
           },
           "annotate_paste": {
             "name": "Tempel Tangkapan Terakhir",
@@ -954,6 +958,7 @@
       "record": "Rekam",
       "empty": "Belum ada tangkapan",
       "emptyHint": "Ketuk {{record}} untuk merekam layar di bawah penunjuk sambil Anda berbicara.",
+      "emptyHintHold": "Tahan {{record}} untuk merekam layar di bawah penunjuk sambil Anda berbicara.",
       "back": "Kembali ke tangkapan",
       "contactSheet": "Lembar Kontak",
       "keyframe": "Keyframe",
@@ -963,6 +968,15 @@
       "copy": "Salin",
       "copied": "Disalin",
       "copyFailed": "Tidak dapat menyalin tangkapan"
+    },
+    "shortcutActivation": {
+      "title": "Perilaku Pintasan",
+      "description": "Pilih cara pintasan anotasi memulai dan menghentikan perekaman.",
+      "descriptions": {
+        "hold_or_toggle": "Tahan untuk merekam atau tekan untuk mulai/berhenti.",
+        "push_to_talk": "Merekam selama Anda menahan pintasan.",
+        "toggle": "Ketuk untuk merekam layar di bawah penunjuk, ketuk lagi untuk selesai. Tahan untuk memilih area, jendela, atau layar."
+      }
     },
     "picker": {
       "fullScreenHold": "Layar penuh · {{holdKey}} untuk beralih · seret untuk area · lepas {{holdMods}} untuk merekam",

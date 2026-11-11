@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "Kortkommando för annotering",
-            "description": "Tryck för att spela in skärmen under pekaren, tryck igen för att avsluta. Håll ned för att välja ett område, ett fönster eller skärmen."
+            "description": "Spelar in skärmen under pekaren, din röst och det du ritar."
+          },
+          "annotate_cancel": {
+            "name": "Kortkommando för att avbryta",
+            "description": "Kortkommandot för att avbryta den aktuella inspelningen."
           },
           "annotate_paste": {
             "name": "Klistra in senaste inspelningen",
@@ -956,6 +960,7 @@
       "record": "Spela in",
       "empty": "Inga inspelningar ännu",
       "emptyHint": "Tryck på {{record}} för att spela in skärmen under pekaren medan du pratar.",
+      "emptyHintHold": "Håll ned {{record}} för att spela in skärmen under pekaren medan du pratar.",
       "back": "Tillbaka till inspelningar",
       "contactSheet": "Kontaktkarta",
       "keyframe": "Nyckelbildruta",
@@ -966,6 +971,15 @@
       "copy": "Kopiera",
       "copied": "Kopierad",
       "copyFailed": "Det gick inte att kopiera inspelningen"
+    },
+    "shortcutActivation": {
+      "title": "Genvägens beteende",
+      "description": "Välj hur kortkommandot för annotering startar och stoppar inspelningen.",
+      "descriptions": {
+        "hold_or_toggle": "Håll nere för att spela in eller tryck kort för att växla.",
+        "push_to_talk": "Spelar in så länge du håller genvägen nedtryckt.",
+        "toggle": "Tryck för att spela in skärmen under pekaren, tryck igen för att avsluta. Håll ned för att välja ett område, ett fönster eller skärmen."
+      }
     },
     "picker": {
       "fullScreenHold": "Helskärm · {{holdKey}} för att växla · dra för ett område · släpp {{holdMods}} för att spela in",

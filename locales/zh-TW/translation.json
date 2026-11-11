@@ -178,7 +178,11 @@
           },
           "annotate": {
             "name": "標註快捷鍵",
-            "description": "輕按以錄製指標所在的螢幕，再按一次結束。按住可選擇區域、視窗或螢幕。"
+            "description": "錄製指標所在的螢幕、你的聲音和你畫的內容。"
+          },
+          "annotate_cancel": {
+            "name": "取消快捷鍵",
+            "description": "用於取消目前錄製的鍵盤快捷鍵。"
           },
           "annotate_paste": {
             "name": "貼上最新錄影",
@@ -954,6 +958,7 @@
       "record": "錄製",
       "empty": "還沒有錄影",
       "emptyHint": "輕按 {{record}}，一邊解說一邊錄製指標所在的螢幕。",
+      "emptyHintHold": "按住 {{record}}，一邊解說一邊錄製指標所在的螢幕。",
       "back": "返回錄影",
       "contactSheet": "縮圖總覽",
       "keyframe": "關鍵影格",
@@ -963,6 +968,15 @@
       "copy": "複製",
       "copied": "已複製",
       "copyFailed": "無法複製錄影"
+    },
+    "shortcutActivation": {
+      "title": "快捷鍵行為",
+      "description": "選擇標註快捷鍵開始和停止錄製的方式。",
+      "descriptions": {
+        "hold_or_toggle": "按住錄音，或輕按切換。",
+        "push_to_talk": "按住快捷鍵期間錄音。",
+        "toggle": "輕按以錄製指標所在的螢幕，再按一次結束。按住可選擇區域、視窗或螢幕。"
+      }
     },
     "picker": {
       "fullScreenHold": "全螢幕 · 按 {{holdKey}} 切換 · 拖移選擇區域 · 放開 {{holdMods}} 開始錄製",
