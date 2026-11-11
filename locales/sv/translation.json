@@ -283,6 +283,10 @@
         "title": "Volym",
         "description": "Justera volymen för ljudåterkopplingsljud."
       },
+      "recordingOutputVolume": {
+        "title": "Volym under inspelning",
+        "description": "Sänker annat ljud under inspelning. 0 % stänger av det och 100 % lämnar det oförändrat."
+      },
       "defaultDevice": "Standard"
     },
     "advanced": {
@@ -651,10 +655,6 @@
       "postProcessingToggle": {
         "label": "AI-efterbearbetning",
         "description": "Aktivera AI-driven textförfining efter transkription."
-      },
-      "muteWhileRecording": {
-        "label": "Ljudlös under inspelning",
-        "description": "Stäng av systemljudet under inspelning."
       },
       "appendTrailingSpace": {
         "label": "Lägg till avslutande mellanslag",

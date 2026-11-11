@@ -355,7 +355,9 @@ pub struct AppSettings {
     pub post_process_models: HashMap<String, String>,
     pub post_process_prompts: Vec<LLMPrompt>,
     pub post_process_selected_prompt_id: Option<String>,
-    pub mute_while_recording: bool,
+    /// How loud other audio plays while Dictate or Annotate records, as a share of its volume.
+    /// 0.0 silences it and 1.0 leaves it alone.
+    pub recording_output_volume: f32,
     pub append_trailing_space: bool,
     pub app_language: String,
     pub theme: Theme,
@@ -488,6 +490,10 @@ fn default_recording_retention_period() -> RecordingRetentionPeriod {
 }
 
 fn default_audio_feedback_volume() -> f32 {
+    1.0
+}
+
+fn default_recording_output_volume() -> f32 {
     1.0
 }
 
@@ -810,7 +816,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
         post_process_selected_prompt_id: None,
-        mute_while_recording: false,
+        recording_output_volume: default_recording_output_volume(),
         append_trailing_space: false,
         app_language: default_app_language(),
         theme: default_theme(),
@@ -963,6 +969,16 @@ fn apply_settings_migrations(
         } else {
             ShortcutActivation::Toggle
         };
+        updated = true;
+    }
+
+    if settings_value.get("recording_output_volume").is_none()
+        && settings_value
+            .get("mute_while_recording")
+            .and_then(|v| v.as_bool())
+            == Some(true)
+    {
+        settings.recording_output_volume = 0.0;
         updated = true;
     }
 
@@ -1434,6 +1450,32 @@ mod tests {
         assert!(apply_settings_migrations(&mut settings, &raw));
         assert_eq!(settings.overlay_style, OverlayStyle::Live);
         assert_eq!(settings.overlay_position, OverlayPosition::Top);
+    }
+
+    #[test]
+    fn mute_while_recording_migrates_to_silence() {
+        let mut settings = get_default_settings();
+        let raw = serde_json::json!({ "mute_while_recording": true });
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.recording_output_volume, 0.0);
+    }
+
+    #[test]
+    fn mute_while_recording_off_leaves_audio_alone() {
+        let mut settings = get_default_settings();
+        let raw = serde_json::json!({ "mute_while_recording": false });
+        apply_settings_migrations(&mut settings, &raw);
+        assert_eq!(settings.recording_output_volume, 1.0);
+    }
+
+    #[test]
+    fn recording_output_volume_wins_over_the_old_mute_key() {
+        let mut settings = get_default_settings();
+        settings.recording_output_volume = 0.4;
+        let raw =
+            serde_json::json!({ "mute_while_recording": true, "recording_output_volume": 0.4 });
+        apply_settings_migrations(&mut settings, &raw);
+        assert_eq!(settings.recording_output_volume, 0.4);
     }
 
     #[test]

@@ -263,6 +263,10 @@
         "title": "볼륨",
         "description": "오디오 피드백 사운드의 볼륨 조절."
       },
+      "recordingOutputVolume": {
+        "title": "녹음 중 볼륨",
+        "description": "녹음 중 다른 오디오의 볼륨을 낮춥니다. 0%는 음소거하고 100%는 변경하지 않습니다."
+      },
       "defaultDevice": "기본값"
     },
     "models": {
@@ -650,10 +654,6 @@
       "postProcessingToggle": {
         "label": "AI 후처리",
         "description": "텍스트 변환 후 AI 기반 텍스트 개선 활성화."
-      },
-      "muteWhileRecording": {
-        "label": "녹음 중 음소거",
-        "description": "녹음 중 시스템 오디오 음소거."
       },
       "appendTrailingSpace": {
         "label": "끝 공백 추가",

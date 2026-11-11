@@ -283,6 +283,10 @@
         "title": "Ses Seviyesi",
         "description": "Sesli geri bildirimlerin ses seviyesini ayarlayın."
       },
+      "recordingOutputVolume": {
+        "title": "Kayıt Sırasında Ses Seviyesi",
+        "description": "Kayıt sırasında diğer sesleri kısar. %0 sessize alır, %100 değiştirmez."
+      },
       "defaultDevice": "Varsayılan"
     },
     "advanced": {
@@ -651,10 +655,6 @@
       "postProcessingToggle": {
         "label": "Yapay Zekâ ile Son İşlem",
         "description": "Transkripsiyon sonrası yapay zekâ destekli metin iyileştirmeyi etkinleştirir."
-      },
-      "muteWhileRecording": {
-        "label": "Kayıt Sırasında Sessize Al",
-        "description": "Kayıt sırasında sistem sesini kapatır."
       },
       "appendTrailingSpace": {
         "label": "Sonuna Boşluk Ekle",

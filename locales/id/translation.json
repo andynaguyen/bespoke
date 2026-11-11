@@ -283,6 +283,10 @@
         "title": "Volume",
         "description": "Sesuaikan volume suara umpan balik audio."
       },
+      "recordingOutputVolume": {
+        "title": "Volume Saat Merekam",
+        "description": "Kecilkan audio lain saat merekam. 0% membisukannya, dan 100% membiarkannya tidak berubah."
+      },
       "defaultDevice": "Bawaan"
     },
     "advanced": {
@@ -664,10 +668,6 @@
       "postProcessingToggle": {
         "label": "Pascaproses AI",
         "description": "Aktifkan penyempurnaan teks berbasis AI setelah transkripsi."
-      },
-      "muteWhileRecording": {
-        "label": "Bisukan Saat Merekam",
-        "description": "Bisukan audio sistem selama perekaman."
       },
       "appendTrailingSpace": {
         "label": "Tambahkan Spasi di Akhir",

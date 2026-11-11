@@ -601,7 +601,7 @@ impl ShortcutAction for TranscribeAction {
                         play_feedback_sound_blocking(&app_clone, SoundType::Start);
                     }
                     if rm_clone.is_recording_readiness_current(generation) {
-                        rm_clone.apply_mute(generation);
+                        rm_clone.lower_system_output(generation);
                     }
                 });
             }
@@ -678,7 +678,7 @@ impl ShortcutAction for TranscribeAction {
             show_transcribing_overlay(app);
         }
 
-        rm.remove_mute();
+        rm.restore_system_output();
 
         play_feedback_sound(app, SoundType::Stop);
 

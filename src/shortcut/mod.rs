@@ -952,8 +952,8 @@ pub fn set_post_process_selected_prompt(app: AppHandle, id: String) -> Result<()
     })
 }
 
-pub fn change_mute_while_recording_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
-    settings::update(&app, |settings| settings.mute_while_recording = enabled);
+pub fn change_recording_output_volume_setting(app: AppHandle, volume: f32) -> Result<(), String> {
+    settings::update(&app, |settings| settings.recording_output_volume = volume);
     Ok(())
 }
 

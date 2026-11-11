@@ -283,6 +283,10 @@
         "title": "Volum",
         "description": "Ajusta el volum dels avisos sonors."
       },
+      "recordingOutputVolume": {
+        "title": "Volum durant l'enregistrament",
+        "description": "Abaixa l'altre àudio durant l'enregistrament. El 0% el silencia i el 100% el deixa igual."
+      },
       "defaultDevice": "Predeterminat"
     },
     "advanced": {
@@ -667,10 +671,6 @@
       "postProcessingToggle": {
         "label": "Postprocessament amb IA",
         "description": "Activa la millora del text amb IA després de la transcripció."
-      },
-      "muteWhileRecording": {
-        "label": "Silencia durant l'enregistrament",
-        "description": "Silencia l'àudio del sistema durant l'enregistrament."
       },
       "appendTrailingSpace": {
         "label": "Afegiu un espai al final",

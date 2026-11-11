@@ -66,6 +66,7 @@ pub fn run(
 
     let quit_app = app.clone();
     cx.on_app_quit(move |_| {
+        crate::system_output::restore_and_stop_lowering();
         if let Some(tm) = quit_app.try_state::<Arc<TranscriptionManager>>() {
             tm.unload_model();
         }

@@ -283,6 +283,10 @@
         "title": "Lautstärke",
         "description": "Lautstärke der Audio-Feedback-Töne anpassen."
       },
+      "recordingOutputVolume": {
+        "title": "Lautstärke während der Aufnahme",
+        "description": "Senkt anderen Ton während der Aufnahme. 0 % schaltet ihn stumm, 100 % lässt ihn unverändert."
+      },
       "defaultDevice": "Standard"
     },
     "advanced": {
@@ -651,10 +655,6 @@
       "postProcessingToggle": {
         "label": "KI-Nachbearbeitung",
         "description": "KI-gestützte Textverfeinerung nach der Transkription aktivieren."
-      },
-      "muteWhileRecording": {
-        "label": "Während Aufnahme stummschalten",
-        "description": "Systemaudio während der Aufnahme stummschalten."
       },
       "appendTrailingSpace": {
         "label": "Leerzeichen anhängen",

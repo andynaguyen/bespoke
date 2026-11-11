@@ -283,6 +283,10 @@
         "title": "Volume",
         "description": "Regola il volume del feedback audio."
       },
+      "recordingOutputVolume": {
+        "title": "Volume durante la registrazione",
+        "description": "Abbassa l'altro audio durante la registrazione. 0% lo silenzia e 100% lo lascia invariato."
+      },
       "defaultDevice": "Predefinito"
     },
     "advanced": {
@@ -653,10 +657,6 @@
       "postProcessingToggle": {
         "label": "Post-elaborazione IA",
         "description": "Abilita il miglioramento della trascrizione con IA."
-      },
-      "muteWhileRecording": {
-        "label": "Silenzia durante la registrazione",
-        "description": "Silenzia l'audio di sistema durante la registrazione."
       },
       "appendTrailingSpace": {
         "label": "Aggiungi Spazio Finale",

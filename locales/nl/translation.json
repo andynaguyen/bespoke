@@ -283,6 +283,10 @@
         "title": "Volume",
         "description": "Pas het volume van de geluidsfeedback aan."
       },
+      "recordingOutputVolume": {
+        "title": "Volume tijdens opname",
+        "description": "Zet ander geluid zachter tijdens het opnemen. 0% dempt het en 100% laat het ongewijzigd."
+      },
       "defaultDevice": "Standaard"
     },
     "advanced": {
@@ -665,10 +669,6 @@
       "postProcessingToggle": {
         "label": "AI-naverwerking",
         "description": "Schakel AI-gestuurde tekstverfijning in na transcriptie."
-      },
-      "muteWhileRecording": {
-        "label": "Dempen tijdens opname",
-        "description": "Systeemgeluid dempen tijdens het opnemen."
       },
       "appendTrailingSpace": {
         "label": "Spatie achteraan toevoegen",

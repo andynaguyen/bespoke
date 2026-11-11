@@ -283,6 +283,10 @@
         "title": "音量",
         "description": "オーディオフィードバックの音量を調整。"
       },
+      "recordingOutputVolume": {
+        "title": "録音中の音量",
+        "description": "録音中はほかのオーディオの音量を下げます。0%でミュートし、100%では変更しません。"
+      },
       "defaultDevice": "デフォルト"
     },
     "advanced": {
@@ -650,10 +654,6 @@
       "postProcessingToggle": {
         "label": "AI 後処理",
         "description": "文字起こし後の AI によるテキスト改善を有効化。"
-      },
-      "muteWhileRecording": {
-        "label": "録音中にミュート",
-        "description": "録音中にシステムオーディオをミュート。"
       },
       "appendTrailingSpace": {
         "label": "末尾にスペースを追加",

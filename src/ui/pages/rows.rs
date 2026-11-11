@@ -250,22 +250,24 @@ fn device_row(
         .into_any_element()
 }
 
-pub fn mute_while_recording(s: &AppSettings, cx: &App) -> AnyElement {
-    toggle(
-        "mute_while_recording",
-        "settings.debug.muteWhileRecording.label",
-        "settings.debug.muteWhileRecording.description",
-        s.mute_while_recording,
-        cx,
-        |v, cx| {
-            set(
-                cx,
-                "mute_while_recording",
-                move |s| s.mute_while_recording = v,
-                move |app| shortcut::change_mute_while_recording_setting(app, v),
-            )
-        },
+pub fn recording_output_volume(s: &AppSettings) -> AnyElement {
+    Slider::new(
+        "recording_output_volume",
+        t("settings.sound.recordingOutputVolume.title"),
+        t("settings.sound.recordingOutputVolume.description"),
+        s.recording_output_volume,
+        0.0..=1.0,
     )
+    .format(|v| format!("{}%", (v * 100.).round() as i64))
+    .on_change(|v, _, cx| {
+        set(
+            cx,
+            "recording_output_volume",
+            move |s| s.recording_output_volume = v,
+            move |app| shortcut::change_recording_output_volume_setting(app, v),
+        )
+    })
+    .into_any_element()
 }
 
 pub fn translate_to_english(s: &AppSettings, cx: &App) -> AnyElement {

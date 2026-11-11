@@ -33,6 +33,7 @@ mod signal_handle;
 mod single_instance;
 mod startup;
 mod system_clipboard;
+mod system_output;
 mod transcription_coordinator;
 mod tray;
 mod tray_i18n;

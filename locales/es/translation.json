@@ -283,6 +283,10 @@
         "title": "Volumen",
         "description": "Ajusta el volumen de los sonidos de retroalimentación de audio."
       },
+      "recordingOutputVolume": {
+        "title": "Volumen durante la grabación",
+        "description": "Baja el resto del audio durante la grabación. El 0% lo silencia y el 100% lo deja igual."
+      },
       "defaultDevice": "Predeterminado"
     },
     "advanced": {
@@ -653,10 +657,6 @@
       "postProcessingToggle": {
         "label": "Post procesamiento con IA",
         "description": "Habilitar refinamiento de texto impulsado por IA después de la transcripción."
-      },
-      "muteWhileRecording": {
-        "label": "Silenciar durante la grabación",
-        "description": "Silenciar el audio del sistema durante la grabación."
       },
       "appendTrailingSpace": {
         "label": "Agregar espacio final",

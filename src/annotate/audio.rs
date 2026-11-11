@@ -5,9 +5,15 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, anyhow, bail};
 
 use crate::annotate::capture::annotate_log;
+use crate::app_handle::AppHandle;
+use crate::audio_feedback::{SoundType, play_feedback_sound, play_feedback_sound_blocking};
 use crate::audio_toolkit::{AudioRecorder as Microphone, RecordingStart, VadPolicy};
+use crate::settings::get_settings;
+use crate::system_output::{self, Hold};
 
 const SAMPLE_RATE: u32 = 16_000;
+
+const WAIT_POLL: Duration = Duration::from_millis(20);
 
 /// Records the microphone for one capture with the device and input channel picked on
 /// Bespoke's Sound page. Opening and closing the device happen on the recorder's own thread,
@@ -38,7 +44,7 @@ impl AudioRecorder {
     /// `started_at`, the capture's clock.
     pub fn stop(self, started_at: Instant) -> Result<Vec<f32>> {
         let Self { worker, stop } = self;
-        drop(stop);
+        let _ = stop.send(());
         let Heard { mut samples, start } = worker
             .join()
             .map_err(|_| anyhow!("Microphone worker panicked"))??;
@@ -63,7 +69,8 @@ impl AudioRecorder {
 /// Opens the microphone, records until `stopped` fires or its sender is dropped, then closes
 /// the microphone so the system's indicator turns off.
 fn record(stopped: &mpsc::Receiver<()>) -> Result<Heard> {
-    let settings = crate::app_handle::AppHandle::try_global().map(crate::settings::get_settings);
+    let app = AppHandle::try_global();
+    let settings = app.map(get_settings);
     let channel = settings.as_ref().and_then(|s| s.selected_channel);
     let preferred = settings
         .as_ref()
@@ -72,20 +79,110 @@ fn record(stopped: &mpsc::Receiver<()>) -> Result<Heard> {
     let started = microphone
         .start(VadPolicy::Disabled)
         .map_err(|e| anyhow!("Could not start the microphone: {e}"));
-    if started.is_ok() {
-        let _ = stopped.recv();
-    }
+    let ended = match &started {
+        Ok(ready) => hold_until_stopped(ready, stopped, app),
+        Err(_) => Ended::silently(),
+    };
     let samples = started.and_then(|_| {
         microphone
             .stop()
             .map_err(|e| anyhow!("Could not stop the microphone: {e}"))
     });
     let start = microphone.recording_start();
+    ended.restore_output_then_play_stop_sound(app);
     microphone.close();
     Ok(Heard {
         samples: samples?,
         start,
     })
+}
+
+fn hold_until_stopped(
+    ready: &mpsc::Receiver<()>,
+    stopped: &mpsc::Receiver<()>,
+    app: Option<&AppHandle>,
+) -> Ended {
+    if wait_for(ready, stopped) != Waited::Arrived {
+        return Ended::silently();
+    }
+    let Some(app) = app else {
+        return Ended::after(None, wait_for_end(stopped));
+    };
+    match wait_for(&spawn_start_sound(app), stopped) {
+        Waited::Arrived => {}
+        waited => return Ended::after(None, waited),
+    }
+    let output_hold = system_output::lower(get_settings(app).recording_output_volume);
+    Ended::after(output_hold, wait_for_end(stopped))
+}
+
+struct Ended {
+    output_hold: Option<Hold>,
+    play_stop_sound: bool,
+}
+
+impl Ended {
+    fn silently() -> Self {
+        Self {
+            output_hold: None,
+            play_stop_sound: false,
+        }
+    }
+
+    fn after(output_hold: Option<Hold>, waited: Waited) -> Self {
+        Self {
+            output_hold,
+            play_stop_sound: waited == Waited::Finished,
+        }
+    }
+
+    fn restore_output_then_play_stop_sound(self, app: Option<&AppHandle>) {
+        drop(self.output_hold);
+        if self.play_stop_sound
+            && let Some(app) = app
+        {
+            play_feedback_sound(app, SoundType::Stop);
+        }
+    }
+}
+
+fn spawn_start_sound(app: &AppHandle) -> mpsc::Receiver<()> {
+    let (done, ended) = mpsc::channel();
+    let app = app.clone();
+    std::thread::spawn(move || {
+        play_feedback_sound_blocking(&app, SoundType::Start);
+        let _ = done.send(());
+    });
+    ended
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Waited {
+    Arrived,
+    Finished,
+    Discarded,
+}
+
+fn wait_for(signal: &mpsc::Receiver<()>, stopped: &mpsc::Receiver<()>) -> Waited {
+    loop {
+        match stopped.try_recv() {
+            Ok(()) => return Waited::Finished,
+            Err(mpsc::TryRecvError::Disconnected) => return Waited::Discarded,
+            Err(mpsc::TryRecvError::Empty) => {}
+        }
+        match signal.recv_timeout(WAIT_POLL) {
+            Ok(()) => return Waited::Arrived,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => return wait_for_end(stopped),
+        }
+    }
+}
+
+fn wait_for_end(stopped: &mpsc::Receiver<()>) -> Waited {
+    match stopped.recv() {
+        Ok(()) => Waited::Finished,
+        Err(mpsc::RecvError) => Waited::Discarded,
+    }
 }
 
 /// Opens `preferred`, or the system default when there is none or it won't open.
@@ -171,6 +268,66 @@ mod tests {
             start: None,
         }));
         assert!(silent.stop(Instant::now()).is_err());
+    }
+
+    #[test]
+    fn stopping_signals_the_worker_but_dropping_does_not() {
+        let (stop, stopped) = mpsc::channel();
+        let (seen, saw) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _ = seen.send(stopped.recv().is_ok());
+            Ok(Heard {
+                samples: vec![0.1],
+                start: None,
+            })
+        });
+        AudioRecorder { worker, stop }.stop(Instant::now()).unwrap();
+        assert!(saw.recv().unwrap());
+
+        let (stop, stopped) = mpsc::channel();
+        let (seen, saw) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _ = seen.send(stopped.recv().is_ok());
+            Ok(Heard {
+                samples: Vec::new(),
+                start: None,
+            })
+        });
+        drop(AudioRecorder { worker, stop });
+        assert!(!saw.recv().unwrap());
+    }
+
+    #[test]
+    fn a_signal_arrives_while_the_capture_runs() {
+        let (signal_tx, signal) = mpsc::channel();
+        let (_stop, stopped) = mpsc::channel::<()>();
+        signal_tx.send(()).unwrap();
+        assert_eq!(wait_for(&signal, &stopped), Waited::Arrived);
+    }
+
+    #[test]
+    fn a_wait_ends_when_the_capture_does() {
+        let (_signal_tx, signal) = mpsc::channel::<()>();
+        let (stop, stopped) = mpsc::channel();
+        stop.send(()).unwrap();
+        assert_eq!(wait_for(&signal, &stopped), Waited::Finished);
+
+        let (_signal_tx, signal) = mpsc::channel::<()>();
+        let (stop, stopped) = mpsc::channel::<()>();
+        drop(stop);
+        assert_eq!(wait_for(&signal, &stopped), Waited::Discarded);
+    }
+
+    #[test]
+    fn a_signal_that_can_never_fire_waits_for_the_capture_to_end() {
+        let (signal_tx, signal) = mpsc::channel::<()>();
+        drop(signal_tx);
+        let (stop, stopped) = mpsc::channel();
+        let waiter = std::thread::spawn(move || wait_for(&signal, &stopped));
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(!waiter.is_finished());
+        stop.send(()).unwrap();
+        assert_eq!(waiter.join().unwrap(), Waited::Finished);
     }
 
     #[test]

@@ -283,6 +283,10 @@
         "title": "Głośność",
         "description": "Dostosuj głośność dźwięków informacyjnych."
       },
+      "recordingOutputVolume": {
+        "title": "Głośność podczas nagrywania",
+        "description": "Ścisza inne dźwięki podczas nagrywania. 0% wycisza je, a 100% pozostawia bez zmian."
+      },
       "defaultDevice": "Domyślne"
     },
     "advanced": {
@@ -656,10 +660,6 @@
       "postProcessingToggle": {
         "label": "Postprocessing AI",
         "description": "Włącz AI do ulepszania tekstu po transkrypcji."
-      },
-      "muteWhileRecording": {
-        "label": "Wycisz podczas nagrywania",
-        "description": "Wycisz dźwięk systemu podczas nagrywania."
       },
       "appendTrailingSpace": {
         "label": "Dodaj spację na końcu",

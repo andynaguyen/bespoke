@@ -283,6 +283,10 @@
         "title": "עוצמת קול",
         "description": "כוונן את עוצמת צלילי המשוב."
       },
+      "recordingOutputVolume": {
+        "title": "עוצמת קול בזמן הקלטה",
+        "description": "מנמיך שמע אחר בזמן הקלטה. 0% משתיק אותו ו-100% משאיר אותו ללא שינוי."
+      },
       "defaultDevice": "ברירת מחדל"
     },
     "advanced": {
@@ -654,10 +658,6 @@
       "postProcessingToggle": {
         "label": "עיבוד משלים באמצעות AI",
         "description": "הפעל שיפור טקסט מבוסס AI אחרי התמלול."
-      },
-      "muteWhileRecording": {
-        "label": "השתק בזמן הקלטה",
-        "description": "השתק את שמע המערכת בזמן הקלטה."
       },
       "appendTrailingSpace": {
         "label": "הוסף רווח בסוף",

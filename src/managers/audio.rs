@@ -8,6 +8,7 @@ use crate::audio_toolkit::{
 use crate::helpers::clamshell;
 use crate::managers::transcription::StreamRouter;
 use crate::settings::{AppSettings, VadBackend, get_settings};
+use crate::system_output::{self, Hold};
 use crate::utils;
 use log::{debug, error, info, trace, warn};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -17,38 +18,6 @@ use std::time::{Duration, Instant};
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const SILERO_VAD_THRESHOLD: f32 = 0.3;
 const EARSHOT_VAD_THRESHOLD: f32 = 0.5;
-
-fn set_mute(mute: bool) {
-    use std::process::Command;
-    let script = format!(
-        "set volume output muted {}",
-        if mute { "true" } else { "false" }
-    );
-    let _ = Command::new("osascript").args(["-e", &script]).output();
-}
-
-fn get_mute() -> Option<bool> {
-    use std::process::Command;
-
-    let out = Command::new("osascript")
-        .args(["-e", "output muted of (get volume settings)"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    match String::from_utf8_lossy(&out.stdout).trim() {
-        "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn restore_mute(prev_muted: Option<bool>) {
-    if prev_muted != Some(true) {
-        set_mute(false);
-    }
-}
 
 const WHISPER_SAMPLE_RATE: usize = 16000;
 
@@ -63,30 +32,6 @@ pub enum RecordingState {
 pub enum MicrophoneMode {
     AlwaysOn,
     OnDemand,
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-struct MuteState {
-    did_mute: bool,
-    prev_muted: Option<bool>,
-}
-
-impl MuteState {
-    fn apply(&mut self, read: impl FnOnce() -> Option<bool>, mute: impl FnOnce()) {
-        if self.did_mute {
-            return;
-        }
-        self.prev_muted = read();
-        mute();
-        self.did_mute = true;
-    }
-
-    fn remove(&mut self, restore: impl FnOnce(Option<bool>)) {
-        if self.did_mute {
-            restore(self.prev_muted);
-            self.did_mute = false;
-        }
-    }
 }
 
 enum DesiredMicrophone {
@@ -244,7 +189,7 @@ pub struct AudioRecordingManager {
     recorder: Arc<Mutex<Option<AudioRecorder>>>,
     is_open: Arc<Mutex<bool>>,
     is_recording: Arc<Mutex<bool>>,
-    mute_state: Arc<Mutex<MuteState>>,
+    output_hold: Arc<Mutex<Option<Hold>>>,
     close_generation: Arc<AtomicU64>,
     cancel_generation: Arc<AtomicU64>,
     stream_router: Arc<StreamRouter>,
@@ -276,7 +221,7 @@ impl AudioRecordingManager {
             recorder: Arc::new(Mutex::new(None)),
             is_open: Arc::new(Mutex::new(false)),
             is_recording: Arc::new(Mutex::new(false)),
-            mute_state: Arc::new(Mutex::new(MuteState::default())),
+            output_hold: Arc::new(Mutex::new(None)),
             close_generation: Arc::new(AtomicU64::new(0)),
             cancel_generation: Arc::new(AtomicU64::new(0)),
             stream_router,
@@ -352,32 +297,17 @@ impl AudioRecordingManager {
         });
     }
 
-    pub fn apply_mute(&self, generation: u64) {
-        let settings = get_settings(&self.app_handle);
-        if !settings.mute_while_recording {
-            return;
-        }
-
+    pub fn lower_system_output(&self, generation: u64) {
+        let level = get_settings(&self.app_handle).recording_output_volume;
         let is_open = self.is_open.lock().unwrap();
-        let mut mute_guard = self.mute_state.lock().unwrap();
-        if mute_guard.did_mute || !self.is_recording_readiness_current(generation) {
-            return;
-        }
-        if *is_open {
-            mute_guard.apply(get_mute, || set_mute(true));
-            debug!("Mute applied (prev_muted={:?})", mute_guard.prev_muted);
+        let mut hold = self.output_hold.lock().unwrap();
+        if *is_open && hold.is_none() && self.is_recording_readiness_current(generation) {
+            *hold = system_output::lower(level);
         }
     }
 
-    pub fn remove_mute(&self) {
-        let mut mute_guard = self.mute_state.lock().unwrap();
-        if mute_guard.did_mute {
-            mute_guard.remove(restore_mute);
-            debug!(
-                "Mute removed (restored prev_muted={:?})",
-                mute_guard.prev_muted
-            );
-        }
+    pub fn restore_system_output(&self) {
+        self.output_hold.lock().unwrap().take();
     }
 
     pub fn preload_vad(&self) -> Result<(), anyhow::Error> {
@@ -422,13 +352,7 @@ impl AudioRecordingManager {
                 );
             }
 
-            {
-                let mut mute_guard = self.mute_state.lock().unwrap();
-                if mute_guard.did_mute {
-                    restore_mute(mute_guard.prev_muted);
-                    mute_guard.did_mute = false;
-                }
-            }
+            self.restore_system_output();
             if let Some(rec) = self.recorder.lock().unwrap().as_mut() {
                 rec.close();
             }
@@ -438,13 +362,7 @@ impl AudioRecordingManager {
 
         let start_time = Instant::now();
 
-        {
-            let mut mute_guard = self.mute_state.lock().unwrap();
-            if mute_guard.did_mute {
-                restore_mute(mute_guard.prev_muted);
-                mute_guard.did_mute = false;
-            }
-        }
+        self.restore_system_output();
 
         let settings = get_settings(&self.app_handle);
         let resolve_started = Instant::now();
@@ -494,13 +412,7 @@ impl AudioRecordingManager {
             return;
         }
 
-        {
-            let mut mute_guard = self.mute_state.lock().unwrap();
-            if mute_guard.did_mute {
-                restore_mute(mute_guard.prev_muted);
-            }
-            mute_guard.did_mute = false;
-        }
+        self.restore_system_output();
 
         if let Some(rec) = self.recorder.lock().unwrap().as_mut() {
             if *self.is_recording.lock().unwrap() {
@@ -768,7 +680,7 @@ impl AudioRecordingManager {
     pub fn cancel_recording(&self) {
         self.invalidate_recording_readiness();
         self.cancel_generation.fetch_add(1, Ordering::AcqRel);
-        self.remove_mute();
+        self.restore_system_output();
         let mut state = self.state.lock().unwrap();
 
         match *state {
@@ -800,51 +712,7 @@ impl AudioRecordingManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{MuteState, first_connected};
-    use std::cell::{Cell, RefCell};
-
-    #[test]
-    fn muting_then_unmuting_restores_what_was_there() {
-        let mut state = MuteState::default();
-        let mutes = Cell::new(0);
-        state.apply(|| Some(false), || mutes.set(mutes.get() + 1));
-        assert_eq!(mutes.get(), 1);
-
-        let restored = RefCell::new(Vec::new());
-        state.remove(|prev| restored.borrow_mut().push(prev));
-        assert_eq!(*restored.borrow(), vec![Some(false)]);
-        assert!(!state.did_mute);
-    }
-
-    #[test]
-    fn unmuting_without_a_mute_does_nothing() {
-        let mut state = MuteState::default();
-        let restores = Cell::new(0);
-        state.remove(|_| restores.set(restores.get() + 1));
-        assert_eq!(restores.get(), 0);
-    }
-
-    #[test]
-    fn a_second_mute_keeps_the_first_reading() {
-        let mut state = MuteState::default();
-        state.apply(|| Some(false), || {});
-
-        let second_read = Cell::new(false);
-        let second_mute = Cell::new(false);
-        state.apply(
-            || {
-                second_read.set(true);
-                Some(true)
-            },
-            || second_mute.set(true),
-        );
-        assert!(!second_read.get());
-        assert!(!second_mute.get());
-
-        let restored = RefCell::new(Vec::new());
-        state.remove(|prev| restored.borrow_mut().push(prev));
-        assert_eq!(*restored.borrow(), vec![Some(false)]);
-    }
+    use super::first_connected;
 
     fn names(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()

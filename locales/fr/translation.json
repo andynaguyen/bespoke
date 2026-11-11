@@ -283,6 +283,10 @@
         "title": "Volume",
         "description": "Ajuster le volume du signal sonore."
       },
+      "recordingOutputVolume": {
+        "title": "Volume pendant l'enregistrement",
+        "description": "Baisse les autres sons pendant l'enregistrement. 0 % les coupe et 100 % les laisse inchangés."
+      },
       "defaultDevice": "Par défaut"
     },
     "advanced": {
@@ -653,10 +657,6 @@
       "postProcessingToggle": {
         "label": "Post-traitement IA",
         "description": "Activer l'affinage du texte par IA après la transcription."
-      },
-      "muteWhileRecording": {
-        "label": "Muet pendant l'enregistrement",
-        "description": "Couper le son du système pendant l'enregistrement."
       },
       "appendTrailingSpace": {
         "label": "Ajouter une espace final",

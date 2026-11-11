@@ -43,6 +43,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `annotate/mcp.rs` - Agent Access: an MCP server on `127.0.0.1:47790` that serves captures to coding agents. Claude Code and Codex on a remote machine reach it through an SSH `RemoteForward`, or through this Mac's Tailscale address when Agent Access is set to Tailnet. The tools are in `annotate/mcp/tools.rs`, and the guide sent to agents is `annotate/mcp/instructions.md`. Its Off, This Mac and Tailnet control and the setup to copy are on the MCP page, `ui/pages/mcp.rs`
 - `shortcut/` - Global shortcuts. `keys.rs` and `keys/` are the event-tap listener and hotkey matcher, from the `handy-keys` crate (`docs/handy-keys-upstream.md`). `handy_keys.rs` runs Bespoke's shortcuts on them, and `hotkey_impl.rs` on `global-hotkey`
 - `settings.rs` - Settings schema, defaults, and migrations
+- `system_output.rs` - Turns the system volume down while Dictate or Annotate records, to the level on the Sound page, and back up when the last recording ends
 - `clipboard.rs`, `input.rs`, `paste_tx/` - Pasting text into the front app
 - `overlay.rs` - Recording overlay entry points
 - `tray.rs`, `tray_i18n.rs` - Menu bar icon and menu

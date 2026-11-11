@@ -283,6 +283,10 @@
         "title": "音量",
         "description": "调整音频反馈的音量。"
       },
+      "recordingOutputVolume": {
+        "title": "录制时的音量",
+        "description": "录制期间调低其他音频。0% 为静音，100% 为保持不变。"
+      },
       "defaultDevice": "默认"
     },
     "advanced": {
@@ -650,10 +654,6 @@
       "postProcessingToggle": {
         "label": "AI 后处理",
         "description": "启用转录后的 AI 文本优化。"
-      },
-      "muteWhileRecording": {
-        "label": "录制时静音",
-        "description": "录制期间静音系统音频。"
       },
       "appendTrailingSpace": {
         "label": "追加尾部空格",

@@ -283,6 +283,10 @@
         "title": "Lydstyrke",
         "description": "Juster lydstyrken for lydfeedback."
       },
+      "recordingOutputVolume": {
+        "title": "Lydstyrke under optagelse",
+        "description": "Skruer ned for anden lyd under optagelse. 0 % slukker den, og 100 % lader den være uændret."
+      },
       "defaultDevice": "Standard"
     },
     "advanced": {
@@ -665,10 +669,6 @@
       "postProcessingToggle": {
         "label": "AI-efterbehandling",
         "description": "Aktivér AI-drevet tekstforbedring efter transskription."
-      },
-      "muteWhileRecording": {
-        "label": "Mute under optagelse",
-        "description": "Sluk for systemlyd under optagelse."
       },
       "appendTrailingSpace": {
         "label": "Tilføj efterfølgende mellemrum",

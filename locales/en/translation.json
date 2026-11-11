@@ -310,6 +310,10 @@
         "title": "Volume",
         "description": "Adjust the volume of audio feedback sounds."
       },
+      "recordingOutputVolume": {
+        "title": "Volume While Recording",
+        "description": "Turn down other audio while recording. 0% silences it, and 100% leaves it unchanged."
+      },
       "defaultDevice": "Default"
     },
     "advanced": {
@@ -724,10 +728,6 @@
       "postProcessingToggle": {
         "label": "AI Post-Processing",
         "description": "Enable AI-powered text refinement after transcription."
-      },
-      "muteWhileRecording": {
-        "label": "Mute While Recording",
-        "description": "Mute system audio during recording."
       },
       "appendTrailingSpace": {
         "label": "Append Trailing Space",

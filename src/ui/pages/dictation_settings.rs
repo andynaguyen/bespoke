@@ -467,7 +467,7 @@ impl DictationSettings {
                     .title(t("settings.sound.microphone.title"))
                     .children(super::microphone_priority::rows(&s, cx))
                     .children(self.channel_row(&s, cx))
-                    .child(rows::mute_while_recording(&s, cx)),
+                    .child(rows::recording_output_volume(&s)),
                 SettingsGroup::new()
                     .title(t("settings.sound.title"))
                     .child(rows::audio_feedback(&s, cx))

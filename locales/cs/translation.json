@@ -283,6 +283,10 @@
         "title": "Hlasitost",
         "description": "Upravte hlasitost zvukové odezvy."
       },
+      "recordingOutputVolume": {
+        "title": "Hlasitost při nahrávání",
+        "description": "Ztlumí ostatní zvuk během nahrávání. 0 % ho vypne a 100 % ho ponechá beze změny."
+      },
       "defaultDevice": "Výchozí"
     },
     "advanced": {
@@ -656,10 +660,6 @@
       "postProcessingToggle": {
         "label": "AI následné zpracování",
         "description": "Povolit AI vylepšení textu po přepisu."
-      },
-      "muteWhileRecording": {
-        "label": "Ztlumit při nahrávání",
-        "description": "Ztlumit systémový zvuk během nahrávání."
       },
       "appendTrailingSpace": {
         "label": "Přidat koncovou mezeru",

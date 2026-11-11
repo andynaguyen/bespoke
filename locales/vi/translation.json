@@ -283,6 +283,10 @@
         "title": "Âm lượng",
         "description": "Điều chỉnh âm lượng của âm thanh phản hồi."
       },
+      "recordingOutputVolume": {
+        "title": "Âm lượng khi ghi âm",
+        "description": "Giảm âm thanh khác trong khi ghi âm. 0% tắt tiếng và 100% giữ nguyên."
+      },
       "defaultDevice": "Mặc định"
     },
     "advanced": {
@@ -650,10 +654,6 @@
       "postProcessingToggle": {
         "label": "Xử lý sau bằng AI",
         "description": "Bật tinh chỉnh văn bản bằng AI sau khi chuyển đổi."
-      },
-      "muteWhileRecording": {
-        "label": "Tắt tiếng khi ghi âm",
-        "description": "Tắt tiếng âm thanh hệ thống trong khi ghi âm."
       },
       "appendTrailingSpace": {
         "label": "Thêm dấu cách cuối",
