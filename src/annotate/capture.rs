@@ -121,12 +121,6 @@ pub struct ShortcutConfig {
     pub label: String,
 }
 
-impl Default for ShortcutConfig {
-    fn default() -> Self {
-        Self::default_record()
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ShortcutKind {
@@ -213,10 +207,7 @@ pub fn shortcut_label(carbon_modifiers: u32, key: &str) -> String {
 
 pub fn annotate_log(msg: impl AsRef<str>) {
     use std::io::Write;
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
+    let ts = crate::annotate::bundle::now_epoch_ms();
     let line = format!("[{ts}] {}\n", msg.as_ref());
     eprint!("{line}");
     // Without a running Bespoke, as in tests, the line goes to stderr only.
@@ -769,21 +760,23 @@ impl SharedCaptureTelemetry {
             .take()
     }
 
-    pub fn emit_capture_shortcut(&self) {
+    /// Whether a shortcut may fire now: shortcuts aren't paused and none fired in the last
+    /// `gap_ms`. Claims the slot when it may.
+    fn shortcut_slot(&self, gap_ms: u64) -> bool {
         if self.shortcuts_paused.load(Ordering::Acquire) {
-            return;
+            return false;
         }
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
+        let now_ms = crate::annotate::bundle::now_epoch_ms();
         let prev = self.last_shortcut_ms.load(Ordering::Acquire);
-        if now_ms.saturating_sub(prev) >= 90
+        now_ms.saturating_sub(prev) >= gap_ms
             && self
                 .last_shortcut_ms
                 .compare_exchange(prev, now_ms, Ordering::AcqRel, Ordering::Acquire)
                 .is_ok()
-        {
+    }
+
+    pub fn emit_capture_shortcut(&self) {
+        if self.shortcut_slot(90) {
             annotate_log("emit_capture_shortcut");
             *self
                 .record_pressed_at
@@ -795,20 +788,7 @@ impl SharedCaptureTelemetry {
     }
 
     pub fn emit_paste_shortcut(&self) {
-        if self.shortcuts_paused.load(Ordering::Acquire) {
-            return;
-        }
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-        let prev = self.last_shortcut_ms.load(Ordering::Acquire);
-        if now_ms.saturating_sub(prev) >= 400
-            && self
-                .last_shortcut_ms
-                .compare_exchange(prev, now_ms, Ordering::AcqRel, Ordering::Acquire)
-                .is_ok()
-        {
+        if self.shortcut_slot(400) {
             annotate_log("emit_paste_shortcut -> sending PasteLatestShortcut");
             let _ = self
                 .ui_sender
@@ -1124,7 +1104,7 @@ impl SharedCaptureTelemetry {
         )
     }
 
-    pub fn finish_active_laser(&self, _ax_point: Option<(f64, f64)>) {
+    pub fn finish_active_laser(&self) {
         if let Some(mut laser) = self
             .active_laser
             .lock()
@@ -1164,7 +1144,7 @@ impl SharedCaptureTelemetry {
             .shift_press
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
-        self.finish_active_laser(None);
+        self.finish_active_laser();
         if let Some(ink) = self
             .live_ink
             .lock()
@@ -1357,12 +1337,6 @@ pub fn is_frontmost_terminal() -> bool {
         "wezterm",
         "alacritty",
         "warp",
-        "windowsterminal",
-        "conhost",
-        "powershell",
-        "pwsh",
-        "cmd.exe",
-        "mintty",
     ]
     .iter()
     .any(|needle| a.contains(needle) || b.contains(needle))

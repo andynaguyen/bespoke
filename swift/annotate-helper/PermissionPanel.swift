@@ -71,45 +71,6 @@ enum PermissionPanel {
     return URL(filePath: "/Applications/Bespoke.app")
   }
 
-  @discardableResult
-  static func launch(
-    permission: String,
-    from sourceInScreen: NSRect?,
-    onEvent: @escaping ([String: Any]) -> Void
-  ) -> Process? {
-    let process = Process()
-    process.executableURL = Bundle.main.executableURL ?? URL(filePath: CommandLine.arguments[0])
-    var arguments = ["permission-panel", "--permission", permission]
-    if let sourceInScreen {
-      let q = quartz(fromAppKit: sourceInScreen)
-      arguments += ["--from", "\(Int(q.minX)),\(Int(q.minY)),\(Int(q.width)),\(Int(q.height))"]
-    }
-    process.arguments = arguments
-    let output = Pipe()
-    process.standardOutput = output
-    process.standardInput = Pipe()
-    var buffer = Data()
-    output.fileHandleForReading.readabilityHandler = { handle in
-      let chunk = handle.availableData
-      if chunk.isEmpty { handle.readabilityHandler = nil; return }
-      buffer.append(chunk)
-      while let newline = buffer.firstIndex(of: 0x0A) {
-        let line = buffer[..<newline]
-        buffer.removeSubrange(...newline)
-        if let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] {
-          DispatchQueue.main.async { onEvent(event) }
-        }
-      }
-    }
-    do { try process.run() } catch { return nil }
-    return process
-  }
-
-  static func tell(_ process: Process, _ command: String) {
-    guard process.isRunning, let input = process.standardInput as? Pipe else { return }
-    try? input.fileHandleForWriting.write(contentsOf: Data((command + "\n").utf8))
-  }
-
   enum Kind: String {
     case screenRecording = "screen-recording"
     case accessibility = "accessibility"

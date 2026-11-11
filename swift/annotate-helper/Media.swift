@@ -282,23 +282,16 @@ enum Transcriber {
 }
 
 enum Media {
-  static func frames(movie: URL, outDir: URL, everyMs: Int?, atMs: [Int]?, maxEdge: Int) async throws -> [[String: Any]] {
+  static func frames(movie: URL, outDir: URL, atMs: [Int]) async throws -> [[String: Any]] {
     let asset = AVURLAsset(url: movie)
     let duration = try await asset.load(.duration).seconds
     let durationMs = Int((duration.isFinite ? duration : 0) * 1000)
     guard durationMs > 0 else { throw HelperError("Movie has no duration") }
     try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
-    let isEvery = (everyMs ?? 0) > 0
-    let requested: [Int] = if let everyMs, everyMs > 0 {
-      Array(stride(from: 0, to: durationMs, by: everyMs))
-    } else {
-      (atMs ?? []).map { min(max(0, $0), max(0, durationMs - 1)) }
-    }
+    let requested = atMs.map { min(max(0, $0), max(0, durationMs - 1)) }
     guard !requested.isEmpty else { return [] }
-    let tolerance = isEvery
-      ? CMTime(value: CMTimeValue((everyMs ?? 1) / 2), timescale: 1000)
-      : CMTime(value: 80, timescale: 1000)
+    let tolerance = CMTime(value: 80, timescale: 1000)
     let workerCount = min(6, requested.count)
     let chunkSize = (requested.count + workerCount - 1) / workerCount
 
@@ -311,7 +304,6 @@ enum Media {
         group.addTask {
           let generator = AVAssetImageGenerator(asset: asset)
           generator.appliesPreferredTrackTransform = true
-          if maxEdge > 0 { generator.maximumSize = CGSize(width: maxEdge, height: maxEdge) }
           generator.requestedTimeToleranceBefore = tolerance
           generator.requestedTimeToleranceAfter = tolerance
           let sliceTimes = sliceReq.map { CMTime(value: CMTimeValue($0), timescale: 1000) }

@@ -99,11 +99,10 @@ pub struct MetalLaserOverlay {
 
 fn pick_screen(
     mtm: MainThreadMarker,
-    on: Option<[f64; 4]>,
+    on: [f64; 4],
 ) -> Option<(crate::annotate::screens::Screen, NSRect)> {
     let screens = crate::annotate::screens::current();
-    let index = on
-        .and_then(|r| crate::annotate::screens::index_for_rect(&screens, r))
+    let index = crate::annotate::screens::index_for_rect(&screens, on)
         .or_else(|| {
             crate::annotate::screens::pointer()
                 .and_then(|p| crate::annotate::screens::index_at(&screens, p))
@@ -119,10 +118,7 @@ fn pick_screen(
 }
 
 impl MetalLaserOverlay {
-    pub fn open(
-        telemetry: Arc<SharedCaptureTelemetry>,
-        on: Option<[f64; 4]>,
-    ) -> Result<Self, String> {
+    pub fn open(telemetry: Arc<SharedCaptureTelemetry>, on: [f64; 4]) -> Result<Self, String> {
         let mtm = MainThreadMarker::new().ok_or("Metal overlay requires the main thread")?;
         let (screen, frame) =
             pick_screen(mtm, on).ok_or("No screen available for Metal overlay")?;
@@ -201,15 +197,15 @@ impl MetalLaserOverlay {
         self.window.windowNumber().max(0) as u32
     }
 
-    pub fn move_to(&mut self, rect: [f64; 4]) -> bool {
+    pub fn move_to(&mut self, rect: [f64; 4]) {
         let Some(mtm) = MainThreadMarker::new() else {
-            return false;
+            return;
         };
-        let Some((screen, frame)) = pick_screen(mtm, Some(rect)) else {
-            return false;
+        let Some((screen, frame)) = pick_screen(mtm, rect) else {
+            return;
         };
         if same_rect(screen.frame, self.screen) {
-            return false;
+            return;
         }
         // Window first: AppKit sets the layer's contentsScale for the new screen as it moves,
         // and `place` then sets the size and scale the shader draws at.
@@ -226,7 +222,6 @@ impl MetalLaserOverlay {
         }
         self.screen = screen.frame;
         shared.draw();
-        true
     }
 }
 

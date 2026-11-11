@@ -48,7 +48,7 @@ pub fn window_handle(cx: &App) -> Option<gpui::AnyWindowHandle> {
 static DEV_FOLDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(debug_assertions)]
-pub fn dev_preview(kind: &str, cx: &mut App) {
+pub fn dev_preview(kind: &str) {
     DEV_FOLDED.store(kind == "recording-folded", Ordering::SeqCst);
     let pres = match kind {
         "choose-screen" => Pres::Selecting {
@@ -81,13 +81,11 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
         PillSnapshot {
             pres,
             clock: "0:21".into(),
-            reduced_motion: false,
             shortcut: "⌥⇧S".into(),
             cancel: "esc".into(),
         },
         anchor,
     );
-    let _ = cx;
 }
 
 /// Opens a window that draws the capsule `link` drives, on the UI thread.
@@ -138,7 +136,6 @@ fn open_window(link: CapsuleLink, cx: &mut App) {
     if let Some(native) = &native {
         let number = native.float();
         native.set_ignores_mouse(true);
-        state.window_number.store(number, Ordering::SeqCst);
         excluded_window_ids
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

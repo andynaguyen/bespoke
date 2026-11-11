@@ -1216,53 +1216,6 @@ pub fn render_synthetic_demo_frame(width: u32, height: u32, t_ms: u64, phase: u3
     out
 }
 
-#[cfg(test)]
-fn wrap_text(text: &str, size: f32, width: f32, bold: bool) -> Vec<String> {
-    wrap_text_indented(text, size, width, width, bold)
-}
-
-#[cfg(test)]
-fn wrap_text_indented(
-    text: &str,
-    size: f32,
-    width: f32,
-    first_width: f32,
-    bold: bool,
-) -> Vec<String> {
-    let mut lines = Vec::new();
-    for paragraph in text.lines() {
-        let mut line = String::new();
-        for word in paragraph.split_whitespace() {
-            let candidate = if line.is_empty() {
-                word.to_owned()
-            } else {
-                format!("{line} {word}")
-            };
-            let available = if lines.is_empty() { first_width } else { width };
-            if text_width(&candidate, size, bold) <= available {
-                line = candidate;
-                continue;
-            }
-            if !line.is_empty() {
-                lines.push(std::mem::take(&mut line));
-            }
-            for ch in word.chars() {
-                let mut candidate = line.clone();
-                candidate.push(ch);
-                let available = if lines.is_empty() { first_width } else { width };
-                if !line.is_empty() && text_width(&candidate, size, bold) > available {
-                    lines.push(std::mem::take(&mut line));
-                }
-                line.push(ch);
-            }
-        }
-        if !line.is_empty() {
-            lines.push(line);
-        }
-    }
-    lines
-}
-
 mod native_text {
     use core_foundation::{
         attributed_string::CFMutableAttributedString,
@@ -1341,7 +1294,6 @@ fn text_width(text: &str, size: f32, bold: bool) -> f32 {
     if let Some((_, line)) = native_text::line(text, size, bold) {
         return line.get_typographic_bounds().width as f32;
     }
-    let _ = bold;
     text.chars().count() as f32 * size * 6.0 / 7.0
 }
 
@@ -1371,7 +1323,6 @@ fn draw_text(
         }
         return;
     }
-    let _ = bold;
     let scale = size / 7.0;
     for (index, ch) in text.chars().enumerate() {
         let rows = glyph(ch);
@@ -2019,15 +1970,7 @@ mod tests {
     }
 
     #[test]
-    fn unicode_wrapping_and_empty_sheet_are_safe() {
-        let lines = wrap_text(
-            "✎ · – “hello” 🦀 漢字 longwordwithoutspaces",
-            16.0,
-            80.0,
-            false,
-        );
-        assert!(lines.len() > 2);
-        assert!(lines.iter().all(|s| text_width(s, 16.0, false) <= 81.0));
+    fn an_empty_sheet_still_renders() {
         let sheet = render_contact_sheet(&bundle(), &[]);
         assert!(sheet.width > 0 && sheet.height > 0);
     }

@@ -116,7 +116,7 @@ fn navigate(page: &str, cx: &mut App) {
     CAPTURE_SCREEN.set(false);
     if let Some(kind) = page.strip_prefix("capsule:") {
         CAPTURE_CAPSULE.set(true);
-        crate::annotate::capsule::dev_preview(kind, cx);
+        crate::annotate::capsule::dev_preview(kind);
         return;
     }
     CAPTURE_CAPSULE.set(false);

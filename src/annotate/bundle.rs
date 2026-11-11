@@ -200,20 +200,50 @@ fn movie_keyframes_with_cache(
         }
         drop(pool);
         if !missing.is_empty() {
-            out.extend(movie_frames_at(&movie, &missing, offset_ms, 0)?);
+            out.extend(movie_frames_at(&movie, &missing, offset_ms)?);
         }
         Ok(out)
     })
 }
 
-pub fn movie_frames_at(
-    movie: &Path,
-    times: &[u64],
-    offset_ms: u64,
-    max_edge: u32,
-) -> Result<Vec<RgbaFrame>> {
+/// Logs how long each stage of finishing a capture took. `at` holds the instants the whole
+/// finish started, selection started, and selection, decoding, cropping and rendering ended.
+fn log_finish_timings(timings: &StageTimings, at: [std::time::Instant; 6]) {
+    let [
+        total_started,
+        started,
+        select_only_at,
+        selected_at,
+        annotated_at,
+        rendered_at,
+    ] = at;
+    let finished = std::time::Instant::now();
+    let ms = |from: std::time::Instant, to: std::time::Instant| (to - from).as_millis() as u64;
+    let mut parts = Vec::with_capacity(10);
+    for (stage, value) in [
+        ("stop", timings.stop_ms),
+        ("audio", timings.audio_ms),
+        ("candidates", timings.candidates_ms),
+        ("transcribe", timings.transcribe_ms),
+    ] {
+        if let Some(value) = value {
+            parts.push(format!("{stage} {value}ms"));
+        }
+    }
+    parts.extend([
+        format!("select {}ms", ms(started, select_only_at)),
+        format!("decode {}ms", ms(select_only_at, selected_at)),
+        format!("autocrop {}ms", ms(selected_at, annotated_at)),
+        format!("sheet {}ms", ms(annotated_at, rendered_at)),
+        format!("write {}ms", ms(rendered_at, finished)),
+        format!("total {}ms", ms(total_started, finished)),
+    ]);
+    capture::annotate_log(format!("finish timings: {}", parts.join(" · ")));
+}
+
+pub fn movie_frames_at(movie: &Path, times: &[u64], offset_ms: u64) -> Result<Vec<RgbaFrame>> {
     let at: Vec<u64> = times.iter().map(|t| t.saturating_sub(offset_ms)).collect();
-    let mut frames = helper::frames(movie, &at, max_edge)?;
+    let mut frames = helper::frames(movie, &at)?;
     for frame in &mut frames {
         if let Some(i) = (0..at.len()).min_by_key(|&i| at[i].abs_diff(frame.t_ms)) {
             frame.t_ms = times[i];
@@ -290,7 +320,7 @@ pub fn finalize_capture_bundle(
                     .iter()
                     .all(|(k, _)| k.reason == model::KeyframeReason::Mark);
             let times: Vec<u64> = preview.iter().map(|(k, _)| k.t).collect();
-            let decoded = movie_frames_at(movie, &times, video_offset_ms, 0).unwrap_or_default();
+            let decoded = movie_frames_at(movie, &times, video_offset_ms).unwrap_or_default();
             if duration_ms >= 20_000 {
                 let cache = if marks_fill {
                     Vec::new()
@@ -456,35 +486,17 @@ pub fn build_bundle_from_parts(
         let manifest_bytes = serde_json::to_vec_pretty(&bundle)?;
         std::fs::write(bundle_dir.join("scrawl.json"), manifest_bytes)?;
         std::fs::write(bundle_dir.join("summary.md"), summary.as_bytes())?;
-        let finished = std::time::Instant::now();
-        let select_ms = (select_only_at - started).as_millis() as u64;
-        let decode_ms = (selected_at - select_only_at).as_millis() as u64;
-        let autocrop_ms = (annotated_at - selected_at).as_millis() as u64;
-        let sheet_ms = (rendered_at - annotated_at).as_millis() as u64;
-        let write_ms = (finished - rendered_at).as_millis() as u64;
-        let total_ms = (finished - total_started).as_millis() as u64;
-        let mut parts = Vec::with_capacity(10);
-        if let Some(ms) = extras.timings.stop_ms {
-            parts.push(format!("stop {ms}ms"));
-        }
-        if let Some(ms) = extras.timings.audio_ms {
-            parts.push(format!("audio {ms}ms"));
-        }
-        if let Some(ms) = extras.timings.candidates_ms {
-            parts.push(format!("candidates {ms}ms"));
-        }
-        if let Some(ms) = extras.timings.transcribe_ms {
-            parts.push(format!("transcribe {ms}ms"));
-        }
-        parts.extend([
-            format!("select {select_ms}ms"),
-            format!("decode {decode_ms}ms"),
-            format!("autocrop {autocrop_ms}ms"),
-            format!("sheet {sheet_ms}ms"),
-            format!("write {write_ms}ms"),
-            format!("total {total_ms}ms"),
-        ]);
-        capture::annotate_log(format!("finish timings: {}", parts.join(" · ")));
+        log_finish_timings(
+            &extras.timings,
+            [
+                total_started,
+                started,
+                select_only_at,
+                selected_at,
+                annotated_at,
+                rendered_at,
+            ],
+        );
         mark_transcript_pending(bundle_dir, &bundle);
         return Ok((bundle_dir.to_path_buf(), bundle, summary));
     }
@@ -609,35 +621,17 @@ pub fn build_bundle_from_parts(
         }
         Ok(())
     })?;
-    let finished = std::time::Instant::now();
-    let select_ms = (select_only_at - started).as_millis() as u64;
-    let decode_ms = (selected_at - select_only_at).as_millis() as u64;
-    let autocrop_ms = (annotated_at - selected_at).as_millis() as u64;
-    let sheet_ms = (rendered_at - annotated_at).as_millis() as u64;
-    let write_ms = (finished - rendered_at).as_millis() as u64;
-    let total_ms = (finished - total_started).as_millis() as u64;
-    let mut parts = Vec::with_capacity(10);
-    if let Some(ms) = extras.timings.stop_ms {
-        parts.push(format!("stop {ms}ms"));
-    }
-    if let Some(ms) = extras.timings.audio_ms {
-        parts.push(format!("audio {ms}ms"));
-    }
-    if let Some(ms) = extras.timings.candidates_ms {
-        parts.push(format!("candidates {ms}ms"));
-    }
-    if let Some(ms) = extras.timings.transcribe_ms {
-        parts.push(format!("transcribe {ms}ms"));
-    }
-    parts.extend([
-        format!("select {select_ms}ms"),
-        format!("decode {decode_ms}ms"),
-        format!("autocrop {autocrop_ms}ms"),
-        format!("sheet {sheet_ms}ms"),
-        format!("write {write_ms}ms"),
-        format!("total {total_ms}ms"),
-    ]);
-    capture::annotate_log(format!("finish timings: {}", parts.join(" · ")));
+    log_finish_timings(
+        &extras.timings,
+        [
+            total_started,
+            started,
+            select_only_at,
+            selected_at,
+            annotated_at,
+            rendered_at,
+        ],
+    );
 
     mark_transcript_pending(bundle_dir, &bundle);
     Ok((bundle_dir.to_path_buf(), bundle, summary))

@@ -15,20 +15,10 @@ pub const MEDIA_CLEANED: &str = ".media-cleaned";
 
 const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Policy {
-    #[serde(default = "default_media_days")]
     pub media_days: Option<u32>,
-    #[serde(default = "default_bundle_days")]
     pub bundle_days: Option<u32>,
-}
-
-fn default_media_days() -> Option<u32> {
-    Some(7)
-}
-
-fn default_bundle_days() -> Option<u32> {
-    Some(30)
 }
 
 impl Default for Policy {
@@ -387,17 +377,9 @@ fn sweep_leftovers(captures: &Path, now: SystemTime) {
     }
 }
 
-pub fn run_pass(
-    captures: &Path,
-    policy: &Policy,
-    dry_run: bool,
-    ahead: Duration,
-) -> (Vec<Action>, Report) {
+fn run_pass(captures: &Path, policy: &Policy) -> Vec<Action> {
     let now = SystemTime::now();
-    let actions = plan(captures, policy, now + ahead);
-    if dry_run {
-        return (actions, Report::default());
-    }
+    let actions = plan(captures, policy, now);
     sweep_leftovers(captures, now);
     let report = apply(&actions, policy, &trash);
     if report != Report::default() {
@@ -409,7 +391,7 @@ pub fn run_pass(
             report.errors
         ));
     }
-    (actions, report)
+    actions
 }
 
 static WORKER: std::sync::OnceLock<flume::Sender<()>> = std::sync::OnceLock::new();
@@ -466,7 +448,7 @@ fn worker(jobs: &flume::Receiver<()>) {
                 continue;
             }
             let policy = Policy::load();
-            let (actions, report) = run_pass(&captures, &policy, false, Duration::ZERO);
+            let actions = run_pass(&captures, &policy);
             annotate_log(format!(
                 "retention: pass over {} ({} action(s), policy {:?}/{:?} days), {} now",
                 captures.display(),
@@ -475,7 +457,6 @@ fn worker(jobs: &flume::Receiver<()>) {
                 policy.bundle_days,
                 format_bytes(captures_size(&captures)),
             ));
-            let _ = report;
             last_pass = Some(SystemTime::now());
             next_pass = Instant::now() + Duration::from_secs(24 * 3600);
         }

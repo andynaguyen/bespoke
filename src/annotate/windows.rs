@@ -53,22 +53,23 @@ pub struct ActivityLog {
 }
 
 impl ActivityLog {
-    pub fn push_windows(&mut self, t: u64, windows: Vec<WindowEntry>) -> bool {
+    /// Stores `windows` unless it matches the last snapshot.
+    pub fn push_windows(&mut self, t: u64, windows: Vec<WindowEntry>) {
         if self
             .windows
             .last()
             .is_some_and(|last| last.windows == windows)
         {
-            return false;
+            return;
         }
         self.windows.push(WindowSnapshot { t, windows });
-        true
     }
 
-    pub fn push_cursor(&mut self, t: u64, x_pt: f64, y_pt: f64, frame: TargetFrame) -> bool {
+    /// Stores a cursor sample unless it is outside `frame` or too close to the last one.
+    pub fn push_cursor(&mut self, t: u64, x_pt: f64, y_pt: f64, frame: TargetFrame) {
         let (w, h) = (frame.width.max(1.0), frame.height.max(1.0));
         if !(0.0..=w).contains(&x_pt) || !(0.0..=h).contains(&y_pt) {
-            return false;
+            return;
         }
         let nx = round4(x_pt / w);
         let ny = round4(y_pt / h);
@@ -76,11 +77,10 @@ impl ActivityLog {
             let dx = (nx - px) as f64 * w;
             let dy = (ny - py) as f64 * h;
             if dx.hypot(dy) < CURSOR_MIN_MOVE_PT {
-                return false;
+                return;
             }
         }
         self.cursor.push(CursorSample(t, nx, ny));
-        true
     }
 }
 
@@ -519,14 +519,14 @@ mod tests {
     #[test]
     fn window_snapshots_are_stored_only_when_the_list_changes() {
         let mut log = ActivityLog::default();
-        assert!(log.push_windows(0, vec![entry(1, 0), entry(2, 100)]));
-        assert!(!log.push_windows(500, vec![entry(1, 0), entry(2, 100)]));
-        assert!(log.push_windows(1_000, vec![entry(1, 10), entry(2, 100)]));
-        assert!(log.push_windows(1_500, vec![entry(2, 100), entry(1, 10)]));
+        log.push_windows(0, vec![entry(1, 0), entry(2, 100)]);
+        log.push_windows(500, vec![entry(1, 0), entry(2, 100)]);
+        log.push_windows(1_000, vec![entry(1, 10), entry(2, 100)]);
+        log.push_windows(1_500, vec![entry(2, 100), entry(1, 10)]);
         let mut unfocused = vec![entry(2, 100), entry(1, 10)];
         unfocused[1].frontmost = false;
-        assert!(log.push_windows(2_000, unfocused.clone()));
-        assert!(!log.push_windows(2_500, unfocused));
+        log.push_windows(2_000, unfocused.clone());
+        log.push_windows(2_500, unfocused);
         assert_eq!(
             log.windows.iter().map(|s| s.t).collect::<Vec<_>>(),
             vec![0, 1_000, 1_500, 2_000]
@@ -549,11 +549,11 @@ mod tests {
     #[test]
     fn cursor_samples_skip_tiny_moves_and_points_outside_the_capture() {
         let mut log = ActivityLog::default();
-        assert!(log.push_cursor(0, 500.0, 250.0, frame()));
-        assert!(!log.push_cursor(66, 501.0, 250.5, frame()));
-        assert!(log.push_cursor(132, 520.0, 250.0, frame()));
-        assert!(!log.push_cursor(198, -5.0, 250.0, frame()));
-        assert!(!log.push_cursor(264, 500.0, 900.0, frame()));
+        log.push_cursor(0, 500.0, 250.0, frame());
+        log.push_cursor(66, 501.0, 250.5, frame());
+        log.push_cursor(132, 520.0, 250.0, frame());
+        log.push_cursor(198, -5.0, 250.0, frame());
+        log.push_cursor(264, 500.0, 900.0, frame());
         assert_eq!(
             log.cursor,
             vec![CursorSample(0, 0.5, 0.5), CursorSample(132, 0.52, 0.5)]

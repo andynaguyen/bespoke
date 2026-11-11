@@ -65,13 +65,11 @@ case "speech-model":
   runAsync { await SpeechModel.run(install: install) }
 case "frames":
   guard arguments.count >= 2, let dir = option("--out-dir", in: arguments) else {
-    fail("frames needs MOVIE --out-dir DIR (--every MS | --at MS,MS…)")
+    fail("frames needs MOVIE --out-dir DIR --at MS,MS…")
   }
-  let maxEdge = option("--max-edge", in: arguments).flatMap(Int.init) ?? 0
-  let every = option("--every", in: arguments).flatMap(Int.init)
-  let at = option("--at", in: arguments)?.split(separator: ",").compactMap { Int($0) }
+  let at = option("--at", in: arguments)?.split(separator: ",").compactMap { Int($0) } ?? []
   runAsync {
-    emit(try await Media.frames(movie: URL(filePath: arguments[1]), outDir: URL(filePath: dir), everyMs: every, atMs: at, maxEdge: maxEdge))
+    emit(try await Media.frames(movie: URL(filePath: arguments[1]), outDir: URL(filePath: dir), atMs: at))
   }
 case "permission-panel":
   PermissionPanel.run(arguments: arguments)

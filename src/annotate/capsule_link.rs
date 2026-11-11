@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::annotate::coordinator::SelectionMode;
@@ -30,7 +30,6 @@ pub enum PillAction {
 pub struct PillSnapshot {
     pub pres: Pres,
     pub clock: String,
-    pub reduced_motion: bool,
     pub shortcut: String,
     pub cancel: String,
 }
@@ -45,7 +44,6 @@ pub enum CapsuleCommand {
 pub struct CapsuleState {
     pub hidden: AtomicBool,
     pub hovered: AtomicBool,
-    pub window_number: AtomicU32,
 }
 
 pub struct CapsuleLink {
@@ -70,7 +68,6 @@ impl NativePill {
         let state = Arc::new(CapsuleState {
             hidden: AtomicBool::new(true),
             hovered: AtomicBool::new(false),
-            window_number: AtomicU32::new(0),
         });
         crate::annotate::capsule::open(
             app,

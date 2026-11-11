@@ -9,6 +9,7 @@ use gpui::{
     Pixels, SharedString, Window, canvas, div, prelude::*, px, rems,
 };
 
+use crate::annotate::model::format_clock;
 use crate::ui::components::{KeyboardFocus, Typography, icon};
 use crate::ui::theme::{Alpha, palette};
 
@@ -113,11 +114,6 @@ pub fn seek(path: &Path, to: Duration) {
     });
 }
 
-fn format_time(duration: Duration) -> String {
-    let secs = duration.as_secs();
-    format!("{}:{:02}", secs / 60, secs % 60)
-}
-
 #[derive(Default)]
 pub struct PlayerState {
     pub duration: Option<Duration>,
@@ -136,7 +132,7 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
     path: Option<PathBuf>,
     state: Entity<PlayerState>,
     resolve: R,
-    window: &mut Window,
+    _window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement + use<I, R> {
     let p = palette(cx);
@@ -154,7 +150,6 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
     } else {
         elapsed.as_secs_f32() / duration.as_secs_f32()
     };
-    let _ = window;
 
     let toggle_state = state.clone();
     let toggle_path = path.clone();
@@ -218,7 +213,7 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
                 .xs_text()
                 .text_color(p.text.a(0.5))
                 .min_w(px(30.))
-                .child(format_time(elapsed)),
+                .child(format_clock(elapsed.as_millis() as u64)),
         )
         .child(
             div()
@@ -328,7 +323,7 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
                         .xs_text()
                         .text_color(p.text.a(0.5))
                         .min_w(px(30.))
-                        .child(format_time(duration)),
+                        .child(format_clock(duration.as_millis() as u64)),
                 ),
         )
 }

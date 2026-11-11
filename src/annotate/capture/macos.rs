@@ -431,29 +431,19 @@ pub fn shortcut_from_key_and_mods(
     if !cmd && !ctrl && !alt && !is_fn_key {
         return None;
     }
-    let mut carbon_modifiers = 0_u32;
-    let mut label = String::new();
-    if ctrl {
-        carbon_modifiers |= CARBON_CONTROL_KEY;
-        label.push('⌃');
-    }
-    if alt {
-        carbon_modifiers |= CARBON_OPTION_KEY;
-        label.push('⌥');
-    }
-    if shift {
-        carbon_modifiers |= CARBON_SHIFT_KEY;
-        label.push('⇧');
-    }
-    if cmd {
-        carbon_modifiers |= CARBON_CMD_KEY;
-        label.push('⌘');
-    }
-    label.push_str(&key_label);
+    let carbon_modifiers = [
+        (ctrl, CARBON_CONTROL_KEY),
+        (alt, CARBON_OPTION_KEY),
+        (shift, CARBON_SHIFT_KEY),
+        (cmd, CARBON_CMD_KEY),
+    ]
+    .into_iter()
+    .filter(|&(held, _)| held)
+    .fold(0, |mods, (_, bit)| mods | bit);
     Some(ShortcutConfig {
         key_code,
         carbon_modifiers,
-        label,
+        label: crate::annotate::capture::shortcut_label(carbon_modifiers, &key_label),
     })
 }
 
@@ -1165,10 +1155,7 @@ fn check_key_tap(telemetry: &Arc<SharedCaptureTelemetry>) -> bool {
     if !trusted && !tap.is_null() {
         stop_key_tap(telemetry);
     }
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
+    let now_ms = crate::annotate::bundle::now_epoch_ms();
     if trusted
         && tap.is_null()
         && now_ms.saturating_sub(telemetry.tap_tried_ms.load(Ordering::Acquire)) >= 2_000

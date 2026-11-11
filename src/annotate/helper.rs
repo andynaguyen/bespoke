@@ -182,7 +182,7 @@ struct FrameFile {
     file: PathBuf,
 }
 
-pub fn frames(movie: &Path, times: &[u64], max_edge: u32) -> Result<Vec<RgbaFrame>> {
+pub fn frames(movie: &Path, times: &[u64]) -> Result<Vec<RgbaFrame>> {
     if times.is_empty() {
         return Ok(Vec::new());
     }
@@ -195,7 +195,6 @@ pub fn frames(movie: &Path, times: &[u64], max_edge: u32) -> Result<Vec<RgbaFram
         .map(u64::to_string)
         .collect::<Vec<_>>()
         .join(",");
-    let edge = max_edge.to_string();
     let result: Result<Vec<FrameFile>> = run(
         &[
             os("frames"),
@@ -204,60 +203,43 @@ pub fn frames(movie: &Path, times: &[u64], max_edge: u32) -> Result<Vec<RgbaFram
             dir.as_os_str(),
             os("--at"),
             os(&at),
-            os("--max-edge"),
-            os(&edge),
         ],
         Duration::from_secs(300),
     );
     let frames = result.and_then(|files| {
         if files.len() <= 1 {
-            files
-                .into_iter()
-                .map(|file| {
-                    let rgba = std::fs::read(&file.file)?;
-                    ensure!(
-                        rgba.len() == file.width as usize * file.height as usize * 4,
-                        "Truncated helper frame"
-                    );
-                    Ok(RgbaFrame::new(file.t, file.width, file.height, rgba))
-                })
-                .collect()
-        } else {
-            let chunk_size = files.len().div_ceil(6).max(1);
-            std::thread::scope(|scope| -> Result<Vec<RgbaFrame>> {
-                let workers: Vec<_> = files
-                    .chunks(chunk_size)
-                    .map(|chunk| {
-                        scope.spawn(move || -> Result<Vec<RgbaFrame>> {
-                            chunk
-                                .iter()
-                                .map(|file| {
-                                    let rgba = std::fs::read(&file.file)?;
-                                    ensure!(
-                                        rgba.len()
-                                            == file.width as usize * file.height as usize * 4,
-                                        "Truncated helper frame"
-                                    );
-                                    Ok(RgbaFrame::new(file.t, file.width, file.height, rgba))
-                                })
-                                .collect()
-                        })
-                    })
-                    .collect();
-                let mut out = Vec::with_capacity(files.len());
-                for worker in workers {
-                    out.extend(
-                        worker
-                            .join()
-                            .map_err(|_| anyhow::anyhow!("Frame read worker panicked"))??,
-                    );
-                }
-                Ok(out)
-            })
+            return files.iter().map(read_frame).collect();
         }
+        let chunk_size = files.len().div_ceil(6);
+        std::thread::scope(|scope| -> Result<Vec<RgbaFrame>> {
+            let workers: Vec<_> = files
+                .chunks(chunk_size)
+                .map(|chunk| {
+                    scope.spawn(move || chunk.iter().map(read_frame).collect::<Result<Vec<_>>>())
+                })
+                .collect();
+            let mut out = Vec::with_capacity(files.len());
+            for worker in workers {
+                out.extend(
+                    worker
+                        .join()
+                        .map_err(|_| anyhow::anyhow!("Frame read worker panicked"))??,
+                );
+            }
+            Ok(out)
+        })
     });
     std::thread::spawn(move || {
         let _ = std::fs::remove_dir_all(dir);
     });
     frames
+}
+
+fn read_frame(file: &FrameFile) -> Result<RgbaFrame> {
+    let rgba = std::fs::read(&file.file)?;
+    ensure!(
+        rgba.len() == file.width as usize * file.height as usize * 4,
+        "Truncated helper frame"
+    );
+    Ok(RgbaFrame::new(file.t, file.width, file.height, rgba))
 }

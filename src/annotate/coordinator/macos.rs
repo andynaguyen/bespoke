@@ -1,21 +1,10 @@
-use std::sync::Arc;
-
 use gpui::{App, Window};
-use objc2::msg_send;
 use objc2::rc::Retained;
-use objc2::runtime::AnyObject;
 use objc2_app_kit::{
     NSApplication, NSColor, NSStatusWindowLevel, NSView, NSWindow, NSWindowButton,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_foundation::MainThreadMarker;
-
-use super::{LaserOverlay, MenuAction};
-use crate::annotate::capture::SharedCaptureTelemetry;
-
-pub(super) fn points_per_pixel(_window: &Window) -> f32 {
-    1.0
-}
 
 pub(super) fn display_at(
     frame: [f32; 4],
@@ -26,13 +15,6 @@ pub(super) fn display_at(
         .map(|i| screens[i].id);
     id.and_then(|id| cx.displays().into_iter().find(|d| u32::from(d.id()) == id))
         .or_else(|| cx.primary_display())
-}
-
-pub(super) fn layout_size(
-    frame: [f32; 4],
-    _display: Option<&dyn gpui::PlatformDisplay>,
-) -> gpui::Size<gpui::Pixels> {
-    gpui::size(gpui::px(frame[2]), gpui::px(frame[3]))
 }
 
 fn move_window_to_screen(ns_win: &NSWindow, frame: [f64; 4]) {
@@ -55,17 +37,10 @@ fn move_window_to_screen(ns_win: &NSWindow, frame: [f64; 4]) {
     );
 }
 
-pub(super) fn move_picker_window(frame: [f64; 4], _cx: &mut App) {
+pub(super) fn move_picker_window(frame: [f64; 4]) {
     if let Some(ns_win) = find_picker_ns_window() {
         move_window_to_screen(&ns_win, frame);
     }
-}
-
-/// GPUI places windows relative to their display on macOS.
-pub(super) fn window_origin(
-    _display: Option<&dyn gpui::PlatformDisplay>,
-) -> gpui::Point<gpui::Pixels> {
-    gpui::Point::default()
 }
 
 static PREVIOUS_FRONT_APP: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
@@ -145,19 +120,7 @@ pub(super) fn hand_back_keys(cx: &mut App) {
     }
 }
 
-pub(super) fn open_overlay(
-    telemetry: Arc<SharedCaptureTelemetry>,
-    on: Option<[f64; 4]>,
-    _cx: &mut gpui::Context<super::Coordinator>,
-) -> Result<LaserOverlay, String> {
-    LaserOverlay::open(telemetry, on)
-}
-
-pub(super) fn configure_picker_window(
-    window: &mut Window,
-    frame: [f64; 4],
-    _cx: &mut App,
-) -> Option<u32> {
+pub(super) fn configure_picker_window(window: &mut Window, frame: [f64; 4]) -> Option<u32> {
     let ns_win = ns_window(window)?;
     ns_win.setStyleMask(NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel);
     configure_floating_window(&ns_win, 1);
@@ -169,21 +132,6 @@ pub(super) fn configure_picker_window(
     PICKER_WINDOW.store(number, std::sync::atomic::Ordering::Release);
     let num = number.max(0) as u32;
     (num > 0).then_some(num)
-}
-
-pub(super) fn reduce_motion() -> bool {
-    use objc2::runtime::AnyClass;
-    let Some(cls) = AnyClass::get(c"NSWorkspace") else {
-        return false;
-    };
-    unsafe {
-        let workspace: *mut AnyObject = msg_send![cls, sharedWorkspace];
-        !workspace.is_null() && msg_send![workspace, accessibilityDisplayShouldReduceMotion]
-    }
-}
-
-pub(super) fn install_status_bar() -> Option<flume::Receiver<MenuAction>> {
-    Some(super::menu_receiver())
 }
 
 static PICKER_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
@@ -251,16 +199,4 @@ fn configure_floating_window(ns_window: &NSWindow, level_offset: isize) {
             | NSWindowCollectionBehavior::FullScreenAuxiliary,
     );
     sync_full_size_content_view(ns_window);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reveal_appkit_queries_pass_objc2_verification() {
-        let _ = reduce_motion();
-        let cls = objc2::runtime::AnyClass::get(c"NSEvent").expect("NSEvent");
-        let _: objc2_foundation::NSPoint = unsafe { msg_send![cls, mouseLocation] };
-    }
 }

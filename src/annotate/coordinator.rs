@@ -10,7 +10,6 @@ use gpui::{
 };
 
 mod macos;
-use macos::{install_status_bar, reduce_motion};
 
 use crate::annotate::audio::AudioRecorder;
 use crate::annotate::capture::{
@@ -76,10 +75,6 @@ static MENU: OnceLock<(flume::Sender<MenuAction>, flume::Receiver<MenuAction>)> 
 
 fn menu_channel() -> &'static (flume::Sender<MenuAction>, flume::Receiver<MenuAction>) {
     MENU.get_or_init(flume::unbounded)
-}
-
-pub(crate) fn menu_receiver() -> flume::Receiver<MenuAction> {
-    menu_channel().1.clone()
 }
 
 /// Queues `action` for the coordinator, which runs it on its next tick. Bespoke's tray, Annotate
@@ -150,13 +145,7 @@ impl SelectionMode {
 
     fn cycled(self, forward: bool) -> Self {
         let modes = Self::available();
-        let Some(index) = modes.iter().position(|m| *m == self) else {
-            return if forward {
-                modes[0]
-            } else {
-                modes[modes.len() - 1]
-            };
-        };
+        let index = modes.iter().position(|m| *m == self).unwrap_or_default();
         let next = if forward {
             (index + 1) % modes.len()
         } else {
@@ -169,49 +158,32 @@ impl SelectionMode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum IslandPhase {
     Hidden,
-    Selecting {
-        mode: SelectionMode,
-    },
+    Selecting { mode: SelectionMode },
     Recording,
     Processing,
-    Completed {
-        finished_at: Instant,
-        frame_count: usize,
-        duration_ms: u64,
-        copied: bool,
-    },
-    Failed {
-        finished_at: Instant,
-    },
+    Completed { finished_at: Instant, copied: bool },
+    Failed { finished_at: Instant },
     Dismissing,
 }
 
 const COMPLETED_CAPSULE_MS: u64 = 8_000;
 const FAILED_CAPSULE_MS: u64 = 25_000;
 
-fn phase_after_finish(
-    saved_frame_count: Option<usize>,
-    copied: bool,
-    duration_ms: u64,
-    now: Instant,
-) -> IslandPhase {
-    match saved_frame_count {
-        Some(frame_count) => IslandPhase::Completed {
+fn phase_after_finish(saved: bool, copied: bool, now: Instant) -> IslandPhase {
+    if saved {
+        IslandPhase::Completed {
             finished_at: now,
-            frame_count,
-            duration_ms,
             copied,
-        },
-        None => IslandPhase::Failed { finished_at: now },
+        }
+    } else {
+        IslandPhase::Failed { finished_at: now }
     }
 }
 
-enum CaptureSource {
-    Screen {
-        session: ScreenCaptureSession,
-        audio: Option<AudioRecorder>,
-        windows: Option<crate::annotate::windows::WindowLogger>,
-    },
+struct CaptureSource {
+    session: ScreenCaptureSession,
+    audio: Option<AudioRecorder>,
+    windows: Option<crate::annotate::windows::WindowLogger>,
 }
 
 struct ActiveRecording {
@@ -224,9 +196,7 @@ struct ActiveRecording {
 
 impl ActiveRecording {
     fn elapsed_ms(&self) -> u64 {
-        match &self.source {
-            CaptureSource::Screen { session, .. } => session.elapsed_ms(),
-        }
+        self.source.session.elapsed_ms()
     }
 }
 
@@ -238,7 +208,6 @@ pub struct Coordinator {
     island_phase: IslandPhase,
     reveal: crate::annotate::hold::Reveal,
     pointer_at_result: Option<Option<[f32; 2]>>,
-    reduced_motion: bool,
     last_elapsed_ms: u64,
     selectable_windows: Vec<TargetInfo>,
     selection_generation: u64,
@@ -269,7 +238,6 @@ impl Coordinator {
             island_phase: IslandPhase::Hidden,
             reveal: crate::annotate::hold::Reveal::default(),
             pointer_at_result: None,
-            reduced_motion: false,
             last_elapsed_ms: 0,
             selectable_windows: Vec::new(),
             selection_generation: 0,
@@ -336,10 +304,6 @@ impl Coordinator {
 
     pub fn is_selecting(&self) -> bool {
         matches!(self.island_phase, IslandPhase::Selecting { .. })
-    }
-
-    pub fn open_settings(&mut self) {
-        crate::annotate::open_settings(&[]);
     }
 
     fn note_grants(&mut self, grants: crate::annotate::permissions::Grants) {
@@ -475,10 +439,10 @@ impl Coordinator {
             Action::Open(mode) => {
                 self.open_picker(Some(SelectionMode::Screen), true, cx);
                 if mode != SelectionMode::Screen {
-                    self.show_switcher_mode(mode, cx);
+                    self.set_selection_mode(mode, cx);
                 }
             }
-            Action::Show(mode) => self.show_switcher_mode(mode, cx),
+            Action::Show(mode) => self.set_selection_mode(mode, cx),
             Action::Commit(mode) => self.commit_switcher(mode, cx),
             Action::Cancel => {
                 if self.is_selecting() || self.is_recording() {
@@ -498,10 +462,6 @@ impl Coordinator {
         } else if !self.is_processing() {
             self.record_screen_now(cx);
         }
-    }
-
-    fn show_switcher_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
-        self.set_selection_mode(mode, cx);
     }
 
     fn commit_switcher(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
@@ -568,7 +528,6 @@ impl Coordinator {
     }
 
     fn show_reveal(&mut self, cx: &mut Context<Self>) {
-        self.reduced_motion = reduce_motion();
         let activity = self.reveal_activity();
         self.reveal.show(Instant::now(), activity);
         self.sync_native_pill();
@@ -596,17 +555,18 @@ impl Coordinator {
             return;
         }
         annotate_log(format!("switch_recording -> {mode:?}"));
-        let Some((_, overlay)) = self.discard_recording() else {
+        let Some(overlay) = self.discard_recording() else {
             return;
         };
         self.picker_metal_overlay = overlay;
         self.open_picker(Some(mode), false, cx);
     }
 
-    fn discard_recording(&mut self) -> Option<(TargetInfo, Option<LaserOverlay>)> {
+    /// Ends the recording without saving it, and hands back its laser overlay for reuse.
+    fn discard_recording(&mut self) -> Option<Option<LaserOverlay>> {
         let rec = self.active_recording.take()?;
         let _ = self.telemetry.finish_session();
-        let CaptureSource::Screen { session, audio, .. } = rec.source;
+        let CaptureSource { session, audio, .. } = rec.source;
         drop(audio);
         // Stopping waits for the video to finish writing, which would hold up the UI, and the
         // bundle is deleted either way.
@@ -615,7 +575,7 @@ impl Coordinator {
             let _ = session.stop();
             let _ = std::fs::remove_dir_all(bundle_dir);
         });
-        Some((rec.target, rec._metal_overlay))
+        Some(rec._metal_overlay)
     }
 
     pub fn is_island_visible(&self) -> bool {
@@ -709,18 +669,11 @@ impl Coordinator {
         }
     }
 
-    pub fn choose_selection_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
-        if self.selection_mode().is_none() {
-            return;
-        }
-        self.set_selection_mode(mode, cx);
-    }
-
     pub fn click_selection_mode(&mut self, mode: SelectionMode, cx: &mut Context<Self>) {
         if self.selection_mode() == Some(mode) && mode.shows_record() {
             self.record_selected_mode(cx);
         } else {
-            self.choose_selection_mode(mode, cx);
+            self.set_selection_mode(mode, cx);
         }
     }
 
@@ -744,7 +697,7 @@ impl Coordinator {
                     self.switcher.reset();
                     self.cancel_recording(cx);
                 }
-                self.open_settings();
+                crate::annotate::open_settings(&[]);
             }
             _ => return false,
         }
@@ -790,11 +743,11 @@ impl Coordinator {
             "escape" => self.cancel_recording(cx),
             "enter" => self.record_selected_mode(cx),
             key if key.eq_ignore_ascii_case(record_key) => self.record_selected_mode(cx),
-            "tab" => self.choose_selection_mode(mode.cycled(!mods.shift), cx),
-            "right" => self.choose_selection_mode(mode.cycled(true), cx),
-            "left" => self.choose_selection_mode(mode.cycled(false), cx),
+            "tab" => self.set_selection_mode(mode.cycled(!mods.shift), cx),
+            "right" => self.set_selection_mode(mode.cycled(true), cx),
+            "left" => self.set_selection_mode(mode.cycled(false), cx),
             key => match SelectionMode::from_digit(key) {
-                Some(next) => self.choose_selection_mode(next, cx),
+                Some(next) => self.set_selection_mode(next, cx),
                 None => return false,
             },
         }
@@ -815,12 +768,8 @@ impl Coordinator {
     }
 
     pub fn request_immediate_frame(&self) {
-        if let Some(ActiveRecording {
-            source: CaptureSource::Screen { session, .. },
-            ..
-        }) = &self.active_recording
-        {
-            session.request_immediate_frame();
+        if let Some(rec) = &self.active_recording {
+            rec.source.session.request_immediate_frame();
         }
     }
 
@@ -889,7 +838,7 @@ impl Coordinator {
         if let Some(ref mut overlay) = self.picker_metal_overlay {
             overlay.move_to(frame);
         }
-        macos::move_picker_window(frame, cx);
+        macos::move_picker_window(frame);
         self.place_capsule();
         self.sync_picker_overlay();
         cx.notify();
@@ -971,7 +920,6 @@ impl Coordinator {
         PillSnapshot {
             pres,
             clock,
-            reduced_motion: self.reduced_motion,
             shortcut: self.shortcut_label(),
             cancel: self.telemetry.cancel_label(),
         }
@@ -1001,7 +949,7 @@ impl Coordinator {
             PillAction::Finish => self.finish_recording(cx),
             PillAction::Paste(target) => self.paste_completed_bundle(target, cx),
             PillAction::Inspect => self.inspect_completed_bundle(cx),
-            PillAction::DismissCompleted => self.dismiss_completed_bundle(cx),
+            PillAction::DismissCompleted => self.dismiss_island(cx),
         }
     }
 
@@ -1023,10 +971,6 @@ impl Coordinator {
         self.set_island_phase(IslandPhase::Dismissing);
         cx.defer(close_picker_window);
         cx.notify();
-    }
-
-    pub fn dismiss_completed_bundle(&mut self, cx: &mut Context<Self>) {
-        self.dismiss_island(cx);
     }
 
     pub fn inspect_completed_bundle(&mut self, cx: &mut Context<Self>) {
@@ -1221,10 +1165,12 @@ impl Coordinator {
         self.telemetry.begin_picker_session();
         self.sync_picker_overlay();
         if self.picker_metal_overlay.is_none() {
-            let [x, y, w, h] = self.display_rect.map(f64::from);
-            let overlay = macos::open_overlay(Arc::clone(&self.telemetry), Some([x, y, w, h]), cx)
-                .map_err(|error| annotate_log(format!("Metal overlay failed: {error}")))
-                .ok();
+            let overlay = LaserOverlay::open(
+                Arc::clone(&self.telemetry),
+                self.display_rect.map(f64::from),
+            )
+            .map_err(|error| annotate_log(format!("Metal overlay failed: {error}")))
+            .ok();
             if let Some(ref ov) = overlay {
                 self.telemetry
                     .excluded_window_ids
@@ -1299,7 +1245,7 @@ impl Coordinator {
             overlay
         });
         let metal_overlay = metal_overlay.or_else(|| {
-            let ov = macos::open_overlay(Arc::clone(&self.telemetry), Some(target_rect), cx)
+            let ov = LaserOverlay::open(Arc::clone(&self.telemetry), target_rect)
                 .map_err(|error| annotate_log(format!("Metal overlay failed: {error}")))
                 .ok();
             if let Some(ref o) = ov {
@@ -1335,7 +1281,7 @@ impl Coordinator {
             started: Instant::now(),
             target,
             bundle_dir,
-            source: CaptureSource::Screen {
+            source: CaptureSource {
                 session: screen_session,
                 audio: audio_recorder,
                 windows: window_log,
@@ -1379,7 +1325,7 @@ impl Coordinator {
             let result = cx
                 .background_executor()
                 .spawn(async move {
-                    let CaptureSource::Screen {
+                    let CaptureSource {
                         session: screen_session,
                         audio: audio_recorder,
                         windows: window_log,
@@ -1408,7 +1354,6 @@ impl Coordinator {
                     });
                     activity.stop_started = Some(stop_started);
                     activity.stop_ms = Some(stop_started.elapsed().as_millis() as u64);
-                    let duration_ms = recording.duration_ms;
                     let finalized = crate::annotate::bundle::finalize_capture_bundle(
                         &bundle_dir,
                         target,
@@ -1431,17 +1376,17 @@ impl Coordinator {
                             crate::annotate::capture_cancelled();
                         }
                     }
-                    (finalized, duration_ms)
+                    finalized
                 })
                 .await;
 
             let _ = entity.update(cx, |coord, cx| {
-                let (finalized, duration_ms) = result;
-                let mut saved = None;
+                let finalized = result;
+                let mut saved = false;
                 let mut copied = false;
                 coord.completed_dir = None;
-                if let Ok((dir, bundle, _)) = finalized {
-                    saved = Some(bundle.keyframes.len());
+                if let Ok((dir, _, _)) = finalized {
+                    saved = true;
                     match crate::annotate::handoff::copy_bundle_to_clipboard(&dir) {
                         Ok(()) => copied = true,
                         Err(error) => {
@@ -1451,12 +1396,7 @@ impl Coordinator {
                     coord.completed_dir = Some(dir.clone());
                     coord.review_dir = Some(dir);
                 }
-                coord.set_island_phase(phase_after_finish(
-                    saved,
-                    copied,
-                    duration_ms,
-                    Instant::now(),
-                ));
+                coord.set_island_phase(phase_after_finish(saved, copied, Instant::now()));
                 cx.notify();
             });
         })
@@ -1537,7 +1477,6 @@ impl Render for TargetPickerWindow {
 
         let win_bounds = window.bounds();
         let origin = [coord.display_rect[0], coord.display_rect[1]];
-        let k = macos::points_per_pixel(window);
         let screen = [
             f32::from(win_bounds.size.width),
             f32::from(win_bounds.size.height),
@@ -1553,12 +1492,7 @@ impl Render for TargetPickerWindow {
                 let w = (a[0] - b[0]).abs().max(1.0);
                 let h = (a[1] - b[1]).abs().max(1.0);
                 (
-                    [
-                        (a[0].min(b[0]) - origin[0]) * k,
-                        (a[1].min(b[1]) - origin[1]) * k,
-                        w * k,
-                        h * k,
-                    ],
+                    [a[0].min(b[0]) - origin[0], a[1].min(b[1]) - origin[1], w, h],
                     format!("{} × {}", w.round() as i32, h.round() as i32),
                 )
             }),
@@ -1580,10 +1514,7 @@ impl Render for TargetPickerWindow {
                     t.frame.width as f32,
                     t.frame.height as f32,
                 ]);
-                (
-                    [(rx - origin[0]) * k, (ry - origin[1]) * k, rw * k, rh * k],
-                    title,
-                )
+                ([rx - origin[0], ry - origin[1], rw, rh], title)
             }),
             SelectionMode::Screen if hold => Some((
                 [0.0, 0.0, screen[0], screen[1]],
@@ -1635,8 +1566,8 @@ impl Render for TargetPickerWindow {
         if mode == SelectionMode::Window
             && let Some([px_screen, py_screen]) = pointer
         {
-            let cx_local = (px_screen - origin[0]) * k;
-            let cy_local = (py_screen - origin[1]) * k;
+            let cx_local = px_screen - origin[0];
+            let cy_local = py_screen - origin[1];
             root = root.child(camera_cursor_badge(cx_local, cy_local));
         }
 
@@ -1862,8 +1793,9 @@ fn open_picker_windows(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     let screen = coord_entity.read(cx).display_rect;
     let display = macos::display_at(screen, cx);
     let picker_bounds = Bounds {
-        origin: macos::window_origin(display.as_deref()),
-        size: macos::layout_size(screen, display.as_deref()),
+        // GPUI places windows relative to their display.
+        origin: gpui::Point::default(),
+        size: gpui::size(gpui::px(screen[2]), gpui::px(screen[3])),
     };
     let display_id = display.as_ref().map(|d| d.id());
 
@@ -1884,7 +1816,7 @@ fn open_picker_windows(coord_entity: &Entity<Coordinator>, cx: &mut App) {
         },
         move |window, cx| {
             let frame = picker_coord.read(cx).display_rect.map(f64::from);
-            if let Some(num) = macos::configure_picker_window(window, frame, cx) {
+            if let Some(num) = macos::configure_picker_window(window, frame) {
                 picker_coord
                     .read(cx)
                     .telemetry
@@ -1957,7 +1889,7 @@ pub fn start(shortcuts: Shortcuts, cx: &mut App) {
     start_global_input_tap(Arc::clone(&telemetry));
     crate::annotate::retention::start();
     crate::annotate::speech_model::ensure();
-    let menu_rx = install_status_bar();
+    let menu_rx = menu_channel().1.clone();
 
     {
         let sender = telemetry.ui_sender.clone();
@@ -1980,32 +1912,30 @@ pub fn start(shortcuts: Shortcuts, cx: &mut App) {
                     loop_coord.read(cx).is_recording(),
                     std::sync::atomic::Ordering::Relaxed,
                 );
-                if let Some(ref rx) = menu_rx {
-                    while let Ok(action) = rx.try_recv() {
-                        match action {
-                            MenuAction::ToggleCapture => {
-                                loop_coord.update(cx, |coord, cx| coord.record_or_finish(cx));
-                            }
-                            MenuAction::ChooseTarget => {
-                                loop_coord.update(cx, |coord, cx| {
-                                    if !coord.is_recording()
-                                        && !coord.is_processing()
-                                        && !coord.is_selecting()
-                                    {
-                                        coord.begin_target_selection(cx);
-                                    }
-                                });
-                            }
-                            MenuAction::OpenLatest => {
-                                if let Ok((dir, _)) = crate::annotate::handoff::load_bundle(
-                                    std::path::Path::new("latest"),
-                                ) {
-                                    loop_coord.update(cx, |coord, cx| {
-                                        coord.review_dir = Some(dir);
-                                        cx.notify();
-                                    });
-                                    inspect_review_dir(&loop_coord, cx);
+                while let Ok(action) = menu_rx.try_recv() {
+                    match action {
+                        MenuAction::ToggleCapture => {
+                            loop_coord.update(cx, |coord, cx| coord.record_or_finish(cx));
+                        }
+                        MenuAction::ChooseTarget => {
+                            loop_coord.update(cx, |coord, cx| {
+                                if !coord.is_recording()
+                                    && !coord.is_processing()
+                                    && !coord.is_selecting()
+                                {
+                                    coord.begin_target_selection(cx);
                                 }
+                            });
+                        }
+                        MenuAction::OpenLatest => {
+                            if let Ok((dir, _)) = crate::annotate::handoff::load_bundle(
+                                std::path::Path::new("latest"),
+                            ) {
+                                loop_coord.update(cx, |coord, cx| {
+                                    coord.review_dir = Some(dir);
+                                    cx.notify();
+                                });
+                                inspect_review_dir(&loop_coord, cx);
                             }
                         }
                     }
@@ -2177,15 +2107,10 @@ mod tests {
     }
 
     #[test]
-    fn clock_template_is_width_stable() {
-        assert_eq!(clock_template("12:34"), "00:00");
-    }
-
-    #[test]
     fn a_capture_that_was_not_saved_shows_the_failure() {
         let now = Instant::now();
         assert_eq!(
-            phase_after_finish(None, false, 4_000, now),
+            phase_after_finish(false, false, now),
             IslandPhase::Failed { finished_at: now }
         );
     }
@@ -2195,11 +2120,9 @@ mod tests {
         let now = Instant::now();
         for copied in [true, false] {
             assert_eq!(
-                phase_after_finish(Some(3), copied, 4_000, now),
+                phase_after_finish(true, copied, now),
                 IslandPhase::Completed {
                     finished_at: now,
-                    frame_count: 3,
-                    duration_ms: 4_000,
                     copied,
                 }
             );
