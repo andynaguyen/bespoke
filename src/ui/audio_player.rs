@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use gpui::{
     App, Bounds, DispatchPhase, ElementId, Entity, MouseButton, MouseMoveEvent, MouseUpEvent,
-    Pixels, SharedString, Window, canvas, div, prelude::*, px, rems,
+    Pixels, SharedString, canvas, div, prelude::*, px, rems,
 };
 
 use crate::annotate::model::format_clock;
@@ -132,7 +132,6 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
     path: Option<PathBuf>,
     state: Entity<PlayerState>,
     resolve: R,
-    _window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement + use<I, R> {
     let p = palette(cx);

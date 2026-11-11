@@ -78,12 +78,12 @@ impl super::Page for DictatePage {
 
     fn inspector(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
         match (&self.tab, &self.history) {
             (Tab::History, Some(history)) => {
-                history.update(cx, |history, cx| history.inspector(window, cx))
+                history.update(cx, |history, cx| history.inspector(cx))
             }
             _ => None,
         }

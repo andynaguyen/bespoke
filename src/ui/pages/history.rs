@@ -251,7 +251,7 @@ impl HistoryPage {
         !self.loading && !self.entries.is_empty()
     }
 
-    pub fn inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub fn inspector(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
         if !self.has_inspector() {
             return None;
         }
@@ -259,7 +259,7 @@ impl HistoryPage {
         let details = self
             .selected_entry()
             .cloned()
-            .map(|entry| self.render_inspector(&entry, window, cx).into_any_element());
+            .map(|entry| self.render_inspector(&entry, cx).into_any_element());
         Some(crate::ui::shell::inspector(
             "history-inspector",
             INSPECTOR_WIDTH,
@@ -371,7 +371,6 @@ impl HistoryPage {
     fn render_inspector(
         &mut self,
         entry: &HistoryEntry,
-        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let p = palette(cx);
@@ -390,7 +389,6 @@ impl HistoryPage {
             Some(path),
             player_state,
             move |_| Some(manager().get_audio_file_path(&file_name)),
-            window,
             cx,
         );
 
