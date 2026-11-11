@@ -840,8 +840,8 @@
     }
   },
   "overlay": {
-    "transcribing": "텍스트로 변환 중...",
-    "processing": "처리 중..."
+    "transcribing": "텍스트로 변환 중",
+    "processing": "처리 중"
   },
   "whatsNew": {
     "title": "Bespoke v{{version}}의 새 소식"
@@ -940,8 +940,6 @@
       "window": "윈도우",
       "screen": "화면",
       "record": "녹화",
-      "undo": "실행 취소",
-      "cancel": "취소",
       "finish": "완료",
       "processing": "처리 중",
       "copied": "복사됨",

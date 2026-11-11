@@ -841,8 +841,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Transkriberar...",
-    "processing": "Bearbetar..."
+    "transcribing": "Transkriberar",
+    "processing": "Bearbetar"
   },
   "whatsNew": {
     "title": "Nytt i Bespoke v{{version}}"
@@ -941,8 +941,6 @@
       "window": "Fönster",
       "screen": "Skärm",
       "record": "Spela in",
-      "undo": "Ångra",
-      "cancel": "Avbryt",
       "finish": "Avsluta",
       "processing": "Bearbetar",
       "copied": "Kopierad",

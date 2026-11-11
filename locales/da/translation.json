@@ -844,8 +844,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Transskriberer...",
-    "processing": "Behandler..."
+    "transcribing": "Transskriberer",
+    "processing": "Behandler"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokerer muligvis 1 genvej",
@@ -941,8 +941,6 @@
       "window": "Vindue",
       "screen": "Skærm",
       "record": "Optag",
-      "undo": "Fortryd",
-      "cancel": "Annuller",
       "finish": "Afslut",
       "processing": "Behandler",
       "copied": "Kopieret",

@@ -846,8 +846,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám..."
+    "transcribing": "Přepisuji",
+    "processing": "Zpracovávám"
   },
   "whatsNew": {
     "title": "Novinky v Bespoke v{{version}}"
@@ -948,8 +948,6 @@
       "window": "Okno",
       "screen": "Obrazovka",
       "record": "Nahrát",
-      "undo": "Zpět",
-      "cancel": "Zrušit",
       "finish": "Dokončit",
       "processing": "Zpracování",
       "copied": "Zkopírováno",

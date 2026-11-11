@@ -1,12 +1,10 @@
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    Animation, AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Div, Entity,
-    FontFeatures, FontWeight, Global, HighlightStyle, Pixels, ScrollHandle, SharedString, Size,
-    StyledText, Subscription, Task, Window, WindowBackgroundAppearance, WindowBounds,
-    WindowDecorations, WindowHandle, WindowKind, WindowOptions, canvas, div, linear_color_stop,
-    linear_gradient, point, prelude::*, px, size,
+    Animation, AnimationExt, AnyElement, App, Bounds, Context, DisplayId, Div, Entity, Global,
+    HighlightStyle, Pixels, ScrollHandle, SharedString, Size, StyledText, Subscription, Task,
+    Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowHandle, WindowKind,
+    WindowOptions, canvas, div, linear_color_stop, linear_gradient, point, prelude::*, px, size,
 };
 
 use crate::app_handle::{AppEvent, AppHandle};
@@ -16,9 +14,12 @@ use crate::managers::transcription::{
 };
 use crate::overlay::MIC_LEVEL_EVENT;
 use crate::settings::OverlayPosition;
-use crate::ui::capsule::{self, ChipKind, Colors};
-use crate::ui::components::icon;
+use crate::settings::get_settings;
+use crate::ui::capsule::{self, ChipKind, Colors, Fold, MORPH, Tween, ease, ease_morph};
+use crate::ui::clay::keycap;
+use crate::ui::components::{icon, width_tracker};
 use crate::ui::event_bus::event_bus;
+use crate::ui::platform::capsule::{self as native, CapsuleWindow};
 use crate::ui::theme::Alpha;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,9 +28,13 @@ pub enum OverlayState {
     Streaming,
     Transcribing,
     Processing,
+    /// The text landed. Shows a check for a moment.
+    Done,
+    /// The paste failed. Stays until dismissed or `FAILED_HOLD` passes.
+    PasteFailed,
 }
 
-const COMPACT_AREA: (f32, f32) = (WORK_W, BASE_H);
+const COMPACT_AREA: (f32, f32) = (320., BASE_H);
 const STREAM_AREA: (f32, f32) = (OPEN_W + 6., 132.);
 
 const PAD_X: f32 = 18.;
@@ -40,21 +45,23 @@ const TOP_OFFSET: f32 = 46.;
 const BOTTOM_OFFSET: f32 = 15.;
 
 const HIDE_DELAY: Duration = Duration::from_millis(300);
+const DONE_HOLD: Duration = Duration::from_millis(600);
+const FAILED_HOLD: Duration = Duration::from_secs(25);
 
 const BASE_H: f32 = capsule::HEIGHT;
 const RADIUS: f32 = capsule::RADIUS;
 const INSET: f32 = capsule::INSET;
 const CHIP: f32 = capsule::CHIP;
-const CHIP_GAP: f32 = 2.;
-const DIVIDER_W: f32 = 13.;
-const WAVE_BARS: usize = 9;
-const WAVE_W: f32 = WAVE_BARS as f32 * 4. + (WAVE_BARS - 1) as f32 * 3.;
-const LEAD_W: f32 = 12. + 10. + 10. + WAVE_W + 10.;
-const REST_W: f32 = 2. * INSET + LEAD_W + 2. * CHIP_GAP + DIVIDER_W + CHIP;
-const WORK_W: f32 = 220.;
+const POLL: Duration = Duration::from_millis(33);
+const LEAD_W: f32 = 2. * capsule::LEAD_PAD + capsule::DOT + capsule::LEAD_GAP + capsule::METER_W;
+const REST_W: f32 = 2. * INSET + LEAD_W;
+const WORK_BASE_W: f32 = 2. * INSET + 2. * capsule::LEAD_PAD + capsule::SPINNER + capsule::LEAD_GAP;
+const WORK_LABEL_GUESS: f32 = 100.;
+const DONE_W: f32 = 2. * INSET + 2. * capsule::LEAD_PAD + capsule::DONE;
+const FAILED_BASE_W: f32 =
+    2. * INSET + 2. * capsule::LEAD_PAD + capsule::WARN_ICON + capsule::LEAD_GAP + CHIP;
 const OPEN_W: f32 = 440.;
 const CAP_MAX_H: f32 = 64.;
-const MORPH: Duration = Duration::from_millis(460);
 
 fn window_size(state: OverlayState) -> Size<Pixels> {
     let (w, h) = if state == OverlayState::Streaming {
@@ -65,87 +72,9 @@ fn window_size(state: OverlayState) -> Size<Pixels> {
     size(px(w + 2. * PAD_X), px(h + PAD_TOP + PAD_BOTTOM))
 }
 
-fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, t: f32) -> f32 {
-    let curve = |a: f32, b: f32, s: f32| {
-        let u = 1. - s;
-        3. * u * u * s * a + 3. * u * s * s * b + s * s * s
-    };
-    let (mut lo, mut hi) = (0f32, 1f32);
-    for _ in 0..20 {
-        let mid = (lo + hi) / 2.;
-        if curve(x1, x2, mid) < t {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    curve(y1, y2, (lo + hi) / 2.)
-}
-
-fn ease_morph(t: f32) -> f32 {
-    cubic_bezier(0.22, 1., 0.36, 1., t)
-}
-
-fn ease(t: f32) -> f32 {
-    cubic_bezier(0.25, 0.1, 0.25, 1., t)
-}
-
-fn ease_in_out(t: f32) -> f32 {
-    cubic_bezier(0.42, 0., 0.58, 1., t)
-}
-
-#[derive(Clone, Copy)]
-struct Tween {
-    from: f32,
-    to: f32,
-    start: Option<Instant>,
-    duration: Duration,
-    ease: fn(f32) -> f32,
-}
-
-impl Tween {
-    fn new(value: f32, duration: Duration, ease: fn(f32) -> f32) -> Self {
-        Self {
-            from: value,
-            to: value,
-            start: None,
-            duration,
-            ease,
-        }
-    }
-
-    fn progress(&self) -> f32 {
-        match self.start {
-            Some(start) if !self.duration.is_zero() => {
-                (start.elapsed().as_secs_f32() / self.duration.as_secs_f32()).min(1.)
-            }
-            _ => 1.,
-        }
-    }
-
-    fn value(&self) -> f32 {
-        self.from + (self.to - self.from) * (self.ease)(self.progress())
-    }
-
-    fn running(&self) -> bool {
-        self.progress() < 1.
-    }
-
-    fn set(&mut self, to: f32, snap: bool) {
-        if snap {
-            self.from = to;
-            self.to = to;
-            self.start = None;
-        } else if to != self.to {
-            self.from = self.value();
-            self.to = to;
-            self.start = Some(Instant::now());
-        }
-    }
-}
-
 struct OverlayWindow {
     handle: WindowHandle<RecordingOverlay>,
+    native: Option<CapsuleWindow>,
     display: Option<DisplayId>,
     bounds: Bounds<Pixels>,
 }
@@ -256,8 +185,16 @@ fn place_window(
         root
     }) {
         Ok(handle) => {
+            let native = handle
+                .update(cx, |_, window, _| CapsuleWindow::of(window))
+                .ok()
+                .flatten();
+            if let Some(native) = &native {
+                native.set_ignores_mouse(true);
+            }
             cx.global_mut::<Overlay>().window = Some(OverlayWindow {
                 handle,
+                native,
                 display,
                 bounds,
             })
@@ -276,9 +213,44 @@ fn close_window(cx: &mut App) {
 
 pub fn show(state: OverlayState, position: OverlayPosition, cx: &mut App) {
     let view = overlay_view(cx);
-    place_window(&view, window_size(state), position, cx);
+    let result = matches!(state, OverlayState::Done | OverlayState::PasteFailed);
+    // A result shows in the window it follows, so the live text's window isn't reopened.
+    let current = cx
+        .try_global::<Overlay>()
+        .and_then(|o| o.window.as_ref())
+        .map(|w| w.bounds.size);
+    let size = match current {
+        Some(size) if result => size,
+        _ => window_size(state),
+    };
+    place_window(&view, size, position, cx);
     cx.global_mut::<Overlay>().generation += 1;
     view.update(cx, |overlay, cx| overlay.show(state, position, cx));
+}
+
+/// Shows a result, then hides the overlay after a while unless a newer session took it.
+pub fn show_result(state: OverlayState, position: OverlayPosition, cx: &mut App) {
+    // Annotate's capsule sits in the same spot.
+    if crate::annotate::capsule::is_showing() {
+        hide(cx);
+        return;
+    }
+    show(state, position, cx);
+    let hold = if state == OverlayState::PasteFailed {
+        FAILED_HOLD
+    } else {
+        DONE_HOLD
+    };
+    let scheduled = cx.global::<Overlay>().generation;
+    cx.spawn(async move |cx| {
+        cx.background_executor().timer(hold).await;
+        let _ = cx.update(|cx| {
+            if cx.global::<Overlay>().generation == scheduled {
+                hide(cx);
+            }
+        });
+    })
+    .detach();
 }
 
 pub fn hide(cx: &mut App) {
@@ -286,6 +258,14 @@ pub fn hide(cx: &mut App) {
         return;
     };
     view.update(cx, |overlay, cx| overlay.hide(cx));
+    if let Some(native) = cx
+        .global::<Overlay>()
+        .window
+        .as_ref()
+        .and_then(|w| w.native.as_ref())
+    {
+        native.set_ignores_mouse(true);
+    }
     let scheduled = cx.global::<Overlay>().generation;
     cx.spawn(async move |cx| {
         cx.background_executor().timer(HIDE_DELAY).await;
@@ -298,6 +278,21 @@ pub fn hide(cx: &mut App) {
         });
     })
     .detach();
+}
+
+/// Hides a paste result, so it doesn't sit under Annotate's capsule.
+pub fn dismiss_result(cx: &mut App) {
+    let showing_result = existing_view(cx).is_some_and(|view| {
+        let overlay = view.read(cx);
+        overlay.visible
+            && matches!(
+                overlay.state,
+                OverlayState::Done | OverlayState::PasteFailed
+            )
+    });
+    if showing_result {
+        hide(cx);
+    }
 }
 
 pub fn recording_ready(cx: &mut App) {
@@ -340,6 +335,8 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
     };
     let state = match kind {
         "transcribing" => OverlayState::Transcribing,
+        "done" => OverlayState::Done,
+        "failed" => OverlayState::PasteFailed,
         k if k.starts_with("streaming") => OverlayState::Streaming,
         _ => OverlayState::Recording,
     };
@@ -351,7 +348,10 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
         if kind != "arming" {
             overlay.capture_ready = true;
         }
-        overlay.smoothed = [0.2, 0.5, 0.8, 0.6, 0.9, 0.4, 0.7, 0.3, 0.5];
+        overlay.smoothed = [0.2, 0.8, 0.5, 0.9, 0.4];
+        if kind == "recording-folded" {
+            overlay.fold.close(true);
+        }
         match kind {
             "streaming" | "streaming-working" => {
                 overlay.text = StreamTextEvent {
@@ -386,7 +386,7 @@ pub struct RecordingOverlay {
     state: OverlayState,
     position: OverlayPosition,
     capture_ready: bool,
-    smoothed: [f32; WAVE_BARS],
+    smoothed: [f32; capsule::METER_BARS],
     text: StreamTextEvent,
     phase: StreamPhase,
     work_kind: StreamWorkKind,
@@ -400,8 +400,14 @@ pub struct RecordingOverlay {
     text_fade: Tween,
     text_height: Pixels,
     caret_on: bool,
+    fold: Fold,
+    card: Bounds<Pixels>,
+    label_w: Pixels,
+    failed_label_w: Pixels,
+    cancel_is_escape: bool,
     elapsed_timer: Option<Task<()>>,
     caret_blink: Option<Task<()>>,
+    pointer_poll: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -417,7 +423,7 @@ impl RecordingOverlay {
             state: OverlayState::Recording,
             position: OverlayPosition::Bottom,
             capture_ready: false,
-            smoothed: [0.; WAVE_BARS],
+            smoothed: [0.; capsule::METER_BARS],
             text: StreamTextEvent {
                 committed: String::new(),
                 tentative: String::new(),
@@ -434,8 +440,14 @@ impl RecordingOverlay {
             text_fade: Tween::new(0., Duration::from_millis(260), ease),
             text_height: px(0.),
             caret_on: true,
+            fold: Fold::new(),
+            card: Bounds::default(),
+            label_w: px(0.),
+            failed_label_w: px(0.),
+            cancel_is_escape: true,
             elapsed_timer: None,
             caret_blink: None,
+            pointer_poll: None,
             _subscriptions: subscriptions,
         }
     }
@@ -446,9 +458,7 @@ impl RecordingOverlay {
                 let Some(levels) = event.parse::<Vec<f32>>() else {
                     return;
                 };
-                for (i, level) in self.smoothed.iter_mut().enumerate() {
-                    *level = *level * 0.7 + levels.get(i).copied().unwrap_or(0.) * 0.3;
-                }
+                capsule::smooth_levels(&mut self.smoothed, &levels);
                 if self.visible {
                     cx.notify();
                 }
@@ -465,6 +475,9 @@ impl RecordingOverlay {
             StreamPhaseEvent::EVENT => {
                 if let Some(event) = event.parse::<StreamPhaseEvent>() {
                     self.phase = event.phase;
+                    if self.phase == StreamPhase::Working {
+                        self.fold.close(crate::ui::platform::reduce_motion());
+                    }
                     if let Some(kind) = event.kind {
                         self.work_kind = kind;
                     }
@@ -478,17 +491,28 @@ impl RecordingOverlay {
 
     fn show(&mut self, state: OverlayState, position: OverlayPosition, cx: &mut Context<Self>) {
         let streaming = state == OverlayState::Streaming;
-        if !self.visible || streaming || streaming != (self.state == OverlayState::Streaming) {
+        let result = matches!(state, OverlayState::Done | OverlayState::PasteFailed);
+        let switched = streaming != (self.state == OverlayState::Streaming);
+        // A result morphs out of whatever showed before it.
+        if !self.visible || streaming || (switched && !result) {
             self.snap = true;
         }
         if matches!(state, OverlayState::Recording | OverlayState::Streaming) {
             self.capture_ready = false;
-            self.smoothed = [0.; WAVE_BARS];
+            self.smoothed = [0.; capsule::METER_BARS];
             self.text = StreamTextEvent {
                 committed: String::new(),
                 tentative: String::new(),
             };
+            self.fold.start(Instant::now());
+        } else {
+            self.fold
+                .close(!self.visible || crate::ui::platform::reduce_motion());
         }
+        self.cancel_is_escape = get_settings(AppHandle::global())
+            .bindings
+            .get("cancel")
+            .is_some_and(|binding| binding.current_binding == "escape");
         self.position = position;
         if streaming {
             self.phase = StreamPhase::Listening;
@@ -519,7 +543,41 @@ impl RecordingOverlay {
         cx.notify();
     }
 
+    fn check_pointer(&mut self, cx: &mut Context<Self>) {
+        let Some(window) = cx
+            .try_global::<Overlay>()
+            .and_then(|o| o.window.as_ref())
+            .and_then(|w| w.native.clone())
+        else {
+            return;
+        };
+        let Some((pointer, _)) = native::pointer() else {
+            return;
+        };
+        let Some(inside) = capsule::pointer_on(&window, self.card, pointer) else {
+            return;
+        };
+        window.set_ignores_mouse(!inside);
+        let snap = crate::ui::platform::reduce_motion();
+        if self.fold.tick(Instant::now(), inside, snap) {
+            cx.notify();
+        }
+    }
+
     fn sync_tasks(&mut self, cx: &mut Context<Self>) {
+        if !self.visible {
+            self.pointer_poll = None;
+        } else if self.pointer_poll.is_none() {
+            self.pointer_poll = Some(cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor().timer(POLL).await;
+                    if this.update(cx, |this, cx| this.check_pointer(cx)).is_err() {
+                        break;
+                    }
+                }
+            }));
+        }
+
         let live = self.visible && self.state == OverlayState::Streaming;
         if live && self.capture_ready {
             if self.elapsed_timer.is_none() {
@@ -568,56 +626,34 @@ impl RecordingOverlay {
         !self.text.committed.is_empty() || !self.text.tentative.is_empty()
     }
 
-    fn waveform(&self, c: &Colors) -> impl IntoElement {
-        let ready = self.capture_ready;
-        let text = c.text;
-        div()
-            .flex()
-            .flex_none()
-            .items_center()
-            .gap(px(3.))
-            .h(px(18.))
-            .children(self.smoothed.iter().enumerate().map(move |(i, level)| {
-                let bar = div().w(px(4.)).rounded(px(2.)).flex_none();
-                if ready {
-                    let height = (3. + level.max(0.).powf(0.7) * 15.).clamp(3., 18.);
-                    bar.h(px(height)).bg(text).into_any_element()
-                } else {
-                    let delay = [0., 75., 150., 225., 300., 225., 150., 75., 0.][i] / 900.;
-                    bar.h(px(6.))
-                        .bg(text)
-                        .with_animation(
-                            SharedString::from(format!("swave-arming-{i}")),
-                            Animation::new(Duration::from_millis(900)).repeat(),
-                            move |bar, delta| {
-                                let t = (delta - delay).rem_euclid(1.);
-                                let (scale, opacity) = if t < 0.5 {
-                                    let e = ease_in_out(t * 2.);
-                                    (0.55 + 0.95 * e, 0.25 + 0.45 * e)
-                                } else {
-                                    let e = ease_in_out((t - 0.5) * 2.);
-                                    (1.5 - 0.95 * e, 0.7 - 0.45 * e)
-                                };
-                                bar.h(px(6. * scale)).opacity(opacity)
-                            },
-                        )
-                        .into_any_element()
-                }
-            }))
-    }
-
     fn cancel_button(&self, c: &Colors) -> impl IntoElement {
-        capsule::chip("overlay-cancel", ChipKind::Icon, c)
+        let escape = self.cancel_is_escape;
+        capsule::chip("overlay-cancel", ChipKind::Plain, c)
             .on_click(|_, _, _| {
                 let app = AppHandle::global().clone();
                 crate::runtime::spawn_blocking(move || {
                     crate::utils::cancel_current_operation(&app)
                 });
             })
-            .child(icon("overlay-cancel").size(px(12.)))
+            .child(icon("overlay-cancel").size(px(11.)))
+            .when(escape, |el| {
+                el.child(keycap(
+                    "esc",
+                    capsule::KEYCAP,
+                    c.keycap,
+                    c.text.a(0.75),
+                    c.dark,
+                ))
+            })
     }
 
-    fn base_row(&self, lead: Div, extra: Option<AnyElement>, c: &Colors) -> impl IntoElement {
+    fn base_row(
+        &self,
+        lead: Div,
+        extra: Option<AnyElement>,
+        c: &Colors,
+        cx: &Context<Self>,
+    ) -> impl IntoElement {
         let rtl = crate::i18n::is_rtl();
         div()
             .flex_none()
@@ -625,66 +661,99 @@ impl RecordingOverlay {
             .px(px(INSET - 1.))
             .flex()
             .items_center()
-            .gap(px(CHIP_GAP))
             .when(rtl, |el| el.flex_row_reverse())
-            .child(
-                lead.flex_1()
-                    .min_w_0()
-                    .h(px(CHIP))
-                    .flex()
-                    .items_center()
-                    .when(rtl, |el| el.flex_row_reverse()),
-            )
+            .child(lead.flex_1().min_w_0().h(px(CHIP)))
             .children(extra)
-            .child(capsule::divider(c))
-            .child(self.cancel_button(c))
+            .child(
+                self.fold.element(
+                    div()
+                        .flex()
+                        .items_center()
+                        .when(rtl, |el| el.flex_row_reverse())
+                        .child(capsule::divider(c))
+                        .child(self.cancel_button(c)),
+                    width_tracker(cx.entity().downgrade(), |this: &mut Self| {
+                        &mut this.fold.measured
+                    }),
+                ),
+            )
     }
 
-    fn listening_row(&self, show_timer: bool, c: &Colors) -> impl IntoElement {
-        let rtl = crate::i18n::is_rtl();
-        let lead = div()
-            .gap(px(10.))
-            .when(rtl, |el| el.pr(px(12.)).pl(px(10.)))
-            .when(!rtl, |el| el.pl(px(12.)).pr(px(10.)))
+    fn listening_row(&self, show_timer: bool, c: &Colors, cx: &Context<Self>) -> impl IntoElement {
+        let lead = capsule::lead()
             .child(capsule::live_dot(self.capture_ready, c))
-            .child(self.waveform(c));
+            .child(capsule::meter(&self.smoothed, self.capture_ready, c));
         let timer = show_timer.then(|| {
             let secs = self.elapsed;
-            let mut timer = div()
+            div()
                 .flex_none()
-                .text_size(px(13.))
-                .line_height(px(16.))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(c.secondary)
-                .whitespace_nowrap()
-                .child(format!("{}:{:02}", secs / 60, secs % 60));
-            timer
-                .text_style()
-                .get_or_insert_with(Default::default)
-                .font_features = Some(FontFeatures(Arc::new(vec![("tnum".into(), 1)])));
-            timer.into_any_element()
+                .px(px(8.))
+                .child(capsule::clock(format!("{}:{:02}", secs / 60, secs % 60), c))
+                .into_any_element()
         });
-        self.base_row(lead, timer, c)
+        self.base_row(lead, timer, c, cx)
     }
 
-    fn working_row(&self, label: SharedString, c: &Colors) -> impl IntoElement {
-        let rtl = crate::i18n::is_rtl();
-        let lead = div()
-            .gap(px(12.))
-            .when(rtl, |el| el.pr(px(8.)).pl(px(12.)))
-            .when(!rtl, |el| el.pl(px(8.)).pr(px(12.)))
+    fn working_row(&self, label: SharedString, c: &Colors, cx: &Context<Self>) -> impl IntoElement {
+        let lead = capsule::lead()
             .child(capsule::spinner(c))
-            .child(
-                div()
-                    .min_w_0()
-                    .text_size(px(13.))
-                    .line_height(px(16.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(c.text)
-                    .truncate()
-                    .child(label),
-            );
-        self.base_row(lead, None, c)
+            .child(self.measured_label(label, |this| &mut this.label_w, c, cx));
+        self.base_row(lead, None, c, cx)
+    }
+
+    fn measured_label(
+        &self,
+        label: SharedString,
+        slot: fn(&mut Self) -> &mut Pixels,
+        c: &Colors,
+        cx: &Context<Self>,
+    ) -> Div {
+        div()
+            .relative()
+            .flex_none()
+            .child(capsule::label(label, c))
+            .child(width_tracker(cx.entity().downgrade(), slot))
+    }
+
+    fn result_row(&self, c: &Colors, cx: &Context<Self>) -> impl IntoElement {
+        let rtl = crate::i18n::is_rtl();
+        let row = div()
+            .flex_none()
+            .h(px(BASE_H - 2.))
+            .px(px(INSET - 1.))
+            .flex()
+            .items_center()
+            .when(rtl, |el| el.flex_row_reverse());
+        if self.state == OverlayState::Done {
+            return row.child(capsule::lead().child(capsule::done_mark(c)));
+        }
+        row.child(
+            capsule::lead()
+                .flex_1()
+                .min_w_0()
+                .child(capsule::warn_icon(c))
+                .child(self.measured_label(
+                    t("overlay.pasteFailed"),
+                    |this| &mut this.failed_label_w,
+                    c,
+                    cx,
+                )),
+        )
+        .child(
+            capsule::chip("overlay-dismiss", ChipKind::Icon, c)
+                .on_click(|_, _, cx| hide(cx))
+                .child(icon("overlay-cancel").size(px(11.))),
+        )
+    }
+
+    fn failed_width(&self) -> f32 {
+        let label = f32::from(self.failed_label_w);
+        FAILED_BASE_W + if label > 0. { label } else { WORK_LABEL_GUESS }
+    }
+
+    fn work_width(&self) -> f32 {
+        let label = f32::from(self.label_w);
+        WORK_BASE_W + if label > 0. { label } else { WORK_LABEL_GUESS }
     }
 
     fn live_text(
@@ -809,28 +878,53 @@ impl RecordingOverlay {
             )
     }
 
-    fn card(&self, c: &Colors) -> Div {
-        capsule::surface("overlay-capsule", px(RADIUS), c).w(px(self.width.value()))
+    fn card(&self, extra: Pixels, c: &Colors, cx: &mut Context<Self>) -> Div {
+        let tracked = cx.entity().downgrade();
+        capsule::surface("overlay-capsule", px(RADIUS), c)
+            .w(px(self.width.value()) + extra)
+            .child(
+                canvas(
+                    move |bounds, _, cx| {
+                        let _ = tracked.update(cx, |this, _| this.card = bounds);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
     }
 
-    fn render_compact(&mut self, c: &Colors) -> AnyElement {
+    fn render_compact(&mut self, c: &Colors, cx: &mut Context<Self>) -> AnyElement {
         let working = matches!(
             self.state,
             OverlayState::Transcribing | OverlayState::Processing
         );
         let snap = std::mem::take(&mut self.snap);
-        self.width.set(if working { WORK_W } else { REST_W }, snap);
+        let width = match self.state {
+            OverlayState::Done => DONE_W,
+            OverlayState::PasteFailed => self.failed_width(),
+            _ if working => self.work_width(),
+            _ => REST_W,
+        };
+        self.width.set(width, snap);
+        if matches!(self.state, OverlayState::Done | OverlayState::PasteFailed) {
+            return self
+                .card(px(0.), c, cx)
+                .flex_col()
+                .child(self.result_row(c, cx))
+                .into_any_element();
+        }
         let label = if self.state == OverlayState::Processing {
             t("overlay.processing")
         } else {
             t("overlay.transcribing")
         };
-        self.card(c)
+        self.card(self.fold.width(), c, cx)
             .flex_col()
             .child(if working {
-                self.working_row(label, c).into_any_element()
+                self.working_row(label, c, cx).into_any_element()
             } else {
-                self.listening_row(false, c).into_any_element()
+                self.listening_row(false, c, cx).into_any_element()
             })
             .into_any_element()
     }
@@ -843,7 +937,7 @@ impl RecordingOverlay {
         let width = if open {
             OPEN_W
         } else if collapsed {
-            WORK_W
+            self.work_width()
         } else {
             REST_W
         };
@@ -860,9 +954,9 @@ impl RecordingOverlay {
             t("overlay.transcribing")
         };
         let row = if working {
-            self.working_row(label, c).into_any_element()
+            self.working_row(label, c, cx).into_any_element()
         } else {
-            self.listening_row(open, c).into_any_element()
+            self.listening_row(open, c, cx).into_any_element()
         };
 
         let progress = self.text_open.value();
@@ -877,7 +971,8 @@ impl RecordingOverlay {
             })
             .child(self.live_text(working, top, window, c, cx));
 
-        self.card(c)
+        let extra = self.fold.width() * (1. - self.text_open.value());
+        self.card(extra, c, cx)
             .when(top, |el| el.flex_col_reverse())
             .when(!top, |el| el.flex_col())
             .child(region)
@@ -907,9 +1002,13 @@ impl Render for RecordingOverlay {
         let card = if self.state == OverlayState::Streaming {
             self.render_live(window, &c, cx)
         } else {
-            self.render_compact(&c)
+            self.render_compact(&c, cx)
         };
-        if self.width.running() || self.text_open.running() || self.text_fade.running() {
+        if self.width.running()
+            || self.text_open.running()
+            || self.text_fade.running()
+            || self.fold.running()
+        {
             window.request_animation_frame();
         }
         stage

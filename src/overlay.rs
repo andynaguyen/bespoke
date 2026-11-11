@@ -42,6 +42,17 @@ pub fn show_processing_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, OverlayState::Processing);
 }
 
+/// Shows how a paste went: a check for a moment, or "Couldn't paste". Runs on the UI
+/// thread, so a dictation started meanwhile replaces the result instead of being hidden by it.
+pub fn show_result_overlay(app_handle: &AppHandle, state: OverlayState, cx: &mut gpui::App) {
+    let settings = settings::get_settings(app_handle);
+    if settings.overlay_style == OverlayStyle::None {
+        crate::ui::overlay::hide(cx);
+        return;
+    }
+    crate::ui::overlay::show_result(state, settings.overlay_position, cx);
+}
+
 pub fn update_overlay_position(app_handle: &AppHandle) {
     let position = settings::get_settings(app_handle).overlay_position;
     app_handle.with_ui(move |cx| crate::ui::overlay::reposition(position, cx));

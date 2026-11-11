@@ -843,8 +843,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Transcribiendo...",
-    "processing": "Procesando..."
+    "transcribing": "Transcribiendo",
+    "processing": "Procesando"
   },
   "whatsNew": {
     "title": "Nuevo en Bespoke v{{version}}"
@@ -943,8 +943,6 @@
       "window": "Ventana",
       "screen": "Pantalla",
       "record": "Grabar",
-      "undo": "Deshacer",
-      "cancel": "Cancelar",
       "finish": "Terminar",
       "processing": "Procesando",
       "copied": "Copiado",

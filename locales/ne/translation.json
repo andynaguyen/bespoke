@@ -844,8 +844,8 @@
     }
   },
   "overlay": {
-    "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
-    "processing": "प्रशोधन गरिँदैछ..."
+    "transcribing": "ट्रान्सक्राइब गरिँदैछ",
+    "processing": "प्रशोधन गरिँदैछ"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} ले 1 सर्टकट रोकिरहेको हुन सक्छ",
@@ -941,8 +941,6 @@
       "window": "विन्डो",
       "screen": "स्क्रिन",
       "record": "रेकर्ड",
-      "undo": "पूर्ववत",
-      "cancel": "रद्द",
       "finish": "सक्नुहोस्",
       "processing": "प्रोसेस गरिँदैछ",
       "copied": "कपी भयो",

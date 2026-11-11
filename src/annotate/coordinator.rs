@@ -194,7 +194,8 @@ pub enum IslandPhase {
     Dismissing,
 }
 
-const FINISHED_CAPSULE_MS: u64 = 25_000;
+const COMPLETED_CAPSULE_MS: u64 = 8_000;
+const FAILED_CAPSULE_MS: u64 = 25_000;
 
 fn phase_after_finish(
     saved_frame_count: Option<usize>,
@@ -244,6 +245,7 @@ pub struct Coordinator {
     native_pill: Option<crate::annotate::capsule_link::NativePill>,
     island_phase: IslandPhase,
     reveal: crate::annotate::hold::Reveal,
+    finished_pointer: Option<Option<[f32; 2]>>,
     reduced_motion: bool,
     last_elapsed_ms: u64,
     selectable_windows: Vec<TargetInfo>,
@@ -274,6 +276,7 @@ impl Coordinator {
             native_pill: None,
             island_phase: IslandPhase::Hidden,
             reveal: crate::annotate::hold::Reveal::default(),
+            finished_pointer: None,
             reduced_motion: false,
             last_elapsed_ms: 0,
             selectable_windows: Vec::new(),
@@ -1050,11 +1053,26 @@ impl Coordinator {
                 self.apply_pill_action(action, cx);
             }
         }
-        if let IslandPhase::Completed { finished_at, .. } | IslandPhase::Failed { finished_at } =
-            self.island_phase
-            && finished_at.elapsed() >= Duration::from_millis(FINISHED_CAPSULE_MS)
-        {
-            self.set_island_phase(IslandPhase::Dismissing);
+        let hovered = self
+            .native_pill
+            .as_ref()
+            .is_some_and(|pill| pill.pointer_on_pill());
+        let pointer = current_mouse_screen();
+        let finished = match &mut self.island_phase {
+            IslandPhase::Completed { finished_at, .. } => Some((finished_at, COMPLETED_CAPSULE_MS)),
+            IslandPhase::Failed { finished_at } => Some((finished_at, FAILED_CAPSULE_MS)),
+            _ => None,
+        };
+        if let Some((finished_at, stay_ms)) = finished {
+            // A pointer left where Finish was clicked isn't reading the capsule.
+            let moved = *self.finished_pointer.get_or_insert(pointer) != pointer;
+            if hovered && moved {
+                *finished_at = Instant::now();
+            } else if finished_at.elapsed() >= Duration::from_millis(stay_ms) {
+                self.set_island_phase(IslandPhase::Dismissing);
+            }
+        } else {
+            self.finished_pointer = None;
         }
 
         if let IslandPhase::Selecting { mode } = self.island_phase {

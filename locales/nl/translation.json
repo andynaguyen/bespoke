@@ -844,8 +844,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Transcriberen...",
-    "processing": "Verwerken..."
+    "transcribing": "Transcriberen",
+    "processing": "Verwerken"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",
@@ -941,8 +941,6 @@
       "window": "Venster",
       "screen": "Scherm",
       "record": "Opnemen",
-      "undo": "Herstel",
-      "cancel": "Annuleren",
       "finish": "Klaar",
       "processing": "Verwerken",
       "copied": "Gekopieerd",

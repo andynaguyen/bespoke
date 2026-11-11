@@ -841,8 +841,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Transkribiere...",
-    "processing": "Verarbeite..."
+    "transcribing": "Transkribiere",
+    "processing": "Verarbeite"
   },
   "whatsNew": {
     "title": "Neu in Bespoke v{{version}}"
@@ -941,8 +941,6 @@
       "window": "Fenster",
       "screen": "Bildschirm",
       "record": "Aufnehmen",
-      "undo": "Widerrufen",
-      "cancel": "Abbrechen",
       "finish": "Fertig",
       "processing": "Verarbeite",
       "copied": "Kopiert",

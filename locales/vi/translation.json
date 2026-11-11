@@ -840,8 +840,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Đang chuyển đổi...",
-    "processing": "Đang xử lý..."
+    "transcribing": "Đang chuyển đổi",
+    "processing": "Đang xử lý"
   },
   "whatsNew": {
     "title": "Điểm mới trong Bespoke v{{version}}"
@@ -940,8 +940,6 @@
       "window": "Cửa sổ",
       "screen": "Màn hình",
       "record": "Ghi",
-      "undo": "Hoàn tác",
-      "cancel": "Hủy",
       "finish": "Xong",
       "processing": "Đang xử lý",
       "copied": "Đã sao chép",

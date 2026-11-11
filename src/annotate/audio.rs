@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -14,6 +15,9 @@ use crate::system_output::{self, Hold};
 const SAMPLE_RATE: u32 = 16_000;
 
 const WAIT_POLL: Duration = Duration::from_millis(20);
+const LEVEL_INTERVAL_MS: u64 = 33;
+
+pub const MIC_LEVEL_EVENT: &str = "annotate-mic-level";
 
 /// Records the microphone for one capture with the device and input channel picked on
 /// Bespoke's Sound page. Opening and closing the device happen on the recorder's own thread,
@@ -185,10 +189,28 @@ fn wait_for_end(stopped: &mpsc::Receiver<()>) -> Waited {
     }
 }
 
+/// A microphone on `channel` that feeds the capsule's meter. It has its own event and
+/// throttle, so a dictation running at the same time doesn't mix into its levels.
+fn new_microphone(channel: Option<u16>) -> Microphone {
+    let microphone = Microphone::new().with_selected_channel(channel);
+    let Some(app) = AppHandle::try_global().cloned() else {
+        return microphone;
+    };
+    let started = Instant::now();
+    let last_ms = AtomicU64::new(0);
+    microphone.with_level_callback(move |levels| {
+        let now_ms = started.elapsed().as_millis() as u64;
+        if now_ms.saturating_sub(last_ms.load(Ordering::Relaxed)) >= LEVEL_INTERVAL_MS {
+            last_ms.store(now_ms, Ordering::Relaxed);
+            let _ = app.emit(MIC_LEVEL_EVENT, &levels);
+        }
+    })
+}
+
 /// Opens `preferred`, or the system default when there is none or it won't open.
 fn open(preferred: Option<(String, cpal::Device)>, channel: Option<u16>) -> Result<Microphone> {
     if let Some((name, device)) = preferred {
-        let mut microphone = Microphone::new().with_selected_channel(channel);
+        let mut microphone = new_microphone(channel);
         match microphone.open(Some(device)) {
             Ok(()) => {
                 annotate_log(format!("Microphone: {name}"));
@@ -199,7 +221,7 @@ fn open(preferred: Option<(String, cpal::Device)>, channel: Option<u16>) -> Resu
             )),
         }
     }
-    let mut microphone = Microphone::new().with_selected_channel(channel);
+    let mut microphone = new_microphone(channel);
     microphone
         .open(None)
         .map_err(|e| anyhow!("Could not open the default microphone: {e}"))?;
