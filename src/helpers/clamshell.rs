@@ -29,3 +29,20 @@ pub fn is_laptop() -> Result<bool, String> {
 
     Ok(stdout.contains("InternalBattery"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Smoke tests: a typo in the command or a bad `ioreg` argument makes
+    // these fail, and clamshell microphone selection would fall back silently.
+    #[test]
+    fn ioreg_runs_with_our_arguments() {
+        assert!(is_clamshell().is_ok());
+    }
+
+    #[test]
+    fn pmset_runs_with_our_arguments() {
+        assert!(is_laptop().is_ok());
+    }
+}
