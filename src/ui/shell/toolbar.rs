@@ -1,4 +1,4 @@
-use gpui::{AnyElement, App, FontWeight, MouseButton, SharedString, Window, div, prelude::*, px};
+use gpui::{AnyElement, App, FontWeight, MouseButton, SharedString, div, prelude::*, px};
 
 use crate::ui::components::{RowDirection, Typography};
 use crate::ui::theme::palette;
@@ -50,7 +50,7 @@ impl Toolbar {
     }
 }
 
-pub fn render(title: SharedString, toolbar: Toolbar, _window: &mut Window, cx: &App) -> AnyElement {
+pub fn render(title: SharedString, toolbar: Toolbar, cx: &App) -> AnyElement {
     let p = palette(cx);
     let control = |element: AnyElement| div().flex_none().occlude().child(element);
     div()

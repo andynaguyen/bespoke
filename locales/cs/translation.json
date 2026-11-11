@@ -128,10 +128,7 @@
       "grant": "Udělit oprávnění",
       "granted": "Uděleno",
       "waiting": "Čekání...",
-      "allGranted": "Vše připraveno!",
-      "errors": {
-        "checkFailed": "Nepodařilo se zkontrolovat oprávnění. Zkuste to prosím znovu."
-      }
+      "allGranted": "Vše připraveno!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Modely přepisu",
       "description": "Vyberte model přepisu nebo stáhněte další modely. Různé modely nabízejí různé úrovně přesnosti a rychlosti.",
       "deleteConfirm": "Opravdu chcete smazat {{modelName}}? Pro opětovné použití jej budete muset znovu stáhnout.",
       "deleteActiveConfirm": "{{modelName}} je váš aktivní model. Jeho smazáním se zastaví přepisy, dokud nevyberete nový model. Opravdu chcete pokračovat?",
@@ -177,7 +173,6 @@
       "availableModels": "Dostupné ke stažení",
       "searchPlaceholder": "Hledat modely podle názvu…",
       "rescan": {
-        "label": "Znovu prohledat",
         "tooltip": "Znovu prohledat modely přidané do složky modelů nebo mezipaměti Hugging Face mimo Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Zvuk",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Vyberte preferované zařízení mikrofonu.",
         "placeholder": "Vyberte mikrofon...",
-        "loading": "Načítání...",
         "priority": {
           "title": "Priorita",
           "description": "Diktování a Anotace nahrávají z prvního připojeného mikrofonu. Přetažením změníte pořadí.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Přepis",
         "experimental": "Experimentální",
-        "dictation": "Diktování",
         "appearance": "Vzhled",
         "system": "Systém",
         "shortcut": "Zkratka",
@@ -535,7 +526,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Slovník",
         "history": "Historie",
         "style": "Styl"
       },
@@ -572,16 +562,13 @@
       "added": "Přidáno. Nadiktujte větu znovu a ověřte to."
     },
     "history": {
-      "title": "Historie",
       "openFolder": "Otevřít složku nahrávek",
       "loading": "Načítám historii...",
       "empty": "Zatím žádné přepisy. Začněte nahrávat a vytvořte si historii!",
-      "copyToClipboard": "Kopírovat přepis do schránky",
       "copyError": "Přepis se nepodařilo zkopírovat do schránky.",
       "save": "Uložit přepis",
       "unsave": "Odebrat z uložených",
       "delete": "Smazat záznam",
-      "deleteError": "Nepodařilo se smazat záznam. Zkuste to prosím znovu.",
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
@@ -593,11 +580,9 @@
       "postProcessed": "Následně zpracováno",
       "prompt": "Prompt",
       "copy": "Kopírovat",
-      "copied": "Zkopírováno",
-      "noSelection": "Vyberte přepis a zobrazí se zde."
+      "copied": "Zkopírováno"
     },
     "debug": {
-      "title": "Ladění",
       "logDirectory": {
         "title": "Složka protokolů",
         "description": "Umístění, kde jsou uloženy soubory protokolu."
@@ -678,11 +663,6 @@
           "keyboardListener": "Naslouchání klávesnici"
         }
       },
-      "paths": {
-        "appData": "Data aplikace:",
-        "models": "Modely:",
-        "settings": "Nastavení:"
-      },
       "pasteDelay": {
         "title": "Zpoždění vložení (před)",
         "description": "Zpoždění (v milisekundách) po zkopírování textu, před odesláním klávesy pro vložení. Zvyšte, pokud se nic nevloží."
@@ -727,8 +707,7 @@
         "title": "Náhled novinek",
         "description": "Otevřít nejnovější přibalené poznámky k vydání bez označení jako zobrazené.",
         "button": "Náhled",
-        "noNotes": "Nebyly nalezeny žádné přibalené poznámky k vydání",
-        "error": "Nepodařilo se zobrazit náhled poznámek k vydání"
+        "noNotes": "Nebyly nalezeny žádné přibalené poznámky k vydání"
       },
       "onboardingPreview": {
         "title": "Náhled úvodního nastavení",
@@ -805,7 +784,6 @@
   "common": {
     "loading": "Načítání...",
     "delete": "Smazat",
-    "close": "Zavřít",
     "open": "Otevřít",
     "copy": "Kopírovat",
     "clear": "Vymazat",
@@ -864,7 +842,6 @@
     "recorderBlockedWithCulprit": "{{name}} může blokovat změny zkratek",
     "recorderBlockedNoCulprit": "macOS dočasně blokuje změny zkratek",
     "recorderBlocked": "Zkratky teď nelze nahrát — Secure Input v macOS blokuje události kláves. Nejprve vyřešte upozornění na Secure Input.",
-    "dismiss": "Zavřít",
     "blockedWithCulprit_few": "{{name}} může blokovat {{count}} zkratky",
     "blockedNoCulprit_few": "macOS dočasně blokuje {{count}} zkratky"
   },

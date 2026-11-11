@@ -179,7 +179,7 @@ impl ModelsPage {
                     .text_color(p.text.a(0.6))
                     .hover(|s| s.bg(p.mid_gray.a(0.2)))
             })
-            .tooltip(move |window, cx| Tooltip::text(title.clone(), window, cx))
+            .tooltip(move |_, cx| Tooltip::text(title.clone(), cx))
             .keyboard_focus(cx)
             .on_click(cx.listener(move |this, _, _, cx| {
                 toggle(this);
@@ -307,9 +307,7 @@ impl Render for ModelsPage {
                                         this.store.update(cx, |s, cx| s.rescan(cx))
                                     }))
                             })
-                            .tooltip(|window, cx| {
-                                Tooltip::text(t("settings.models.rescan.tooltip"), window, cx)
-                            })
+                            .tooltip(|_, cx| Tooltip::text(t("settings.models.rescan.tooltip"), cx))
                             .child(if rescanning {
                                 Spinner::loader(rems(0.875), p.text.a(0.6)).into_any_element()
                             } else {

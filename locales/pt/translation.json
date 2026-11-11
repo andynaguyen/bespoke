@@ -128,10 +128,7 @@
       "grant": "Conceder Permissão",
       "granted": "Concedido",
       "waiting": "Aguardando...",
-      "allGranted": "Tudo pronto!",
-      "errors": {
-        "checkFailed": "Erro ao verificar permissões. Por favor, tente novamente."
-      }
+      "allGranted": "Tudo pronto!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "Modelos de Transcrição",
       "description": "Selecione um modelo de transcrição ou baixe modelos adicionais. Diferentes modelos oferecem diferentes níveis de precisão e velocidade.",
       "deleteConfirm": "Tem certeza de que deseja excluir {{modelName}}? Você precisará baixá-lo novamente para usá-lo.",
       "deleteActiveConfirm": "{{modelName}} é o seu modelo ativo. Excluí-lo interromperá as transcrições até que você selecione um novo modelo. Tem certeza?",
@@ -245,7 +241,6 @@
       "availableModels": "Disponíveis para download",
       "searchPlaceholder": "Buscar modelos por nome…",
       "rescan": {
-        "label": "Reescanear",
         "tooltip": "Reescaneia em busca de modelos adicionados à pasta de modelos ou ao cache do Hugging Face fora do Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Som",
       "microphone": {
         "title": "Microfone",
-        "description": "Selecione seu dispositivo de microfone preferido.",
         "placeholder": "Selecionar microfone...",
-        "loading": "Carregando...",
         "priority": {
           "title": "Prioridade",
           "description": "Ditar e Anotar gravam do primeiro microfone conectado. Arraste para reordenar.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transcrição",
         "experimental": "Experimental",
-        "dictation": "Ditado",
         "appearance": "Aparência",
         "system": "Sistema",
         "shortcut": "Atalho",
@@ -533,7 +524,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Dicionário",
         "history": "Histórico",
         "style": "Estilo"
       },
@@ -569,16 +559,13 @@
       "added": "Adicionada. Dite a frase novamente para verificar."
     },
     "history": {
-      "title": "Histórico",
       "openFolder": "Abrir Pasta de Gravações",
       "loading": "Carregando histórico...",
       "empty": "Nenhuma transcrição ainda. Comece a gravar para construir seu histórico!",
-      "copyToClipboard": "Copiar transcrição para área de transferência",
       "copyError": "Não foi possível copiar a transcrição para a área de transferência.",
       "save": "Salvar transcrição",
       "unsave": "Remover dos salvos",
       "delete": "Excluir entrada",
-      "deleteError": "Falha ao excluir entrada. Por favor, tente novamente.",
       "retranscribe": "Re-transcrever",
       "retranscribeError": "Falha ao re-transcrever. Por favor, tente novamente.",
       "transcribing": "Transcrevendo...",
@@ -590,11 +577,9 @@
       "postProcessed": "Pós-processado",
       "prompt": "Prompt",
       "copy": "Copiar",
-      "copied": "Copiado",
-      "noSelection": "Selecione uma transcrição para vê-la aqui."
+      "copied": "Copiado"
     },
     "debug": {
-      "title": "Depuração",
       "logDirectory": {
         "title": "Diretório de Logs",
         "description": "Local onde os arquivos de log são armazenados."
@@ -675,11 +660,6 @@
           "keyboardListener": "Monitor de Teclado"
         }
       },
-      "paths": {
-        "appData": "Dados do App:",
-        "models": "Modelos:",
-        "settings": "Configurações:"
-      },
       "pasteDelay": {
         "title": "Atraso de colagem (antes)",
         "description": "Atraso (em milissegundos) após copiar o texto, antes de enviar a tecla de colar. Aumente se nada for colado."
@@ -724,8 +704,7 @@
         "title": "Pré-visualizar novidades",
         "description": "Abrir a nota de versão incorporada mais recente sem marcá-la como vista.",
         "button": "Pré-visualizar",
-        "noNotes": "Nenhuma nota de versão incorporada encontrada",
-        "error": "Falha ao pré-visualizar as notas de versão"
+        "noNotes": "Nenhuma nota de versão incorporada encontrada"
       },
       "onboardingPreview": {
         "title": "Pré-visualizar configuração inicial",
@@ -802,7 +781,6 @@
   "common": {
     "loading": "Carregando...",
     "delete": "Excluir",
-    "close": "Fechar",
     "open": "Abrir",
     "copy": "Copiar",
     "clear": "Limpar",
@@ -860,8 +838,7 @@
     "blockedNoCulprit_other": "O macOS está bloqueando temporariamente {{count}} atalhos",
     "recorderBlockedWithCulprit": "{{name}} pode estar bloqueando alterações nos atalhos",
     "recorderBlockedNoCulprit": "O macOS está bloqueando temporariamente alterações nos atalhos",
-    "recorderBlocked": "Não é possível gravar atalhos agora — o Secure Input do macOS está bloqueando os eventos de tecla. Resolva primeiro o aviso do Secure Input.",
-    "dismiss": "Dispensar"
+    "recorderBlocked": "Não é possível gravar atalhos agora — o Secure Input do macOS está bloqueando os eventos de tecla. Resolva primeiro o aviso do Secure Input."
   },
   "triage": {
     "title": "Analisar um Problema",

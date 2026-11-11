@@ -1,11 +1,11 @@
 use gpui::{
-    App, Context, FontWeight, ImageSource, Resource, SharedString, Window, div, img, prelude::*, px,
+    App, Context, FontWeight, ImageSource, Resource, SharedString, div, img, prelude::*, px,
 };
 
 use super::{MainWindow, Section, TITLEBAR_HEIGHT};
 use crate::i18n::{t, t_with};
 use crate::ui::components::{
-    Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Tooltip, Typography, icon,
+    Button, ButtonSize, KeyboardFocus, RowDirection, Tooltip, Typography, icon,
 };
 use crate::ui::glass::{GlassStyle, glass};
 use crate::ui::stores::SettingsStore;
@@ -102,7 +102,7 @@ fn footer_button(
                 .hover(|s| s.bg(p.text.a(0.06)).text_color(p.text))
         })
         .keyboard_focus(cx)
-        .tooltip(move |window, cx| Tooltip::text(label.clone(), window, cx))
+        .tooltip(move |_, cx| Tooltip::text(label.clone(), cx))
         .child(icon(icon_name).size(px(18.)).flex_none())
 }
 
@@ -182,7 +182,6 @@ fn update_card(version: &str, cx: &App) -> impl IntoElement {
         )
         .child(
             Button::new("sidebar-update")
-                .variant(ButtonVariant::Primary)
                 .size(ButtonSize::Sm)
                 .w_full()
                 .on_click(|_, _, _| crate::updater::check_now())
@@ -190,11 +189,7 @@ fn update_card(version: &str, cx: &App) -> impl IntoElement {
         )
 }
 
-pub fn render(
-    main: &MainWindow,
-    _window: &mut Window,
-    cx: &mut Context<MainWindow>,
-) -> impl IntoElement + use<> {
+pub fn render(main: &MainWindow, cx: &mut Context<MainWindow>) -> impl IntoElement + use<> {
     let debug_mode = SettingsStore::get(cx).debug_mode;
     let active = main.section;
 

@@ -128,10 +128,7 @@
       "grant": "Przyznaj uprawnienie",
       "granted": "Przyznano",
       "waiting": "Oczekiwanie...",
-      "allGranted": "Wszystko gotowe!",
-      "errors": {
-        "checkFailed": "Nie udało się sprawdzić uprawnień. Spróbuj ponownie."
-      }
+      "allGranted": "Wszystko gotowe!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Modele transkrypcji",
       "description": "Wybierz model transkrypcji lub pobierz dodatkowe modele. Różne modele oferują różne poziomy dokładności i szybkości.",
       "deleteConfirm": "Czy na pewno chcesz usunąć {{modelName}}? Będziesz musiał pobrać go ponownie, aby go użyć.",
       "deleteActiveConfirm": "{{modelName}} jest Twoim aktywnym modelem. Usunięcie go zatrzyma transkrypcje, dopóki nie wybierzesz nowego modelu. Czy na pewno chcesz kontynuować?",
@@ -177,7 +173,6 @@
       "availableModels": "Dostępne do pobrania",
       "searchPlaceholder": "Szukaj modeli według nazwy…",
       "rescan": {
-        "label": "Skanuj ponownie",
         "tooltip": "Skanuj ponownie w poszukiwaniu modeli dodanych do folderu modeli lub pamięci podręcznej Hugging Face poza Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Dźwięk",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Wybierz preferowane urządzenie mikrofonowe.",
         "placeholder": "Wybierz mikrofon...",
-        "loading": "Wczytywanie...",
         "priority": {
           "title": "Priorytet",
           "description": "Dyktowanie i Adnotacje nagrywają z pierwszego podłączonego mikrofonu. Przeciągnij, aby zmienić kolejność.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transkrypcja",
         "experimental": "Eksperymentalne",
-        "dictation": "Dyktowanie",
         "appearance": "Wygląd",
         "system": "System",
         "shortcut": "Skrót",
@@ -535,7 +526,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Słownik",
         "history": "Historia",
         "style": "Styl"
       },
@@ -572,16 +562,13 @@
       "added": "Dodano. Podyktuj zdanie jeszcze raz, aby to sprawdzić."
     },
     "history": {
-      "title": "Historia",
       "openFolder": "Otwórz folder nagrań",
       "loading": "Wczytywanie historii...",
       "empty": "Brak transkrypcji. Rozpocznij nagrywanie, aby zbudować historię!",
-      "copyToClipboard": "Kopiuj transkrypcję do schowka",
       "copyError": "Nie udało się skopiować transkrypcji do schowka.",
       "save": "Zapisz transkrypcję",
       "unsave": "Usuń z zapisanych",
       "delete": "Usuń wpis",
-      "deleteError": "Nie udało się usunąć wpisu. Spróbuj ponownie.",
       "retranscribe": "Transkrybuj ponownie",
       "retranscribeError": "Nie udało się ponownie transkrybować. Spróbuj ponownie.",
       "transcribing": "Transkrybuję...",
@@ -593,11 +580,9 @@
       "postProcessed": "Po postprocessingu",
       "prompt": "Prompt",
       "copy": "Kopiuj",
-      "copied": "Skopiowano",
-      "noSelection": "Wybierz transkrypcję, aby ją tu zobaczyć."
+      "copied": "Skopiowano"
     },
     "debug": {
-      "title": "Debugowanie",
       "logDirectory": {
         "title": "Katalog logów",
         "description": "Miejsce przechowywania plików logów."
@@ -678,11 +663,6 @@
           "keyboardListener": "Nasłuch klawiatury"
         }
       },
-      "paths": {
-        "appData": "Dane aplikacji:",
-        "models": "Modele:",
-        "settings": "Ustawienia:"
-      },
       "pasteDelay": {
         "title": "Opóźnienie wklejania (przed)",
         "description": "Opóźnienie (w milisekundach) po skopiowaniu tekstu, przed wysłaniem klawisza wklejania. Zwiększ, jeśli nic nie jest wklejane."
@@ -727,8 +707,7 @@
         "title": "Podgląd nowości",
         "description": "Otwórz najnowsze dołączone informacje o wydaniu bez oznaczania ich jako wyświetlone.",
         "button": "Podgląd",
-        "noNotes": "Nie znaleziono dołączonych informacji o wydaniu",
-        "error": "Nie udało się wyświetlić podglądu informacji o wydaniu"
+        "noNotes": "Nie znaleziono dołączonych informacji o wydaniu"
       },
       "onboardingPreview": {
         "title": "Podgląd konfiguracji początkowej",
@@ -805,7 +784,6 @@
   "common": {
     "loading": "Wczytywanie...",
     "delete": "Usuń",
-    "close": "Zamknij",
     "open": "Otwórz",
     "copy": "Kopiuj",
     "clear": "Wyczyść",
@@ -864,7 +842,6 @@
     "recorderBlockedWithCulprit": "{{name}} może blokować zmiany skrótów",
     "recorderBlockedNoCulprit": "macOS tymczasowo blokuje zmiany skrótów",
     "recorderBlocked": "Nie można teraz nagrać skrótu — Secure Input w macOS blokuje zdarzenia klawiszy. Najpierw rozwiąż ostrzeżenie o Secure Input.",
-    "dismiss": "Odrzuć",
     "blockedWithCulprit_few": "{{name}} może blokować {{count}} skróty",
     "blockedWithCulprit_many": "{{name}} może blokować {{count}} skrótów",
     "blockedNoCulprit_few": "macOS tymczasowo blokuje {{count}} skróty",

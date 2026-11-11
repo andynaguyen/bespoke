@@ -128,10 +128,7 @@
       "grant": "Berikan Izin",
       "granted": "Diizinkan",
       "waiting": "Menunggu...",
-      "allGranted": "Semua siap!",
-      "errors": {
-        "checkFailed": "Gagal memeriksa izin. Silakan coba lagi."
-      }
+      "allGranted": "Semua siap!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "Model Transkripsi",
       "description": "Pilih model transkripsi atau unduh model tambahan. Setiap model menawarkan tingkat akurasi dan kecepatan yang berbeda.",
       "searchPlaceholder": "Cari model berdasarkan nama…",
       "yourModels": "Model yang Diunduh",
@@ -244,7 +240,6 @@
         "translation": "Saring model yang mendukung penerjemahan ke bahasa Inggris"
       },
       "rescan": {
-        "label": "Pindai Ulang",
         "tooltip": "Pindai ulang model yang ditambahkan ke folder model atau cache Hugging Face dari luar Bespoke"
       },
       "noModelsMatch": "Tidak ada model yang cocok dengan kriteria ini."
@@ -253,9 +248,7 @@
       "title": "Suara",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Pilih perangkat mikrofon yang Anda inginkan.",
         "placeholder": "Pilih mikrofon...",
-        "loading": "Memuat...",
         "priority": {
           "title": "Prioritas",
           "description": "Dikte dan Anotasi merekam dari mikrofon pertama yang terhubung. Seret untuk mengubah urutan.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transkripsi",
         "experimental": "Eksperimental",
-        "dictation": "Dikte",
         "appearance": "Tampilan",
         "system": "Sistem",
         "shortcut": "Pintasan",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Kamus",
         "history": "Riwayat",
         "style": "Gaya"
       },
@@ -566,16 +556,13 @@
       "added": "Ditambahkan. Dikte kalimat itu lagi untuk memeriksanya."
     },
     "history": {
-      "title": "Riwayat",
       "openFolder": "Buka Folder Rekaman",
       "loading": "Memuat riwayat...",
       "empty": "Belum ada transkripsi. Mulai merekam untuk mengisi riwayat Anda!",
-      "copyToClipboard": "Salin transkripsi ke papan klip",
       "copyError": "Gagal menyalin transkripsi ke papan klip.",
       "save": "Simpan transkripsi",
       "unsave": "Hapus dari daftar tersimpan",
       "delete": "Hapus entri",
-      "deleteError": "Gagal menghapus entri. Silakan coba lagi.",
       "retranscribe": "Transkripsikan ulang",
       "retranscribeError": "Gagal mentranskripsikan ulang. Silakan coba lagi.",
       "transcribing": "Mentranskripsikan...",
@@ -587,11 +574,9 @@
       "postProcessed": "Pascaproses",
       "prompt": "Prompt",
       "copy": "Salin",
-      "copied": "Disalin",
-      "noSelection": "Pilih transkripsi untuk melihatnya di sini."
+      "copied": "Disalin"
     },
     "debug": {
-      "title": "Debug",
       "logDirectory": {
         "title": "Direktori Log",
         "description": "Lokasi penyimpanan file log."
@@ -622,8 +607,7 @@
         "title": "Pratinjau Yang Baru",
         "description": "Buka catatan rilis terbaru yang disertakan tanpa menandainya sebagai telah dilihat.",
         "button": "Pratinjau",
-        "noNotes": "Tidak ada catatan rilis yang disertakan",
-        "error": "Gagal menampilkan pratinjau catatan rilis"
+        "noNotes": "Tidak ada catatan rilis yang disertakan"
       },
       "onboardingPreview": {
         "title": "Pratinjau Penyiapan Awal",
@@ -685,11 +669,6 @@
           "globalHotkey": "Global Hotkey",
           "keyboardListener": "Keyboard Listener"
         }
-      },
-      "paths": {
-        "appData": "Data Aplikasi:",
-        "models": "Model:",
-        "settings": "Pengaturan:"
       },
       "pasteDelay": {
         "title": "Jeda Tempel (Sebelum)",
@@ -802,7 +781,6 @@
   "common": {
     "loading": "Memuat...",
     "delete": "Hapus",
-    "close": "Tutup",
     "open": "Buka",
     "copy": "Salin",
     "clear": "Bersihkan",
@@ -857,8 +835,7 @@
     "blockedNoCulprit_other": "macOS untuk sementara memblokir {{count}} pintasan",
     "recorderBlockedWithCulprit": "{{name}} mungkin memblokir perubahan pintasan",
     "recorderBlockedNoCulprit": "macOS untuk sementara memblokir perubahan pintasan",
-    "recorderBlocked": "Pintasan tidak dapat direkam saat ini — macOS Secure Input memblokir peristiwa tombol. Selesaikan peringatan Secure Input terlebih dahulu.",
-    "dismiss": "Tutup"
+    "recorderBlocked": "Pintasan tidak dapat direkam saat ini — macOS Secure Input memblokir peristiwa tombol. Selesaikan peringatan Secure Input terlebih dahulu."
   },
   "triage": {
     "title": "Diagnosis Masalah",

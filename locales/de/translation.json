@@ -128,10 +128,7 @@
       "grant": "Berechtigung erteilen",
       "granted": "Erteilt",
       "waiting": "Warten...",
-      "allGranted": "Alles bereit!",
-      "errors": {
-        "checkFailed": "Berechtigungsprüfung fehlgeschlagen. Bitte erneut versuchen."
-      }
+      "allGranted": "Alles bereit!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Transkriptionsmodelle",
       "description": "Wähle ein Transkriptionsmodell aus oder lade zusätzliche Modelle herunter. Verschiedene Modelle bieten unterschiedliche Genauigkeits- und Geschwindigkeitsstufen.",
       "deleteConfirm": "Bist du sicher, dass du {{modelName}} löschen möchtest? Du musst es erneut herunterladen, um es zu verwenden.",
       "deleteActiveConfirm": "{{modelName}} ist dein aktives Modell. Das Löschen stoppt Transkriptionen, bis du ein neues Modell auswählst. Bist du sicher?",
@@ -177,7 +173,6 @@
       "availableModels": "Zum Download verfügbar",
       "searchPlaceholder": "Modelle nach Namen suchen…",
       "rescan": {
-        "label": "Neu scannen",
         "tooltip": "Erneut nach Modellen scannen, die außerhalb von Bespoke zum Modellordner oder Hugging-Face-Cache hinzugefügt wurden"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Ton",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Bevorzugtes Mikrofon auswählen.",
         "placeholder": "Mikrofon auswählen...",
-        "loading": "Wird geladen...",
         "priority": {
           "title": "Priorität",
           "description": "Diktieren und Annotieren nehmen vom ersten verbundenen Mikrofon auf. Zum Umsortieren ziehen.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transkription",
         "experimental": "Experimentell",
-        "dictation": "Diktat",
         "appearance": "Erscheinungsbild",
         "system": "System",
         "shortcut": "Tastenkürzel",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Wörterbuch",
         "history": "Verlauf",
         "style": "Stil"
       },
@@ -567,16 +557,13 @@
       "added": "Hinzugefügt. Diktiere den Satz noch einmal, um es zu prüfen."
     },
     "history": {
-      "title": "Verlauf",
       "openFolder": "Aufnahmeordner öffnen",
       "loading": "Verlauf wird geladen...",
       "empty": "Noch keine Transkriptionen. Starte eine Aufnahme, um deinen Verlauf aufzubauen!",
-      "copyToClipboard": "Transkription in Zwischenablage kopieren",
       "copyError": "Transkription konnte nicht in die Zwischenablage kopiert werden.",
       "save": "Transkription speichern",
       "unsave": "Aus Gespeicherten entfernen",
       "delete": "Eintrag löschen",
-      "deleteError": "Eintrag konnte nicht gelöscht werden. Bitte versuche es erneut.",
       "retranscribe": "Erneut transkribieren",
       "retranscribeError": "Erneute Transkription fehlgeschlagen. Bitte versuche es erneut.",
       "transcribing": "Transkribiere...",
@@ -588,11 +575,9 @@
       "postProcessed": "Nachbearbeitet",
       "prompt": "Prompt",
       "copy": "Kopieren",
-      "copied": "Kopiert",
-      "noSelection": "Wähle eine Transkription aus, um sie hier zu sehen."
+      "copied": "Kopiert"
     },
     "debug": {
-      "title": "Debug",
       "logDirectory": {
         "title": "Log-Verzeichnis",
         "description": "Speicherort der Log-Dateien."
@@ -673,11 +658,6 @@
           "keyboardListener": "Tastatur-Listener"
         }
       },
-      "paths": {
-        "appData": "App-Daten:",
-        "models": "Modelle:",
-        "settings": "Einstellungen:"
-      },
       "pasteDelay": {
         "title": "Einfügeverzögerung (vorher)",
         "description": "Verzögerung (in Millisekunden) nach dem Kopieren des Textes, bevor der Einfüge-Tastendruck gesendet wird. Erhöhe den Wert, wenn nichts eingefügt wird."
@@ -722,8 +702,7 @@
         "title": "Vorschau der Neuerungen",
         "description": "Die neuesten gebündelten Versionshinweise öffnen, ohne sie als gesehen zu markieren.",
         "button": "Vorschau",
-        "noNotes": "Keine gebündelten Versionshinweise gefunden",
-        "error": "Versionshinweise konnten nicht angezeigt werden"
+        "noNotes": "Keine gebündelten Versionshinweise gefunden"
       },
       "onboardingPreview": {
         "title": "Ersteinrichtung ansehen",
@@ -800,7 +779,6 @@
   "common": {
     "loading": "Wird geladen...",
     "delete": "Löschen",
-    "close": "Schließen",
     "open": "Öffnen",
     "copy": "Kopieren",
     "clear": "Leeren",
@@ -858,8 +836,7 @@
     "blockedNoCulprit_other": "macOS blockiert vorübergehend {{count}} Tastenkürzel",
     "recorderBlockedWithCulprit": "{{name}} blockiert möglicherweise Änderungen an Tastenkürzeln",
     "recorderBlockedNoCulprit": "macOS blockiert vorübergehend Änderungen an Tastenkürzeln",
-    "recorderBlocked": "Tastenkürzel können gerade nicht aufgezeichnet werden — macOS Secure Input blockiert Tastenereignisse. Behebe zuerst die Secure-Input-Warnung.",
-    "dismiss": "Ausblenden"
+    "recorderBlocked": "Tastenkürzel können gerade nicht aufgezeichnet werden — macOS Secure Input blockiert Tastenereignisse. Behebe zuerst die Secure-Input-Warnung."
   },
   "triage": {
     "title": "Problem analysieren",

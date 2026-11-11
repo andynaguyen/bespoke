@@ -128,10 +128,7 @@
       "grant": "Concedi Permesso",
       "granted": "Concesso",
       "waiting": "In attesa...",
-      "allGranted": "Tutto pronto!",
-      "errors": {
-        "checkFailed": "Impossibile verificare i permessi. Riprova."
-      }
+      "allGranted": "Tutto pronto!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Modelli di Trascrizione",
       "description": "Seleziona un modello di trascrizione o scarica modelli aggiuntivi. Diversi modelli offrono diversi livelli di accuratezza e velocità.",
       "deleteConfirm": "Sei sicuro di voler eliminare {{modelName}}? Dovrai scaricarlo di nuovo per usarlo.",
       "deleteActiveConfirm": "{{modelName}} è il tuo modello attivo. Eliminarlo interromperà le trascrizioni fino a quando non selezionerai un nuovo modello. Sei sicuro?",
@@ -177,7 +173,6 @@
       "availableModels": "Disponibili per il Download",
       "searchPlaceholder": "Cerca modelli per nome…",
       "rescan": {
-        "label": "Riscansiona",
         "tooltip": "Riscansiona per trovare modelli aggiunti alla cartella dei modelli o alla cache di Hugging Face al di fuori di Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Suono",
       "microphone": {
         "title": "Microfono",
-        "description": "Scegli il microfono preferito.",
         "placeholder": "Scegli microfono...",
-        "loading": "Caricamento...",
         "priority": {
           "title": "Priorità",
           "description": "Dettatura e Annotazioni registrano dal primo microfono collegato. Trascina per riordinare.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Trascrizione",
         "experimental": "Sperimentale",
-        "dictation": "Dettatura",
         "appearance": "Aspetto",
         "system": "Sistema",
         "shortcut": "Scorciatoia",
@@ -533,7 +524,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Dizionario",
         "history": "Cronologia",
         "style": "Stile"
       },
@@ -569,16 +559,13 @@
       "added": "Aggiunta. Detta di nuovo la frase per controllarla."
     },
     "history": {
-      "title": "Cronologia",
       "openFolder": "Apri la cartella delle registrazioni",
       "loading": "Caricamento cronologia...",
       "empty": "Non ci sono ancora trascrizioni. Comincia a registrare per costruire la tua cronologia!",
-      "copyToClipboard": "Copia la trascrizione negli appunti",
       "copyError": "Impossibile copiare la trascrizione negli appunti.",
       "save": "Salva la trascrizione",
       "unsave": "Rimuovi dai salvataggi",
       "delete": "Elimina elemento",
-      "deleteError": "Errore nell'eliminazione dell'elemento. Riprova.",
       "retranscribe": "Ri-trascrivere",
       "retranscribeError": "Impossibile ri-trascrivere. Riprova.",
       "transcribing": "Trascrizione in corso...",
@@ -590,11 +577,9 @@
       "postProcessed": "Post-elaborata",
       "prompt": "Prompt",
       "copy": "Copia",
-      "copied": "Copiata",
-      "noSelection": "Seleziona una trascrizione per vederla qui."
+      "copied": "Copiata"
     },
     "debug": {
-      "title": "Debug",
       "logDirectory": {
         "title": "Cartella dei Log",
         "description": "Cartella dove vengono salvati i file di log."
@@ -675,11 +660,6 @@
           "keyboardListener": "Keyboard Listener"
         }
       },
-      "paths": {
-        "appData": "Dati App:",
-        "models": "Modelli:",
-        "settings": "Impostazioni:"
-      },
       "pasteDelay": {
         "title": "Ritardo incolla (prima)",
         "description": "Ritardo (in millisecondi) dopo aver copiato il testo, prima di inviare il tasto incolla. Aumentare se non viene incollato nulla."
@@ -724,8 +704,7 @@
         "title": "Anteprima delle novità",
         "description": "Apri le note di rilascio incluse più recenti senza segnarle come viste.",
         "button": "Anteprima",
-        "noNotes": "Nessuna nota di rilascio inclusa trovata",
-        "error": "Impossibile mostrare l'anteprima delle note di rilascio"
+        "noNotes": "Nessuna nota di rilascio inclusa trovata"
       },
       "onboardingPreview": {
         "title": "Anteprima della configurazione iniziale",
@@ -802,7 +781,6 @@
   "common": {
     "loading": "Caricamento...",
     "delete": "Elimina",
-    "close": "Chiudi",
     "open": "Apri",
     "copy": "Copia",
     "clear": "Svuota",
@@ -860,8 +838,7 @@
     "blockedNoCulprit_other": "macOS sta bloccando temporaneamente {{count}} scorciatoie",
     "recorderBlockedWithCulprit": "{{name}} potrebbe bloccare le modifiche alle scorciatoie",
     "recorderBlockedNoCulprit": "macOS sta bloccando temporaneamente le modifiche alle scorciatoie",
-    "recorderBlocked": "Non è possibile registrare scorciatoie in questo momento: Secure Input di macOS sta bloccando gli eventi dei tasti. Risolvi prima l'avviso di Secure Input.",
-    "dismiss": "Ignora"
+    "recorderBlocked": "Non è possibile registrare scorciatoie in questo momento: Secure Input di macOS sta bloccando gli eventi dei tasti. Risolvi prima l'avviso di Secure Input."
   },
   "triage": {
     "title": "Analizza un problema",

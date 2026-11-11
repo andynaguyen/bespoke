@@ -128,10 +128,7 @@
       "grant": "Machtiging verlenen",
       "granted": "Verleend",
       "waiting": "Wachten...",
-      "allGranted": "Alles ingesteld!",
-      "errors": {
-        "checkFailed": "Machtigingen controleren mislukt. Probeer het opnieuw."
-      }
+      "allGranted": "Alles ingesteld!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "Transcriptiemodellen",
       "description": "Selecteer een transcriptiemodel of download extra modellen. Verschillende modellen bieden variërende niveaus van nauwkeurigheid en snelheid.",
       "searchPlaceholder": "Modellen zoeken op naam...",
       "yourModels": "Gedownloade modellen",
@@ -244,7 +240,6 @@
         "translation": "Filter modellen die vertaling naar het Engels ondersteunen"
       },
       "rescan": {
-        "label": "Opnieuw scannen",
         "tooltip": "Scannen naar modellen die buiten Bespoke om zijn toegevoegd aan de modellenmap of Hugging Face-cache"
       },
       "noModelsMatch": "Geen modellen voldoen aan dit filter."
@@ -253,9 +248,7 @@
       "title": "Geluid",
       "microphone": {
         "title": "Microfoon",
-        "description": "Selecteer de gewenste microfoon.",
         "placeholder": "Microfoon selecteren...",
-        "loading": "Laden...",
         "priority": {
           "title": "Prioriteit",
           "description": "Dicteren en Annoteren nemen op met de eerste aangesloten microfoon. Sleep om de volgorde te wijzigen.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transcriptie",
         "experimental": "Experimenteel",
-        "dictation": "Dicteren",
         "appearance": "Weergave",
         "system": "Systeem",
         "shortcut": "Sneltoets",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Woordenboek",
         "history": "Geschiedenis",
         "style": "Stijl"
       },
@@ -567,16 +557,13 @@
       "added": "Toegevoegd. Dicteer de zin nogmaals om het te controleren."
     },
     "history": {
-      "title": "Geschiedenis",
       "openFolder": "Opnamemap openen",
       "loading": "Geschiedenis laden...",
       "empty": "Nog geen transcripties. Start met opnemen om je geschiedenis op te bouwen!",
-      "copyToClipboard": "Transcriptie naar klembord kopiëren",
       "copyError": "Transcriptie naar het klembord kopiëren mislukt.",
       "save": "Transcriptie opslaan",
       "unsave": "Verwijderen uit opgeslagen",
       "delete": "Item verwijderen",
-      "deleteError": "Item verwijderen mislukt. Probeer het opnieuw.",
       "retranscribe": "Opnieuw transcriberen",
       "retranscribeError": "Opnieuw transcriberen mislukt. Probeer het opnieuw.",
       "transcribing": "Transcriberen...",
@@ -588,11 +575,9 @@
       "postProcessed": "Naverwerkt",
       "prompt": "Prompt",
       "copy": "Kopiëren",
-      "copied": "Gekopieerd",
-      "noSelection": "Selecteer een transcriptie om die hier te zien."
+      "copied": "Gekopieerd"
     },
     "debug": {
-      "title": "Probleemoplossing",
       "logDirectory": {
         "title": "Logboekmap",
         "description": "Locatie waar logbestanden worden opgeslagen."
@@ -623,8 +608,7 @@
         "title": "Voorbeeld van release-notes",
         "description": "Open de nieuwste meegeleverde release-notes zonder deze als gelezen te markeren.",
         "button": "Voorbeeld",
-        "noNotes": "Geen meegeleverde release-notes gevonden",
-        "error": "Voorbeeld van release-notes laden mislukt"
+        "noNotes": "Geen meegeleverde release-notes gevonden"
       },
       "onboardingPreview": {
         "title": "Voorbeeld van onboarding",
@@ -686,11 +670,6 @@
           "globalHotkey": "Globale sneltoets",
           "keyboardListener": "Toetsenbordlistener"
         }
-      },
-      "paths": {
-        "appData": "App-data:",
-        "models": "Modellen:",
-        "settings": "Instellingen:"
       },
       "pasteDelay": {
         "title": "Plakvertraging (voor)",
@@ -803,7 +782,6 @@
   "common": {
     "loading": "Laden...",
     "delete": "Verwijderen",
-    "close": "Sluiten",
     "open": "Openen",
     "copy": "Kopiëren",
     "clear": "Wissen",
@@ -858,8 +836,7 @@
     "blockedNoCulprit_other": "macOS blokkeert tijdelijk {{count}} sneltoetsen",
     "recorderBlockedWithCulprit": "{{name}} blokkeert mogelijk wijzigingen aan sneltoetsen",
     "recorderBlockedNoCulprit": "macOS blokkeert tijdelijk wijzigingen aan sneltoetsen",
-    "recorderBlocked": "Sneltoetsen kunnen nu niet worden opgenomen — Secure Input van macOS blokkeert toetsgebeurtenissen. Los eerst de Secure Input-waarschuwing op.",
-    "dismiss": "Sluiten"
+    "recorderBlocked": "Sneltoetsen kunnen nu niet worden opgenomen — Secure Input van macOS blokkeert toetsgebeurtenissen. Los eerst de Secure Input-waarschuwing op."
   },
   "triage": {
     "title": "Probleem onderzoeken",

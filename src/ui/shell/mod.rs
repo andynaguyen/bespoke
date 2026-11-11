@@ -494,10 +494,10 @@ impl MainWindow {
 
     fn render_app(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        let sidebar = sidebar::render(self, window, cx);
+        let sidebar = sidebar::render(self, cx);
         let rtl = crate::i18n::is_rtl();
         let toolbar = self.page.toolbar(window, cx);
-        let toolbar = toolbar::render(t(self.section.label_key()), toolbar, window, cx);
+        let toolbar = toolbar::render(t(self.section.label_key()), toolbar, cx);
         let inspector = self.page.inspector(window, cx);
         div()
             .relative()

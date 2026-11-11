@@ -128,10 +128,7 @@
       "grant": "תן הרשאה",
       "granted": "ניתנה",
       "waiting": "ממתין...",
-      "allGranted": "הכול מוכן!",
-      "errors": {
-        "checkFailed": "בדיקת ההרשאות נכשלה. נסה שוב."
-      }
+      "allGranted": "הכול מוכן!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "מודלי תמלול",
       "description": "בחר מודל תמלול או הורד מודלים נוספים. מודלים שונים מציעים רמות שונות של דיוק ומהירות.",
       "yourModels": "מודלים שהורדו",
       "availableModels": "זמינים להורדה",
@@ -245,7 +241,6 @@
       "noModelsMatch": "אין מודלים שמתאימים לסינון הזה.",
       "searchPlaceholder": "חיפוש מודלים לפי שם…",
       "rescan": {
-        "label": "סריקה מחדש",
         "tooltip": "סריקה מחדש לאיתור מודלים שנוספו לתיקיית המודלים או למטמון של Hugging Face מחוץ ל-Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "שמע",
       "microphone": {
         "title": "מיקרופון",
-        "description": "בחר את המיקרופון המועדף עליך.",
         "placeholder": "בחר מיקרופון...",
-        "loading": "טוען...",
         "priority": {
           "title": "עדיפות",
           "description": "הכתבה וסימון מקליטים מהמיקרופון המחובר הראשון. גרור כדי לשנות את הסדר.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "תמלול",
         "experimental": "ניסיוני",
-        "dictation": "הכתבה",
         "appearance": "מראה",
         "system": "מערכת",
         "shortcut": "קיצור מקשים",
@@ -533,7 +524,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "מילון",
         "history": "היסטוריה",
         "style": "סגנון"
       },
@@ -570,16 +560,13 @@
       "added": "נוסף. הכתב שוב את המשפט כדי לבדוק."
     },
     "history": {
-      "title": "היסטוריה",
       "openFolder": "פתח את תיקיית ההקלטות",
       "loading": "טוען היסטוריה...",
       "empty": "עדיין אין תמלולים. התחל להקליט כדי לבנות את ההיסטוריה שלך!",
-      "copyToClipboard": "העתק תמלול ללוח",
       "copyError": "לא ניתן להעתיק את התמלול ללוח.",
       "save": "שמור תמלול",
       "unsave": "הסר משמורים",
       "delete": "מחק רשומה",
-      "deleteError": "מחיקת הרשומה נכשלה. נסה שוב.",
       "retranscribe": "תמלל מחדש",
       "retranscribeError": "תמלול מחדש נכשל. נסה שוב.",
       "transcribing": "מתמלל...",
@@ -591,11 +578,9 @@
       "postProcessed": "עבר עיבוד משלים",
       "prompt": "פרומפט",
       "copy": "העתק",
-      "copied": "הועתק",
-      "noSelection": "בחר תמלול כדי לראות אותו כאן."
+      "copied": "הועתק"
     },
     "debug": {
-      "title": "ניפוי שגיאות",
       "logDirectory": {
         "title": "תיקיית לוגים",
         "description": "המיקום שבו נשמרים קבצי הלוג."
@@ -676,11 +661,6 @@
           "keyboardListener": "מאזין מקלדת"
         }
       },
-      "paths": {
-        "appData": "נתוני אפליקציה:",
-        "models": "מודלים:",
-        "settings": "הגדרות:"
-      },
       "pasteDelay": {
         "title": "השהיית הדבקה (לפני)",
         "description": "השהיה (במילישניות) לאחר העתקת הטקסט, לפני שליחת צירוף ההדבקה. הגדל אם דבר אינו מודבק."
@@ -725,8 +705,7 @@
         "title": "תצוגה מקדימה של מה חדש",
         "description": "פתח את הערת הגרסה המצורפת האחרונה בלי לסמן אותה כנצפתה.",
         "button": "תצוגה מקדימה",
-        "noNotes": "לא נמצאו הערות גרסה מצורפות",
-        "error": "הצגת התצוגה המקדימה של הערות הגרסה נכשלה"
+        "noNotes": "לא נמצאו הערות גרסה מצורפות"
       },
       "onboardingPreview": {
         "title": "תצוגה מקדימה של ההגדרה הראשונית",
@@ -803,7 +782,6 @@
   "common": {
     "loading": "טוען...",
     "delete": "מחק",
-    "close": "סגור",
     "open": "פתח",
     "copy": "העתק",
     "clear": "נקה",
@@ -862,7 +840,6 @@
     "recorderBlockedWithCulprit": "ייתכן ש-{{name}} חוסם שינויים בקיצורי דרך",
     "recorderBlockedNoCulprit": "macOS חוסם זמנית שינויים בקיצורי דרך",
     "recorderBlocked": "לא ניתן להקליט קיצורים כרגע — Secure Input של macOS חוסם אירועי מקשים. פתור תחילה את אזהרת Secure Input.",
-    "dismiss": "התעלם",
     "blockedWithCulprit_two": "ייתכן ש-{{name}} חוסם שני קיצורי דרך",
     "blockedNoCulprit_two": "macOS חוסם זמנית שני קיצורי דרך"
   },

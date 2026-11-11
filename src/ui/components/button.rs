@@ -208,8 +208,7 @@ impl RenderOnce for Button {
             }
         }
         if let Some(title) = self.title {
-            button = button
-                .tooltip(move |window, cx| super::misc::Tooltip::text(title.clone(), window, cx));
+            button = button.tooltip(move |_, cx| super::misc::Tooltip::text(title.clone(), cx));
         }
         button.children(self.children)
     }

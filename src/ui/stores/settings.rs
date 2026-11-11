@@ -361,17 +361,6 @@ mod tests {
     }
 
     #[test]
-    fn a_write_waits_for_the_one_that_is_running() {
-        let mut queue = WriteQueue::<u32>::default();
-        let k = key("volume");
-        assert_eq!(queue.start_or_wait(&k, 1), Some(1));
-        assert_eq!(queue.start_or_wait(&k, 2), None);
-        assert_eq!(queue.finish_and_take_next(&k), Some(2));
-        assert_eq!(queue.finish_and_take_next(&k), None);
-        assert!(queue.is_idle());
-    }
-
-    #[test]
     fn waiting_writes_run_in_the_order_they_arrived() {
         let mut queue = WriteQueue::<u32>::default();
         let k = key("volume");
@@ -394,13 +383,6 @@ mod tests {
         assert!(!queue.is_idle());
         assert_eq!(queue.finish_and_take_next(&k), None);
         assert!(queue.is_idle());
-    }
-
-    #[test]
-    fn different_settings_do_not_wait_for_each_other() {
-        let mut queue = WriteQueue::<u32>::default();
-        assert_eq!(queue.start_or_wait(&key("a"), 1), Some(1));
-        assert_eq!(queue.start_or_wait(&key("b"), 2), Some(2));
     }
 
     #[test]

@@ -225,7 +225,7 @@ impl TriageDialog {
                         .keyboard_focus_ring(0.5, cx)
                         .text_color(p.mid_gray)
                         .hover(|s| s.bg(p.mid_gray.a(0.1)).text_color(p.text))
-                        .tooltip(|window, cx| Tooltip::text(t("triage.removeCapture"), window, cx))
+                        .tooltip(|_, cx| Tooltip::text(t("triage.removeCapture"), cx))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.capture = None;
                             cx.notify();
@@ -272,9 +272,7 @@ impl TriageDialog {
                 .when(!available, |el| {
                     el.opacity(0.45)
                         .cursor_not_allowed()
-                        .tooltip(move |window, cx| {
-                            Tooltip::text(t(&format!("triage.{key}Missing")), window, cx)
-                        })
+                        .tooltip(move |_, cx| Tooltip::text(t(&format!("triage.{key}Missing")), cx))
                 })
                 .when(available, |el| {
                     el.cursor_pointer()

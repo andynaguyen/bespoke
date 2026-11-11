@@ -42,10 +42,6 @@ fn notes() -> impl Iterator<Item = ReleaseNote> {
     })
 }
 
-pub fn release_note_to_show(current: &str, last_seen: &str) -> Option<ReleaseNote> {
-    newest_unseen(notes(), current, last_seen)
-}
-
 fn newest_unseen(
     notes: impl Iterator<Item = ReleaseNote>,
     current: &str,
@@ -94,7 +90,8 @@ impl WhatsNewGate {
         if !settings.show_whats_new_on_update {
             return;
         }
-        let Some(note) = release_note_to_show(
+        let Some(note) = newest_unseen(
+            notes(),
             env!("CARGO_PKG_VERSION"),
             &settings.whats_new_last_seen_version,
         ) else {

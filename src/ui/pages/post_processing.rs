@@ -569,10 +569,9 @@ impl PostProcessingApi {
                                 }
                             }))
                     })
-                    .tooltip(|window, cx| {
+                    .tooltip(|_, cx| {
                         crate::ui::components::Tooltip::text(
                             t("settings.postProcessing.api.model.refreshModels"),
-                            window,
                             cx,
                         )
                     })
@@ -652,10 +651,9 @@ impl Render for PostProcessingApi {
                                         .flex_1(),
                                 )
                                 .when(base_url_updating, |el| {
-                                    el.tooltip(|window, cx| {
+                                    el.tooltip(|_, cx| {
                                         Tooltip::text(
                                             t("settings.postProcessing.api.baseUrl.managed"),
-                                            window,
                                             cx,
                                         )
                                     })

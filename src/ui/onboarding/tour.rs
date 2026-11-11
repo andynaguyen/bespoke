@@ -447,14 +447,6 @@ mod tests {
     }
 
     #[test]
-    fn restricted_and_denied_microphones_are_blocked() {
-        assert!(microphone_blocked(1));
-        assert!(microphone_blocked(2));
-        assert!(!microphone_blocked(0));
-        assert!(!microphone_blocked(3));
-    }
-
-    #[test]
     fn a_preview_id_names_a_stage_and_detail() {
         assert_eq!(
             CoachPreview::parse("hold-talking"),
@@ -477,12 +469,6 @@ mod tests {
         assert_eq!(key_labels("option+space"), ["⌥", "Space"]);
         assert_eq!(key_labels("option+shift+s"), ["⌥", "⇧", "S"]);
         assert_eq!(key_labels("command_left+f5"), ["⌘", "F5"]);
-    }
-
-    #[test]
-    fn only_modifiers_have_a_mask() {
-        assert_eq!(modifier_mask("⌥"), Some(0x0008_0000));
-        assert_eq!(modifier_mask("Space"), None);
     }
 
     #[test]

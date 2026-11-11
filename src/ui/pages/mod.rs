@@ -98,9 +98,7 @@ pub fn build(section: Section, window: &mut Window, cx: &mut App) -> PageHandle 
 }
 
 #[cfg(debug_assertions)]
-pub fn open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
-    dictionary::dev_open_entry_dialog(word, window, cx);
-}
+pub use dictionary::dev_open_entry_dialog;
 
 pub fn select_tab(page: &AnyView, tab: &str, window: &mut Window, cx: &mut App) {
     if let Ok(dictate) = page.clone().downcast::<dictate::DictatePage>() {

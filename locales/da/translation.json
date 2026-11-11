@@ -128,10 +128,7 @@
       "grant": "Giv tilladelse",
       "granted": "Givet",
       "waiting": "Venter...",
-      "allGranted": "Alt er klar!",
-      "errors": {
-        "checkFailed": "Kunne ikke tjekke tilladelser. Prøv igen."
-      }
+      "allGranted": "Alt er klar!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "Transskriptionsmodeller",
       "description": "Vælg en transskriptionsmodel, eller download flere modeller. Forskellige modeller tilbyder varierende niveauer af nøjagtighed og hastighed.",
       "searchPlaceholder": "Søg efter modeller ved navn…",
       "yourModels": "Downloadede modeller",
@@ -244,7 +240,6 @@
         "translation": "Filtrer modeller, der understøtter oversættelse til engelsk"
       },
       "rescan": {
-        "label": "Søg igen",
         "tooltip": "Søg igen efter modeller, der er tilføjet til modelmappen eller Hugging Face-cachen uden for Bespoke"
       },
       "noModelsMatch": "Ingen modeller matcher dette filter."
@@ -253,9 +248,7 @@
       "title": "Lyd",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Vælg din foretrukne mikrofonenhed.",
         "placeholder": "Vælg mikrofon...",
-        "loading": "Indlæser...",
         "priority": {
           "title": "Prioritet",
           "description": "Diktering og Annotering optager fra den første tilsluttede mikrofon. Træk for at ændre rækkefølgen.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transskription",
         "experimental": "Eksperimentel",
-        "dictation": "Diktering",
         "appearance": "Udseende",
         "system": "System",
         "shortcut": "Genvej",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Ordbog",
         "history": "Historik",
         "style": "Stil"
       },
@@ -567,16 +557,13 @@
       "added": "Tilføjet. Diktér sætningen igen for at kontrollere det."
     },
     "history": {
-      "title": "Historik",
       "openFolder": "Åbn optagelsesmappe",
       "loading": "Indlæser historik...",
       "empty": "Ingen transskriptioner endnu. Start optagelse for at opbygge din historik!",
-      "copyToClipboard": "Kopiér transskription til udklipsholder",
       "copyError": "Kunne ikke kopiere transskriptionen til udklipsholderen.",
       "save": "Gem transskription",
       "unsave": "Fjern fra gemte",
       "delete": "Slet post",
-      "deleteError": "Kunne ikke slette posten. Prøv igen.",
       "retranscribe": "Transskribér igen",
       "retranscribeError": "Kunne ikke transskribere igen. Prøv igen.",
       "transcribing": "Transskriberer...",
@@ -588,11 +575,9 @@
       "postProcessed": "Efterbehandlet",
       "prompt": "Prompt",
       "copy": "Kopiér",
-      "copied": "Kopieret",
-      "noSelection": "Vælg en transskription for at se den her."
+      "copied": "Kopieret"
     },
     "debug": {
-      "title": "Fejlfinding",
       "logDirectory": {
         "title": "Logmappe",
         "description": "Placering af logfiler."
@@ -623,8 +608,7 @@
         "title": "Forhåndsvisning af nyheder",
         "description": "Åbn de seneste medfølgende udgivelsesnoter uden at markere dem som set.",
         "button": "Forhåndsvisning",
-        "noNotes": "Ingen medfølgende udgivelsesnoter fundet",
-        "error": "Kunne ikke forhåndsvise udgivelsesnoter"
+        "noNotes": "Ingen medfølgende udgivelsesnoter fundet"
       },
       "onboardingPreview": {
         "title": "Forhåndsvis introduktion",
@@ -686,11 +670,6 @@
           "globalHotkey": "Global genvejstast",
           "keyboardListener": "Tastaturlytter"
         }
-      },
-      "paths": {
-        "appData": "Appdata:",
-        "models": "Modeller:",
-        "settings": "Indstillinger:"
       },
       "pasteDelay": {
         "title": "Forsinkelse af indsættelse (før)",
@@ -803,7 +782,6 @@
   "common": {
     "loading": "Indlæser...",
     "delete": "Slet",
-    "close": "Luk",
     "open": "Åbn",
     "copy": "Kopiér",
     "clear": "Ryd",
@@ -858,8 +836,7 @@
     "blockedNoCulprit_other": "macOS blokerer midlertidigt {{count}} genveje",
     "recorderBlockedWithCulprit": "{{name}} blokerer muligvis ændringer af genveje",
     "recorderBlockedNoCulprit": "macOS blokerer midlertidigt ændringer af genveje",
-    "recorderBlocked": "Genveje kan ikke optages lige nu — macOS Secure Input blokerer tastehændelser. Løs advarslen om Secure Input først.",
-    "dismiss": "Afvis"
+    "recorderBlocked": "Genveje kan ikke optages lige nu — macOS Secure Input blokerer tastehændelser. Løs advarslen om Secure Input først."
   },
   "triage": {
     "title": "Undersøg et problem",

@@ -191,7 +191,7 @@ impl LanguagePicker {
         }
     }
 
-    fn render_menu(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
         let trigger = self.trigger;
         let filtered = self.filtered(cx);
@@ -291,7 +291,6 @@ impl LanguagePicker {
         } else {
             (Corner::TopRight, trigger.right())
         };
-        let _ = window;
         deferred(
             anchored()
                 .anchor(corner)
@@ -304,7 +303,7 @@ impl LanguagePicker {
 }
 
 impl Render for LanguagePicker {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entity = cx.entity().downgrade();
         div()
             .relative()
@@ -320,7 +319,7 @@ impl Render for LanguagePicker {
                 .size_full(),
             )
             .when(self.open && !self.disabled, |el| {
-                el.child(self.render_menu(window, cx))
+                el.child(self.render_menu(cx))
             })
     }
 }

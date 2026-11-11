@@ -1025,7 +1025,7 @@ fn remove_button(
                     on_click(cx)
                 })
         })
-        .tooltip(move |window, cx| crate::ui::components::Tooltip::text(label.clone(), window, cx))
+        .tooltip(move |_, cx| crate::ui::components::Tooltip::text(label.clone(), cx))
         .child(icon("trash-2").size(rems(1.)))
 }
 
@@ -1064,7 +1064,7 @@ fn remove_badge(
                     on_click(cx)
                 })
         })
-        .tooltip(move |window, cx| crate::ui::components::Tooltip::text(label.clone(), window, cx))
+        .tooltip(move |_, cx| crate::ui::components::Tooltip::text(label.clone(), cx))
         .child(icon("x").size(px(10.)))
 }
 
@@ -1136,7 +1136,7 @@ fn open_entry_dialog(target: Target, window: &mut Window, cx: &mut App) {
 }
 
 #[cfg(debug_assertions)]
-pub(super) fn dev_open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
+pub fn dev_open_entry_dialog(word: bool, window: &mut Window, cx: &mut App) {
     let target = if word {
         Target::NewWord
     } else {

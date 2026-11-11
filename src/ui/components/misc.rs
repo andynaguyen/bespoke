@@ -220,7 +220,7 @@ pub struct Tooltip {
 }
 
 impl Tooltip {
-    pub fn text(text: impl Into<SharedString>, _window: &mut Window, cx: &mut App) -> AnyView {
+    pub fn text(text: impl Into<SharedString>, cx: &mut App) -> AnyView {
         let text = text.into();
         Self::element(
             move |_, _| div().sm_text().child(text.clone()).into_any_element(),

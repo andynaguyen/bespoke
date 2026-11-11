@@ -62,12 +62,7 @@ struct MainWindowSlot {
 
 impl Global for MainWindowSlot {}
 
-pub fn init(
-    _app: &AppHandle,
-    ui_messages: async_channel::Receiver<UiMessage>,
-    settings: &AppSettings,
-    cx: &mut App,
-) {
+pub fn init(ui_messages: async_channel::Receiver<UiMessage>, settings: &AppSettings, cx: &mut App) {
     gpui_component::init(cx);
     components::focus_init(cx);
     theme::init(settings.theme, cx);

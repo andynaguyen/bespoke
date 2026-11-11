@@ -128,10 +128,7 @@
       "grant": "Accorder l'autorisation",
       "granted": "Accordé",
       "waiting": "En attente...",
-      "allGranted": "Tout est prêt !",
-      "errors": {
-        "checkFailed": "Échec de la vérification des autorisations. Veuillez réessayer."
-      }
+      "allGranted": "Tout est prêt !"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Modèles de Transcription",
       "description": "Sélectionnez un modèle de transcription ou téléchargez des modèles supplémentaires. Différents modèles offrent différents niveaux de précision et de vitesse.",
       "deleteConfirm": "Êtes-vous sûr de vouloir supprimer {{modelName}} ? Vous devrez le télécharger à nouveau pour l'utiliser.",
       "deleteActiveConfirm": "{{modelName}} est votre modèle actif. Le supprimer arrêtera les transcriptions jusqu'à ce que vous sélectionniez un nouveau modèle. Êtes-vous sûr ?",
@@ -177,7 +173,6 @@
       "availableModels": "Disponibles au téléchargement",
       "searchPlaceholder": "Rechercher des modèles par nom…",
       "rescan": {
-        "label": "Réanalyser",
         "tooltip": "Réanalyser pour détecter les modèles ajoutés au dossier des modèles ou au cache Hugging Face en dehors de Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Son",
       "microphone": {
         "title": "Microphone",
-        "description": "Sélectionnez votre périphérique d'entrée audio.",
         "placeholder": "Sélectionner un microphone...",
-        "loading": "Chargement...",
         "priority": {
           "title": "Priorité",
           "description": "Dicter et Annoter enregistrent depuis le premier microphone connecté. Faites glisser pour réorganiser.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transcription",
         "experimental": "Expérimental",
-        "dictation": "Dictée",
         "appearance": "Apparence",
         "system": "Système",
         "shortcut": "Raccourci",
@@ -533,7 +524,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Dictionnaire",
         "history": "Historique",
         "style": "Style"
       },
@@ -569,16 +559,13 @@
       "added": "Ajouté. Dictez à nouveau la phrase pour vérifier."
     },
     "history": {
-      "title": "Historique",
       "openFolder": "Ouvrir le dossier des enregistrements",
       "loading": "Chargement de l'historique...",
       "empty": "Pas encore de transcriptions. Commencez à enregistrer pour créer votre historique !",
-      "copyToClipboard": "Copier la transcription dans le presse-papiers",
       "copyError": "Impossible de copier la transcription dans le presse-papiers.",
       "save": "Enregistrer la transcription",
       "unsave": "Retirer des favoris",
       "delete": "Supprimer l'entrée",
-      "deleteError": "Échec de la suppression de l'entrée. Veuillez réessayer.",
       "retranscribe": "Re-transcrire",
       "retranscribeError": "Impossible de re-transcrire. Veuillez réessayer.",
       "transcribing": "Transcription en cours...",
@@ -590,11 +577,9 @@
       "postProcessed": "Post-traité",
       "prompt": "Prompt",
       "copy": "Copier",
-      "copied": "Copié",
-      "noSelection": "Sélectionnez une transcription pour l'afficher ici."
+      "copied": "Copié"
     },
     "debug": {
-      "title": "Débogage",
       "logDirectory": {
         "title": "Répertoire des journaux",
         "description": "Emplacement où les fichiers journaux sont stockés."
@@ -675,11 +660,6 @@
           "keyboardListener": "Écouteur clavier"
         }
       },
-      "paths": {
-        "appData": "Données de l'application :",
-        "models": "Modèles :",
-        "settings": "Paramètres :"
-      },
       "pasteDelay": {
         "title": "Délai de collage (avant)",
         "description": "Délai (en millisecondes) après la copie du texte, avant l'envoi de la touche de collage. Augmentez si rien n'est collé."
@@ -724,8 +704,7 @@
         "title": "Aperçu des nouveautés",
         "description": "Ouvrir la dernière note de version intégrée sans la marquer comme vue.",
         "button": "Aperçu",
-        "noNotes": "Aucune note de version intégrée trouvée",
-        "error": "Impossible d’afficher l’aperçu des notes de version"
+        "noNotes": "Aucune note de version intégrée trouvée"
       },
       "onboardingPreview": {
         "title": "Aperçu de la configuration initiale",
@@ -802,7 +781,6 @@
   "common": {
     "loading": "Chargement...",
     "delete": "Supprimer",
-    "close": "Fermer",
     "open": "Ouvrir",
     "copy": "Copier",
     "clear": "Effacer",
@@ -860,8 +838,7 @@
     "blockedNoCulprit_other": "macOS bloque temporairement {{count}} raccourcis",
     "recorderBlockedWithCulprit": "{{name}} bloque peut-être la modification des raccourcis",
     "recorderBlockedNoCulprit": "macOS bloque temporairement la modification des raccourcis",
-    "recorderBlocked": "Impossible d'enregistrer un raccourci pour le moment : Secure Input de macOS bloque les événements clavier. Résolvez d'abord l'avertissement Secure Input.",
-    "dismiss": "Ignorer"
+    "recorderBlocked": "Impossible d'enregistrer un raccourci pour le moment : Secure Input de macOS bloque les événements clavier. Résolvez d'abord l'avertissement Secure Input."
   },
   "triage": {
     "title": "Analyser un problème",

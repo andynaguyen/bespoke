@@ -128,10 +128,7 @@
       "grant": "Concediu el permís",
       "granted": "Concedit",
       "waiting": "S'està esperant...",
-      "allGranted": "Tot a punt!",
-      "errors": {
-        "checkFailed": "No s'han pogut comprovar els permisos. Torneu-ho a provar."
-      }
+      "allGranted": "Tot a punt!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "Models de transcripció",
       "description": "Seleccioneu un model de transcripció o baixeu-ne més. Els models ofereixen diferents nivells de precisió i velocitat.",
       "searchPlaceholder": "Cerqueu models pel nom…",
       "yourModels": "Models baixats",
@@ -244,7 +240,6 @@
         "translation": "Filtra els models que admeten la traducció a l'anglès"
       },
       "rescan": {
-        "label": "Torna a cercar",
         "tooltip": "Torna a cercar models afegits a la carpeta de models o a la memòria cau de Hugging Face des de fora del Bespoke"
       },
       "noModelsMatch": "Cap model no coincideix amb aquest filtre."
@@ -253,9 +248,7 @@
       "title": "So",
       "microphone": {
         "title": "Micròfon",
-        "description": "Selecciona el micròfon preferit.",
         "placeholder": "Seleccionaun micròfon...",
-        "loading": "S'està carregant...",
         "priority": {
           "title": "Prioritat",
           "description": "Dictat i Anotació enregistren des del primer micròfon connectat. Arrossegueu per reordenar.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transcripció",
         "experimental": "Experimental",
-        "dictation": "Dictat",
         "appearance": "Aparença",
         "system": "Sistema",
         "shortcut": "Drecera",
@@ -533,7 +524,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Diccionari",
         "history": "Historial",
         "style": "Estil"
       },
@@ -569,16 +559,13 @@
       "added": "Afegit. Torneu a dictar la frase per comprovar-ho."
     },
     "history": {
-      "title": "Historial",
       "openFolder": "Obriu la carpeta d'enregistraments",
       "loading": "S'està carregant l'historial...",
       "empty": "Encara no hi ha transcripcions. Comenceu a enregistrar per crear l'historial!",
-      "copyToClipboard": "Copia la transcripció al porta-retalls",
       "copyError": "No s'ha pogut copiar la transcripció al porta-retalls.",
       "save": "Desa la transcripció",
       "unsave": "Treu de les desades",
       "delete": "Suprimeix l'entrada",
-      "deleteError": "No s'ha pogut suprimir l'entrada. Torneu-ho a provar.",
       "retranscribe": "Torneu a transcriure",
       "retranscribeError": "No s'ha pogut tornar a transcriure. Torneu-ho a provar.",
       "transcribing": "S'està transcrivint...",
@@ -590,11 +577,9 @@
       "postProcessed": "Postprocessat",
       "prompt": "Indicació",
       "copy": "Copia",
-      "copied": "Copiat",
-      "noSelection": "Seleccioneu una transcripció per veure-la aquí."
+      "copied": "Copiat"
     },
     "debug": {
-      "title": "Depuració",
       "logDirectory": {
         "title": "Directori de registres",
         "description": "Ubicació on es desen els fitxers de registre."
@@ -625,8 +610,7 @@
         "title": "Previsualització de les novetats",
         "description": "Obre les últimes notes de la versió incloses sense marcar-les com a llegides.",
         "button": "Previsualitzeu",
-        "noNotes": "No s'han trobat notes de la versió incloses",
-        "error": "No s'han pogut previsualitzar les notes de la versió"
+        "noNotes": "No s'han trobat notes de la versió incloses"
       },
       "onboardingPreview": {
         "title": "Previsualització de la configuració inicial",
@@ -688,11 +672,6 @@
           "globalHotkey": "Drecera global",
           "keyboardListener": "Escolta del teclat"
         }
-      },
-      "paths": {
-        "appData": "Dades de l'aplicació:",
-        "models": "Models:",
-        "settings": "Configuració:"
       },
       "pasteDelay": {
         "title": "Retard abans d'enganxar",
@@ -805,7 +784,6 @@
   "common": {
     "loading": "S'està carregant...",
     "delete": "Suprimeix",
-    "close": "Tanca",
     "open": "Obre",
     "copy": "Copia",
     "clear": "Neteja",
@@ -860,8 +838,7 @@
     "blockedNoCulprit_other": "El macOS està blocant temporalment {{count}} dreceres",
     "recorderBlockedWithCulprit": "{{name}} pot estar blocant els canvis de dreceres",
     "recorderBlockedNoCulprit": "El macOS està blocant temporalment els canvis de dreceres",
-    "recorderBlocked": "Ara no se'n poden enregistrar dreceres: l'entrada segura del macOS bloca els esdeveniments de tecla. Resol primer l'avís d'entrada segura.",
-    "dismiss": "Descarta"
+    "recorderBlocked": "Ara no se'n poden enregistrar dreceres: l'entrada segura del macOS bloca els esdeveniments de tecla. Resol primer l'avís d'entrada segura."
   },
   "triage": {
     "title": "Diagnostica un problema",

@@ -160,7 +160,7 @@ fn chip(
         .gap_1()
         .xs_text()
         .text_color(p.text.a(0.5))
-        .tooltip(move |window, cx| Tooltip::text(title.clone(), window, cx))
+        .tooltip(move |_, cx| Tooltip::text(title.clone(), cx))
         .child(icon(glyph).size(rems(0.875)))
         .child(text)
 }

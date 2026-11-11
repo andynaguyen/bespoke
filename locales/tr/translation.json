@@ -128,10 +128,7 @@
       "grant": "İzin Ver",
       "granted": "Verildi",
       "waiting": "Bekleniyor...",
-      "allGranted": "Her şey hazır!",
-      "errors": {
-        "checkFailed": "İzinler kontrol edilemedi. Lütfen tekrar deneyin."
-      }
+      "allGranted": "Her şey hazır!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Transkripsiyon Modelleri",
       "description": "Bir transkripsiyon modeli seçin veya ek modeller indirin. Farklı modeller değişen doğruluk ve hız seviyeleri sunar.",
       "deleteConfirm": "{{modelName}} modelini silmek istediğinizden emin misiniz? Kullanmak için tekrar indirmeniz gerekecek.",
       "deleteActiveConfirm": "{{modelName}} aktif modelinizdir. Silmek, yeni bir model seçene kadar transkripsiyonları durduracaktır. Emin misiniz?",
@@ -177,7 +173,6 @@
       "availableModels": "İndirilebilir",
       "searchPlaceholder": "Modelleri ada göre ara…",
       "rescan": {
-        "label": "Yeniden Tara",
         "tooltip": "Bespoke dışında modeller klasörüne veya Hugging Face önbelleğine eklenen modelleri yeniden tara"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Ses",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Tercih ettiğiniz mikrofon cihazını seçin.",
         "placeholder": "Mikrofon seçin...",
-        "loading": "Yükleniyor...",
         "priority": {
           "title": "Öncelik",
           "description": "Dikte ve İşaretle, bağlı ilk mikrofondan kayıt yapar. Sıralamak için sürükleyin.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transkripsiyon",
         "experimental": "Deneysel",
-        "dictation": "Dikte",
         "appearance": "Görünüm",
         "system": "Sistem",
         "shortcut": "Kısayol",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Sözlük",
         "history": "Geçmiş",
         "style": "Stil"
       },
@@ -567,16 +557,13 @@
       "added": "Eklendi. Kontrol etmek için cümleyi yeniden dikte edin."
     },
     "history": {
-      "title": "Geçmiş",
       "openFolder": "Kayıtlar Klasörünü Aç",
       "loading": "Geçmiş yükleniyor...",
       "empty": "Henüz transkripsiyon yok. Geçmişinizi oluşturmak için kayda başlayın!",
-      "copyToClipboard": "Transkripsiyonu panoya kopyala",
       "copyError": "Transkripsiyon panoya kopyalanamadı.",
       "save": "Transkripsiyonu kaydet",
       "unsave": "Kaydedilenlerden kaldır",
       "delete": "Kaydı sil",
-      "deleteError": "Kayıt silinemedi. Lütfen tekrar deneyin.",
       "retranscribe": "Yeniden transkribe et",
       "retranscribeError": "Yeniden transkripsiyon başarısız oldu. Lütfen tekrar deneyin.",
       "transcribing": "Transkribe ediliyor...",
@@ -588,11 +575,9 @@
       "postProcessed": "Son işlemden geçti",
       "prompt": "Prompt",
       "copy": "Kopyala",
-      "copied": "Kopyalandı",
-      "noSelection": "Burada görmek için bir transkripsiyon seçin."
+      "copied": "Kopyalandı"
     },
     "debug": {
-      "title": "Hata Ayıklama",
       "logDirectory": {
         "title": "Log Dizini",
         "description": "Log dosyalarının saklandığı konum."
@@ -673,11 +658,6 @@
           "keyboardListener": "Klavye Dinleyicisi"
         }
       },
-      "paths": {
-        "appData": "Uygulama Verileri:",
-        "models": "Modeller:",
-        "settings": "Ayarlar:"
-      },
       "pasteDelay": {
         "title": "Yapıştırma Gecikmesi (Önce)",
         "description": "Metin kopyalandıktan sonra, yapıştırma tuşu gönderilmeden önceki gecikme (milisaniye cinsinden). Hiçbir şey yapıştırılmıyorsa artırın."
@@ -722,8 +702,7 @@
         "title": "Yenilikleri Önizle",
         "description": "En son paketlenmiş sürüm notunu görüldü olarak işaretlemeden aç.",
         "button": "Önizle",
-        "noNotes": "Paketlenmiş sürüm notu bulunamadı",
-        "error": "Sürüm notları önizlenemedi"
+        "noNotes": "Paketlenmiş sürüm notu bulunamadı"
       },
       "onboardingPreview": {
         "title": "İlk kurulum önizlemesi",
@@ -800,7 +779,6 @@
   "common": {
     "loading": "Yükleniyor...",
     "delete": "Sil",
-    "close": "Kapat",
     "open": "Aç",
     "copy": "Kopyala",
     "clear": "Temizle",
@@ -858,8 +836,7 @@
     "blockedNoCulprit_other": "macOS geçici olarak {{count}} kısayolu engelliyor",
     "recorderBlockedWithCulprit": "{{name}} kısayol değişikliklerini engelliyor olabilir",
     "recorderBlockedNoCulprit": "macOS geçici olarak kısayol değişikliklerini engelliyor",
-    "recorderBlocked": "Şu anda kısayol kaydedilemiyor — macOS Secure Input tuş olaylarını engelliyor. Önce Secure Input uyarısını giderin.",
-    "dismiss": "Kapat"
+    "recorderBlocked": "Şu anda kısayol kaydedilemiyor — macOS Secure Input tuş olaylarını engelliyor. Önce Secure Input uyarısını giderin."
   },
   "triage": {
     "title": "Bir Sorunu İncele",

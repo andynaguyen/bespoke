@@ -481,7 +481,7 @@ pub fn clipboard_handling(s: &AppSettings, cx: &App) -> AnyElement {
     )
 }
 
-pub fn submit_key_value(key: AutoSubmitKey) -> &'static str {
+fn submit_key_value(key: AutoSubmitKey) -> &'static str {
     match key {
         AutoSubmitKey::Enter => "enter",
         AutoSubmitKey::CtrlEnter => "ctrl_enter",
@@ -511,7 +511,7 @@ fn submit_key_options() -> Vec<DropdownOption> {
     ]
 }
 
-pub fn set_submit_key(value: &str, cx: &mut App) {
+fn set_submit_key(value: &str, cx: &mut App) {
     let key = parse_submit_key(value);
     let value = value.to_string();
     set(

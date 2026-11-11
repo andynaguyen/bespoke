@@ -51,7 +51,7 @@ fn manager() -> Arc<HistoryManager> {
 }
 
 impl HistoryPage {
-    pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
         let subscriptions = vec![
             cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
                 if event.name == HistoryUpdatePayload::EVENT
@@ -121,7 +121,6 @@ impl HistoryPage {
                     *existing = entry;
                 }
             }
-            HistoryUpdatePayload::Deleted { .. } | HistoryUpdatePayload::Toggled { .. } => {}
         }
         cx.notify();
     }
@@ -237,12 +236,7 @@ impl HistoryPage {
         }));
     }
 
-    pub fn toolbar_actions(
-        &mut self,
-        toolbar: Toolbar,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) -> Toolbar {
+    pub fn toolbar_actions(&self, toolbar: Toolbar) -> Toolbar {
         // The actions sit in the inspector once entries load. While the first page loads, there's
         // no inspector yet, and putting them in the toolbar would flash them there for a frame.
         if self.loading || self.has_inspector() {
@@ -477,7 +471,7 @@ impl HistoryPage {
                     })
             };
             button
-                .tooltip(move |window, cx| Tooltip::text(title.clone(), window, cx))
+                .tooltip(move |_, cx| Tooltip::text(title.clone(), cx))
                 .child(if spin {
                     icon(glyph)
                         .size(px(14.))

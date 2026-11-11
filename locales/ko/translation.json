@@ -128,10 +128,7 @@
       "grant": "권한 부여",
       "granted": "승인됨",
       "waiting": "대기 중...",
-      "allGranted": "모두 설정 완료!",
-      "errors": {
-        "checkFailed": "권한 확인에 실패했습니다. 다시 시도해주세요."
-      }
+      "allGranted": "모두 설정 완료!"
     }
   },
   "modelSelector": {
@@ -233,9 +230,7 @@
       "title": "사운드",
       "microphone": {
         "title": "마이크",
-        "description": "선호하는 마이크 장치를 선택하세요.",
         "placeholder": "마이크 선택...",
-        "loading": "로딩 중...",
         "priority": {
           "title": "우선순위",
           "description": "받아쓰기와 주석은 연결된 첫 번째 마이크로 녹음합니다. 드래그하여 순서를 바꾸세요.",
@@ -274,7 +269,6 @@
       "defaultDevice": "기본값"
     },
     "models": {
-      "title": "음성 인식 모델",
       "description": "음성 인식 모델을 선택하거나 추가 모델을 다운로드하세요. 모델마다 정확도와 속도가 다릅니다.",
       "yourModels": "다운로드된 모델",
       "availableModels": "다운로드 가능",
@@ -289,15 +283,12 @@
       "noModelsMatch": "이 필터에 맞는 모델이 없습니다.",
       "searchPlaceholder": "이름으로 모델 검색…",
       "rescan": {
-        "label": "다시 스캔",
         "tooltip": "Bespoke 외부에서 모델 폴더 또는 Hugging Face 캐시에 추가된 모델을 다시 스캔합니다"
       }
     },
     "advanced": {
       "groups": {
-        "transcription": "전사",
         "experimental": "실험적",
-        "dictation": "받아쓰기",
         "appearance": "화면 스타일",
         "system": "시스템",
         "shortcut": "단축키",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "사전",
         "history": "히스토리",
         "style": "스타일"
       },
@@ -566,16 +556,13 @@
       "added": "추가했습니다. 문장을 다시 받아써서 확인하세요."
     },
     "history": {
-      "title": "히스토리",
       "openFolder": "녹음 폴더 열기",
       "loading": "히스토리 로딩 중...",
       "empty": "아직 변환된 내용이 없습니다. 녹음을 시작하여 히스토리를 만드세요!",
-      "copyToClipboard": "녹음 내용을 클립보드에 복사",
       "copyError": "전사 내용을 클립보드에 복사하지 못했습니다.",
       "save": "변환된 텍스트 저장",
       "unsave": "저장에서 제거",
       "delete": "항목 삭제",
-      "deleteError": "항목 삭제에 실패했습니다. 다시 시도해주세요.",
       "retranscribe": "다시 전사",
       "retranscribeError": "다시 전사에 실패했습니다. 다시 시도해주세요.",
       "transcribing": "전사 중...",
@@ -587,11 +574,9 @@
       "postProcessed": "후처리됨",
       "prompt": "프롬프트",
       "copy": "복사",
-      "copied": "복사됨",
-      "noSelection": "전사 항목을 선택하면 여기에 표시됩니다."
+      "copied": "복사됨"
     },
     "debug": {
-      "title": "디버그",
       "logDirectory": {
         "title": "로그 디렉토리",
         "description": "로그 파일이 저장되는 위치."
@@ -712,17 +697,11 @@
         "verdictNoEvents": "이벤트가 감지되지 않았습니다. 테스트 중에 키를 누르셨나요?",
         "failed": "진단 실패: {{error}}"
       },
-      "paths": {
-        "appData": "앱 데이터:",
-        "models": "모델:",
-        "settings": "설정:"
-      },
       "whatsNewPreview": {
         "title": "새 소식 미리보기",
         "description": "최신 내장 릴리스 노트를 본 것으로 표시하지 않고 엽니다.",
         "button": "미리보기",
-        "noNotes": "내장 릴리스 노트를 찾을 수 없습니다",
-        "error": "릴리스 노트를 미리 볼 수 없습니다"
+        "noNotes": "내장 릴리스 노트를 찾을 수 없습니다"
       },
       "onboardingPreview": {
         "title": "온보딩 미리보기",
@@ -799,7 +778,6 @@
   "common": {
     "loading": "로딩 중...",
     "delete": "삭제",
-    "close": "닫기",
     "open": "열기",
     "copy": "복사",
     "clear": "지우기",
@@ -857,8 +835,7 @@
     "blockedNoCulprit_other": "macOS가 단축키 {{count}}개를 일시적으로 차단하고 있습니다",
     "recorderBlockedWithCulprit": "{{name}}이(가) 단축키 변경을 차단하고 있을 수 있습니다",
     "recorderBlockedNoCulprit": "macOS가 단축키 변경을 일시적으로 차단하고 있습니다",
-    "recorderBlocked": "지금은 단축키를 등록할 수 없습니다. macOS Secure Input이 키 이벤트를 차단하고 있습니다. Secure Input 경고를 먼저 해결하세요.",
-    "dismiss": "닫기"
+    "recorderBlocked": "지금은 단축키를 등록할 수 없습니다. macOS Secure Input이 키 이벤트를 차단하고 있습니다. Secure Input 경고를 먼저 해결하세요."
   },
   "triage": {
     "title": "문제 진단",

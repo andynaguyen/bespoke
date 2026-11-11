@@ -225,10 +225,7 @@
       "grant": "Grant Permission",
       "granted": "Granted",
       "waiting": "Waiting...",
-      "allGranted": "All set!",
-      "errors": {
-        "checkFailed": "Failed to check permissions. Please try again."
-      }
+      "allGranted": "All set!"
     }
   },
   "modelSelector": {
@@ -327,7 +324,6 @@
       }
     },
     "models": {
-      "title": "Transcription Models",
       "description": "Select a transcription model or download additional models. Different models offer varying levels of accuracy and speed.",
       "searchPlaceholder": "Search models by name…",
       "yourModels": "Downloaded Models",
@@ -341,7 +337,6 @@
         "translation": "Filter models that support translation to English"
       },
       "rescan": {
-        "label": "Rescan",
         "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Bespoke"
       },
       "noModelsMatch": "No models match this filter."
@@ -350,9 +345,7 @@
       "title": "Sound",
       "microphone": {
         "title": "Microphone",
-        "description": "Dictate and Annotate both record from this microphone.",
         "placeholder": "Select microphone...",
-        "loading": "Loading...",
         "priority": {
           "title": "Priority",
           "description": "Dictate and Annotate record from the first connected microphone. Drag to reorder.",
@@ -392,9 +385,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transcription",
         "experimental": "Experimental",
-        "dictation": "Dictation",
         "appearance": "Appearance",
         "system": "System",
         "shortcut": "Shortcut",
@@ -696,16 +687,13 @@
       }
     },
     "history": {
-      "title": "History",
       "openFolder": "Open Recordings Folder",
       "loading": "Loading history...",
       "empty": "No transcriptions yet. Start recording to build your history!",
-      "copyToClipboard": "Copy transcription to clipboard",
       "copyError": "Failed to copy transcription to clipboard.",
       "save": "Save transcription",
       "unsave": "Remove from saved",
       "delete": "Delete entry",
-      "deleteError": "Failed to delete entry. Please try again.",
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
@@ -717,11 +705,9 @@
       "postProcessed": "Post-processed",
       "prompt": "Prompt",
       "copy": "Copy",
-      "copied": "Copied",
-      "noSelection": "Select a transcription to see it here."
+      "copied": "Copied"
     },
     "debug": {
-      "title": "Debug",
       "logDirectory": {
         "title": "Log Directory",
         "description": "Location where log files are stored."
@@ -752,8 +738,7 @@
         "title": "Preview What's New",
         "description": "Open the latest bundled release note without marking it as seen.",
         "button": "Preview",
-        "noNotes": "No bundled release notes found",
-        "error": "Failed to preview release notes"
+        "noNotes": "No bundled release notes found"
       },
       "onboardingPreview": {
         "title": "Preview Onboarding",
@@ -815,11 +800,6 @@
           "globalHotkey": "Global Hotkey",
           "keyboardListener": "Keyboard Listener"
         }
-      },
-      "paths": {
-        "appData": "App Data:",
-        "models": "Models:",
-        "settings": "Settings:"
       },
       "pasteDelay": {
         "title": "Paste Delay (Before)",
@@ -899,7 +879,6 @@
   "common": {
     "loading": "Loading...",
     "delete": "Delete",
-    "close": "Close",
     "open": "Open",
     "copy": "Copy",
     "clear": "Clear",
@@ -955,8 +934,7 @@
     "blockedNoCulprit_other": "macOS is temporarily blocking {{count}} shortcuts",
     "recorderBlockedWithCulprit": "{{name}} may be blocking shortcut changes",
     "recorderBlockedNoCulprit": "macOS is temporarily blocking shortcut changes",
-    "recorderBlocked": "Can't record shortcuts right now — macOS Secure Input is blocking key events. Resolve the Secure Input warning first.",
-    "dismiss": "Dismiss"
+    "recorderBlocked": "Can't record shortcuts right now — macOS Secure Input is blocking key events. Resolve the Secure Input warning first."
   },
   "annotate": {
     "groups": {

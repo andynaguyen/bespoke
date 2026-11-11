@@ -128,10 +128,7 @@
       "grant": "権限を許可",
       "granted": "許可済み",
       "waiting": "待機中…",
-      "allGranted": "準備完了!",
-      "errors": {
-        "checkFailed": "権限の確認に失敗しました。もう一度お試しください。"
-      }
+      "allGranted": "準備完了!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "文字起こしのモデル",
       "description": "文字起こしのモデルを選択するか、追加のモデルをダウンロードします。異なるモデルは精度と速度のレベルが異なります。",
       "deleteConfirm": "{{modelName}}を削除してもよろしいですか? 再度使用するにはダウンロードが必要です。",
       "deleteActiveConfirm": "{{modelName}}は現在使用中のモデルです。削除すると、新しいモデルを選択するまで文字起こしが停止します。本当に削除しますか?",
@@ -177,7 +173,6 @@
       "availableModels": "ダウンロード可能",
       "searchPlaceholder": "モデルを名前で検索…",
       "rescan": {
-        "label": "再スキャン",
         "tooltip": "Bespoke を使わずに models フォルダーまたは Hugging Face キャッシュに追加されたモデルを再スキャンします"
       }
     },
@@ -253,9 +248,7 @@
       "title": "サウンド",
       "microphone": {
         "title": "マイク",
-        "description": "使用するマイクデバイスを選択。",
         "placeholder": "マイクを選択…",
-        "loading": "読み込み中…",
         "priority": {
           "title": "優先順位",
           "description": "音声入力と注釈は、接続されている最初のマイクから録音します。ドラッグして並べ替えます。",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "文字起こし",
         "experimental": "実験的",
-        "dictation": "音声入力",
         "appearance": "外観",
         "system": "システム",
         "shortcut": "ショートカット",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "辞書",
         "history": "履歴",
         "style": "スタイル"
       },
@@ -566,16 +556,13 @@
       "added": "追加しました。もう一度その文を音声入力して確認してください。"
     },
     "history": {
-      "title": "履歴",
       "openFolder": "録音フォルダを開く",
       "loading": "履歴を読み込み中…",
       "empty": "まだ文字起こしがありません。録音を開始して履歴を作成しましょう!",
-      "copyToClipboard": "文字起こしをクリップボードにコピー",
       "copyError": "文字起こしをクリップボードにコピーできませんでした。",
       "save": "文字起こしを保存",
       "unsave": "保存から削除",
       "delete": "エントリーを削除",
-      "deleteError": "エントリーの削除に失敗しました。もう一度お試しください。",
       "retranscribe": "再文字起こし",
       "retranscribeError": "再文字起こしに失敗しました。もう一度お試しください。",
       "transcribing": "文字起こし中…",
@@ -587,11 +574,9 @@
       "postProcessed": "後処理済み",
       "prompt": "プロンプト",
       "copy": "コピー",
-      "copied": "コピーしました",
-      "noSelection": "文字起こしを選択すると、ここに表示されます。"
+      "copied": "コピーしました"
     },
     "debug": {
-      "title": "デバッグ",
       "logDirectory": {
         "title": "ログディレクトリ",
         "description": "ログファイルの保存場所。"
@@ -672,11 +657,6 @@
           "keyboardListener": "キーボードリスナー"
         }
       },
-      "paths": {
-        "appData": "アプリデータ:",
-        "models": "モデル:",
-        "settings": "設定:"
-      },
       "pasteDelay": {
         "title": "貼り付け遅延(前)",
         "description": "テキストをコピーした後、貼り付けキーを送信する前の遅延(ミリ秒)。何も貼り付けられない場合は増やしてください。"
@@ -721,8 +701,7 @@
         "title": "新機能をプレビュー",
         "description": "最新の同梱リリースノートを既読にせずに開く。",
         "button": "プレビュー",
-        "noNotes": "同梱リリースノートが見つかりません",
-        "error": "リリースノートのプレビューに失敗しました"
+        "noNotes": "同梱リリースノートが見つかりません"
       },
       "onboardingPreview": {
         "title": "オンボーディングをプレビュー",
@@ -799,7 +778,6 @@
   "common": {
     "loading": "読み込み中…",
     "delete": "削除",
-    "close": "閉じる",
     "open": "開く",
     "copy": "コピー",
     "clear": "クリア",
@@ -857,8 +835,7 @@
     "blockedNoCulprit_other": "macOS が一時的に{{count}}個のショートカットをブロックしています",
     "recorderBlockedWithCulprit": "{{name}} がショートカットの変更をブロックしている可能性があります",
     "recorderBlockedNoCulprit": "macOS が一時的にショートカットの変更をブロックしています",
-    "recorderBlocked": "現在ショートカットを記録できません。macOS の Secure Input がキーイベントをブロックしています。先に Secure Input の警告を解消してください。",
-    "dismiss": "閉じる"
+    "recorderBlocked": "現在ショートカットを記録できません。macOS の Secure Input がキーイベントをブロックしています。先に Secure Input の警告を解消してください。"
   },
   "triage": {
     "title": "問題を診断",

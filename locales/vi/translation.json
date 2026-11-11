@@ -128,10 +128,7 @@
       "grant": "Cấp quyền",
       "granted": "Đã cấp",
       "waiting": "Đang chờ...",
-      "allGranted": "Hoàn tất!",
-      "errors": {
-        "checkFailed": "Không thể kiểm tra quyền. Vui lòng thử lại."
-      }
+      "allGranted": "Hoàn tất!"
     }
   },
   "modelSelector": {
@@ -162,7 +159,6 @@
   },
   "settings": {
     "models": {
-      "title": "Mô hình chuyển đổi",
       "description": "Chọn mô hình chuyển đổi hoặc tải thêm mô hình. Các mô hình khác nhau có mức độ chính xác và tốc độ khác nhau.",
       "deleteConfirm": "Bạn có chắc chắn muốn xóa {{modelName}}? Bạn sẽ cần tải lại để sử dụng.",
       "deleteActiveConfirm": "{{modelName}} là mô hình đang hoạt động của bạn. Xóa nó sẽ dừng phiên âm cho đến khi bạn chọn một mô hình mới. Bạn có chắc không?",
@@ -177,7 +173,6 @@
       "availableModels": "Có sẵn để tải xuống",
       "searchPlaceholder": "Tìm mô hình theo tên…",
       "rescan": {
-        "label": "Quét lại",
         "tooltip": "Quét lại các mô hình được thêm vào thư mục mô hình hoặc bộ nhớ đệm Hugging Face bên ngoài Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Âm thanh",
       "microphone": {
         "title": "Micrô",
-        "description": "Chọn thiết bị micrô ưa thích của bạn.",
         "placeholder": "Chọn micrô...",
-        "loading": "Đang tải...",
         "priority": {
           "title": "Ưu tiên",
           "description": "Đọc chính tả và Chú thích ghi âm từ micrô đầu tiên đang kết nối. Kéo để sắp xếp lại.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Chuyển đổi",
         "experimental": "Thử nghiệm",
-        "dictation": "Đọc chính tả",
         "appearance": "Giao diện",
         "system": "Hệ thống",
         "shortcut": "Phím tắt",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Từ điển",
         "history": "Lịch sử",
         "style": "Văn phong"
       },
@@ -566,16 +556,13 @@
       "added": "Đã thêm. Đọc lại câu đó để kiểm tra."
     },
     "history": {
-      "title": "Lịch sử",
       "openFolder": "Mở thư mục ghi âm",
       "loading": "Đang tải lịch sử...",
       "empty": "Chưa có bản ghi nào. Bắt đầu ghi âm để xây dựng lịch sử của bạn!",
-      "copyToClipboard": "Sao chép bản ghi vào clipboard",
       "copyError": "Không thể sao chép bản ghi vào bộ nhớ tạm.",
       "save": "Lưu bản ghi",
       "unsave": "Xóa khỏi đã lưu",
       "delete": "Xóa mục",
-      "deleteError": "Không thể xóa mục. Vui lòng thử lại.",
       "retranscribe": "Phiên âm lại",
       "retranscribeError": "Không thể phiên âm lại. Vui lòng thử lại.",
       "transcribing": "Đang phiên âm...",
@@ -587,11 +574,9 @@
       "postProcessed": "Đã xử lý sau",
       "prompt": "Prompt",
       "copy": "Sao chép",
-      "copied": "Đã sao chép",
-      "noSelection": "Chọn một bản chép lời để xem ở đây."
+      "copied": "Đã sao chép"
     },
     "debug": {
-      "title": "Gỡ lỗi",
       "logDirectory": {
         "title": "Thư mục nhật ký",
         "description": "Vị trí lưu trữ các tệp nhật ký."
@@ -672,11 +657,6 @@
           "keyboardListener": "Trình nghe bàn phím"
         }
       },
-      "paths": {
-        "appData": "Dữ liệu ứng dụng:",
-        "models": "Mô hình:",
-        "settings": "Cài đặt:"
-      },
       "pasteDelay": {
         "title": "Độ trễ dán (trước)",
         "description": "Độ trễ (tính bằng mili giây) sau khi sao chép văn bản, trước khi gửi phím dán. Tăng nếu không có gì được dán."
@@ -721,8 +701,7 @@
         "title": "Xem trước điểm mới",
         "description": "Mở ghi chú phát hành mới nhất được đóng gói mà không đánh dấu là đã xem.",
         "button": "Xem trước",
-        "noNotes": "Không tìm thấy ghi chú phát hành được đóng gói",
-        "error": "Không thể xem trước ghi chú phát hành"
+        "noNotes": "Không tìm thấy ghi chú phát hành được đóng gói"
       },
       "onboardingPreview": {
         "title": "Xem trước thiết lập ban đầu",
@@ -799,7 +778,6 @@
   "common": {
     "loading": "Đang tải...",
     "delete": "Xóa",
-    "close": "Đóng",
     "open": "Mở",
     "copy": "Sao chép",
     "clear": "Xóa",
@@ -857,8 +835,7 @@
     "blockedNoCulprit_other": "macOS đang tạm thời chặn {{count}} phím tắt",
     "recorderBlockedWithCulprit": "{{name}} có thể đang chặn việc thay đổi phím tắt",
     "recorderBlockedNoCulprit": "macOS đang tạm thời chặn việc thay đổi phím tắt",
-    "recorderBlocked": "Hiện không thể ghi phím tắt — Secure Input của macOS đang chặn các sự kiện phím. Hãy xử lý cảnh báo Secure Input trước.",
-    "dismiss": "Bỏ qua"
+    "recorderBlocked": "Hiện không thể ghi phím tắt — Secure Input của macOS đang chặn các sự kiện phím. Hãy xử lý cảnh báo Secure Input trước."
   },
   "triage": {
     "title": "Phân tích sự cố",

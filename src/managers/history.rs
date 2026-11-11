@@ -158,10 +158,6 @@ pub enum HistoryUpdatePayload {
     Added { entry: HistoryEntry },
     #[serde(rename = "updated")]
     Updated { entry: HistoryEntry },
-    #[serde(rename = "deleted")]
-    Deleted { id: i64 },
-    #[serde(rename = "toggled")]
-    Toggled { id: i64 },
 }
 
 impl HistoryUpdatePayload {
@@ -800,10 +796,6 @@ impl HistoryManager {
 
         debug!("Toggled saved status for entry {}: {}", id, new_saved);
 
-        if let Err(e) = (HistoryUpdatePayload::Toggled { id }).emit(&self.app_handle) {
-            error!("Failed to emit history-updated event: {}", e);
-        }
-
         Ok(())
     }
 
@@ -851,10 +843,6 @@ impl HistoryManager {
         )?;
 
         debug!("Deleted history entry with id: {}", id);
-
-        if let Err(e) = (HistoryUpdatePayload::Deleted { id }).emit(&self.app_handle) {
-            error!("Failed to emit history-updated event: {}", e);
-        }
 
         Ok(())
     }

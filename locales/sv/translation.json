@@ -128,10 +128,7 @@
       "grant": "Bevilja behörighet",
       "granted": "Beviljad",
       "waiting": "Väntar...",
-      "allGranted": "Allt klart!",
-      "errors": {
-        "checkFailed": "Misslyckades med att kontrollera behörigheter. Försök igen."
-      }
+      "allGranted": "Allt klart!"
     }
   },
   "modelSelector": {
@@ -230,7 +227,6 @@
       }
     },
     "models": {
-      "title": "Transkriptionsmodeller",
       "description": "Välj en transkriptionsmodell eller ladda ner ytterligare modeller. Olika modeller erbjuder varierande nivåer av noggrannhet och hastighet.",
       "yourModels": "Nedladdade modeller",
       "availableModels": "Tillgängliga att ladda ner",
@@ -245,7 +241,6 @@
       "noModelsMatch": "Inga modeller matchar detta filter.",
       "searchPlaceholder": "Sök modeller efter namn…",
       "rescan": {
-        "label": "Skanna om",
         "tooltip": "Skanna om efter modeller som lagts till i modellmappen eller Hugging Face-cachen utanför Bespoke"
       }
     },
@@ -253,9 +248,7 @@
       "title": "Ljud",
       "microphone": {
         "title": "Mikrofon",
-        "description": "Välj din föredragna mikrofonenhet.",
         "placeholder": "Välj mikrofon...",
-        "loading": "Laddar...",
         "priority": {
           "title": "Prioritet",
           "description": "Diktera och Annotera spelar in från den första anslutna mikrofonen. Dra för att ändra ordning.",
@@ -295,9 +288,7 @@
     },
     "advanced": {
       "groups": {
-        "transcription": "Transkription",
         "experimental": "Experimentellt",
-        "dictation": "Diktering",
         "appearance": "Utseende",
         "system": "System",
         "shortcut": "Kortkommando",
@@ -531,7 +522,6 @@
     },
     "dictionary": {
       "tabs": {
-        "dictionary": "Ordlista",
         "history": "Historik",
         "style": "Stil"
       },
@@ -567,16 +557,13 @@
       "added": "Tillagt. Diktera meningen igen för att kontrollera det."
     },
     "history": {
-      "title": "Historik",
       "openFolder": "Öppna mapp för inspelningar",
       "loading": "Laddar historik...",
       "empty": "Inga transkriptioner ännu. Börja spela in för att bygga upp din historik!",
-      "copyToClipboard": "Kopiera transkription till urklipp",
       "copyError": "Det gick inte att kopiera transkriptionen till urklipp.",
       "save": "Spara transkription",
       "unsave": "Ta bort från sparade",
       "delete": "Ta bort post",
-      "deleteError": "Misslyckades med att ta bort post. Försök igen.",
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
@@ -588,11 +575,9 @@
       "postProcessed": "Efterbearbetad",
       "prompt": "Prompt",
       "copy": "Kopiera",
-      "copied": "Kopierad",
-      "noSelection": "Välj en transkription för att se den här."
+      "copied": "Kopierad"
     },
     "debug": {
-      "title": "Felsökning",
       "logDirectory": {
         "title": "Loggmapp",
         "description": "Plats där loggfiler lagras."
@@ -673,11 +658,6 @@
           "keyboardListener": "Tangentbordslyssnare"
         }
       },
-      "paths": {
-        "appData": "Appdata:",
-        "models": "Modeller:",
-        "settings": "Inställningar:"
-      },
       "pasteDelay": {
         "title": "Fördröjning vid klistra in (före)",
         "description": "Fördröjning (i millisekunder) efter att text kopierats, innan tangenttryckningen för att klistra in skickas. Öka om ingenting klistras in."
@@ -722,8 +702,7 @@
         "title": "Förhandsvisa nyheter",
         "description": "Öppna den senaste medföljande versionsinformationen utan att markera den som visad.",
         "button": "Förhandsvisa",
-        "noNotes": "Ingen medföljande versionsinformation hittades",
-        "error": "Det gick inte att förhandsvisa versionsinformationen"
+        "noNotes": "Ingen medföljande versionsinformation hittades"
       },
       "onboardingPreview": {
         "title": "Förhandsvisa introduktionen",
@@ -800,7 +779,6 @@
   "common": {
     "loading": "Laddar...",
     "delete": "Ta bort",
-    "close": "Stäng",
     "open": "Öppna",
     "copy": "Kopiera",
     "clear": "Rensa",
@@ -858,8 +836,7 @@
     "blockedNoCulprit_other": "macOS blockerar tillfälligt {{count}} kortkommandon",
     "recorderBlockedWithCulprit": "{{name}} kanske blockerar ändringar av kortkommandon",
     "recorderBlockedNoCulprit": "macOS blockerar tillfälligt ändringar av kortkommandon",
-    "recorderBlocked": "Det går inte att spela in kortkommandon just nu — macOS Secure Input blockerar tangenthändelser. Lös varningen om Secure Input först.",
-    "dismiss": "Avfärda"
+    "recorderBlocked": "Det går inte att spela in kortkommandon just nu — macOS Secure Input blockerar tangenthändelser. Lös varningen om Secure Input först."
   },
   "triage": {
     "title": "Undersök ett problem",

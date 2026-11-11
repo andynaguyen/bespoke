@@ -34,7 +34,7 @@ pub fn run(
     FILE_LOG_LEVEL.store(file_log_level as u8, Ordering::Relaxed);
     LOG_STREAMING.store(settings.debug_mode, Ordering::Relaxed);
 
-    ui::init(&app, ui_messages, &settings, cx);
+    ui::init(ui_messages, &settings, cx);
 
     app.manage(TranscriptionCoordinator::new(app.clone()));
     initialize_core_logic(&app);

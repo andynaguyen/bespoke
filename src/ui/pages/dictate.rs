@@ -42,14 +42,14 @@ impl DictatePage {
         if self.tab != Tab::History {
             self.history = None;
         } else if self.history.is_none() {
-            self.history = Some(cx.new(|cx| HistoryPage::new(window, cx)));
+            self.history = Some(cx.new(HistoryPage::new));
         }
         cx.notify();
     }
 }
 
 impl super::Page for DictatePage {
-    fn toolbar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
+    fn toolbar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Toolbar {
         let entity = cx.entity().downgrade();
         let tab_id = match self.tab {
             Tab::Style => "style",
@@ -70,9 +70,7 @@ impl super::Page for DictatePage {
         match self.tab {
             Tab::Style => toolbar,
             Tab::History => match &self.history {
-                Some(history) => history.update(cx, |history, cx| {
-                    history.toolbar_actions(toolbar, window, cx)
-                }),
+                Some(history) => history.read(cx).toolbar_actions(toolbar),
                 None => toolbar,
             },
         }
