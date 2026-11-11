@@ -7,9 +7,9 @@ use signal_hook::consts::{SIGUSR1, SIGUSR2};
 use signal_hook::iterator::Signals;
 use std::thread;
 
-pub fn send_transcription_input(app: &AppHandle, binding_id: &str, source: &str) {
+pub fn send_transcription_input(app: &AppHandle, binding_id: &str) {
     if let Some(c) = app.try_state::<TranscriptionCoordinator>() {
-        c.send_external_input(binding_id, source);
+        c.send_external_input(binding_id);
     } else {
         warn!("TranscriptionCoordinator not initialized");
     }
@@ -27,7 +27,7 @@ pub fn setup_signal_handler(app_handle: AppHandle) {
                 _ => continue,
             };
             debug!("Received {signal_name}");
-            send_transcription_input(&app_handle, binding_id, signal_name);
+            send_transcription_input(&app_handle, binding_id);
         }
     });
 }

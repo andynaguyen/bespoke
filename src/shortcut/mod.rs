@@ -64,6 +64,13 @@ pub fn registers_globally(id: &str) -> bool {
     id != "cancel" && id != crate::annotate::CANCEL_BINDING
 }
 
+/// Whether `id` gets a global shortcut under `settings`: the post-process
+/// binding registers only while post-processing is on.
+fn registers_with(id: &str, settings: &settings::AppSettings) -> bool {
+    registers_globally(id)
+        && (id != "transcribe_with_post_process" || settings.post_process_enabled)
+}
+
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     let settings = get_settings(app);
     match settings.keyboard_implementation {
@@ -139,9 +146,8 @@ pub fn change_binding(
         });
     }
 
-    if id == "cancel"
-        && let Some(mut b) = settings.bindings.get(&id).cloned()
-    {
+    if id == "cancel" {
+        let mut b = binding_to_modify;
         b.current_binding = binding;
         settings::update(&app, |settings| {
             settings.bindings.insert(id.clone(), b);
@@ -208,10 +214,7 @@ fn startup_bindings(app: &AppHandle) -> Vec<(String, ShortcutBinding)> {
     settings::get_default_settings()
         .bindings
         .into_iter()
-        .filter(|(id, _)| {
-            registers_globally(id)
-                && (id != "transcribe_with_post_process" || user_settings.post_process_enabled)
-        })
+        .filter(|(id, _)| registers_with(id, &user_settings))
         .map(|(id, default_binding)| {
             let binding = user_settings
                 .bindings
@@ -242,10 +245,7 @@ pub fn resume_all_shortcuts(app: &AppHandle) {
     crate::annotate::capture::pause_shortcuts(false);
     let settings = get_settings(app);
     for (id, binding) in &settings.bindings {
-        if !registers_globally(id) {
-            continue;
-        }
-        if id == "transcribe_with_post_process" && !settings.post_process_enabled {
+        if !registers_with(id, &settings) {
             continue;
         }
         if let Err(e) = register_shortcut(app, binding.clone()) {
@@ -365,11 +365,7 @@ fn register_all_shortcuts_for_implementation(
     let mut current_settings = settings::get_settings(app);
 
     for (id, default_binding) in &default_bindings {
-        if !registers_globally(id) {
-            continue;
-        }
-
-        if id == "transcribe_with_post_process" && !current_settings.post_process_enabled {
+        if !registers_with(id, &current_settings) {
             continue;
         }
 
@@ -585,7 +581,7 @@ pub fn change_start_hidden_setting(app: AppHandle, enabled: bool) -> Result<(), 
 pub fn change_autostart_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     settings::update(&app, |settings| settings.autostart_enabled = enabled);
 
-    crate::autostart::apply_autostart(&app, enabled);
+    crate::autostart::apply_autostart(enabled);
 
     let _ = app.emit(
         "settings-changed",
@@ -1040,7 +1036,7 @@ pub fn change_filler_word_removal_enabled_setting(
 pub fn change_app_language_setting(app: AppHandle, language: String) -> Result<(), String> {
     settings::update(&app, |settings| settings.app_language = language.clone());
 
-    tray::update_tray_menu(&app);
+    tray::sync_tray(&app);
 
     Ok(())
 }

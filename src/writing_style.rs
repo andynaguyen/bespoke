@@ -298,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn casual_drops_only_one_trailing_period_and_keeps_trailing_whitespace() {
+    fn very_casual_drops_only_one_trailing_period_and_keeps_trailing_whitespace() {
         assert_eq!(very_casual("Done. "), "done ");
         assert_eq!(very_casual("See you at 5."), "see you at 5");
     }

@@ -79,14 +79,3 @@ fn process_text_blocking(
 
     result
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_availability() {
-        let available = check_apple_intelligence_availability();
-        println!("Apple Intelligence available: {}", available);
-    }
-}

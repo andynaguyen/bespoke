@@ -50,7 +50,6 @@ use clap::Parser;
 pub use cli::CliArgs;
 pub use logging::{FILE_LOG_LEVEL, LOG_STREAMING};
 pub use transcription_coordinator::TranscriptionCoordinator;
-pub use utils::env_flag_enabled;
 
 use app_handle::AppHandle;
 use single_instance::Instance;

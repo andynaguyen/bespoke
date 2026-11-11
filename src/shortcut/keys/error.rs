@@ -3,9 +3,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
     #[error(
         "Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility"
     )]
@@ -34,9 +31,6 @@ pub enum Error {
 
     #[error("Unknown key: {0}")]
     UnknownKey(String),
-
-    #[error("Unknown modifier: {0}")]
-    UnknownModifier(String),
 
     #[error("Internal error: Mutex poisoned")]
     MutexPoisoned,

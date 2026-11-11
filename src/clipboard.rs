@@ -1,7 +1,6 @@
 use crate::app_handle::AppHandle;
 use crate::input::{self, EnigoState};
 use crate::settings::{AutoSubmitKey, ClipboardHandling, PasteMethod, get_settings};
-use crate::system_clipboard::ClipboardSnapshot;
 use enigo::{Direction, Enigo, Key, Keyboard};
 use log::info;
 use std::time::Duration;
@@ -50,13 +49,10 @@ fn paste_via_clipboard(
 
     std::thread::sleep(Duration::from_millis(paste_delay_ms));
 
-    let paste_result = with_enigo(app_handle, |enigo| input::send_paste_ctrl_v(enigo, 100));
+    let paste_result = with_enigo(app_handle, input::send_paste_ctrl_v);
 
-    finish_clipboard_paste(paste_result, paste_delay_after_ms, || match &saved {
-        ClipboardSnapshot::Text(text) => {
-            let _ = write_text_to_clipboard(app_handle, text);
-        }
-        other => clipboard.restore(other),
+    finish_clipboard_paste(paste_result, paste_delay_after_ms, || {
+        clipboard.restore(&saved)
     })
 }
 
@@ -165,7 +161,6 @@ pub fn paste(
                     crate::paste_tx::try_reliable_paste(
                         &text,
                         &app_handle,
-                        &paste_method,
                         enigo,
                         auto_submit,
                         settings.auto_submit_key,

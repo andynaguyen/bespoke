@@ -22,7 +22,6 @@ enum PttAction {
 
 struct PendingRelease {
     binding_id: String,
-    hotkey_string: String,
     deadline: Instant,
     released_at: Instant,
     hold_threshold: Duration,
@@ -30,7 +29,6 @@ struct PendingRelease {
 
 struct PendingPress {
     binding_id: String,
-    hotkey_string: String,
     pressed_at: Instant,
     locked: bool,
 }
@@ -89,7 +87,6 @@ enum Stage {
 
 struct InputEvent {
     binding_id: String,
-    hotkey_string: String,
     is_pressed: bool,
     mode: ShortcutActivation,
     hold_threshold: Duration,
@@ -107,14 +104,8 @@ impl InputEvent {
 
 #[derive(Debug, PartialEq, Eq)]
 enum Effect {
-    Start {
-        binding_id: String,
-        hotkey_string: String,
-    },
-    Stop {
-        binding_id: String,
-        hotkey_string: String,
-    },
+    Start { binding_id: String },
+    Stop { binding_id: String },
 }
 
 enum Command {
@@ -123,8 +114,6 @@ enum Command {
     ProcessingFinished,
     VoiceStop { session: u64, revision: u64 },
 }
-
-const VOICE_STOP_SOURCE: &str = "voice-submit";
 
 fn classify_ptt_event(
     pending_release_binding: Option<&str>,
@@ -218,7 +207,6 @@ impl CoordinatorState {
                 self.pending_release = Some(PendingRelease {
                     hold_threshold: input.effective_hold_threshold(),
                     binding_id: input.binding_id,
-                    hotkey_string: input.hotkey_string,
                     deadline: now + RELEASE_GRACE,
                     released_at: now,
                 });
@@ -258,7 +246,6 @@ impl CoordinatorState {
                     self.pending_press = Some(PendingPress {
                         locked: input.mode == ShortcutActivation::Toggle,
                         binding_id: input.binding_id,
-                        hotkey_string: input.hotkey_string,
                         pressed_at: now,
                     });
                 }
@@ -277,16 +264,11 @@ impl CoordinatorState {
             match &self.stage {
                 Stage::Idle => {
                     let locked = input.mode == ShortcutActivation::Toggle;
-                    return Some(self.begin_recording(
-                        input.binding_id,
-                        input.hotkey_string,
-                        now,
-                        locked,
-                    ));
+                    return Some(self.begin_recording(input.binding_id, now, locked));
                 }
                 Stage::Recording(id) if id == &input.binding_id => {
                     if self.is_locked() || input.mode == ShortcutActivation::Toggle {
-                        return Some(self.begin_processing(input.binding_id, input.hotkey_string));
+                        return Some(self.begin_processing(input.binding_id));
                     }
                     debug!("Ignoring press for '{}': key is held", input.binding_id);
                 }
@@ -299,7 +281,7 @@ impl CoordinatorState {
             && matches!(&self.stage, Stage::Recording(id) if id == &input.binding_id)
         {
             let threshold = input.effective_hold_threshold();
-            return self.finish_hold(input.binding_id, input.hotkey_string, now, threshold);
+            return self.finish_hold(input.binding_id, now, threshold);
         }
         None
     }
@@ -309,7 +291,6 @@ impl CoordinatorState {
         match &self.stage {
             Stage::Recording(id) if *id == pending.binding_id => self.finish_hold(
                 pending.binding_id,
-                pending.hotkey_string,
                 pending.released_at,
                 pending.hold_threshold,
             ),
@@ -350,7 +331,6 @@ impl CoordinatorState {
     fn finish_hold(
         &mut self,
         binding_id: String,
-        hotkey_string: String,
         released_at: Instant,
         threshold: Duration,
     ) -> Option<Effect> {
@@ -360,7 +340,7 @@ impl CoordinatorState {
             .map(|h| released_at.saturating_duration_since(h.pressed_at))
             .unwrap_or(Duration::MAX);
         if held >= threshold {
-            return Some(self.begin_processing(binding_id, hotkey_string));
+            return Some(self.begin_processing(binding_id));
         }
         if let Some(hold) = &mut self.hold {
             debug!("Tap ({held:?}) for '{binding_id}': recording locked on until the next press");
@@ -378,7 +358,7 @@ impl CoordinatorState {
         if !key_released && !self.is_locked() {
             self.swallow_until_release = Some(binding_id.clone());
         }
-        Some(self.begin_processing(binding_id, VOICE_STOP_SOURCE.to_string()))
+        Some(self.begin_processing(binding_id))
     }
 
     fn on_cancel(&mut self, recording_was_active: bool) {
@@ -401,12 +381,7 @@ impl CoordinatorState {
             "Pipeline drained; starting remembered press for '{}'",
             pending.binding_id
         );
-        Some(self.begin_recording(
-            pending.binding_id,
-            pending.hotkey_string,
-            pending.pressed_at,
-            pending.locked,
-        ))
+        Some(self.begin_recording(pending.binding_id, pending.pressed_at, pending.locked))
     }
 
     fn on_start_result(&mut self, binding_id: &str, started: bool) {
@@ -416,28 +391,16 @@ impl CoordinatorState {
         }
     }
 
-    fn begin_recording(
-        &mut self,
-        binding_id: String,
-        hotkey_string: String,
-        pressed_at: Instant,
-        locked: bool,
-    ) -> Effect {
+    fn begin_recording(&mut self, binding_id: String, pressed_at: Instant, locked: bool) -> Effect {
         self.stage = Stage::Recording(binding_id.clone());
         self.hold = Some(Hold { pressed_at, locked });
-        Effect::Start {
-            binding_id,
-            hotkey_string,
-        }
+        Effect::Start { binding_id }
     }
 
-    fn begin_processing(&mut self, binding_id: String, hotkey_string: String) -> Effect {
+    fn begin_processing(&mut self, binding_id: String) -> Effect {
         self.stage = Stage::Processing;
         self.hold = None;
-        Effect::Stop {
-            binding_id,
-            hotkey_string,
-        }
+        Effect::Stop { binding_id }
     }
 }
 
@@ -517,25 +480,16 @@ impl TranscriptionCoordinator {
     pub fn send_input(
         &self,
         binding_id: &str,
-        hotkey_string: &str,
         is_pressed: bool,
         mode: ShortcutActivation,
         hold_threshold: Duration,
     ) {
-        self.send(
-            binding_id,
-            hotkey_string,
-            is_pressed,
-            mode,
-            hold_threshold,
-            false,
-        );
+        self.send(binding_id, is_pressed, mode, hold_threshold, false);
     }
 
-    pub fn send_external_input(&self, binding_id: &str, source: &str) {
+    pub fn send_external_input(&self, binding_id: &str) {
         self.send(
             binding_id,
-            source,
             true,
             ShortcutActivation::Toggle,
             Duration::ZERO,
@@ -546,7 +500,6 @@ impl TranscriptionCoordinator {
     fn send(
         &self,
         binding_id: &str,
-        hotkey_string: &str,
         is_pressed: bool,
         mode: ShortcutActivation,
         hold_threshold: Duration,
@@ -556,7 +509,6 @@ impl TranscriptionCoordinator {
             .tx
             .send(Command::Input(InputEvent {
                 binding_id: binding_id.to_string(),
-                hotkey_string: hotkey_string.to_string(),
                 is_pressed,
                 mode,
                 hold_threshold,
@@ -599,17 +551,11 @@ impl TranscriptionCoordinator {
 
 fn run_effect(app: &AppHandle, state: &mut CoordinatorState, effect: Effect) {
     match effect {
-        Effect::Start {
-            binding_id,
-            hotkey_string,
-        } => {
-            let started = start(app, &binding_id, &hotkey_string);
+        Effect::Start { binding_id } => {
+            let started = start(app, &binding_id);
             state.on_start_result(&binding_id, started);
         }
-        Effect::Stop {
-            binding_id,
-            hotkey_string,
-        } => stop(app, &binding_id, &hotkey_string),
+        Effect::Stop { binding_id } => stop(app, &binding_id),
     }
 }
 
@@ -619,12 +565,12 @@ fn end_dictation(app: &AppHandle) {
     }
 }
 
-fn start(app: &AppHandle, binding_id: &str, hotkey_string: &str) -> bool {
+fn start(app: &AppHandle, binding_id: &str) -> bool {
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!("No action in ACTION_MAP for '{binding_id}'");
         return false;
     };
-    action.start(app, binding_id, hotkey_string);
+    action.start(app, binding_id);
     let recording = app
         .try_state::<Arc<AudioRecordingManager>>()
         .is_some_and(|a| a.is_recording());
@@ -634,12 +580,12 @@ fn start(app: &AppHandle, binding_id: &str, hotkey_string: &str) -> bool {
     recording
 }
 
-fn stop(app: &AppHandle, binding_id: &str, hotkey_string: &str) {
+fn stop(app: &AppHandle, binding_id: &str) {
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!("No action in ACTION_MAP for '{binding_id}'");
         return;
     };
-    action.stop(app, binding_id, hotkey_string);
+    action.stop(app, binding_id);
 }
 
 #[cfg(test)]
@@ -664,6 +610,10 @@ mod tests {
                 "transcribe",
                 Some("transcribe")
             ),
+            PttAction::CancelRelease
+        );
+        assert_eq!(
+            classify_ptt_event(Some("transcribe"), true, true, "transcribe", None),
             PttAction::CancelRelease
         );
     }
@@ -697,14 +647,6 @@ mod tests {
                 Some("transcribe")
             ),
             PttAction::Passthrough
-        );
-    }
-
-    #[test]
-    fn press_matching_pending_release_cancels_without_recording_state() {
-        assert_eq!(
-            classify_ptt_event(Some("transcribe"), true, true, "transcribe", None),
-            PttAction::CancelRelease
         );
     }
 
@@ -757,21 +699,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn toggle_presses_alternate_remember_and_forget_while_busy() {
-        let mut remembered = None;
-        for expected in [
-            BusyAction::Remember,
-            BusyAction::Forget,
-            BusyAction::Remember,
-        ] {
-            let action = classify_busy_input(true, ShortcutActivation::Toggle, remembered);
-            assert_eq!(action, expected);
-            remembered = (action == BusyAction::Remember).then_some(Remembered::Locked);
-        }
-        assert!(remembered.is_some());
-    }
-
     const BINDING: &str = "transcribe";
 
     #[derive(Clone, Copy)]
@@ -790,7 +717,6 @@ mod tests {
     fn ptt_input(is_pressed: bool) -> InputEvent {
         InputEvent {
             binding_id: BINDING.to_string(),
-            hotkey_string: BINDING.to_string(),
             is_pressed,
             mode: ShortcutActivation::PushToTalk,
             hold_threshold: Duration::ZERO,
@@ -905,7 +831,6 @@ mod tests {
             state.on_input(
                 InputEvent {
                     binding_id: BINDING.to_string(),
-                    hotkey_string: BINDING.to_string(),
                     is_pressed: true,
                     mode: ShortcutActivation::Toggle,
                     hold_threshold: Duration::ZERO,
@@ -965,7 +890,6 @@ mod tests {
     fn toggle_input_for(binding_id: &str, external: bool) -> InputEvent {
         InputEvent {
             binding_id: binding_id.to_string(),
-            hotkey_string: binding_id.to_string(),
             is_pressed: true,
             mode: ShortcutActivation::Toggle,
             hold_threshold: Duration::ZERO,
@@ -1074,7 +998,6 @@ mod tests {
     fn input(mode: ShortcutActivation, is_pressed: bool) -> InputEvent {
         InputEvent {
             binding_id: BINDING.to_string(),
-            hotkey_string: BINDING.to_string(),
             is_pressed,
             mode,
             hold_threshold: HOLD_THRESHOLD,

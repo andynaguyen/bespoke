@@ -56,7 +56,7 @@ pub fn install(app: &AppHandle) {
             shortcut_string,
             event.state()
         );
-        handle_shortcut_event(&app, &binding_id, &shortcut_string, is_pressed);
+        handle_shortcut_event(&app, &binding_id, is_pressed);
     }));
 }
 

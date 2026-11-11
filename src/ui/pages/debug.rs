@@ -120,8 +120,7 @@ impl DebugPage {
         self.diagnostic = None;
         cx.notify();
         cx.spawn(async move |this, cx| {
-            let report =
-                crate::runtime::run(crate::secure_input::run_keyboard_diagnostic(Some(10))).await;
+            let report = crate::runtime::run(crate::secure_input::run_keyboard_diagnostic()).await;
             let _ = this.update(cx, |this, cx| {
                 this.diagnostic_running = false;
                 this.diagnostic = Some(report);

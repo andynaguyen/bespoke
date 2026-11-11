@@ -29,7 +29,6 @@ pub struct HandyKeysState {
     command_sender: Mutex<Sender<ManagerCommand>>,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
     recording_listener: Mutex<Option<KeyboardListener>>,
-    is_recording: AtomicBool,
     recording_running: Arc<AtomicBool>,
 }
 
@@ -59,7 +58,6 @@ impl HandyKeysState {
             command_sender: Mutex::new(cmd_tx),
             thread_handle: Mutex::new(Some(thread_handle)),
             recording_listener: Mutex::new(None),
-            is_recording: AtomicBool::new(false),
             recording_running: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -92,7 +90,7 @@ impl HandyKeysState {
                         binding_id, hotkey_string, event.state
                     );
                     let is_pressed = event.state == HotkeyState::Pressed;
-                    handle_shortcut_event(&app, binding_id, hotkey_string, is_pressed);
+                    handle_shortcut_event(&app, binding_id, is_pressed);
                 }
             }
 
@@ -213,7 +211,7 @@ impl HandyKeysState {
     }
 
     pub fn start_recording(&self, app: &AppHandle) -> Result<(), String> {
-        if self.is_recording.load(Ordering::SeqCst) {
+        if self.recording_running.load(Ordering::SeqCst) {
             return Err("Already recording".into());
         }
 
@@ -228,7 +226,6 @@ impl HandyKeysState {
             *recording = Some(listener);
         }
 
-        self.is_recording.store(true, Ordering::SeqCst);
         self.recording_running.store(true, Ordering::SeqCst);
 
         let app_clone = app.clone();
@@ -291,7 +288,6 @@ impl HandyKeysState {
     }
 
     pub fn stop_recording(&self) -> Result<(), String> {
-        self.is_recording.store(false, Ordering::SeqCst);
         self.recording_running.store(false, Ordering::SeqCst);
 
         {
@@ -310,7 +306,6 @@ impl HandyKeysState {
 impl Drop for HandyKeysState {
     fn drop(&mut self) {
         self.recording_running.store(false, Ordering::SeqCst);
-        self.is_recording.store(false, Ordering::SeqCst);
 
         if let Ok(sender) = self.command_sender.lock() {
             let _ = sender.send(ManagerCommand::Shutdown);

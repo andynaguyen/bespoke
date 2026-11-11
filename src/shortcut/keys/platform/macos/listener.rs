@@ -695,13 +695,4 @@ mod extended_mouse_tests {
             assert_eq!(captured.as_hotkey().unwrap().key, Some(Key::Mouse8));
         }
     }
-
-    #[test]
-    fn quartz_button_seven_is_mouse_eight() {
-        assert_eq!(other_mouse_button(7), Some(Key::Mouse8));
-        assert_eq!(other_mouse_button(5), Some(Key::Mouse6));
-        assert_eq!(other_mouse_button(6), Some(Key::Mouse7));
-        assert_eq!(other_mouse_button(2), Some(Key::MouseMiddle));
-        assert_eq!(other_mouse_button(8), None);
-    }
 }

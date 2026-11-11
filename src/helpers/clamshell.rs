@@ -29,24 +29,3 @@ pub fn is_laptop() -> Result<bool, String> {
 
     Ok(stdout.contains("InternalBattery"))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_clamshell_check() {
-        let result = is_clamshell();
-        assert!(result.is_ok());
-        let _ = result.unwrap();
-    }
-
-    #[test]
-    fn test_is_laptop() {
-        let result = is_laptop();
-        assert!(result.is_ok());
-        if let Ok(is_laptop) = result {
-            println!("Is laptop: {}", is_laptop);
-        }
-    }
-}

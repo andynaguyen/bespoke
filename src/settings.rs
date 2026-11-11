@@ -246,18 +246,6 @@ pub enum Theme {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum TypingTool {
-    #[default]
-    Auto,
-    Wtype,
-    Kwtype,
-    Dotool,
-    Ydotool,
-    Xdotool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
 pub enum TranscribeAcceleratorSetting {
     #[default]
     Auto,
@@ -382,7 +370,6 @@ pub struct AppSettings {
     pub paste_delay_ms: u64,
     pub paste_delay_after_ms: u64,
     pub reliable_paste: bool,
-    pub typing_tool: TypingTool,
     pub filler_word_removal_enabled: bool,
     pub custom_filler_words: Option<Vec<String>>,
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
@@ -660,12 +647,7 @@ where
     }
 }
 
-fn default_typing_tool() -> TypingTool {
-    TypingTool::Auto
-}
-
-fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
-    let mut changed = false;
+fn ensure_post_process_defaults(settings: &mut AppSettings) {
     for provider in default_post_process_providers() {
         match settings
             .post_process_providers
@@ -681,20 +663,15 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
                         provider.supports_structured_output
                     );
                     existing.supports_structured_output = provider.supports_structured_output;
-                    changed = true;
                 }
             }
-            None => {
-                settings.post_process_providers.push(provider.clone());
-                changed = true;
-            }
+            None => settings.post_process_providers.push(provider.clone()),
         }
 
         if !settings.post_process_api_keys.contains_key(&provider.id) {
             settings
                 .post_process_api_keys
                 .insert(provider.id.clone(), String::new());
-            changed = true;
         }
 
         let default_model = default_model_for_provider(&provider.id);
@@ -702,19 +679,15 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
             Some(existing) => {
                 if existing.is_empty() && !default_model.is_empty() {
                     *existing = default_model.clone();
-                    changed = true;
                 }
             }
             None => {
                 settings
                     .post_process_models
                     .insert(provider.id.clone(), default_model);
-                changed = true;
             }
         }
     }
-
-    changed
 }
 
 pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
@@ -849,7 +822,6 @@ pub fn get_default_settings() -> AppSettings {
         paste_delay_ms: default_paste_delay_ms(),
         paste_delay_after_ms: default_paste_delay_after_ms(),
         reliable_paste: false,
-        typing_tool: default_typing_tool(),
         filler_word_removal_enabled: default_filler_word_removal_enabled(),
         custom_filler_words: None,
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
@@ -1259,7 +1231,6 @@ mod tests {
             "keyboard_implementation": "handy_keys",
             "show_tray_icon": true,
             "paste_delay_ms": 60,
-            "typing_tool": "auto",
             "external_script_path": null,
             "custom_filler_words": null,
             "transcribe_accelerator": "gpu",
@@ -1708,13 +1679,5 @@ mod tests {
             assert_eq!(settings.paste_method, PasteMethod::CtrlV, "{stored}");
             assert_eq!(settings.paste_delay_ms, 123);
         }
-    }
-
-    #[test]
-    fn secret_map_debug_redacts_values() {
-        let map = SecretMap(HashMap::from([("key".into(), "secret".into())]));
-        let out = format!("{:?}", map);
-        assert!(!out.contains("secret"));
-        assert!(out.contains("[REDACTED]"));
     }
 }

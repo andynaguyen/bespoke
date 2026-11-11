@@ -612,12 +612,6 @@ mod tests {
     }
 
     #[test]
-    fn requests_explicitly_disable_streaming() {
-        let json = request_json(ReasoningParams::default());
-        assert_eq!(json["stream"], false);
-    }
-
-    #[test]
     fn default_reasoning_params_serialize_to_no_fields() {
         let json = request_json(ReasoningParams::default());
         assert!(json.get("reasoning_effort").is_none());

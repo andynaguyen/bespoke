@@ -4,7 +4,6 @@ use objc2_core_graphics::CGEventFlags;
 pub type CGKeyCode = u16;
 
 // macOS virtual key codes from Carbon/HIToolbox/Events.h
-#[allow(dead_code)]
 mod keycodes {
     pub const A: u16 = 0x00;
     pub const S: u16 = 0x01;

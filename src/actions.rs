@@ -58,8 +58,8 @@ impl Drop for FinishGuard {
 }
 
 pub trait ShortcutAction: Send + Sync {
-    fn start(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
-    fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
+    fn start(&self, app: &AppHandle, binding_id: &str);
+    fn stop(&self, app: &AppHandle, binding_id: &str);
 }
 
 struct TranscribeAction {
@@ -491,7 +491,7 @@ pub(crate) async fn process_transcription_output(
 }
 
 impl ShortcutAction for TranscribeAction {
-    fn start(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
+    fn start(&self, app: &AppHandle, binding_id: &str) {
         let start_time = Instant::now();
         debug!("TranscribeAction::start called for binding: {}", binding_id);
 
@@ -643,7 +643,7 @@ impl ShortcutAction for TranscribeAction {
         );
     }
 
-    fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
+    fn stop(&self, app: &AppHandle, binding_id: &str) {
         app.state::<Arc<AudioRecordingManager>>()
             .invalidate_recording_readiness();
         app.state::<Arc<VoiceSubmit>>().disarm();
@@ -950,38 +950,6 @@ impl ShortcutAction for TranscribeAction {
     }
 }
 
-struct CancelAction;
-
-impl ShortcutAction for CancelAction {
-    fn start(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
-        utils::cancel_current_operation(app);
-    }
-
-    fn stop(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {}
-}
-
-struct TestAction;
-
-impl ShortcutAction for TestAction {
-    fn start(&self, _app: &AppHandle, binding_id: &str, shortcut_str: &str) {
-        log::info!(
-            "Shortcut ID '{}': Started - {} (App: {})",
-            binding_id,
-            shortcut_str,
-            crate::app_handle::APP_NAME
-        );
-    }
-
-    fn stop(&self, _app: &AppHandle, binding_id: &str, shortcut_str: &str) {
-        log::info!(
-            "Shortcut ID '{}': Stopped - {} (App: {})",
-            binding_id,
-            shortcut_str,
-            crate::app_handle::APP_NAME
-        );
-    }
-}
-
 pub static ACTION_MAP: LazyLock<HashMap<String, Arc<dyn ShortcutAction>>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     map.insert(
@@ -992,22 +960,13 @@ pub static ACTION_MAP: LazyLock<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy
         "transcribe_with_post_process".to_string(),
         Arc::new(TranscribeAction::new(true)) as Arc<dyn ShortcutAction>,
     );
-    map.insert(
-        "cancel".to_string(),
-        Arc::new(CancelAction) as Arc<dyn ShortcutAction>,
-    );
-    map.insert(
-        "test".to_string(),
-        Arc::new(TestAction) as Arc<dyn ShortcutAction>,
-    );
     map
 });
 
 #[cfg(test)]
 mod tests {
     use super::{
-        complete_unless_cancelled, complete_within, is_blank_transcription,
-        should_use_streaming_overlay, strip_think_block,
+        complete_unless_cancelled, complete_within, should_use_streaming_overlay, strip_think_block,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1015,19 +974,6 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;
     use std::time::Duration;
-
-    #[test]
-    fn blank_transcription_is_detected() {
-        assert!(is_blank_transcription(""));
-        assert!(is_blank_transcription("   "));
-        assert!(is_blank_transcription("\t\n  \r\n"));
-    }
-
-    #[test]
-    fn non_blank_transcription_is_kept() {
-        assert!(!is_blank_transcription("hello"));
-        assert!(!is_blank_transcription("  hello  "));
-    }
 
     #[test]
     fn completed_operation_returns_its_output() {

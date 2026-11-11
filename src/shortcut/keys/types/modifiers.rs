@@ -1,8 +1,5 @@
 use bitflags::bitflags;
 use std::fmt;
-use std::str::FromStr;
-
-use crate::shortcut::keys::error::{Error, Result};
 
 bitflags! {
     /// Modifier keys for hotkey combinations
@@ -28,15 +25,11 @@ bitflags! {
     }
 }
 
-const GROUPS: [(Modifiers, Modifiers, Modifiers); 4] = [
-    (Modifiers::CMD_LEFT, Modifiers::CMD_RIGHT, Modifiers::CMD),
-    (
-        Modifiers::SHIFT_LEFT,
-        Modifiers::SHIFT_RIGHT,
-        Modifiers::SHIFT,
-    ),
-    (Modifiers::CTRL_LEFT, Modifiers::CTRL_RIGHT, Modifiers::CTRL),
-    (Modifiers::OPT_LEFT, Modifiers::OPT_RIGHT, Modifiers::OPT),
+const GROUPS: [(Modifiers, Modifiers); 4] = [
+    (Modifiers::CMD_LEFT, Modifiers::CMD_RIGHT),
+    (Modifiers::SHIFT_LEFT, Modifiers::SHIFT_RIGHT),
+    (Modifiers::CTRL_LEFT, Modifiers::CTRL_RIGHT),
+    (Modifiers::OPT_LEFT, Modifiers::OPT_RIGHT),
 ];
 
 impl fmt::Display for Modifiers {
@@ -124,7 +117,7 @@ impl Modifiers {
     ///
     /// FN is matched exactly.
     pub fn matches(self, event: Modifiers) -> bool {
-        for &(left, right, _compound) in &GROUPS {
+        for &(left, right) in &GROUPS {
             let hotkey_has_left = self.contains(left);
             let hotkey_has_right = self.contains(right);
             let event_has_left = event.contains(left);
@@ -154,115 +147,87 @@ impl Modifiers {
     }
 }
 
-impl FromStr for Modifiers {
-    type Err = Error;
-
-    /// Parse modifiers from a string like "Cmd+Shift" or "Ctrl+Alt"
-    fn from_str(s: &str) -> Result<Self> {
-        let s = s.trim();
-        if s.is_empty() {
-            return Ok(Modifiers::empty());
-        }
-
-        let mut modifiers = Modifiers::empty();
-        for part in s.split('+') {
-            let part = part.trim();
-            if part.is_empty() {
-                continue;
-            }
-            match Modifiers::parse_single(part) {
-                Some(m) => modifiers |= m,
-                None => return Err(Error::UnknownModifier(part.to_string())),
-            }
-        }
-        Ok(modifiers)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn parse_single_modifiers() {
-        assert_eq!("Cmd".parse::<Modifiers>().unwrap(), Modifiers::CMD);
-        assert_eq!("command".parse::<Modifiers>().unwrap(), Modifiers::CMD);
-        assert_eq!("meta".parse::<Modifiers>().unwrap(), Modifiers::CMD);
-        assert_eq!("super".parse::<Modifiers>().unwrap(), Modifiers::CMD);
-        assert_eq!("win".parse::<Modifiers>().unwrap(), Modifiers::CMD);
+        assert_eq!(Modifiers::parse_single("Cmd").unwrap(), Modifiers::CMD);
+        assert_eq!(Modifiers::parse_single("command").unwrap(), Modifiers::CMD);
+        assert_eq!(Modifiers::parse_single("meta").unwrap(), Modifiers::CMD);
+        assert_eq!(Modifiers::parse_single("super").unwrap(), Modifiers::CMD);
+        assert_eq!(Modifiers::parse_single("win").unwrap(), Modifiers::CMD);
 
-        assert_eq!("Shift".parse::<Modifiers>().unwrap(), Modifiers::SHIFT);
-        assert_eq!("SHIFT".parse::<Modifiers>().unwrap(), Modifiers::SHIFT);
+        assert_eq!(Modifiers::parse_single("Shift").unwrap(), Modifiers::SHIFT);
+        assert_eq!(Modifiers::parse_single("SHIFT").unwrap(), Modifiers::SHIFT);
 
-        assert_eq!("Ctrl".parse::<Modifiers>().unwrap(), Modifiers::CTRL);
-        assert_eq!("control".parse::<Modifiers>().unwrap(), Modifiers::CTRL);
+        assert_eq!(Modifiers::parse_single("Ctrl").unwrap(), Modifiers::CTRL);
+        assert_eq!(Modifiers::parse_single("control").unwrap(), Modifiers::CTRL);
 
-        assert_eq!("Opt".parse::<Modifiers>().unwrap(), Modifiers::OPT);
-        assert_eq!("option".parse::<Modifiers>().unwrap(), Modifiers::OPT);
-        assert_eq!("alt".parse::<Modifiers>().unwrap(), Modifiers::OPT);
+        assert_eq!(Modifiers::parse_single("Opt").unwrap(), Modifiers::OPT);
+        assert_eq!(Modifiers::parse_single("option").unwrap(), Modifiers::OPT);
+        assert_eq!(Modifiers::parse_single("alt").unwrap(), Modifiers::OPT);
 
-        assert_eq!("Fn".parse::<Modifiers>().unwrap(), Modifiers::FN);
-        assert_eq!("function".parse::<Modifiers>().unwrap(), Modifiers::FN);
+        assert_eq!(Modifiers::parse_single("Fn").unwrap(), Modifiers::FN);
+        assert_eq!(Modifiers::parse_single("function").unwrap(), Modifiers::FN);
     }
 
     #[test]
     fn parse_side_specific_modifiers() {
-        assert_eq!("CmdLeft".parse::<Modifiers>().unwrap(), Modifiers::CMD_LEFT);
-        assert_eq!("LCmd".parse::<Modifiers>().unwrap(), Modifiers::CMD_LEFT);
         assert_eq!(
-            "CmdRight".parse::<Modifiers>().unwrap(),
+            Modifiers::parse_single("CmdLeft").unwrap(),
+            Modifiers::CMD_LEFT
+        );
+        assert_eq!(
+            Modifiers::parse_single("LCmd").unwrap(),
+            Modifiers::CMD_LEFT
+        );
+        assert_eq!(
+            Modifiers::parse_single("CmdRight").unwrap(),
             Modifiers::CMD_RIGHT
         );
-        assert_eq!("RCmd".parse::<Modifiers>().unwrap(), Modifiers::CMD_RIGHT);
+        assert_eq!(
+            Modifiers::parse_single("RCmd").unwrap(),
+            Modifiers::CMD_RIGHT
+        );
 
         assert_eq!(
-            "ShiftLeft".parse::<Modifiers>().unwrap(),
+            Modifiers::parse_single("ShiftLeft").unwrap(),
             Modifiers::SHIFT_LEFT
         );
         assert_eq!(
-            "ShiftRight".parse::<Modifiers>().unwrap(),
+            Modifiers::parse_single("ShiftRight").unwrap(),
             Modifiers::SHIFT_RIGHT
         );
 
         assert_eq!(
-            "CtrlLeft".parse::<Modifiers>().unwrap(),
+            Modifiers::parse_single("CtrlLeft").unwrap(),
             Modifiers::CTRL_LEFT
         );
         assert_eq!(
-            "CtrlRight".parse::<Modifiers>().unwrap(),
+            Modifiers::parse_single("CtrlRight").unwrap(),
             Modifiers::CTRL_RIGHT
         );
 
-        assert_eq!("OptLeft".parse::<Modifiers>().unwrap(), Modifiers::OPT_LEFT);
         assert_eq!(
-            "AltRight".parse::<Modifiers>().unwrap(),
+            Modifiers::parse_single("OptLeft").unwrap(),
+            Modifiers::OPT_LEFT
+        );
+        assert_eq!(
+            Modifiers::parse_single("AltRight").unwrap(),
             Modifiers::OPT_RIGHT
         );
-        assert_eq!("AltGr".parse::<Modifiers>().unwrap(), Modifiers::OPT_RIGHT);
-    }
-
-    #[test]
-    fn parse_combined_modifiers() {
         assert_eq!(
-            "Cmd+Shift".parse::<Modifiers>().unwrap(),
-            Modifiers::CMD | Modifiers::SHIFT
+            Modifiers::parse_single("AltGr").unwrap(),
+            Modifiers::OPT_RIGHT
         );
-        assert_eq!(
-            "Ctrl+Alt+Shift".parse::<Modifiers>().unwrap(),
-            Modifiers::CTRL | Modifiers::OPT | Modifiers::SHIFT
-        );
-    }
-
-    #[test]
-    fn parse_empty_modifiers() {
-        assert_eq!("".parse::<Modifiers>().unwrap(), Modifiers::empty());
-        assert_eq!("  ".parse::<Modifiers>().unwrap(), Modifiers::empty());
     }
 
     #[test]
     fn parse_unknown_modifier_fails() {
-        assert!("Unknown".parse::<Modifiers>().is_err());
-        assert!("Cmd+Unknown".parse::<Modifiers>().is_err());
+        assert_eq!(Modifiers::parse_single("Unknown"), None);
+        assert_eq!(Modifiers::parse_single("Cmd+Shift"), None);
     }
 
     #[test]
@@ -327,19 +292,5 @@ mod tests {
         let hotkey = Modifiers::empty();
         assert!(hotkey.matches(Modifiers::empty()));
         assert!(!hotkey.matches(Modifiers::CMD_LEFT));
-    }
-
-    #[test]
-    fn compound_equals_both_sides() {
-        assert_eq!(Modifiers::CMD, Modifiers::CMD_LEFT | Modifiers::CMD_RIGHT);
-        assert_eq!(
-            Modifiers::SHIFT,
-            Modifiers::SHIFT_LEFT | Modifiers::SHIFT_RIGHT
-        );
-        assert_eq!(
-            Modifiers::CTRL,
-            Modifiers::CTRL_LEFT | Modifiers::CTRL_RIGHT
-        );
-        assert_eq!(Modifiers::OPT, Modifiers::OPT_LEFT | Modifiers::OPT_RIGHT);
     }
 }

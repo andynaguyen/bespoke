@@ -258,19 +258,6 @@ mod tests {
         use super::*;
 
         #[test]
-        fn register_and_lookup_hotkey() {
-            let mut state = ManagerState::new();
-            let hotkey = Hotkey::new(Modifiers::CMD, Key::K).unwrap();
-
-            let id = HotkeyId(state.next_id);
-            state.next_id += 1;
-            state.hotkeys.insert(id, hotkey);
-
-            assert_eq!(state.hotkeys.get(&id), Some(&hotkey));
-            assert_eq!(state.hotkeys.len(), 1);
-        }
-
-        #[test]
         fn hotkey_press_generates_event() {
             let mut state = ManagerState::new();
             let hotkey = Hotkey::new(Modifiers::CMD, Key::K).unwrap();

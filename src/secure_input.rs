@@ -9,12 +9,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecureInputStatus {
-    pub enabled: bool,
     pub sustained: bool,
-    pub culprit_pid: Option<i32>,
     pub culprit_name: Option<String>,
-    pub fallback_active: bool,
-    pub covered_bindings: Vec<String>,
     pub degraded_bindings: Vec<String>,
     pub uncovered_bindings: Vec<String>,
     pub recorder_blocked: bool,
@@ -36,10 +32,11 @@ pub fn get_secure_input_status(app: AppHandle) -> SecureInputStatus {
     imp::status(&app)
 }
 
-pub async fn run_keyboard_diagnostic(
-    duration_secs: Option<u32>,
-) -> Result<KeyboardDiagnosticReport, String> {
-    imp::run_diagnostic(duration_secs.unwrap_or(10).clamp(3, 30)).await
+/// How long the debug page's keyboard diagnostic listens.
+const DIAGNOSTIC_SECS: u32 = 10;
+
+pub async fn run_keyboard_diagnostic() -> Result<KeyboardDiagnosticReport, String> {
+    imp::run_diagnostic(DIAGNOSTIC_SECS).await
 }
 
 pub fn is_enabled_now() -> bool {
@@ -189,18 +186,13 @@ mod imp {
     }
 
     pub fn status(app: &AppHandle) -> SecureInputStatus {
-        let enabled = is_enabled();
         let state = app.state::<SecureInputState>();
 
         let culprit = state.culprit.lock().unwrap().clone();
         let fallback = state.fallback.lock().unwrap();
         SecureInputStatus {
-            enabled,
             sustained: state.sustained.load(Ordering::SeqCst),
-            culprit_pid: culprit.as_ref().map(|c| c.pid),
             culprit_name: culprit.map(|c| c.name),
-            fallback_active: !fallback.registered.is_empty(),
-            covered_bindings: fallback.covered.clone(),
             degraded_bindings: fallback.degraded.clone(),
             uncovered_bindings: fallback.uncovered.clone(),
             recorder_blocked: state.recorder_blocked.load(Ordering::SeqCst),
@@ -224,7 +216,7 @@ mod imp {
     }
 
     fn refresh_tray(app: &AppHandle) {
-        crate::tray::refresh_tray_icon(app);
+        crate::tray::sync_tray(app);
     }
 
     pub fn start_monitor(app: &AppHandle) {

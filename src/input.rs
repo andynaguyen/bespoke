@@ -69,7 +69,7 @@ mod macos {
     /// Cmd shortcuts to their ANSI equivalents, while standard Dvorak does not.
     ///
     /// TIS APIs must run on the main thread. Bespoke's paste path already enters
-    /// through `AppHandle::run_on_main_thread` before reaching this function.
+    /// through `AppHandle::with_ui` before reaching this function.
     fn resolve_command_v_keycode() -> Result<u16, String> {
         // SAFETY: This function is called on the macOS main thread. The returned
         // source follows the Create Rule and is released by InputSource::drop.
@@ -158,13 +158,13 @@ pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
     enigo.location().ok()
 }
 
-/// `hold_ms` is how long the modifier stays held after the V click before being
-/// released. Most applications read the modifier from the V event's flags and
-/// need no hold at all, but applications that poll global keyboard state when
-/// handling the key need the modifier to still be down — the hold insures
-/// against those. Callers that can detect a failed chord (e.g. the
-/// receipt-sequenced paste path) may use a much shorter hold.
-pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
+/// How long the modifier stays held after the V click before being released.
+/// Most applications read the modifier from the V event's flags and need no
+/// hold at all, but applications that poll global keyboard state when handling
+/// the key need the modifier to still be down.
+const PASTE_HOLD_MS: u64 = 100;
+
+pub fn send_paste_ctrl_v(enigo: &mut Enigo) -> Result<(), String> {
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
 
     enigo
@@ -174,7 +174,7 @@ pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> 
         .key(v_key_code, enigo::Direction::Click)
         .map_err(|e| format!("Failed to click V key: {}", e))?;
 
-    std::thread::sleep(std::time::Duration::from_millis(hold_ms));
+    std::thread::sleep(std::time::Duration::from_millis(PASTE_HOLD_MS));
 
     enigo
         .key(modifier_key, enigo::Direction::Release)

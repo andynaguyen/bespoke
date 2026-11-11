@@ -220,7 +220,7 @@ pub fn apply_theme_setting(setting: ThemeSetting, cx: &mut App) {
     cx.global_mut::<BespokeTheme>().setting = setting;
     apply_native_appearance(setting, cx);
     recompute(cx);
-    crate::tray::refresh_tray_icon(crate::app_handle::AppHandle::global());
+    crate::tray::sync_tray(crate::app_handle::AppHandle::global());
 }
 
 pub fn system_appearance_changed(window: &Window, cx: &mut App) {
@@ -231,7 +231,7 @@ pub fn system_appearance_changed(window: &Window, cx: &mut App) {
     cx.global_mut::<BespokeTheme>().system = appearance;
     recompute(cx);
     log::info!("Theme changed to: {:?}", appearance);
-    crate::tray::refresh_tray_icon(crate::app_handle::AppHandle::global());
+    crate::tray::sync_tray(crate::app_handle::AppHandle::global());
 }
 
 fn recompute(cx: &mut App) {

@@ -97,9 +97,9 @@ pub fn on_reopen(cx: &mut App) {
 
 fn handle_second_instance(app: &AppHandle, args: &[String]) {
     if args.iter().any(|a| a == "--toggle-transcription") {
-        signal_handle::send_transcription_input(app, "transcribe", "CLI");
+        signal_handle::send_transcription_input(app, "transcribe");
     } else if args.iter().any(|a| a == "--toggle-post-process") {
-        signal_handle::send_transcription_input(app, "transcribe_with_post_process", "CLI");
+        signal_handle::send_transcription_input(app, "transcribe_with_post_process");
     } else if args.iter().any(|a| a == "--cancel") {
         utils::cancel_current_operation(app);
     } else {
@@ -144,7 +144,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     shortcut::hotkey_impl::install(app_handle);
 
     tray::create_tray(app_handle);
-    tray::update_tray_menu(app_handle);
+    tray::sync_tray(app_handle);
 
     let settings = get_settings(app_handle);
     if !settings.show_tray_icon {
@@ -154,9 +154,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     for event in ["model-state-changed", updater::STATE_CHANGED] {
         let app_handle_for_listener = app_handle.clone();
         app_handle.listen(event, move |_| {
-            tray::update_tray_menu(&app_handle_for_listener);
+            tray::sync_tray(&app_handle_for_listener);
         });
     }
 
-    autostart::apply_autostart(app_handle, settings.autostart_enabled);
+    autostart::apply_autostart(settings.autostart_enabled);
 }

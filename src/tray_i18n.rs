@@ -17,11 +17,8 @@ pub struct TrayStrings {
     pub triage: String,
 }
 
-pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
-    let language = locale
-        .as_deref()
-        .and_then(i18n::supported_language)
-        .unwrap_or("en");
+pub fn get_tray_translations(locale: &str) -> TrayStrings {
+    let language = i18n::supported_language(locale).unwrap_or("en");
     let get = |key: &str| {
         i18n::lookup(language, &format!("tray.{key}"))
             .unwrap_or_default()
@@ -71,8 +68,8 @@ mod tests {
             ("xx-YY", "en"),
         ] {
             assert_eq!(
-                get_tray_translations(Some(locale.into())),
-                get_tray_translations(Some(expected.into())),
+                get_tray_translations(locale),
+                get_tray_translations(expected),
                 "{locale} should resolve to {expected}"
             );
         }

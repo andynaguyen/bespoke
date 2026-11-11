@@ -13,10 +13,10 @@ use objc2::{AnyThread, DefinedClass, define_class, msg_send};
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSArray, NSInteger, NSObject, NSString};
 
-use super::{TxState, WaitDecision, evaluate, send_chord};
+use super::{TxState, WaitDecision, evaluate};
 use crate::clipboard::send_return_key;
 use crate::input::EnigoState;
-use crate::settings::{AutoSubmitKey, ClipboardHandling, PasteMethod};
+use crate::settings::{AutoSubmitKey, ClipboardHandling};
 
 /// Concealment marker types declared alongside the text so that well-behaved
 /// third-party clipboard managers (Maccy, Paste, ...) skip the transcript.
@@ -212,7 +212,6 @@ fn spawn_waiter(pending: Arc<Mutex<MacPending>>, app_handle: AppHandle) {
 pub(super) fn run(
     text: &str,
     app_handle: &AppHandle,
-    paste_method: &PasteMethod,
     enigo: &mut enigo::Enigo,
     auto_submit: bool,
     auto_submit_key: AutoSubmitKey,
@@ -245,9 +244,9 @@ pub(super) fn run(
     if let Ok(mut st) = state.lock() {
         st.injected_at = Some(Instant::now());
     }
-    let chord_sent = match send_chord(enigo, paste_method) {
+    let chord_sent = match crate::input::send_paste_ctrl_v(enigo) {
         Ok(()) => {
-            info!("[reliable-paste] paste chord sent ({paste_method:?})");
+            info!("[reliable-paste] paste chord sent");
             true
         }
         Err(e) => {

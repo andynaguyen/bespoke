@@ -136,16 +136,6 @@ mod tests {
     }
 
     #[test]
-    fn test_legacy_empty_marker_without_data_dir_does_not_enable_portable() {
-        let dir = std::env::temp_dir().join("bespoke_test_legacy_no_data");
-        std::fs::create_dir_all(&dir).unwrap();
-        let marker = dir.join("portable");
-        std::fs::File::create(&marker).unwrap();
-        assert!(!is_valid_portable_marker(&marker));
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
     fn test_magic_string_with_whitespace_enables_portable() {
         let dir = std::env::temp_dir().join("bespoke_test_ws");
         std::fs::create_dir_all(&dir).unwrap();

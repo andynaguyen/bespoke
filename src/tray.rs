@@ -151,14 +151,6 @@ pub fn set_tray_state(app: &AppHandle, state: TrayIconState) {
     sync_tray_with(app, |inner| inner.icon_state = state);
 }
 
-pub fn refresh_tray_icon(app: &AppHandle) {
-    sync_tray(app);
-}
-
-pub fn update_tray_menu(app: &AppHandle) {
-    sync_tray(app);
-}
-
 pub fn sync_tray(app: &AppHandle) {
     sync_tray_with(app, |_| {});
 }
@@ -365,11 +357,11 @@ fn title_label() -> String {
 }
 
 fn build_menu(inputs: &MenuInputs) -> Result<(Menu, String), tray_icon::menu::Error> {
-    let strings = get_tray_translations(Some(inputs.locale.clone()));
+    let strings = get_tray_translations(&inputs.locale);
 
     let secure_input_warning = if inputs.warning {
         let label = if strings.secure_input_warning.is_empty() {
-            get_tray_translations(Some("en".to_string())).secure_input_warning
+            get_tray_translations("en").secure_input_warning
         } else {
             strings.secure_input_warning.clone()
         };
@@ -602,7 +594,7 @@ fn handle_menu_event(app: &AppHandle, id: &str, cx: &mut gpui::App) {
                     Ok(()) => info!("Model switched to {} via tray.", model_id),
                     Err(e) => error!("Failed to switch model via tray: {}", e),
                 }
-                update_tray_menu(&app);
+                sync_tray(&app);
             });
         }
         _ => {}

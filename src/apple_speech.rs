@@ -105,7 +105,7 @@ mod imp {
         }
     }
 
-    /// Transcribes a WAV file with word times. `missing` is set when the model can't run yet.
+    /// Transcribes a WAV file with word times.
     pub fn transcribe_file(wav: &Path, custom_words: &[String]) -> Result<TranscriptData> {
         crate::annotate::helper::transcribe(wav, custom_words)
     }

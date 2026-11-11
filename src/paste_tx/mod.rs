@@ -29,7 +29,6 @@ pub(crate) struct TxState {
     pub injection_failed: bool,
     pub receipts: Vec<Instant>,
     pub ownership_lost: bool,
-    pub cancelled: bool,
     pub logged_receipt: bool,
 }
 
@@ -41,7 +40,6 @@ impl TxState {
             injection_failed: false,
             receipts: Vec::new(),
             ownership_lost: false,
-            cancelled: false,
             logged_receipt: false,
         }
     }
@@ -76,7 +74,7 @@ pub(crate) enum WaitDecision {
 }
 
 pub(crate) fn evaluate(state: &TxState, now: Instant) -> WaitDecision {
-    if state.ownership_lost || state.cancelled {
+    if state.ownership_lost {
         return WaitDecision::Finish;
     }
     if let Some(last) = state.last_receipt_after_injection()
@@ -95,26 +93,9 @@ pub(crate) fn evaluate(state: &TxState, now: Instant) -> WaitDecision {
     WaitDecision::KeepWaiting
 }
 
-const CHORD_HOLD_MS: u64 = 100;
-
-pub(crate) fn send_chord(
-    enigo: &mut enigo::Enigo,
-    paste_method: &crate::settings::PasteMethod,
-) -> Result<(), String> {
-    use crate::settings::PasteMethod;
-    match paste_method {
-        PasteMethod::CtrlV => crate::input::send_paste_ctrl_v(enigo, CHORD_HOLD_MS),
-        other => Err(format!(
-            "Invalid paste method for clipboard paste: {:?}",
-            other
-        )),
-    }
-}
-
 pub(crate) fn try_reliable_paste(
     text: &str,
     app_handle: &crate::app_handle::AppHandle,
-    paste_method: &crate::settings::PasteMethod,
     enigo: &mut enigo::Enigo,
     auto_submit: bool,
     auto_submit_key: crate::settings::AutoSubmitKey,
@@ -123,7 +104,6 @@ pub(crate) fn try_reliable_paste(
     platform::run(
         text,
         app_handle,
-        paste_method,
         enigo,
         auto_submit,
         auto_submit_key,

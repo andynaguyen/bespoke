@@ -9,16 +9,15 @@
 //! `SMAppService` login items are attributed to the app bundle itself and
 //! appear under "Open at Login" with the app's name and icon.
 
-use crate::app_handle::{APP_NAME, AppHandle};
+use crate::app_handle::APP_NAME;
 
-pub fn apply_autostart(app: &AppHandle, enabled: bool) {
+pub fn apply_autostart(enabled: bool) {
     if macos::login_item_api_available() {
-        macos::remove_plugin_launch_agent(app);
+        macos::remove_plugin_launch_agent();
         macos::set_login_item(enabled);
         return;
     }
 
-    let _ = app;
     let result = auto_launch().and_then(|manager| {
         if enabled {
             manager.enable()
@@ -57,7 +56,7 @@ fn auto_launch() -> Result<auto_launch::AutoLaunch, auto_launch::Error> {
 mod macos {
     use std::path::{Path, PathBuf};
 
-    use crate::app_handle::{APP_NAME, AppHandle, LEGACY_APP_NAME};
+    use crate::app_handle::{APP_NAME, LEGACY_APP_NAME};
     use objc2::runtime::AnyClass;
     use objc2_service_management::{SMAppService, SMAppServiceStatus};
 
@@ -96,7 +95,7 @@ mod macos {
         }
     }
 
-    pub fn remove_plugin_launch_agent(_app: &AppHandle) {
+    pub fn remove_plugin_launch_agent() {
         let Some(home) = dirs::home_dir() else {
             return;
         };
