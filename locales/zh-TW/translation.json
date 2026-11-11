@@ -840,8 +840,8 @@
     }
   },
   "overlay": {
-    "transcribing": "正在轉錄...",
-    "processing": "處理中..."
+    "transcribing": "正在轉錄",
+    "processing": "處理中"
   },
   "whatsNew": {
     "title": "Bespoke v{{version}} 新功能"
@@ -940,8 +940,6 @@
       "window": "視窗",
       "screen": "螢幕",
       "record": "錄製",
-      "undo": "還原",
-      "cancel": "取消",
       "finish": "完成",
       "processing": "處理中",
       "copied": "已複製",

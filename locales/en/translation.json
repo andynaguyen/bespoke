@@ -940,8 +940,9 @@
     }
   },
   "overlay": {
-    "transcribing": "Transcribing...",
-    "processing": "Processing..."
+    "transcribing": "Transcribing",
+    "processing": "Processing",
+    "pasteFailed": "Couldn't paste"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} may be blocking 1 shortcut",
@@ -1010,8 +1011,6 @@
       "window": "Window",
       "screen": "Screen",
       "record": "Record",
-      "undo": "Undo",
-      "cancel": "Cancel",
       "finish": "Finish",
       "processing": "Processing",
       "copied": "Copied",

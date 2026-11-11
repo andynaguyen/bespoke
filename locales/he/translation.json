@@ -844,8 +844,8 @@
     }
   },
   "overlay": {
-    "transcribing": "מתמלל...",
-    "processing": "מעבד..."
+    "transcribing": "מתמלל",
+    "processing": "מעבד"
   },
   "whatsNew": {
     "title": "חדש ב-Bespoke v{{version}}"
@@ -946,8 +946,6 @@
       "window": "חלון",
       "screen": "מסך",
       "record": "הקלט",
-      "undo": "בטל פעולה",
-      "cancel": "ביטול",
       "finish": "סיום",
       "processing": "מעבד",
       "copied": "הועתק",

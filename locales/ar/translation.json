@@ -853,8 +853,8 @@
     }
   },
   "overlay": {
-    "transcribing": "...جاري التفريغ",
-    "processing": "...جاري المعالجة"
+    "transcribing": "جاري التفريغ",
+    "processing": "جاري المعالجة"
   },
   "whatsNew": {
     "title": "الجديد في Bespoke v{{version}}"
@@ -961,8 +961,6 @@
       "window": "نافذة",
       "screen": "شاشة",
       "record": "تسجيل",
-      "undo": "تراجع",
-      "cancel": "إلغاء",
       "finish": "إنهاء",
       "processing": "جارٍ المعالجة",
       "copied": "تم النسخ",

@@ -846,8 +846,8 @@
     }
   },
   "overlay": {
-    "transcribing": "S'està transcrivint...",
-    "processing": "S'està processant..."
+    "transcribing": "S'està transcrivint",
+    "processing": "S'està processant"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} pot estar blocant 1 drecera",
@@ -943,8 +943,6 @@
       "window": "Finestra",
       "screen": "Pantalla",
       "record": "Enregistra",
-      "undo": "Desfés",
-      "cancel": "Cancel·la",
       "finish": "Acaba",
       "processing": "S'està processant",
       "copied": "Copiat",

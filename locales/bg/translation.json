@@ -841,8 +841,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Транскрибиране...",
-    "processing": "Обработка..."
+    "transcribing": "Транскрибиране",
+    "processing": "Обработка"
   },
   "whatsNew": {
     "title": "Ново в Bespoke v{{version}}"
@@ -941,8 +941,6 @@
       "window": "Прозорец",
       "screen": "Екран",
       "record": "Запис",
-      "undo": "Отмяна",
-      "cancel": "Отказ",
       "finish": "Край",
       "processing": "Обработка",
       "copied": "Копирано",

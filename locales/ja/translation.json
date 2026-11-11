@@ -840,8 +840,8 @@
     }
   },
   "overlay": {
-    "transcribing": "文字起こし中…",
-    "processing": "処理中…"
+    "transcribing": "文字起こし中",
+    "processing": "処理中"
   },
   "whatsNew": {
     "title": "Bespoke v{{version}} の新機能"
@@ -940,8 +940,6 @@
       "window": "ウインドウ",
       "screen": "画面",
       "record": "収録",
-      "undo": "取り消す",
-      "cancel": "キャンセル",
       "finish": "終了",
       "processing": "処理中",
       "copied": "コピーしました",

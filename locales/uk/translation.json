@@ -846,8 +846,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Обробка...",
-    "processing": "Постобробка..."
+    "transcribing": "Обробка",
+    "processing": "Постобробка"
   },
   "whatsNew": {
     "title": "Нове в Bespoke v{{version}}"
@@ -950,8 +950,6 @@
       "window": "Вікно",
       "screen": "Екран",
       "record": "Запис",
-      "undo": "Відмінити",
-      "cancel": "Скасувати",
       "finish": "Завершити",
       "processing": "Обробка",
       "copied": "Скопійовано",

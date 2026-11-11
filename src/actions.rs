@@ -17,6 +17,7 @@ use crate::settings::{
 };
 use crate::shortcut;
 use crate::tray::{TrayIconState, set_tray_state};
+use crate::ui::overlay::OverlayState;
 use crate::utils::{
     self, show_processing_overlay, show_recording_overlay, show_transcribing_overlay,
 };
@@ -869,25 +870,39 @@ impl ShortcutAction for TranscribeAction {
                                 let paste_time = Instant::now();
                                 let final_text = processed.final_text;
                                 let rm_for_paste = Arc::clone(&rm);
-                                ah.with_ui(move |_| {
+                                ah.with_ui(move |cx| {
                                     if rm_for_paste.was_cancelled_since(cancel_generation) {
                                         debug!("Transcription operation cancelled before paste");
-                                        utils::hide_recording_overlay(&ah_clone);
+                                        crate::ui::overlay::hide(cx);
                                         set_tray_state(&ah_clone, TrayIconState::Idle);
                                         return;
                                     }
 
                                     match utils::paste(final_text, ah_clone.clone(), submit) {
-                                        Ok(()) => debug!(
-                                            "Text pasted successfully in {:?}",
-                                            paste_time.elapsed()
-                                        ),
+                                        Ok(utils::PasteOutcome::Pasted) => {
+                                            debug!(
+                                                "Text pasted successfully in {:?}",
+                                                paste_time.elapsed()
+                                            );
+                                            utils::show_result_overlay(
+                                                &ah_clone,
+                                                OverlayState::Done,
+                                                cx,
+                                            );
+                                        }
+                                        Ok(utils::PasteOutcome::PasteOff) => {
+                                            crate::ui::overlay::hide(cx)
+                                        }
                                         Err(e) => {
                                             error!("Failed to paste transcription: {}", e);
                                             let _ = ah_clone.emit("paste-error", ());
+                                            utils::show_result_overlay(
+                                                &ah_clone,
+                                                OverlayState::PasteFailed,
+                                                cx,
+                                            );
                                         }
                                     }
-                                    utils::hide_recording_overlay(&ah_clone);
                                     set_tray_state(&ah_clone, TrayIconState::Idle);
                                 });
                             }

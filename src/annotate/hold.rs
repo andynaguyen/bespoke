@@ -1,4 +1,7 @@
+use std::time::Instant;
+
 use crate::annotate::coordinator::SelectionMode;
+use crate::ui::capsule::{REVEAL_MIN, RevealWindow};
 
 pub const TAP_MS: u64 = 250;
 pub const DOUBLE_PRESS_MS: u64 = 400;
@@ -120,10 +123,6 @@ impl Switcher {
     }
 }
 
-pub const REVEAL_MS: u64 = 3_500;
-pub const REVEAL_MIN_MS: u64 = 900;
-pub const REVEAL_LINGER_MS: u64 = 1_200;
-
 #[derive(Debug, Default)]
 pub struct Reveal {
     open: Option<RevealOpen>,
@@ -131,9 +130,8 @@ pub struct Reveal {
 
 #[derive(Clone, Copy, Debug)]
 struct RevealOpen {
-    since_ms: u64,
+    window: RevealWindow,
     baseline: usize,
-    hovered_at_ms: Option<u64>,
 }
 
 impl Reveal {
@@ -141,11 +139,10 @@ impl Reveal {
         self.open.is_some()
     }
 
-    pub fn show(&mut self, now_ms: u64, activity: usize) {
+    pub fn show(&mut self, now: Instant, activity: usize) {
         self.open = Some(RevealOpen {
-            since_ms: now_ms,
+            window: RevealWindow::open(now),
             baseline: activity,
-            hovered_at_ms: None,
         });
     }
 
@@ -153,22 +150,19 @@ impl Reveal {
         self.open = None;
     }
 
-    pub fn tick(&mut self, now_ms: u64, hovered: bool, activity: usize) -> bool {
+    pub fn tick(&mut self, now: Instant, hovered: bool, activity: usize) -> bool {
         let Some(open) = self.open.as_mut() else {
             return false;
         };
         if hovered {
-            open.hovered_at_ms = Some(now_ms);
+            open.window.hover(now);
             return false;
         }
-        let age = now_ms.saturating_sub(open.since_ms);
-        if age < REVEAL_MIN_MS {
+        if open.window.age(now) < REVEAL_MIN {
             return false;
         }
-        let linger_until = open.hovered_at_ms.map_or(0, |at| at + REVEAL_LINGER_MS);
-        let deadline = (open.since_ms + REVEAL_MS).max(linger_until);
-        let working = activity > open.baseline && now_ms >= linger_until;
-        if now_ms >= deadline || working {
+        let working = activity > open.baseline && !open.window.lingering(now);
+        if !open.window.is_open(now) || working {
             self.open = None;
             return true;
         }
@@ -186,7 +180,9 @@ fn next(mode: SelectionMode) -> SelectionMode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::capsule::{REVEAL, REVEAL_LINGER};
     use SelectionMode::{Area, Screen, Window};
+    use std::time::Duration;
 
     const FREE: Activity = Activity::Free;
 
@@ -278,39 +274,50 @@ mod tests {
         assert!(!s.is_held());
     }
 
+    fn at(ms: u64) -> Instant {
+        thread_local! {
+            static START: Instant = Instant::now();
+        }
+        START.with(|start| *start + Duration::from_millis(ms))
+    }
+
+    const REVEAL_MS: u64 = REVEAL.as_millis() as u64;
+    const REVEAL_MIN_MS: u64 = REVEAL_MIN.as_millis() as u64;
+    const REVEAL_LINGER_MS: u64 = REVEAL_LINGER.as_millis() as u64;
+
     #[test]
     fn reveal_folds_away_after_its_time_when_ignored() {
         let mut r = Reveal::default();
-        assert!(!r.tick(0, false, 0));
-        r.show(1_000, 0);
+        assert!(!r.tick(at(0), false, 0));
+        r.show(at(1_000), 0);
         assert!(r.is_open());
-        assert!(!r.tick(1_000 + REVEAL_MS - 1, false, 0));
-        assert!(r.tick(1_000 + REVEAL_MS, false, 0));
+        assert!(!r.tick(at(1_000 + REVEAL_MS - 1), false, 0));
+        assert!(r.tick(at(1_000 + REVEAL_MS), false, 0));
         assert!(!r.is_open());
-        assert!(!r.tick(1_000 + REVEAL_MS + 8, false, 0));
+        assert!(!r.tick(at(1_000 + REVEAL_MS + 8), false, 0));
     }
 
     #[test]
     fn reveal_folds_away_once_work_starts_but_is_seen_first() {
         let mut r = Reveal::default();
-        r.show(0, 3);
-        assert!(!r.tick(100, false, 4));
-        assert!(!r.tick(REVEAL_MIN_MS - 1, false, 4));
-        assert!(r.tick(REVEAL_MIN_MS, false, 4));
-        r.show(10_000, 7);
-        assert!(!r.tick(10_000 + REVEAL_MIN_MS + 500, false, 7));
-        assert!(r.tick(10_000 + REVEAL_MIN_MS + 600, false, 8));
+        r.show(at(0), 3);
+        assert!(!r.tick(at(100), false, 4));
+        assert!(!r.tick(at(REVEAL_MIN_MS - 1), false, 4));
+        assert!(r.tick(at(REVEAL_MIN_MS), false, 4));
+        r.show(at(10_000), 7);
+        assert!(!r.tick(at(10_000 + REVEAL_MIN_MS + 500), false, 7));
+        assert!(r.tick(at(10_000 + REVEAL_MIN_MS + 600), false, 8));
     }
 
     #[test]
     fn reveal_stays_while_hovered_and_lingers_after() {
         let mut r = Reveal::default();
-        r.show(0, 0);
-        assert!(!r.tick(3_000, true, 0));
-        assert!(!r.tick(6_000, true, 5));
-        assert!(!r.tick(6_000 + REVEAL_LINGER_MS - 1, false, 5));
-        assert!(r.tick(6_000 + REVEAL_LINGER_MS, false, 5));
-        r.show(20_000, 0);
+        r.show(at(0), 0);
+        assert!(!r.tick(at(3_000), true, 0));
+        assert!(!r.tick(at(6_000), true, 5));
+        assert!(!r.tick(at(6_000 + REVEAL_LINGER_MS - 1), false, 5));
+        assert!(r.tick(at(6_000 + REVEAL_LINGER_MS), false, 5));
+        r.show(at(20_000), 0);
         r.close();
         assert!(!r.is_open());
     }

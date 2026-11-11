@@ -121,7 +121,16 @@ fn should_send_auto_submit(auto_submit: bool, paste_method: PasteMethod) -> bool
     auto_submit && paste_method != PasteMethod::None
 }
 
-pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<(), String> {
+pub enum PasteOutcome {
+    Pasted,
+    PasteOff,
+}
+
+pub fn paste(
+    text: String,
+    app_handle: AppHandle,
+    force_submit: bool,
+) -> Result<PasteOutcome, String> {
     let settings = get_settings(&app_handle);
     let auto_submit = settings.auto_submit || force_submit;
     let paste_method = settings.paste_method;
@@ -164,11 +173,12 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
                     )
                 });
                 match reliable_result {
-                    Ok(chord_sent) => {
-                        if type_trailing_space && chord_sent {
+                    Ok(false) => return Err("Couldn't send the paste shortcut".to_string()),
+                    Ok(true) => {
+                        if type_trailing_space {
                             send_trailing_space(&app_handle);
                         }
-                        return Ok(());
+                        return Ok(PasteOutcome::Pasted);
                     }
                     Err(e) => {
                         log::warn!("Reliable paste unavailable ({e}); falling back to legacy paste")
@@ -195,7 +205,11 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
         write_text_to_clipboard(&app_handle, &text)?;
     }
 
-    Ok(())
+    Ok(if paste_method == PasteMethod::None {
+        PasteOutcome::PasteOff
+    } else {
+        PasteOutcome::Pasted
+    })
 }
 
 #[cfg(test)]

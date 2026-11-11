@@ -42,6 +42,15 @@ pub fn show_processing_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, OverlayState::Processing);
 }
 
+pub fn show_result_overlay(app_handle: &AppHandle, state: OverlayState, cx: &mut gpui::App) {
+    let settings = settings::get_settings(app_handle);
+    if settings.overlay_style == OverlayStyle::None {
+        crate::ui::overlay::hide(cx);
+        return;
+    }
+    crate::ui::overlay::show_result(state, settings.overlay_position, cx);
+}
+
 pub fn update_overlay_position(app_handle: &AppHandle) {
     let position = settings::get_settings(app_handle).overlay_position;
     app_handle.with_ui(move |cx| crate::ui::overlay::reposition(position, cx));

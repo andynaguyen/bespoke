@@ -189,7 +189,7 @@ pub fn progress_track(
 /// `relative()` parent.
 pub fn width_tracker<T: 'static>(
     entity: WeakEntity<T>,
-    slot: fn(&mut T) -> &mut Pixels,
+    slot: impl FnOnce(&mut T) -> &mut Pixels + 'static,
 ) -> impl IntoElement {
     canvas(
         move |bounds, _, cx| {

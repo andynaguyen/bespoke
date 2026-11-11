@@ -65,14 +65,6 @@ fn clock_template(clock: &str) -> String {
         .collect()
 }
 
-/// Milliseconds since the UI thread first asked, the clock the capsule's chips reveal on.
-fn reveal_clock_ms() -> u64 {
-    thread_local! {
-        static START: Instant = Instant::now();
-    }
-    START.with(|start| start.elapsed().as_millis() as u64)
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MenuAction {
     ToggleCapture,
@@ -194,7 +186,8 @@ pub enum IslandPhase {
     Dismissing,
 }
 
-const FINISHED_CAPSULE_MS: u64 = 25_000;
+const COMPLETED_CAPSULE_MS: u64 = 8_000;
+const FAILED_CAPSULE_MS: u64 = 25_000;
 
 fn phase_after_finish(
     saved_frame_count: Option<usize>,
@@ -244,6 +237,7 @@ pub struct Coordinator {
     native_pill: Option<crate::annotate::capsule_link::NativePill>,
     island_phase: IslandPhase,
     reveal: crate::annotate::hold::Reveal,
+    pointer_at_result: Option<Option<[f32; 2]>>,
     reduced_motion: bool,
     last_elapsed_ms: u64,
     selectable_windows: Vec<TargetInfo>,
@@ -274,6 +268,7 @@ impl Coordinator {
             native_pill: None,
             island_phase: IslandPhase::Hidden,
             reveal: crate::annotate::hold::Reveal::default(),
+            pointer_at_result: None,
             reduced_motion: false,
             last_elapsed_ms: 0,
             selectable_windows: Vec::new(),
@@ -552,7 +547,7 @@ impl Coordinator {
     fn show_reveal(&mut self, cx: &mut Context<Self>) {
         self.reduced_motion = reduce_motion();
         let activity = self.reveal_activity();
-        self.reveal.show(reveal_clock_ms(), activity);
+        self.reveal.show(Instant::now(), activity);
         self.sync_native_pill();
         cx.notify();
     }
@@ -1050,11 +1045,25 @@ impl Coordinator {
                 self.apply_pill_action(action, cx);
             }
         }
-        if let IslandPhase::Completed { finished_at, .. } | IslandPhase::Failed { finished_at } =
-            self.island_phase
-            && finished_at.elapsed() >= Duration::from_millis(FINISHED_CAPSULE_MS)
-        {
-            self.set_island_phase(IslandPhase::Dismissing);
+        let hovered = self
+            .native_pill
+            .as_ref()
+            .is_some_and(|pill| pill.pointer_on_pill());
+        let pointer = current_mouse_screen();
+        let finished = match &mut self.island_phase {
+            IslandPhase::Completed { finished_at, .. } => Some((finished_at, COMPLETED_CAPSULE_MS)),
+            IslandPhase::Failed { finished_at } => Some((finished_at, FAILED_CAPSULE_MS)),
+            _ => None,
+        };
+        if let Some((finished_at, stay_ms)) = finished {
+            let moved_since_result = *self.pointer_at_result.get_or_insert(pointer) != pointer;
+            if hovered && moved_since_result {
+                *finished_at = Instant::now();
+            } else if finished_at.elapsed() >= Duration::from_millis(stay_ms) {
+                self.set_island_phase(IslandPhase::Dismissing);
+            }
+        } else {
+            self.pointer_at_result = None;
         }
 
         if let IslandPhase::Selecting { mode } = self.island_phase {
@@ -1097,7 +1106,7 @@ impl Coordinator {
                 .native_pill
                 .as_ref()
                 .is_some_and(|p| p.pointer_on_pill());
-            if self.reveal.tick(reveal_clock_ms(), on_pill, activity) {
+            if self.reveal.tick(Instant::now(), on_pill, activity) {
                 self.play_fold();
             }
         }
@@ -1999,7 +2008,7 @@ pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
                 if loop_coord.read(cx).switcher.is_held() {
                     loop_coord.update(cx, |coord, cx| coord.tick_switcher(cx));
                 } else if loop_coord.read(cx).telemetry.take_escape()
-                    && loop_coord.read(cx).is_selecting()
+                    && (loop_coord.read(cx).is_selecting() || loop_coord.read(cx).is_recording())
                 {
                     loop_coord.update(cx, |coord, cx| coord.cancel_recording(cx));
                 }

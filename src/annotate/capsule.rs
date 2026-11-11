@@ -1,23 +1,25 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use crate::annotate::audio::MIC_LEVEL_EVENT;
 use crate::annotate::capsule_link::{
     CapsuleCommand, CapsuleLink, CapsuleState, PillAction, PillSnapshot, Pres,
 };
 use crate::annotate::coordinator::SelectionMode;
 use gpui::{
     Animation, AnimationExt, AnyElement, App, Bounds, Context, FontWeight, Pixels, SharedString,
-    Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowKind,
-    WindowOptions, canvas, div, prelude::*, px, size,
+    Subscription, Task, Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations,
+    WindowKind, WindowOptions, canvas, div, prelude::*, px, size,
 };
 
-use crate::app_handle::AppHandle;
-use crate::i18n::{t, t_count};
+use crate::app_handle::{AppEvent, AppHandle};
+use crate::i18n::t;
 use crate::settings::{OverlayPosition, get_settings};
-use crate::ui::capsule::{self, ChipKind, Colors};
+use crate::ui::capsule::{self, ChipKind, Colors, Fold};
 use crate::ui::clay::keycap;
 use crate::ui::components::icon;
+use crate::ui::event_bus::event_bus;
 use crate::ui::platform::capsule::{self as native, CapsuleWindow};
 use crate::ui::theme::{Alpha, mix};
 
@@ -43,7 +45,11 @@ pub fn window_handle(cx: &App) -> Option<gpui::AnyWindowHandle> {
 }
 
 #[cfg(debug_assertions)]
+static DEV_FOLDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(debug_assertions)]
 pub fn dev_preview(kind: &str, cx: &mut App) {
+    DEV_FOLDED.store(kind == "recording-folded", Ordering::SeqCst);
     let pres = match kind {
         "choose-screen" => Pres::Selecting {
             mode: SelectionMode::Screen,
@@ -52,6 +58,10 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
         "recording" => Pres::Recording {
             chips: false,
             stroke_count: 3,
+        },
+        "recording-folded" => Pres::Recording {
+            chips: false,
+            stroke_count: 2,
         },
         "switch" => Pres::Recording {
             chips: true,
@@ -91,7 +101,7 @@ fn open_window(link: CapsuleLink, cx: &mut App) {
         state,
         excluded_window_ids,
     } = link;
-    let view = cx.new(|_| AnnotateCapsule::new(actions, Arc::clone(&state)));
+    let view = cx.new(|cx| AnnotateCapsule::new(actions, Arc::clone(&state), cx));
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::new(
             gpui::point(px(0.), px(0.)),
@@ -145,6 +155,7 @@ fn open_window(link: CapsuleLink, cx: &mut App) {
         }
         let _ = cx.update(|cx| {
             view.update(cx, |capsule, _| capsule.poll = None);
+            capsule::spot(cx).update(cx, |spot, cx| spot.set_annotate_showing(false, cx));
             let _ = handle.update(cx, |_, window, _| window.remove_window());
         });
     })
@@ -161,6 +172,11 @@ pub struct AnnotateCapsule {
     card: Bounds<Pixels>,
     paste_press: Option<[f64; 2]>,
     poll: Option<Task<()>>,
+    fold: Fold,
+    chips_fold: Fold,
+    levels: [f32; capsule::METER_BARS],
+    at_top: bool,
+    _subscription: Subscription,
 }
 
 /// Where the capsule's window goes on the screen under `point`: at the top (upstream's
@@ -181,7 +197,21 @@ fn capsule_origin(point: [f64; 2], size: [f64; 2], at_top: bool, gap: f64) -> Op
 }
 
 impl AnnotateCapsule {
-    fn new(actions: flume::Sender<PillAction>, state: Arc<CapsuleState>) -> Self {
+    fn new(
+        actions: flume::Sender<PillAction>,
+        state: Arc<CapsuleState>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let subscription = cx.subscribe(&event_bus(cx), |this, _, event: &AppEvent, cx| {
+            if event.name == MIC_LEVEL_EVENT
+                && let Some(levels) = event.parse::<Vec<f32>>()
+            {
+                capsule::smooth_levels(&mut this.levels, &levels);
+                if matches!(this.pres(), Pres::Recording { .. }) {
+                    cx.notify();
+                }
+            }
+        });
         Self {
             actions,
             state,
@@ -192,7 +222,16 @@ impl AnnotateCapsule {
             card: Bounds::default(),
             paste_press: None,
             poll: None,
+            fold: Fold::new(),
+            chips_fold: Fold::new(),
+            levels: [0.; capsule::METER_BARS],
+            at_top: false,
+            _subscription: subscription,
         }
+    }
+
+    fn chips_showing(&self) -> bool {
+        matches!(self.pres(), Pres::Recording { chips: true, .. })
     }
 
     fn pres(&self) -> &Pres {
@@ -208,6 +247,27 @@ impl AnnotateCapsule {
             CapsuleCommand::Sync(snapshot) => {
                 let was_hidden = *self.pres() == Pres::Hidden;
                 let hidden = snapshot.pres == Pres::Hidden;
+                let was_recording = matches!(self.pres(), Pres::Recording { .. });
+                let had_chips = self.chips_showing();
+                if let Pres::Recording { chips, .. } = snapshot.pres {
+                    let now = Instant::now();
+                    if !was_recording {
+                        self.levels = [0.; capsule::METER_BARS];
+                        self.fold.start(now);
+                    }
+                    let snap = crate::ui::platform::reduce_motion();
+                    if chips {
+                        if !had_chips {
+                            self.chips_fold.start(now);
+                        }
+                        self.fold.cover();
+                    } else if had_chips {
+                        self.chips_fold.close(snap);
+                        self.fold.uncover(now, snap);
+                    }
+                }
+                #[cfg(debug_assertions)]
+                self.apply_dev_preview();
                 self.snapshot = Some(snapshot);
                 if was_hidden && !hidden {
                     self.shown += 1;
@@ -221,7 +281,18 @@ impl AnnotateCapsule {
         }
     }
 
-    fn place(&self, cx: &App) {
+    #[cfg(debug_assertions)]
+    fn apply_dev_preview(&mut self) {
+        if std::env::var_os("BESPOKE_DEV_SNAPSHOT").is_none() {
+            return;
+        }
+        self.levels = [0.2, 0.8, 0.5, 0.9, 0.4];
+        if DEV_FOLDED.load(Ordering::SeqCst) {
+            self.fold.close(true);
+        }
+    }
+
+    fn place(&mut self, cx: &App) {
         let Some(window) = &self.window else {
             return;
         };
@@ -229,7 +300,8 @@ impl AnnotateCapsule {
         let Some(anchor) = anchor else {
             return;
         };
-        let at_top = self.at_top();
+        let at_top = get_settings(AppHandle::global()).overlay_position == OverlayPosition::Top;
+        self.at_top = at_top;
         let size = [f64::from(WINDOW_W), f64::from(WINDOW_H)];
         let Some(mut origin) = capsule_origin(anchor, size, at_top, EDGE_GAP) else {
             return;
@@ -242,15 +314,12 @@ impl AnnotateCapsule {
         window.move_to(origin, cx);
     }
 
-    fn at_top(&self) -> bool {
-        get_settings(AppHandle::global()).overlay_position == OverlayPosition::Top
-    }
-
     fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
         let Some(window) = &self.window else {
             return;
         };
         window.set_visible(visible, cx);
+        capsule::spot(cx).update(cx, |spot, cx| spot.set_annotate_showing(visible, cx));
         if !visible {
             window.set_ignores_mouse(true);
         }
@@ -271,27 +340,32 @@ impl AnnotateCapsule {
         self.poll = Some(cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(POLL).await;
-                if this.update(cx, |this, _| this.check_pointer()).is_err() {
+                if this.update(cx, |this, cx| this.check_pointer(cx)).is_err() {
                     break;
                 }
             }
         }));
     }
 
-    fn check_pointer(&mut self) {
+    fn check_pointer(&mut self, cx: &mut Context<Self>) {
         let Some(window) = self.window.clone() else {
             return;
         };
         let Some((pointer, down)) = native::pointer() else {
             return;
         };
-        let card = self.card;
-        let Some([x, y, _, _]) = window.frame() else {
+        let Some(inside) = capsule::pointer_on(&window, self.card, pointer) else {
             return;
         };
-        let local = [pointer[0] - x, pointer[1] - y];
-        let inside = card.contains(&gpui::point(px(local[0] as f32), px(local[1] as f32)));
-        self.state.hovered.store(inside, Ordering::SeqCst);
+        self.state
+            .hovered
+            .store(inside || self.paste_press.is_some(), Ordering::SeqCst);
+        if self
+            .fold
+            .tick(Instant::now(), inside, crate::ui::platform::reduce_motion())
+        {
+            cx.notify();
+        }
 
         if let Some(start) = self.paste_press
             && !down
@@ -324,26 +398,6 @@ impl AnnotateCapsule {
         capsule::chip(id, kind, c).on_click(cx.listener(move |this, _, _, _| this.send(action)))
     }
 
-    fn label(&self, text: SharedString, c: &Colors) -> impl IntoElement {
-        div()
-            .flex_none()
-            .text_size(px(13.5))
-            .font_weight(FontWeight::SEMIBOLD)
-            .text_color(c.text)
-            .whitespace_nowrap()
-            .child(text)
-    }
-
-    fn secondary(&self, text: impl Into<SharedString>, c: &Colors) -> impl IntoElement {
-        div()
-            .flex_none()
-            .text_size(px(13.))
-            .font_weight(FontWeight::SEMIBOLD)
-            .text_color(c.secondary)
-            .whitespace_nowrap()
-            .child(text.into())
-    }
-
     fn hint(
         &self,
         text: &str,
@@ -351,7 +405,7 @@ impl AnnotateCapsule {
         label: gpui::Hsla,
         c: &Colors,
     ) -> impl IntoElement {
-        keycap(text.to_string(), 18., color, label, c.dark)
+        keycap(text.to_string(), capsule::KEYCAP, color, label, c.dark)
     }
 
     fn modes(
@@ -361,6 +415,7 @@ impl AnnotateCapsule {
         c: &Colors,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let rtl = crate::i18n::is_rtl();
         let raised = if crate::ui::theme::palette(cx).is_dark {
             gpui::white().a(0.18)
         } else {
@@ -374,6 +429,7 @@ impl AnnotateCapsule {
             .p(px(2.))
             .rounded_full()
             .bg(c.chip)
+            .when(rtl, |el| el.flex_row_reverse())
             .children(SelectionMode::available().iter().map(|&mode| {
                 let (key, icon_name) = match mode {
                     SelectionMode::Area => ("annotate.capsule.area", "square-dashed"),
@@ -390,21 +446,22 @@ impl AnnotateCapsule {
                 div()
                     .id(SharedString::from(format!("mode-{}", mode.label())))
                     .h(px(capsule::CHIP - 4.))
-                    .px(px(12.))
+                    .px(px(9.))
                     .flex()
                     .items_center()
-                    .gap(px(6.))
+                    .gap(px(4.))
                     .rounded_full()
-                    .text_size(px(13.))
+                    .text_size(px(12.5))
                     .font_weight(FontWeight::MEDIUM)
                     .whitespace_nowrap()
                     .cursor_pointer()
+                    .when(rtl, |el| el.flex_row_reverse())
                     .when(on, |el| el.bg(raised).text_color(text))
                     .when(!on, |el| {
                         el.text_color(secondary).hover(move |s| s.text_color(text))
                     })
                     .on_click(cx.listener(move |this, _, _, _| this.send(action)))
-                    .child(icon(icon_name).size(px(15.)))
+                    .child(icon(icon_name).size(px(13.)))
                     .child(t(key))
             }))
     }
@@ -446,58 +503,60 @@ impl AnnotateCapsule {
                 chips,
                 stroke_count,
             } => {
-                let mut items = vec![
+                let lead = capsule::status_row()
+                    .child(capsule::live_dot(true, c))
+                    .child(capsule::meter(&self.levels, true, c))
+                    .child(capsule::clock(snapshot.clock.clone(), c))
+                    .when(stroke_count > 0, |el| {
+                        el.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(3.))
+                                .text_size(px(12.))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(c.secondary)
+                                .when(crate::i18n::is_rtl(), |el| el.flex_row_reverse())
+                                .child(icon("pen-line").size(px(13.)))
+                                .child(stroke_count.to_string()),
+                        )
+                    });
+                let rtl = crate::i18n::is_rtl();
+                let mode_chips = (chips || self.chips_fold.running()).then(|| {
                     div()
-                        .flex_none()
                         .flex()
                         .items_center()
-                        .gap(px(10.))
-                        .pl(px(10.))
-                        .pr(px(4.))
-                        .child(capsule::live_dot(true, c))
-                        .child(self.secondary(snapshot.clock.clone(), c))
-                        .when(stroke_count > 0, |el| {
-                            el.child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap(px(5.))
-                                    .text_size(px(13.))
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(c.live)
-                                    .child(icon("pen-line").size(px(13.)))
-                                    .child(t_count(
-                                        "annotate.capsule.marks",
-                                        stroke_count as i64,
-                                        &[],
-                                    )),
-                            )
+                        .gap(px(2.))
+                        .when(rtl, |el| el.flex_row_reverse())
+                        .child(capsule::divider(c))
+                        .child(self.modes(Some(SelectionMode::Screen), true, c, cx))
+                        .child(capsule::divider(c))
+                        .child(close(self, PillAction::Cancel, cx))
+                });
+                let mode_chips = mode_chips.map(|chips| {
+                    self.chips_fold
+                        .element(chips, cx.entity().downgrade(), |this: &mut Self| {
+                            &mut this.chips_fold
                         })
-                        .into_any_element(),
-                ];
-                items.push(capsule::divider(c).into_any_element());
-                if chips {
-                    items.push(
-                        self.modes(Some(SelectionMode::Screen), true, c, cx)
-                            .into_any_element(),
-                    );
-                    items.push(capsule::divider(c).into_any_element());
-                    items.push(close(self, PillAction::Cancel, cx));
-                } else {
-                    let can_undo = stroke_count > 0;
-                    items.push(
-                        capsule::chip("capsule-undo", ChipKind::Plain, c)
+                });
+                let can_undo = stroke_count > 0;
+                let buttons = div()
+                    .flex()
+                    .items_center()
+                    .gap(px(2.))
+                    .when(rtl, |el| el.flex_row_reverse())
+                    .child(capsule::divider(c))
+                    .child(
+                        capsule::chip("capsule-undo", ChipKind::Icon, c)
                             .when(can_undo, |el| {
                                 el.on_click(
                                     cx.listener(|this, _, _, _| this.send(PillAction::Undo)),
                                 )
                             })
                             .when(!can_undo, |el| el.opacity(0.4).cursor_default())
-                            .child(icon("undo-2").size(px(14.)))
-                            .child(t("annotate.capsule.undo"))
-                            .into_any_element(),
-                    );
-                    items.push(
+                            .child(icon("undo-2").size(px(13.))),
+                    )
+                    .child(
                         self.action_chip(
                             "capsule-cancel",
                             ChipKind::Plain,
@@ -505,11 +564,15 @@ impl AnnotateCapsule {
                             c,
                             cx,
                         )
-                        .child(t("annotate.capsule.cancel"))
-                        .child(self.hint("esc", c.keycap, c.text.a(0.75), c))
-                        .into_any_element(),
-                    );
-                    items.push(
+                        .child(icon("overlay-cancel").size(px(11.)))
+                        .child(self.hint(
+                            "esc",
+                            c.keycap,
+                            c.text.a(0.75),
+                            c,
+                        )),
+                    )
+                    .child(
                         self.action_chip(
                             "capsule-finish",
                             ChipKind::Primary,
@@ -517,40 +580,41 @@ impl AnnotateCapsule {
                             c,
                             cx,
                         )
-                        .child(icon("check").size(px(14.)))
+                        .child(icon("check").size(px(13.)))
                         .child(t("annotate.capsule.finish"))
                         .child(self.hint(
                             &snapshot.shortcut,
                             mix(c.accent, gpui::white(), 0.2),
                             gpui::white(),
                             c,
+                        )),
+                    );
+                vec![
+                    div()
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .when(rtl, |el| el.flex_row_reverse())
+                        .child(lead)
+                        .children(mode_chips)
+                        .child(self.fold.element(
+                            buttons,
+                            cx.entity().downgrade(),
+                            |this: &mut Self| &mut this.fold,
                         ))
                         .into_any_element(),
-                    );
-                }
-                items
+                ]
             }
             Pres::Processing => vec![
-                div()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .px(px(10.))
+                capsule::status_row()
                     .child(capsule::spinner(c))
-                    .child(self.label(t("annotate.capsule.processing"), c))
+                    .child(capsule::label(t("annotate.capsule.processing"), c))
                     .into_any_element(),
             ],
             Pres::Completed { copied } => vec![
-                div()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .pl(px(6.))
-                    .pr(px(4.))
+                capsule::status_row()
                     .child(capsule::done_mark(c))
-                    .child(self.label(
+                    .child(capsule::label(
                         if copied {
                             t("annotate.capsule.copied")
                         } else {
@@ -558,7 +622,6 @@ impl AnnotateCapsule {
                         },
                         c,
                     ))
-                    .child(self.secondary(snapshot.clock.clone(), c))
                     .into_any_element(),
                 capsule::divider(c).into_any_element(),
                 capsule::chip("capsule-paste", ChipKind::Plain, c)
@@ -572,31 +635,25 @@ impl AnnotateCapsule {
                         this.paste_press = None;
                         this.send(PillAction::Paste(None));
                     }))
-                    .child(icon("clipboard-paste").size(px(14.)))
+                    .child(icon("clipboard-paste").size(px(13.)))
                     .child(t("annotate.capsule.paste"))
                     .into_any_element(),
                 self.action_chip(
                     "capsule-inspect",
-                    ChipKind::Primary,
+                    ChipKind::Plain,
                     PillAction::Inspect,
                     c,
                     cx,
                 )
-                .child(icon("scan-eye").size(px(14.)))
+                .child(icon("scan-eye").size(px(13.)))
                 .child(t("annotate.capsule.inspect"))
                 .into_any_element(),
                 close(self, PillAction::DismissCompleted, cx),
             ],
             Pres::Failed => vec![
-                div()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .pl(px(6.))
-                    .pr(px(4.))
-                    .child(icon("triangle-alert").size(px(14.)))
-                    .child(self.label(t("annotate.capsule.failed"), c))
+                capsule::status_row()
+                    .child(capsule::warn_icon(c))
+                    .child(capsule::label(t("annotate.capsule.failed"), c))
                     .into_any_element(),
                 close(self, PillAction::DismissCompleted, cx),
             ],
@@ -605,8 +662,11 @@ impl AnnotateCapsule {
 }
 
 impl Render for AnnotateCapsule {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let at_top = self.at_top();
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.fold.running() || self.chips_fold.running() {
+            window.request_animation_frame();
+        }
+        let at_top = self.at_top;
         let stage = div()
             .size_full()
             .flex()
@@ -627,6 +687,7 @@ impl Render for AnnotateCapsule {
             .items_center()
             .px(px(capsule::INSET - 1.))
             .gap(px(2.))
+            .when(crate::i18n::is_rtl(), |el| el.flex_row_reverse())
             .children(items)
             .child(
                 canvas(

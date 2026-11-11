@@ -841,8 +841,8 @@
     }
   },
   "overlay": {
-    "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor..."
+    "transcribing": "Transkribe ediliyor",
+    "processing": "İşleniyor"
   },
   "whatsNew": {
     "title": "Bespoke v{{version}} yenilikleri"
@@ -941,8 +941,6 @@
       "window": "Pencere",
       "screen": "Ekran",
       "record": "Kaydet",
-      "undo": "Geri Al",
-      "cancel": "İptal",
       "finish": "Bitir",
       "processing": "İşleniyor",
       "copied": "Kopyalandı",
