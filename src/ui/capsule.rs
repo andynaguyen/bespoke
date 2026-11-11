@@ -12,9 +12,9 @@ use super::glass::{GlassSpec, GlassStyle, glass_with};
 use super::platform::capsule as native;
 use super::theme::{Alpha, palette, shadow};
 
-pub const HEIGHT: f32 = 36.;
+pub const HEIGHT: f32 = 42.;
 pub const RADIUS: f32 = HEIGHT / 2.;
-pub const CHIP: f32 = 28.;
+pub const CHIP: f32 = 30.;
 pub const INSET: f32 = (HEIGHT - CHIP) / 2.;
 pub const KEYCAP: f32 = 16.;
 pub const DIVIDER_W: f32 = 9.;
