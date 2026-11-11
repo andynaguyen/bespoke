@@ -98,6 +98,11 @@ fn overlay_view(cx: &mut App) -> Entity<RecordingOverlay> {
     }
     let view = cx.new(RecordingOverlay::new);
     cx.global_mut::<Overlay>().view = Some(view.clone());
+    let spot = capsule::spot(cx);
+    cx.subscribe(&spot, |_, _: &capsule::AnnotateTookSpot, cx| {
+        dismiss_result(cx)
+    })
+    .detach();
     view
 }
 
@@ -232,7 +237,7 @@ pub fn show(state: OverlayState, position: OverlayPosition, cx: &mut App) {
 }
 
 pub fn show_result(state: OverlayState, position: OverlayPosition, cx: &mut App) {
-    if crate::annotate::capsule::is_showing() {
+    if capsule::spot(cx).read(cx).annotate_showing() {
         hide(cx);
         return;
     }
@@ -281,7 +286,7 @@ pub fn hide(cx: &mut App) {
     .detach();
 }
 
-pub fn dismiss_result(cx: &mut App) {
+fn dismiss_result(cx: &mut App) {
     let showing_result = existing_view(cx).is_some_and(|view| {
         let overlay = view.read(cx);
         overlay.visible && overlay.state.is_paste_result()

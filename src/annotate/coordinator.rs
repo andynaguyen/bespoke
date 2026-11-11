@@ -65,14 +65,6 @@ fn clock_template(clock: &str) -> String {
         .collect()
 }
 
-/// Milliseconds since the UI thread first asked, the clock the capsule's chips reveal on.
-fn reveal_clock_ms() -> u64 {
-    thread_local! {
-        static START: Instant = Instant::now();
-    }
-    START.with(|start| start.elapsed().as_millis() as u64)
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MenuAction {
     ToggleCapture,
@@ -555,7 +547,7 @@ impl Coordinator {
     fn show_reveal(&mut self, cx: &mut Context<Self>) {
         self.reduced_motion = reduce_motion();
         let activity = self.reveal_activity();
-        self.reveal.show(reveal_clock_ms(), activity);
+        self.reveal.show(Instant::now(), activity);
         self.sync_native_pill();
         cx.notify();
     }
@@ -1114,7 +1106,7 @@ impl Coordinator {
                 .native_pill
                 .as_ref()
                 .is_some_and(|p| p.pointer_on_pill());
-            if self.reveal.tick(reveal_clock_ms(), on_pill, activity) {
+            if self.reveal.tick(Instant::now(), on_pill, activity) {
                 self.play_fold();
             }
         }

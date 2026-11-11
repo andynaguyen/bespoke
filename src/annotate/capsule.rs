@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use crate::annotate::audio::MIC_LEVEL_EVENT;
@@ -89,12 +89,6 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
     let _ = cx;
 }
 
-static SHOWING: AtomicBool = AtomicBool::new(false);
-
-pub fn is_showing() -> bool {
-    SHOWING.load(Ordering::SeqCst)
-}
-
 /// Opens a window that draws the capsule `link` drives, on the UI thread.
 pub fn open(app: &AppHandle, link: CapsuleLink) {
     app.with_ui(move |cx| open_window(link, cx));
@@ -161,7 +155,7 @@ fn open_window(link: CapsuleLink, cx: &mut App) {
         }
         let _ = cx.update(|cx| {
             view.update(cx, |capsule, _| capsule.poll = None);
-            SHOWING.store(false, Ordering::SeqCst);
+            capsule::spot(cx).update(cx, |spot, cx| spot.set_annotate_showing(false, cx));
             let _ = handle.update(cx, |_, window, _| window.remove_window());
         });
     })
@@ -252,19 +246,23 @@ impl AnnotateCapsule {
                 let was_hidden = *self.pres() == Pres::Hidden;
                 let hidden = snapshot.pres == Pres::Hidden;
                 let was_recording = matches!(self.pres(), Pres::Recording { .. });
-                match snapshot.pres {
-                    Pres::Recording { chips: true, .. } => self.fold.close(true),
-                    Pres::Recording { .. } if !was_recording => {
+                let had_chips = self.chips_showing();
+                if let Pres::Recording { chips, .. } = snapshot.pres {
+                    let now = Instant::now();
+                    if !was_recording {
                         self.levels = [0.; capsule::METER_BARS];
-                        self.fold.start(Instant::now());
+                        self.fold.start(now);
                     }
-                    _ => {}
+                    if chips {
+                        self.fold.cover();
+                    } else if had_chips {
+                        self.fold.uncover(now, crate::ui::platform::reduce_motion());
+                    }
                 }
                 #[cfg(debug_assertions)]
                 self.apply_dev_preview();
                 self.snapshot = Some(snapshot);
                 if was_hidden && !hidden {
-                    crate::ui::overlay::dismiss_result(cx);
                     self.shown += 1;
                     self.place(cx);
                     self.set_visible(true, cx);
@@ -314,7 +312,7 @@ impl AnnotateCapsule {
             return;
         };
         window.set_visible(visible, cx);
-        SHOWING.store(visible, Ordering::SeqCst);
+        capsule::spot(cx).update(cx, |spot, cx| spot.set_annotate_showing(visible, cx));
         if !visible {
             window.set_ignores_mouse(true);
         }
@@ -355,10 +353,9 @@ impl AnnotateCapsule {
         self.state
             .hovered
             .store(inside || self.paste_press.is_some(), Ordering::SeqCst);
-        if !self.chips_showing()
-            && self
-                .fold
-                .tick(Instant::now(), inside, crate::ui::platform::reduce_motion())
+        if self
+            .fold
+            .tick(Instant::now(), inside, crate::ui::platform::reduce_motion())
         {
             cx.notify();
         }

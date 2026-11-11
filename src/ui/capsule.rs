@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    Animation, AnimationExt, App, Bounds, Div, FontFeatures, FontWeight, Hsla, Pixels,
-    SharedString, Stateful, WeakEntity, div, prelude::*, px,
+    Animation, AnimationExt, App, Bounds, Context, Div, Entity, EventEmitter, FontFeatures,
+    FontWeight, Global, Hsla, Pixels, SharedString, Stateful, WeakEntity, div, prelude::*, px,
 };
 
 use super::clay::Clay;
@@ -32,8 +32,9 @@ pub const LEAD_PAD: f32 = 8.;
 pub const LEAD_GAP: f32 = 7.;
 const SPEECH_BANDS: [usize; METER_BARS] = [0, 2, 4, 6, 8];
 
-const FOLD_AFTER_START: Duration = Duration::from_millis(3_500);
-const FOLD_LINGER: Duration = Duration::from_millis(1_200);
+pub const REVEAL: Duration = Duration::from_millis(3_500);
+pub const REVEAL_MIN: Duration = Duration::from_millis(900);
+pub const REVEAL_LINGER: Duration = Duration::from_millis(1_200);
 pub const MORPH: Duration = Duration::from_millis(460);
 
 fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, t: f32) -> f32 {
@@ -111,8 +112,56 @@ impl Tween {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct RevealWindow {
+    since: Instant,
+    until: Instant,
+    hovered_until: Option<Instant>,
+}
+
+impl RevealWindow {
+    pub fn open(now: Instant) -> Self {
+        Self {
+            since: now,
+            until: now + REVEAL,
+            hovered_until: None,
+        }
+    }
+
+    fn hover_only(now: Instant) -> Self {
+        Self {
+            since: now,
+            until: now,
+            hovered_until: None,
+        }
+    }
+
+    pub fn hover(&mut self, now: Instant) {
+        let linger = now + REVEAL_LINGER;
+        self.hovered_until = Some(linger);
+        self.until = self.until.max(linger);
+    }
+
+    pub fn is_open(&self, now: Instant) -> bool {
+        now < self.until
+    }
+
+    pub fn age(&self, now: Instant) -> Duration {
+        now.saturating_duration_since(self.since)
+    }
+
+    pub fn lingering(&self, now: Instant) -> bool {
+        self.hovered_until.is_some_and(|until| now < until)
+    }
+
+    fn remaining(&self, now: Instant) -> Duration {
+        self.until.saturating_duration_since(now)
+    }
+}
+
 pub struct Fold {
-    open_until: Option<Instant>,
+    window: Option<RevealWindow>,
+    covered: bool,
     open: bool,
     progress: Tween,
     measured: Pixels,
@@ -121,7 +170,8 @@ pub struct Fold {
 impl Fold {
     pub fn new() -> Self {
         Self {
-            open_until: None,
+            window: None,
+            covered: false,
             open: false,
             progress: Tween::new(0., MORPH, ease_morph),
             measured: px(0.),
@@ -129,25 +179,45 @@ impl Fold {
     }
 
     pub fn start(&mut self, now: Instant) {
-        self.open_until = Some(now + FOLD_AFTER_START);
+        self.window = Some(RevealWindow::open(now));
+        self.covered = false;
         self.open = true;
         self.progress.set(1., true);
     }
 
     pub fn close(&mut self, snap: bool) {
-        self.open_until = None;
+        self.window = None;
+        self.covered = false;
         self.open = false;
         self.progress.set(0., snap);
     }
 
-    pub fn tick(&mut self, now: Instant, hovered: bool, snap: bool) -> bool {
-        if hovered {
-            let linger = now + FOLD_LINGER;
-            self.open_until = Some(self.open_until.map_or(linger, |until| until.max(linger)));
+    pub fn cover(&mut self) {
+        self.covered = true;
+        self.open = false;
+        self.progress.set(0., true);
+    }
+
+    pub fn uncover(&mut self, now: Instant, snap: bool) -> bool {
+        self.covered = false;
+        if self.window.is_some_and(|w| w.remaining(now) < REVEAL_MIN) {
+            self.window = None;
         }
-        let open = self.open_until.is_some_and(|until| now < until);
+        self.tick(now, false, snap)
+    }
+
+    pub fn tick(&mut self, now: Instant, hovered: bool, snap: bool) -> bool {
+        if self.covered {
+            return false;
+        }
+        if hovered {
+            self.window
+                .get_or_insert_with(|| RevealWindow::hover_only(now))
+                .hover(now);
+        }
+        let open = self.window.is_some_and(|w| w.is_open(now));
         if !open {
-            self.open_until = None;
+            self.window = None;
         }
         let toggled = open != self.open;
         if toggled {
@@ -188,6 +258,41 @@ impl Fold {
                     .child(buttons)
                     .child(tracker),
             )
+    }
+}
+
+#[derive(Default)]
+pub struct Spot {
+    annotate_showing: bool,
+}
+
+pub struct AnnotateTookSpot;
+
+impl EventEmitter<AnnotateTookSpot> for Spot {}
+
+struct GlobalSpot(Entity<Spot>);
+
+impl Global for GlobalSpot {}
+
+pub fn spot(cx: &mut App) -> Entity<Spot> {
+    if let Some(spot) = cx.try_global::<GlobalSpot>() {
+        return spot.0.clone();
+    }
+    let spot = cx.new(|_| Spot::default());
+    cx.set_global(GlobalSpot(spot.clone()));
+    spot
+}
+
+impl Spot {
+    pub fn annotate_showing(&self) -> bool {
+        self.annotate_showing
+    }
+
+    pub fn set_annotate_showing(&mut self, showing: bool, cx: &mut Context<Self>) {
+        if showing && !self.annotate_showing {
+            cx.emit(AnnotateTookSpot);
+        }
+        self.annotate_showing = showing;
     }
 }
 
@@ -461,7 +566,7 @@ mod tests {
         fold.start(start);
         assert!(!fold.tick(start + Duration::from_secs(3), false, true));
         assert!(fold.open);
-        assert!(fold.tick(start + FOLD_AFTER_START, false, true));
+        assert!(fold.tick(start + REVEAL, false, true));
         assert!(!fold.open);
     }
 
@@ -471,8 +576,8 @@ mod tests {
         let mut fold = Fold::new();
         assert!(fold.tick(start, true, true));
         assert!(fold.open);
-        assert!(!fold.tick(start + FOLD_LINGER / 2, false, true));
-        assert!(fold.tick(start + FOLD_LINGER, false, true));
+        assert!(!fold.tick(start + REVEAL_LINGER / 2, false, true));
+        assert!(fold.tick(start + REVEAL_LINGER, false, true));
         assert!(!fold.open);
     }
 
@@ -481,9 +586,35 @@ mod tests {
         let start = Instant::now();
         let mut fold = Fold::new();
         fold.start(start);
-        let late = start + FOLD_AFTER_START - Duration::from_millis(1);
+        let late = start + REVEAL - Duration::from_millis(1);
         fold.tick(late, true, true);
-        assert!(!fold.tick(late + FOLD_LINGER / 2, false, true));
+        assert!(!fold.tick(late + REVEAL_LINGER / 2, false, true));
+        assert!(fold.open);
+    }
+
+    #[test]
+    fn uncovered_buttons_get_the_rest_of_their_window() {
+        let start = Instant::now();
+        let mut fold = Fold::new();
+        fold.start(start);
+        fold.cover();
+        assert!(!fold.tick(start + Duration::from_millis(500), true, true));
+        assert!(!fold.open);
+        assert!(fold.uncover(start + REVEAL_MIN, true));
+        assert!(fold.open);
+        assert!(fold.tick(start + REVEAL, false, true));
+        assert!(!fold.open);
+    }
+
+    #[test]
+    fn uncovered_buttons_stay_folded_when_their_window_is_nearly_over() {
+        let start = Instant::now();
+        let mut fold = Fold::new();
+        fold.start(start);
+        fold.cover();
+        assert!(!fold.uncover(start + REVEAL - REVEAL_MIN / 2, true));
+        assert!(!fold.open);
+        assert!(fold.tick(start + REVEAL, true, true));
         assert!(fold.open);
     }
 }
