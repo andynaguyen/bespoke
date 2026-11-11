@@ -389,11 +389,6 @@ fn detects_permission_denied() {
 }
 
 #[test]
-fn detects_windows_error_code() {
-    assert!(is_microphone_access_denied("WASAPI error: 0x80070005"));
-}
-
-#[test]
 fn does_not_match_unrelated_errors() {
     assert!(!is_microphone_access_denied("device not found"));
 }

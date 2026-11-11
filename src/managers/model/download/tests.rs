@@ -60,7 +60,7 @@ fn test_verify_sha256_fails_and_deletes_partial_on_mismatch() {
 }
 
 #[test]
-fn test_verify_sha256_fails_and_deletes_partial_when_file_missing() {
+fn test_verify_sha256_fails_when_file_missing() {
     let dir = TempDir::new().unwrap();
     let missing_path = dir.path().join("gone.partial");
 

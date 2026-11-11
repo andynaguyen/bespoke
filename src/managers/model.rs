@@ -181,8 +181,7 @@ impl ModelDescriptor {
                 file.map(|f| f.quant.as_str()).unwrap_or("")
             )
         };
-        let languages =
-            canonicalize_supported_languages(self.caps.languages.clone().unwrap_or_default());
+        let caps = local_caps(&self.caps);
         ModelInfo {
             id,
             name,
@@ -197,13 +196,13 @@ impl ModelDescriptor {
             engine_type: self.engine_type.clone(),
             accuracy_score: self.accuracy_score,
             speed_score: self.speed_score,
-            supports_translation: self.caps.supports_translation.unwrap_or(false),
+            supports_translation: caps.supports_translation,
             is_recommended: self.recommended && is_default,
-            supports_language_selection: languages.len() > 1,
-            supported_languages: languages,
+            supports_language_selection: caps.supports_language_selection,
+            supported_languages: caps.supported_languages,
             is_custom: false,
-            supports_streaming: self.caps.supports_streaming.unwrap_or(false),
-            supports_language_detection: self.caps.supports_language_detect.unwrap_or(false),
+            supports_streaming: caps.supports_streaming,
+            supports_language_detection: caps.supports_language_detection,
         }
     }
 }
@@ -2237,6 +2236,7 @@ impl ModelManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::managers::gguf_meta::{GgufValue, test_support::build_gguf};
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
@@ -2309,20 +2309,6 @@ mod tests {
         assert_eq!(languages, vec!["en", "zh", "yue"]);
     }
 
-    fn build_test_gguf_string_metadata(kvs: &[(&str, &str)]) -> Vec<u8> {
-        let mut out = Vec::new();
-        out.extend_from_slice(b"GGUF");
-        out.extend_from_slice(&3u32.to_le_bytes());
-        out.extend_from_slice(&0u64.to_le_bytes());
-        out.extend_from_slice(&(kvs.len() as u64).to_le_bytes());
-        for (key, value) in kvs {
-            push_gguf_str(&mut out, key);
-            out.extend_from_slice(&8u32.to_le_bytes());
-            push_gguf_str(&mut out, value);
-        }
-        out
-    }
-
     #[test]
     fn test_discover_custom_transcribe_models() {
         let temp_dir = TempDir::new().unwrap();
@@ -2336,9 +2322,9 @@ mod tests {
 
         let mut gguf_file = File::create(models_dir.join("my-gguf-model.gguf")).unwrap();
         gguf_file
-            .write_all(&build_test_gguf_string_metadata(&[(
+            .write_all(&build_gguf(&[(
                 "general.name",
-                "Friendly GGUF Name",
+                GgufValue::String("Friendly GGUF Name".into()),
             )]))
             .unwrap();
 
@@ -2411,28 +2397,15 @@ mod tests {
     }
 
     #[test]
-    fn test_discover_custom_models_empty_dir() {
+    fn test_discover_custom_models_finds_nothing_in_an_empty_or_missing_dir() {
         let temp_dir = TempDir::new().unwrap();
-        let models_dir = temp_dir.path().to_path_buf();
+        let missing = PathBuf::from("/nonexistent/path/that/does/not/exist");
 
-        let mut models = HashMap::new();
-        let count_before = models.len();
-
-        ModelManager::discover_custom_transcribe_models(&models_dir, &mut models).unwrap();
-
-        assert_eq!(models.len(), count_before);
-    }
-
-    #[test]
-    fn test_discover_custom_models_nonexistent_dir() {
-        let models_dir = PathBuf::from("/nonexistent/path/that/does/not/exist");
-
-        let mut models = HashMap::new();
-        let count_before = models.len();
-
-        let result = ModelManager::discover_custom_transcribe_models(&models_dir, &mut models);
-        assert!(result.is_ok());
-        assert_eq!(models.len(), count_before);
+        for models_dir in [temp_dir.path().to_path_buf(), missing] {
+            let mut models = HashMap::new();
+            ModelManager::discover_custom_transcribe_models(&models_dir, &mut models).unwrap();
+            assert!(models.is_empty(), "{}", models_dir.display());
+        }
     }
 
     #[test]
@@ -2545,28 +2518,16 @@ mod tests {
         assert!(!models.contains_key(default_filename.trim_end_matches(".gguf")));
     }
 
-    fn push_gguf_str(out: &mut Vec<u8>, val: &str) {
-        out.extend_from_slice(&(val.len() as u64).to_le_bytes());
-        out.extend_from_slice(val.as_bytes());
-    }
-
     fn write_synthetic_gguf(path: &Path, arch: &str, languages: &[&str]) {
-        let mut out: Vec<u8> = Vec::new();
-        out.extend_from_slice(&0x4655_4747u32.to_le_bytes());
-        out.extend_from_slice(&3u32.to_le_bytes());
-        out.extend_from_slice(&0u64.to_le_bytes());
-        out.extend_from_slice(&2u64.to_le_bytes());
-        push_gguf_str(&mut out, "general.architecture");
-        out.extend_from_slice(&8u32.to_le_bytes());
-        push_gguf_str(&mut out, arch);
-        push_gguf_str(&mut out, "general.languages");
-        out.extend_from_slice(&9u32.to_le_bytes());
-        out.extend_from_slice(&8u32.to_le_bytes());
-        out.extend_from_slice(&(languages.len() as u64).to_le_bytes());
-        for l in languages {
-            push_gguf_str(&mut out, l);
-        }
-        fs::write(path, out).unwrap();
+        let languages = languages
+            .iter()
+            .map(|l| GgufValue::String(l.to_string()))
+            .collect();
+        let data = build_gguf(&[
+            ("general.architecture", GgufValue::String(arch.into())),
+            ("general.languages", GgufValue::Array(languages)),
+        ]);
+        fs::write(path, data).unwrap();
     }
 
     #[test]

@@ -590,9 +590,7 @@ fn acknowledge_pause_after_write(transport: &CaptureTransportState) {
 
 pub fn is_microphone_access_denied(error_message: &str) -> bool {
     let normalized = error_message.to_lowercase();
-    normalized.contains("access is denied")
-        || normalized.contains("permission denied")
-        || normalized.contains("0x80070005")
+    normalized.contains("access is denied") || normalized.contains("permission denied")
 }
 
 pub fn is_no_input_device_error(error_message: &str) -> bool {

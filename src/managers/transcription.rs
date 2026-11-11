@@ -50,7 +50,6 @@ fn panic_payload_message(payload: &(dyn std::any::Any + Send)) -> String {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModelStateEvent {
     pub event_type: String,
-    pub model_id: Option<String>,
     pub model_name: Option<String>,
     pub error: Option<String>,
 }
@@ -380,29 +379,32 @@ fn split_voice_submit(raw: String, keyword: Option<&str>) -> (String, bool) {
     }
 }
 
-fn apply_scrub(text: String, settings: &AppSettings) -> (String, bool) {
-    if !settings.scrub_enabled {
-        return (text, false);
-    }
-    match scrub_before_keyword(&text, &settings.scrub_keyword) {
-        Some(rest) => (rest, true),
-        None => (text, false),
-    }
-}
-
-fn apply_scratch(text: String, settings: &AppSettings) -> (String, bool) {
-    if !settings.scratch_enabled {
-        return (text, false);
-    }
-    match scratch_before_keyword(&text, &settings.scratch_keyword) {
+/// Runs one spoken cut, such as "scrub that", when its setting is on.
+fn apply_cut(
+    text: String,
+    enabled: bool,
+    keyword: &str,
+    cut: fn(&str, &str) -> Option<String>,
+) -> (String, bool) {
+    match enabled.then(|| cut(&text, keyword)).flatten() {
         Some(rest) => (rest, true),
         None => (text, false),
     }
 }
 
 fn apply_spoken_cuts(text: String, settings: &AppSettings) -> (String, bool) {
-    let (text, scrubbed) = apply_scrub(text, settings);
-    let (text, scratched) = apply_scratch(text, settings);
+    let (text, scrubbed) = apply_cut(
+        text,
+        settings.scrub_enabled,
+        &settings.scrub_keyword,
+        scrub_before_keyword,
+    );
+    let (text, scratched) = apply_cut(
+        text,
+        settings.scratch_enabled,
+        &settings.scratch_keyword,
+        scratch_before_keyword,
+    );
     (text, scrubbed || scratched)
 }
 
@@ -480,7 +482,6 @@ impl TranscriptionManager {
             "model-state-changed",
             ModelStateEvent {
                 event_type: "unloaded".to_string(),
-                model_id: None,
                 model_name: None,
                 error: None,
             },
@@ -511,7 +512,6 @@ impl TranscriptionManager {
             "model-state-changed",
             ModelStateEvent {
                 event_type: "loading_started".to_string(),
-                model_id: Some(model_id.to_string()),
                 model_name: None,
                 error: None,
             },
@@ -525,7 +525,6 @@ impl TranscriptionManager {
                     "model-state-changed",
                     ModelStateEvent {
                         event_type: "loading_failed".to_string(),
-                        model_id: Some(model_id.to_string()),
                         model_name: None,
                         error: Some(error_msg.clone()),
                     },
@@ -539,7 +538,6 @@ impl TranscriptionManager {
                 "model-state-changed",
                 ModelStateEvent {
                     event_type: "loading_failed".to_string(),
-                    model_id: Some(model_id.to_string()),
                     model_name: Some(model_info.name.clone()),
                     error: Some(error_msg.to_string()),
                 },
@@ -711,7 +709,6 @@ impl TranscriptionManager {
             "model-state-changed",
             ModelStateEvent {
                 event_type: "loading_completed".to_string(),
-                model_id: Some(model_id.to_string()),
                 model_name: Some(model_info.name.clone()),
                 error: None,
             },
@@ -1471,7 +1468,6 @@ impl TranscriptionManager {
                         "model-state-changed",
                         ModelStateEvent {
                             event_type: "unloaded".to_string(),
-                            model_id: None,
                             model_name: None,
                             error: Some(format!("Engine panicked: {}", panic_msg)),
                         },
@@ -1713,24 +1709,6 @@ fn transcribe_cpp_run_plan(
         language,
         target_language,
     }
-}
-
-#[cfg(test)]
-fn post_process_transcription_text(
-    raw: String,
-    settings: &AppSettings,
-    custom_words_already_prompted: bool,
-    output_language: &OutputLanguageEvidence,
-    supported_languages: &[String],
-) -> String {
-    post_process_transcription_text_with_fixes(
-        raw,
-        settings,
-        custom_words_already_prompted,
-        output_language,
-        supported_languages,
-    )
-    .0
 }
 
 fn post_process_transcription_text_with_fixes(
@@ -2207,12 +2185,12 @@ mod tests {
         let mut settings = crate::settings::get_default_settings();
         let text = || "wrong start scrub that right start".to_string();
         assert_eq!(
-            apply_scrub(text(), &settings),
+            apply_spoken_cuts(text(), &settings),
             ("Right start".to_string(), true)
         );
 
         settings.scrub_enabled = false;
-        assert_eq!(apply_scrub(text(), &settings), (text(), false));
+        assert_eq!(apply_spoken_cuts(text(), &settings), (text(), false));
     }
 
     #[test]
@@ -2220,12 +2198,12 @@ mod tests {
         let mut settings = crate::settings::get_default_settings();
         let text = || "Keep this. Drop this. Scratch that. Right start.".to_string();
         assert_eq!(
-            apply_scratch(text(), &settings),
+            apply_spoken_cuts(text(), &settings),
             ("Keep this. Right start.".to_string(), true)
         );
 
         settings.scratch_enabled = false;
-        assert_eq!(apply_scratch(text(), &settings), (text(), false));
+        assert_eq!(apply_spoken_cuts(text(), &settings), (text(), false));
     }
 
     #[test]
@@ -2284,13 +2262,14 @@ mod tests {
         let supported = languages(&["en", "pt"]);
         let evidence = resolve_output_language_evidence(&settings, Some("pt"), &supported, false);
 
-        let result = post_process_transcription_text(
+        let result = post_process_transcription_text_with_fixes(
             "eu vi um carro".to_string(),
             &settings,
             false,
             &evidence,
             &supported,
-        );
+        )
+        .0;
 
         assert_eq!(
             evidence,
@@ -2324,13 +2303,14 @@ mod tests {
         let evidence =
             resolve_output_language_evidence(&settings, None, &languages(&["en", "pt"]), false);
 
-        let result = post_process_transcription_text(
+        let result = post_process_transcription_text_with_fixes(
             "um uhm ok".to_string(),
             &settings,
             false,
             &evidence,
             &languages(&["en", "pt"]),
-        );
+        )
+        .0;
 
         assert_eq!(evidence, OutputLanguageEvidence::Unknown);
         assert_eq!(result, "um ok");
@@ -2343,14 +2323,15 @@ mod tests {
             ..Default::default()
         };
 
-        let result = post_process_transcription_text(
+        let result = post_process_transcription_text_with_fixes(
             "um so the weather forecast said it would probably rain throughout the whole weekend"
                 .to_string(),
             &settings,
             false,
             &OutputLanguageEvidence::Unknown,
             &languages(&["en", "pt", "es", "de"]),
-        );
+        )
+        .0;
 
         assert_eq!(
             result,
@@ -2365,13 +2346,14 @@ mod tests {
             ..Default::default()
         };
 
-        let result = post_process_transcription_text(
+        let result = post_process_transcription_text_with_fixes(
             "eu vi um carro na rua ontem de manhã quando fui ao mercado".to_string(),
             &settings,
             false,
             &OutputLanguageEvidence::Unknown,
             &languages(&["en", "pt", "es", "de"]),
-        );
+        )
+        .0;
 
         assert_eq!(
             result,
@@ -2449,13 +2431,14 @@ mod tests {
         let evidence = resolve_output_language_evidence(&settings, None, &supported, false);
         assert_eq!(evidence, OutputLanguageEvidence::Unknown);
 
-        let result = post_process_transcription_text(
+        let result = post_process_transcription_text_with_fixes(
             "eu vi um carro".to_string(),
             &settings,
             false,
             &evidence,
             &supported,
-        );
+        )
+        .0;
         assert_eq!(result, "eu vi um carro");
     }
 

@@ -33,7 +33,6 @@ pub const KNOWN_ARCHES: &[&str] = &[
 
 const KEY_ARCH: &str = "general.architecture";
 const KEY_NAME: &str = "general.name";
-const KEY_VARIANT: &str = "stt.variant";
 const KEY_LANGUAGES: &str = "general.languages";
 const KEY_CAP_STREAMING: &str = "stt.capability.streaming";
 const KEY_CAP_TRANSLATE: &str = "stt.capability.translate";
@@ -41,7 +40,6 @@ const KEY_CAP_LANG_DETECT: &str = "stt.capability.lang_detect";
 const PROBE_KEYS: &[&str] = &[
     KEY_ARCH,
     KEY_NAME,
-    KEY_VARIANT,
     KEY_LANGUAGES,
     KEY_CAP_STREAMING,
     KEY_CAP_TRANSLATE,
@@ -63,7 +61,6 @@ pub struct CapabilityProbe {
     pub verdict: Compatibility,
     pub display_name: Option<String>,
     pub architecture: Option<String>,
-    pub variant: Option<String>,
     pub languages: Option<Vec<String>>,
     pub supports_streaming: Option<bool>,
     pub supports_translation: Option<bool>,
@@ -92,7 +89,6 @@ impl CapabilityProbe {
             verdict,
             display_name: meta.get_str(KEY_NAME).map(str::to_string),
             architecture,
-            variant: meta.get_str(KEY_VARIANT).map(str::to_string),
             languages: meta.get_string_array(KEY_LANGUAGES),
             supports_streaming: meta.get_bool(KEY_CAP_STREAMING),
             supports_translation: meta.get_bool(KEY_CAP_TRANSLATE),

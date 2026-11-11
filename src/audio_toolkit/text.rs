@@ -1437,26 +1437,15 @@ mod tests {
 
     #[test]
     fn test_apply_custom_words_matches_ampersand_word() {
-        let text = "send it to RD for review";
         let custom_words = vec!["R&D".to_string()];
-        let result = apply_custom_words(text, &custom_words, 0.18);
-        assert_eq!(result, "send it to R&D for review");
-    }
-
-    #[test]
-    fn test_apply_custom_words_matches_spoken_ampersand_word() {
-        let text = "send it to R and D for review";
-        let custom_words = vec!["R&D".to_string()];
-        let result = apply_custom_words(text, &custom_words, 0.18);
-        assert_eq!(result, "send it to R&D for review");
-    }
-
-    #[test]
-    fn test_apply_custom_words_preserves_ampersand_word() {
-        let text = "send it to R&D for review";
-        let custom_words = vec!["R&D".to_string()];
-        let result = apply_custom_words(text, &custom_words, 0.18);
-        assert_eq!(result, "send it to R&D for review");
+        for text in [
+            "send it to RD for review",
+            "send it to R and D for review",
+            "send it to R&D for review",
+        ] {
+            let result = apply_custom_words(text, &custom_words, 0.18);
+            assert_eq!(result, "send it to R&D for review", "{text}");
+        }
     }
 
     #[test]

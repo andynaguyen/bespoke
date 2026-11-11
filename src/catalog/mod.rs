@@ -59,7 +59,6 @@ impl From<&CatalogModel> for ModelDescriptor {
                 verdict: Compatibility::Compatible,
                 display_name: None,
                 architecture: m.architecture.clone(),
-                variant: None,
                 languages: Some(m.languages.clone()),
                 supports_streaming: Some(m.capabilities.streaming),
                 supports_translation: Some(m.capabilities.translate),

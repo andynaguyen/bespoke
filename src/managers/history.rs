@@ -111,10 +111,14 @@ pub struct PasteTarget {
 }
 
 impl PasteTarget {
+    /// Reads the name and bundle id from one lookup, so both describe the same app.
     pub fn frontmost() -> Self {
+        let Some(app) = objc2_app_kit::NSWorkspace::sharedWorkspace().frontmostApplication() else {
+            return Self::default();
+        };
         Self {
-            name: crate::utils::frontmost_app_name(),
-            bundle_id: crate::utils::frontmost_app_bundle_id(),
+            name: app.localizedName().map(|name| name.to_string()),
+            bundle_id: app.bundleIdentifier().map(|id| id.to_string()),
         }
     }
 }
@@ -321,7 +325,7 @@ impl HistoryManager {
         post_process_prompt: Option<String>,
     ) -> Result<HistoryEntry> {
         let timestamp = Utc::now().timestamp();
-        let title = self.format_timestamp_title(timestamp);
+        let title = format_timestamp_title(timestamp);
 
         let conn = self.get_connection()?;
         conn.execute(
@@ -854,14 +858,14 @@ impl HistoryManager {
 
         Ok(())
     }
+}
 
-    fn format_timestamp_title(&self, timestamp: i64) -> String {
-        if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
-            let local_datetime = utc_datetime.with_timezone(&Local);
-            local_datetime.format("%B %e, %Y - %l:%M%p").to_string()
-        } else {
-            format!("Recording {}", timestamp)
-        }
+fn format_timestamp_title(timestamp: i64) -> String {
+    if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
+        let local_datetime = utc_datetime.with_timezone(&Local);
+        local_datetime.format("%B %e, %Y - %l:%M%p").to_string()
+    } else {
+        format!("Recording {}", timestamp)
     }
 }
 

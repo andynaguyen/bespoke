@@ -302,11 +302,12 @@ pub fn parse_header(bytes: &[u8], wanted_keys: &[&str]) -> Result<GgufMetadata, 
     Ok(GgufMetadata { kv })
 }
 
+/// Builds GGUF headers for tests here and in `model.rs`.
 #[cfg(test)]
-mod tests {
+pub(crate) mod test_support {
     use super::*;
 
-    fn push_str(out: &mut Vec<u8>, s: &str) {
+    pub(crate) fn push_str(out: &mut Vec<u8>, s: &str) {
         out.extend_from_slice(&(s.len() as u64).to_le_bytes());
         out.extend_from_slice(s.as_bytes());
     }
@@ -339,7 +340,7 @@ mod tests {
         }
     }
 
-    fn build_gguf(kvs: &[(&str, GgufValue)]) -> Vec<u8> {
+    pub(crate) fn build_gguf(kvs: &[(&str, GgufValue)]) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&GGUF_MAGIC.to_le_bytes());
         out.extend_from_slice(&3u32.to_le_bytes());
@@ -351,6 +352,12 @@ mod tests {
         }
         out
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_support::{build_gguf, push_str};
+    use super::*;
 
     #[test]
     fn parses_basic_kv() {

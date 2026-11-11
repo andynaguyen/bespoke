@@ -43,11 +43,6 @@ pub fn cancel_current_operation(app: &AppHandle) {
     info!("Operation cancellation completed - returned to idle state");
 }
 
-pub fn frontmost_app_name() -> Option<String> {
-    let app = objc2_app_kit::NSWorkspace::sharedWorkspace().frontmostApplication()?;
-    app.localizedName().map(|name| name.to_string())
-}
-
 pub fn frontmost_app_bundle_id() -> Option<String> {
     let app = objc2_app_kit::NSWorkspace::sharedWorkspace().frontmostApplication()?;
     app.bundleIdentifier().map(|id| id.to_string())
