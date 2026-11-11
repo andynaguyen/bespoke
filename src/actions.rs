@@ -13,8 +13,7 @@ use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{
-    APPLE_INTELLIGENCE_PROVIDER_ID, AppSettings, OverlayStyle, PasteMethod, WritingStyle,
-    get_settings,
+    APPLE_INTELLIGENCE_PROVIDER_ID, AppSettings, OverlayStyle, WritingStyle, get_settings,
 };
 use crate::shortcut;
 use crate::tray::{TrayIconState, set_tray_state};
@@ -880,25 +879,19 @@ impl ShortcutAction for TranscribeAction {
                                     }
 
                                     match utils::paste(final_text, ah_clone.clone(), submit) {
-                                        Ok(()) => {
+                                        Ok(true) => {
                                             debug!(
                                                 "Text pasted successfully in {:?}",
                                                 paste_time.elapsed()
                                             );
-                                            // Nothing lands with paste turned off, so there's
-                                            // nothing to confirm.
-                                            if get_settings(&ah_clone).paste_method
-                                                == PasteMethod::None
-                                            {
-                                                crate::ui::overlay::hide(cx);
-                                            } else {
-                                                utils::show_result_overlay(
-                                                    &ah_clone,
-                                                    OverlayState::Done,
-                                                    cx,
-                                                );
-                                            }
+                                            utils::show_result_overlay(
+                                                &ah_clone,
+                                                OverlayState::Done,
+                                                cx,
+                                            );
                                         }
+                                        // Paste is off, so there's nothing to confirm.
+                                        Ok(false) => crate::ui::overlay::hide(cx),
                                         Err(e) => {
                                             error!("Failed to paste transcription: {}", e);
                                             let _ = ah_clone.emit("paste-error", ());

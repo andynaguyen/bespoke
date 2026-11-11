@@ -627,7 +627,13 @@ impl RecordingOverlay {
     }
 
     fn cancel_button(&self, c: &Colors) -> impl IntoElement {
-        let escape = self.cancel_is_escape;
+        // Stopping a recording unregisters Esc, so the hint shows only while it cancels.
+        let listening = match self.state {
+            OverlayState::Recording => true,
+            OverlayState::Streaming => self.phase != StreamPhase::Working,
+            _ => false,
+        };
+        let escape = self.cancel_is_escape && listening;
         capsule::chip("overlay-cancel", ChipKind::Plain, c)
             .on_click(|_, _, _| {
                 let app = AppHandle::global().clone();
@@ -899,7 +905,7 @@ impl RecordingOverlay {
             self.state,
             OverlayState::Transcribing | OverlayState::Processing
         );
-        let snap = std::mem::take(&mut self.snap);
+        let snap = std::mem::take(&mut self.snap) || crate::ui::platform::reduce_motion();
         let width = match self.state {
             OverlayState::Done => DONE_W,
             OverlayState::PasteFailed => self.failed_width(),
@@ -908,8 +914,9 @@ impl RecordingOverlay {
         };
         self.width.set(width, snap);
         if matches!(self.state, OverlayState::Done | OverlayState::PasteFailed) {
+            // The buttons are still folding closed, so their width stays until they finish.
             return self
-                .card(px(0.), c, cx)
+                .card(self.fold.width(), c, cx)
                 .flex_col()
                 .child(self.result_row(c, cx))
                 .into_any_element();
@@ -941,7 +948,7 @@ impl RecordingOverlay {
         } else {
             REST_W
         };
-        let snap = std::mem::take(&mut self.snap);
+        let snap = std::mem::take(&mut self.snap) || crate::ui::platform::reduce_motion();
         self.width.set(width, snap);
         let target = if open { 1. } else { 0. };
         self.text_open.set(target, snap);
