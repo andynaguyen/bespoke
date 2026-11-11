@@ -1,6 +1,9 @@
+mod coach;
 mod models;
 mod permissions;
+pub mod tour;
 
+pub use coach::KeycapCoach;
 pub use models::ModelOnboarding;
 pub use permissions::AccessibilityOnboarding;
 
@@ -8,6 +11,7 @@ pub use permissions::AccessibilityOnboarding;
 pub enum OnboardingPreview {
     Accessibility,
     Model,
+    Coach,
 }
 
 fn top_padding() -> gpui::Pixels {

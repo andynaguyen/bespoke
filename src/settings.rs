@@ -139,6 +139,17 @@ pub enum OverlayStyle {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
+pub enum TourProgress {
+    Dictate,
+    Scratch,
+    Annotate,
+    Review,
+    #[default]
+    Done,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum McpReach {
     #[default]
     Off,
@@ -319,6 +330,8 @@ pub struct AppSettings {
     pub whats_new_last_seen_version: String,
     pub selected_model: String,
     pub onboarding_completed: bool,
+    #[serde(default)]
+    pub onboarding_tour: TourProgress,
     pub always_on_microphone: bool,
     /// Microphones by device name, highest priority first. Recording uses the first one that is
     /// connected, and the system default when none are. Empty means the system default.
@@ -782,6 +795,7 @@ pub fn get_default_settings() -> AppSettings {
         whats_new_last_seen_version: default_whats_new_last_seen_version(),
         selected_model: "".to_string(),
         onboarding_completed: false,
+        onboarding_tour: TourProgress::Dictate,
         always_on_microphone: false,
         microphone_priority: Vec::new(),
         selected_channel: None,
@@ -953,6 +967,15 @@ fn apply_settings_migrations(
 
     if settings_value.get("onboarding_completed").is_none() {
         settings.onboarding_completed = !settings.selected_model.is_empty();
+        updated = true;
+    }
+
+    if settings_value.get("onboarding_tour").is_none() {
+        settings.onboarding_tour = if settings.onboarding_completed {
+            TourProgress::Done
+        } else {
+            TourProgress::Dictate
+        };
         updated = true;
     }
 
@@ -1599,6 +1622,7 @@ mod tests {
         let raw = serde_json::json!({
             "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,
             "onboarding_completed": false,
+            "onboarding_tour": "dictate",
             "whats_new_last_seen_version": default_whats_new_last_seen_version(),
             "overlay_style": "live",
             "transcribe_accelerator": "gpu",
@@ -1610,6 +1634,35 @@ mod tests {
             settings.transcribe_gpu_device.as_deref(),
             Some("[\"vulkan\",\"id\",\"0000:01:00.0\"]")
         );
+    }
+
+    #[test]
+    fn a_new_install_takes_the_tour() {
+        assert_eq!(
+            get_default_settings().onboarding_tour,
+            TourProgress::Dictate
+        );
+    }
+
+    #[test]
+    fn a_user_who_finished_onboarding_skips_the_tour() {
+        let mut settings = get_default_settings();
+        settings.onboarding_completed = true;
+        let raw = serde_json::json!({ "onboarding_completed": true });
+
+        apply_settings_migrations(&mut settings, &raw);
+
+        assert_eq!(settings.onboarding_tour, TourProgress::Done);
+    }
+
+    #[test]
+    fn a_user_still_in_onboarding_takes_the_tour() {
+        let mut settings = get_default_settings();
+        let raw = serde_json::json!({ "onboarding_completed": false });
+
+        apply_settings_migrations(&mut settings, &raw);
+
+        assert_eq!(settings.onboarding_tour, TourProgress::Dictate);
     }
 
     #[test]

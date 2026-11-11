@@ -24,4 +24,6 @@ pub fn dictionary_active() -> bool {
 pub struct Take {
     pub text: String,
     pub fixes: Vec<Fix>,
+    #[serde(default)]
+    pub cut_by_voice: bool,
 }
