@@ -12,10 +12,14 @@ use gpui_component::scroll::ScrollableElement;
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::{t, t_or, t_with};
 use crate::managers::transcription::ModelStateEvent;
+use crate::settings::TourProgress;
 use crate::ui::components::{KeyboardFocus, RowDirection};
 use crate::ui::event_bus::event_bus;
 use crate::ui::glass::{GlassSpec, GlassStyle, glass_with};
-use crate::ui::onboarding::{AccessibilityOnboarding, ModelOnboarding, OnboardingPreview};
+use crate::ui::onboarding::tour::CoachPreview;
+use crate::ui::onboarding::{
+    AccessibilityOnboarding, KeycapCoach, ModelOnboarding, OnboardingPreview,
+};
 use crate::ui::pages::{self, PageHandle, PageLayout};
 use crate::ui::popup::DialogWindow;
 use crate::ui::stores::SettingsStore;
@@ -85,6 +89,7 @@ impl Section {
 enum OnboardingStep {
     Accessibility,
     Model,
+    Coach,
     Done,
 }
 
@@ -92,7 +97,6 @@ pub const TITLEBAR_HEIGHT: f32 = 28.;
 
 pub struct MainWindow {
     step: OnboardingStep,
-    is_returning_user: bool,
     post_onboarding_done: bool,
     preview: Option<OnboardingPreview>,
     section: Section,
@@ -104,6 +108,7 @@ pub struct MainWindow {
     whats_new: Entity<WhatsNewGate>,
     accessibility_onboarding: Option<Entity<AccessibilityOnboarding>>,
     model_onboarding: Option<Entity<ModelOnboarding>>,
+    coach: Option<Entity<KeycapCoach>>,
     dialog: Option<OpenDialog>,
     previous_focus: Option<FocusHandle>,
 }
@@ -121,14 +126,14 @@ impl MainWindow {
         })
         .detach();
 
-        let (step, is_returning_user) = initial_onboarding_step(cx);
+        let step = initial_onboarding_step(cx);
         #[cfg(debug_assertions)]
         let step = if crate::ui::dev_snapshot::requested() {
             OnboardingStep::Done
         } else {
             step
         };
-        if is_returning_user && step == OnboardingStep::Accessibility {
+        if step == OnboardingStep::Accessibility {
             cx.defer(crate::ui::show_main_window);
         }
         let focus = cx.focus_handle();
@@ -136,7 +141,6 @@ impl MainWindow {
 
         let mut this = Self {
             step,
-            is_returning_user,
             post_onboarding_done: false,
             preview: None,
             section: Section::Dictate,
@@ -148,6 +152,7 @@ impl MainWindow {
             whats_new: cx.new(|cx| WhatsNewGate::new(window, cx)),
             accessibility_onboarding: None,
             model_onboarding: None,
+            coach: None,
             dialog: None,
             previous_focus: None,
         };
@@ -165,12 +170,7 @@ impl MainWindow {
                         false,
                         move |window, cx| {
                             let _ = weak.update(cx, |this, cx| {
-                                let next = if this.is_returning_user {
-                                    OnboardingStep::Done
-                                } else {
-                                    OnboardingStep::Model
-                                };
-                                this.enter_step(next, window, cx);
+                                this.enter_step(OnboardingStep::Done, window, cx);
                             });
                         },
                         window,
@@ -186,7 +186,32 @@ impl MainWindow {
                         false,
                         move |window, cx| {
                             let _ = weak.update(cx, |this, cx| {
+                                this.enter_step(OnboardingStep::Coach, window, cx);
+                            });
+                        },
+                        window,
+                        cx,
+                    )
+                }));
+            }
+            OnboardingStep::Coach => {
+                self.accessibility_onboarding = None;
+                self.model_onboarding = None;
+                let tour = SettingsStore::get(cx).onboarding_tour;
+                let finished = cx.entity().downgrade();
+                let pick = finished.clone();
+                self.coach = Some(cx.new(|cx| {
+                    KeycapCoach::new(
+                        tour,
+                        move |window, cx| {
+                            let _ = finished.update(cx, |this, cx| {
                                 this.enter_step(OnboardingStep::Done, window, cx);
+                            });
+                        },
+                        move |window, cx| {
+                            let _ = pick.update(cx, |this, cx| {
+                                this.coach = None;
+                                this.enter_step(OnboardingStep::Model, window, cx);
                             });
                         },
                         window,
@@ -197,6 +222,7 @@ impl MainWindow {
             OnboardingStep::Done => {
                 self.accessibility_onboarding = None;
                 self.model_onboarding = None;
+                self.coach = None;
                 self.run_post_onboarding_init(cx);
             }
         }
@@ -254,6 +280,10 @@ impl MainWindow {
                 self.model_onboarding =
                     Some(cx.new(|cx| ModelOnboarding::new(true, |_, _| {}, window, cx)));
             }
+            OnboardingPreview::Coach => {
+                self.coach =
+                    Some(cx.new(|cx| KeycapCoach::preview(CoachPreview::parse("microphone"), cx)));
+            }
         }
         cx.notify();
     }
@@ -268,6 +298,13 @@ impl MainWindow {
         }
         let section = match name {
             "onboarding" => {
+                if let Some(state) = detail.strip_prefix("coach-") {
+                    self.preview = Some(OnboardingPreview::Coach);
+                    self.coach =
+                        Some(cx.new(|cx| KeycapCoach::preview(CoachPreview::parse(state), cx)));
+                    cx.notify();
+                    return;
+                }
                 let preview = if detail == "model" {
                     OnboardingPreview::Model
                 } else {
@@ -309,6 +346,7 @@ impl MainWindow {
         if self.step == OnboardingStep::Done {
             self.accessibility_onboarding = None;
             self.model_onboarding = None;
+            self.coach = None;
         }
         cx.notify();
     }
@@ -546,17 +584,14 @@ impl MainWindow {
     }
 }
 
-fn initial_onboarding_step(cx: &App) -> (OnboardingStep, bool) {
-    let settings = SettingsStore::get(cx);
-    if !settings.onboarding_completed {
-        return (OnboardingStep::Accessibility, false);
+fn initial_onboarding_step(cx: &App) -> OnboardingStep {
+    if SettingsStore::get(cx).onboarding_tour != TourProgress::Done {
+        return OnboardingStep::Coach;
     }
-
     if !crate::ui::platform::accessibility_granted() || !crate::ui::platform::microphone_granted() {
-        return (OnboardingStep::Accessibility, true);
+        return OnboardingStep::Accessibility;
     }
-
-    (OnboardingStep::Done, true)
+    OnboardingStep::Done
 }
 
 pub fn close_dialog(window: &mut Window, cx: &mut App) {
@@ -598,6 +633,11 @@ impl Render for MainWindow {
                     .clone()
                     .map(Into::into)
                     .unwrap_or_else(|| cx.new(|_| gpui::Empty).into()),
+                OnboardingPreview::Coach => self
+                    .coach
+                    .clone()
+                    .map(Into::into)
+                    .unwrap_or_else(|| cx.new(|_| gpui::Empty).into()),
             };
             div()
                 .size_full()
@@ -634,6 +674,11 @@ impl Render for MainWindow {
                     .unwrap_or_else(|| div().into_any_element()),
                 OnboardingStep::Model => self
                     .model_onboarding
+                    .clone()
+                    .map(|v| v.into_any_element())
+                    .unwrap_or_else(|| div().into_any_element()),
+                OnboardingStep::Coach => self
+                    .coach
                     .clone()
                     .map(|v| v.into_any_element())
                     .unwrap_or_else(|| div().into_any_element()),

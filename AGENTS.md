@@ -61,7 +61,7 @@ The Silero VAD model (`resources/models/silero_vad_v4.onnx`) is checked in, so a
 - `pages/` - Sidebar pages. Each implements `pages::Page`, which puts its tabs and actions in the toolbar and picks a layout (`Padded` or `Fill`). `rows.rs` holds the single-setting rows
 - `pages/settings.rs` - Settings, a dialog over the main window rather than a page. Its sidebar lists `SettingsSection`s: General, Appearance and Sound, then Dictate's and Annotate's pages, then System. The gear at the foot of the sidebar, `Cmd+,`, the tray and `ui::show_settings` open it. `DictationSettings` (`dictation_settings.rs`) and `AnnotateSettings` (`annotate.rs`) hold each feature's settings and return one page of groups at a time
 - `components/` - Shared controls (buttons, toggles, sliders, dropdowns, dialogs)
-- `onboarding/` - First-run permission and model screens
+- `onboarding/` - First-run screens. `coach.rs` is Keycap Coach, a new user's guided tour: microphone and Accessibility, a dictation practice (the takes come through Try it, so nothing pastes), Screen Recording with a relaunch, then an Annotate practice. `tour.rs` makes its decisions as pure functions, `coach.rs` carries them out, `coach/view.rs` draws each step, and `settings.onboarding_tour` saves its place so a quit or the relaunch resumes it. The tour downloads `ModelStore::starter_model` from its first screen. `models.rs`, the picker, opens if that fails or the user asks. `permissions.rs` is for a returning user who lost a permission
 - `stores/` - Shared UI state as GPUI entities
 - `overlay.rs` - Recording overlay window and view
 - `capsule.rs` - The capsule dictation and Annotate share: its glass surface, live dot, spinner, chips and colors

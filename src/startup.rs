@@ -52,7 +52,8 @@ pub fn run(
         tray::set_tray_visibility(&app, false);
     }
 
-    let show = !starts_hidden(&app);
+    let tour_in_progress = settings.onboarding_tour != settings::TourProgress::Done;
+    let show = !starts_hidden(&app) || tour_in_progress;
     #[cfg(debug_assertions)]
     let show = show || ui::dev_snapshot::requested();
     ui::open_main_window(show, cx);

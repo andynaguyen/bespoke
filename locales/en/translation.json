@@ -57,6 +57,76 @@
     "failed": "Couldn't start triage"
   },
   "onboarding": {
+    "coach": {
+      "next": "Next",
+      "skip": "Skip",
+      "working": "Writing it down...",
+      "openSettings": "Open System Settings",
+      "openAgain": "Open Again",
+      "notHeard": "Bespoke didn't catch that. Hold the keys and try again.",
+      "dragHint": "Drag Bespoke into the list, then switch it on.",
+      "microphone": {
+        "title": "First, your microphone",
+        "description": "Bespoke records only after you press your shortcut.",
+        "denied": "Microphone access is off. Turn it on in System Settings.",
+        "button": "Allow Microphone"
+      },
+      "accessibility": {
+        "title": "Then, Accessibility",
+        "description": "This lets Bespoke see your shortcut and paste into any app.",
+        "button": "Open the List"
+      },
+      "preparing": {
+        "title": "Getting your speech model",
+        "description": "{{model}}, {{size}}. It runs on this Mac.",
+        "other": "Choose another model"
+      },
+      "hold": {
+        "pill": "1. Hold to talk",
+        "line": "Move the design review to Thursday at three.",
+        "ready": "Hold these keys and read the line",
+        "talking": "Keep holding and read it out, then let go",
+        "passed": "That is all of dictation. It pastes wherever your cursor is."
+      },
+      "scratch": {
+        "pill": "2. Undo with your voice",
+        "line": "Lunch is at noon. The budget is ten thousand. {{keyword}}.",
+        "ready": "Read it, pausing before and after \"{{keyword}}\"",
+        "talking": "Pause before and after \"{{keyword}}\", then let go",
+        "passed": "Only the last sentence went away.",
+        "passedEmpty": "Bespoke heard no sentence break, so it removed the whole take.",
+        "emptyLine": "All of it went away.",
+        "retry": "That sentence stayed. Pause before and after \"{{keyword}}\", then try again."
+      },
+      "screen": {
+        "title": "Now, show instead of tell",
+        "description": "Annotate records your screen, your voice and what you draw. It records only while a capture runs.",
+        "button": "Allow Screen Recording"
+      },
+      "restart": {
+        "title": "One quick restart",
+        "description": "macOS applies this after Bespoke reopens. You'll come back to this step.",
+        "button": "Restart Bespoke"
+      },
+      "record": {
+        "receiptTitle": "Design review lunch",
+        "itemOne": "Sandwiches",
+        "itemTwo": "Coffee",
+        "total": "Total",
+        "ready": "This total is wrong. Tap {{keys}} to start recording.",
+        "live": "Say what's wrong. Hold Shift and circle the total. Tap {{keys}} when you're done."
+      },
+      "review": {
+        "title": "This is what your agent reads",
+        "description": "Press {{keys}} in any agent chat to paste it.",
+        "empty": "The capture finished, but there's nothing to show here. You can find it on the Annotate page.",
+        "button": "Finish Setup"
+      },
+      "preview": {
+        "scratched": "Lunch is at noon.",
+        "reviewLine": "#1 (0:03) [circled the total] \"The total should be fifty dollars, not sixty.\""
+      }
+    },
     "subtitle": "To get started, choose a transcription model",
     "existingModelsTitle": "Compatible Models",
     "downloadModelsTitle": "Available to Download",

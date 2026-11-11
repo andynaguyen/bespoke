@@ -778,6 +778,7 @@ impl ShortcutAction for TranscribeAction {
                     match transcription_result {
                         Ok(transcript) => {
                             let submit = transcript.submit;
+                            let cut_by_voice = transcript.cut_by_voice;
                             let mut fixes = transcript.fixes;
                             let transcription = transcript.text;
                             if submit {
@@ -827,6 +828,7 @@ impl ShortcutAction for TranscribeAction {
                                 let take = crate::try_it::Take {
                                     text: processed.final_text,
                                     fixes,
+                                    cut_by_voice,
                                 };
                                 if let Err(err) = ah.emit(crate::try_it::TAKE_EVENT, take) {
                                     error!("Failed to send the take to Try it: {}", err);

@@ -7,9 +7,9 @@ use serde::Deserialize;
 
 use crate::app_handle::{AppEvent, AppHandle};
 use crate::i18n::t;
-use crate::managers::model::{DownloadProgress, ModelInfo, ModelManager};
+use crate::managers::model::{DownloadProgress, EngineType, ModelInfo, ModelManager};
 use crate::ui::event_bus::event_bus;
-use crate::ui::model_card::CardStatus;
+use crate::ui::model_card::{CardStatus, is_legacy};
 use crate::ui::toast;
 
 #[derive(Clone, Copy)]
@@ -34,6 +34,7 @@ pub struct ModelStore {
     pub progress: HashMap<String, DownloadProgress>,
     pub stats: HashMap<String, DownloadStats>,
     pub is_rescanning: bool,
+    no_auto_select: HashSet<String>,
 }
 
 struct GlobalModelStore(Entity<ModelStore>);
@@ -65,6 +66,7 @@ impl ModelStore {
             progress: HashMap::new(),
             stats: HashMap::new(),
             is_rescanning: false,
+            no_auto_select: HashSet::new(),
         };
         store.load_models(cx);
         store.load_current_model(cx);
@@ -87,6 +89,31 @@ impl ModelStore {
 
     pub fn model(&self, id: &str) -> Option<&ModelInfo> {
         self.models.iter().find(|m| m.id == id)
+    }
+
+    pub fn starter_model(&self) -> Option<&ModelInfo> {
+        let on_disk = self.models.iter().find(|model| {
+            model.is_downloaded && !matches!(model.engine_type, EngineType::AppleSpeech)
+        });
+        if on_disk.is_some() {
+            return on_disk;
+        }
+        let recommended: Vec<&ModelInfo> = self
+            .models
+            .iter()
+            .filter(|model| model.is_recommended && !is_legacy(model))
+            .collect();
+        let language = crate::i18n::language()
+            .split('-')
+            .next()
+            .unwrap_or_default();
+        crate::ui::onboarding::tour::pick_starter(&recommended, |model| {
+            model
+                .supported_languages
+                .iter()
+                .any(|code| code == language)
+        })
+        .copied()
     }
 
     pub fn current_model_info(&self) -> Option<&ModelInfo> {
@@ -146,7 +173,7 @@ impl ModelStore {
             .await
             .map_err(|e| e.to_string())
             .and_then(|r| r);
-            let _ = this.update(cx, |this, cx| {
+            let updated = this.update(cx, |this, cx| {
                 let ok = match result {
                     Ok(()) => {
                         this.current_model = model_id;
@@ -158,8 +185,12 @@ impl ModelStore {
                     }
                 };
                 cx.notify();
-                on_done(ok, cx);
+                ok
             });
+            // Outside the update: `on_done` may read this store, which panics during one.
+            if let Ok(ok) = updated {
+                let _ = cx.update(|cx| on_done(ok, cx));
+            }
         })
         .detach();
     }
@@ -170,6 +201,7 @@ impl ModelStore {
         on_done: impl FnOnce(bool, &mut App) + 'static,
         cx: &mut Context<Self>,
     ) {
+        self.no_auto_select.remove(&model_id);
         self.downloading.insert(model_id.clone());
         self.progress.insert(
             model_id.clone(),
@@ -190,14 +222,17 @@ impl ModelStore {
                 crate::commands::models::download_model(app.clone(), manager, id).await
             })
             .await;
-            let _ = this.update(cx, |this, cx| {
+            let updated = this.update(cx, |this, cx| {
                 let ok = result.is_ok();
                 if !ok {
                     this.clear_download(&model_id);
                 }
                 cx.notify();
-                on_done(ok, cx);
+                ok
             });
+            if let Ok(ok) = updated {
+                let _ = cx.update(|cx| on_done(ok, cx));
+            }
         })
         .detach();
     }
@@ -212,17 +247,28 @@ impl ModelStore {
         cx.spawn(async move |this, cx| {
             let id = model_id.clone();
             let result = crate::runtime::spawn_blocking(move || manager.cancel_download(&id)).await;
-            let _ = this.update(cx, |this, cx| {
+            let updated = this.update(cx, |this, cx| {
                 let ok = result.is_ok();
                 if ok {
                     this.clear_download(&model_id);
                     this.load_models(cx);
                 }
                 cx.notify();
-                on_done(ok, cx);
+                ok
             });
+            if let Ok(ok) = updated {
+                let _ = cx.update(|cx| on_done(ok, cx));
+            }
         })
         .detach();
+    }
+
+    /// Stops `model_id` downloading, and keeps it from selecting itself if it finishes anyway.
+    pub fn abandon_download(&mut self, model_id: String, cx: &mut Context<Self>) {
+        self.no_auto_select.insert(model_id.clone());
+        if self.downloading.contains(&model_id) {
+            self.cancel_download(model_id, |_, _| {}, cx);
+        }
     }
 
     pub fn delete_model(&mut self, model_id: String, cx: &mut Context<Self>) {
@@ -263,7 +309,11 @@ impl ModelStore {
             {
                 return;
             }
-            let _ = this.update(cx, |this, cx| this.select_model(model_id, |_, _| {}, cx));
+            let _ = this.update(cx, |this, cx| {
+                if !this.no_auto_select.contains(&model_id) {
+                    this.select_model(model_id, |_, _| {}, cx);
+                }
+            });
         })
         .detach();
     }

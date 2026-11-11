@@ -1905,6 +1905,12 @@ fn inspect_review_dir(coord_entity: &Entity<Coordinator>, cx: &mut App) {
     }
 }
 
+static CAPTURING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn capturing() -> bool {
+    CAPTURING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Starts Annotate in Bespoke's app, with the record and paste combos the key tap matches first.
 pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
     annotate_log(format!("start pid={}", std::process::id()));
@@ -1937,6 +1943,10 @@ pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
                 .timer(Duration::from_millis(8))
                 .await;
             let _ = cx.update(|cx| {
+                CAPTURING.store(
+                    loop_coord.read(cx).is_recording(),
+                    std::sync::atomic::Ordering::Relaxed,
+                );
                 if let Some(ref rx) = menu_rx {
                     while let Ok(action) = rx.try_recv() {
                         match action {

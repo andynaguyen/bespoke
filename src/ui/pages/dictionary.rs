@@ -372,7 +372,11 @@ impl DictionaryPage {
                 .map(|snippet| (snippet.trigger.as_str(), snippet.text.as_str())),
         );
         fixes.extend(replacements);
-        self.take = Some(Take { text, fixes });
+        self.take = Some(Take {
+            text,
+            fixes,
+            cut_by_voice: false,
+        });
         if let Some(index) = std::env::var("BESPOKE_DEV_TAKE_PICK")
             .ok()
             .and_then(|pick| pick.parse().ok())
@@ -1453,6 +1457,7 @@ mod tests {
                 fix("missing", "Nowhere", false),
                 fix("my email", "andy@example.com", true),
             ],
+            cut_by_voice: false,
         };
         assert_eq!(
             pieces(&take),
@@ -1487,6 +1492,7 @@ mod tests {
                 fix("karet", "Karat", false),
                 fix("My Email", "a@example.com", true),
             ],
+            cut_by_voice: false,
         };
         let fired = used_entries(&take, &settings);
         assert_eq!(
