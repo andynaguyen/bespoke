@@ -555,15 +555,14 @@ impl Coordinator {
             return;
         }
         annotate_log(format!("switch_recording -> {mode:?}"));
-        let Some(overlay) = self.discard_recording() else {
+        if self.active_recording.is_none() {
             return;
-        };
-        self.picker_metal_overlay = overlay;
+        }
+        self.picker_metal_overlay = self.discard_recording();
         self.open_picker(Some(mode), false, cx);
     }
 
-    /// Ends the recording without saving it, and hands back its laser overlay for reuse.
-    fn discard_recording(&mut self) -> Option<Option<LaserOverlay>> {
+    fn discard_recording(&mut self) -> Option<LaserOverlay> {
         let rec = self.active_recording.take()?;
         let _ = self.telemetry.finish_session();
         let CaptureSource { session, audio, .. } = rec.source;
@@ -575,7 +574,7 @@ impl Coordinator {
             let _ = session.stop();
             let _ = std::fs::remove_dir_all(bundle_dir);
         });
-        Some(rec._metal_overlay)
+        rec._metal_overlay
     }
 
     pub fn is_island_visible(&self) -> bool {

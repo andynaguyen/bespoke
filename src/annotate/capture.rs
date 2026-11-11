@@ -760,9 +760,7 @@ impl SharedCaptureTelemetry {
             .take()
     }
 
-    /// Whether a shortcut may fire now: shortcuts aren't paused and none fired in the last
-    /// `gap_ms`. Claims the slot when it may.
-    fn shortcut_slot(&self, gap_ms: u64) -> bool {
+    fn try_claim_shortcut_slot(&self, gap_ms: u64) -> bool {
         if self.shortcuts_paused.load(Ordering::Acquire) {
             return false;
         }
@@ -776,7 +774,7 @@ impl SharedCaptureTelemetry {
     }
 
     pub fn emit_capture_shortcut(&self) {
-        if self.shortcut_slot(90) {
+        if self.try_claim_shortcut_slot(90) {
             annotate_log("emit_capture_shortcut");
             *self
                 .record_pressed_at
@@ -788,7 +786,7 @@ impl SharedCaptureTelemetry {
     }
 
     pub fn emit_paste_shortcut(&self) {
-        if self.shortcut_slot(400) {
+        if self.try_claim_shortcut_slot(400) {
             annotate_log("emit_paste_shortcut -> sending PasteLatestShortcut");
             let _ = self
                 .ui_sender

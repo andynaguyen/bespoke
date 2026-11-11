@@ -53,8 +53,7 @@ pub struct ActivityLog {
 }
 
 impl ActivityLog {
-    /// Stores `windows` unless it matches the last snapshot.
-    pub fn push_windows(&mut self, t: u64, windows: Vec<WindowEntry>) {
+    pub fn push_windows_if_changed(&mut self, t: u64, windows: Vec<WindowEntry>) {
         if self
             .windows
             .last()
@@ -65,8 +64,13 @@ impl ActivityLog {
         self.windows.push(WindowSnapshot { t, windows });
     }
 
-    /// Stores a cursor sample unless it is outside `frame` or too close to the last one.
-    pub fn push_cursor(&mut self, t: u64, x_pt: f64, y_pt: f64, frame: TargetFrame) {
+    pub fn push_cursor_if_inside_and_moved(
+        &mut self,
+        t: u64,
+        x_pt: f64,
+        y_pt: f64,
+        frame: TargetFrame,
+    ) {
         let (w, h) = (frame.width.max(1.0), frame.height.max(1.0));
         if !(0.0..=w).contains(&x_pt) || !(0.0..=h).contains(&y_pt) {
             return;
@@ -423,14 +427,19 @@ fn run(
         let windows = snapshot(frame, dock, &mut cache);
         log.snapshot_calls += 1;
         log.snapshot_time += began.elapsed();
-        log.push_windows(t, windows);
+        log.push_windows_if_changed(t, windows);
     };
     loop {
         let finishing = stopping.load(Ordering::Acquire);
         let t = started_at.elapsed().as_millis() as u64;
         let cursor = crate::annotate::capture::current_mouse_screen();
         if let Some([x, y]) = cursor {
-            log.push_cursor(t, f64::from(x) - frame.x, f64::from(y) - frame.y, frame);
+            log.push_cursor_if_inside_and_moved(
+                t,
+                f64::from(x) - frame.x,
+                f64::from(y) - frame.y,
+                frame,
+            );
         }
         let front = crate::annotate::capture::frontmost_external_pid();
         let since = last_snapshot.map(|s| s.elapsed());
@@ -519,14 +528,14 @@ mod tests {
     #[test]
     fn window_snapshots_are_stored_only_when_the_list_changes() {
         let mut log = ActivityLog::default();
-        log.push_windows(0, vec![entry(1, 0), entry(2, 100)]);
-        log.push_windows(500, vec![entry(1, 0), entry(2, 100)]);
-        log.push_windows(1_000, vec![entry(1, 10), entry(2, 100)]);
-        log.push_windows(1_500, vec![entry(2, 100), entry(1, 10)]);
+        log.push_windows_if_changed(0, vec![entry(1, 0), entry(2, 100)]);
+        log.push_windows_if_changed(500, vec![entry(1, 0), entry(2, 100)]);
+        log.push_windows_if_changed(1_000, vec![entry(1, 10), entry(2, 100)]);
+        log.push_windows_if_changed(1_500, vec![entry(2, 100), entry(1, 10)]);
         let mut unfocused = vec![entry(2, 100), entry(1, 10)];
         unfocused[1].frontmost = false;
-        log.push_windows(2_000, unfocused.clone());
-        log.push_windows(2_500, unfocused);
+        log.push_windows_if_changed(2_000, unfocused.clone());
+        log.push_windows_if_changed(2_500, unfocused);
         assert_eq!(
             log.windows.iter().map(|s| s.t).collect::<Vec<_>>(),
             vec![0, 1_000, 1_500, 2_000]
@@ -549,11 +558,11 @@ mod tests {
     #[test]
     fn cursor_samples_skip_tiny_moves_and_points_outside_the_capture() {
         let mut log = ActivityLog::default();
-        log.push_cursor(0, 500.0, 250.0, frame());
-        log.push_cursor(66, 501.0, 250.5, frame());
-        log.push_cursor(132, 520.0, 250.0, frame());
-        log.push_cursor(198, -5.0, 250.0, frame());
-        log.push_cursor(264, 500.0, 900.0, frame());
+        log.push_cursor_if_inside_and_moved(0, 500.0, 250.0, frame());
+        log.push_cursor_if_inside_and_moved(66, 501.0, 250.5, frame());
+        log.push_cursor_if_inside_and_moved(132, 520.0, 250.0, frame());
+        log.push_cursor_if_inside_and_moved(198, -5.0, 250.0, frame());
+        log.push_cursor_if_inside_and_moved(264, 500.0, 900.0, frame());
         assert_eq!(
             log.cursor,
             vec![CursorSample(0, 0.5, 0.5), CursorSample(132, 0.52, 0.5)]

@@ -302,7 +302,6 @@ pub fn parse_header(bytes: &[u8], wanted_keys: &[&str]) -> Result<GgufMetadata, 
     Ok(GgufMetadata { kv })
 }
 
-/// Builds GGUF headers for tests here and in `model.rs`.
 #[cfg(test)]
 pub(crate) mod test_support {
     use super::*;

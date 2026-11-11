@@ -111,7 +111,6 @@ pub struct PasteTarget {
 }
 
 impl PasteTarget {
-    /// Reads the name and bundle id from one lookup, so both describe the same app.
     pub fn frontmost() -> Self {
         let Some(app) = objc2_app_kit::NSWorkspace::sharedWorkspace().frontmostApplication() else {
             return Self::default();

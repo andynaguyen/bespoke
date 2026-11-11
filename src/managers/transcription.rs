@@ -379,7 +379,6 @@ fn split_voice_submit(raw: String, keyword: Option<&str>) -> (String, bool) {
     }
 }
 
-/// Runs one spoken cut, such as "scrub that", when its setting is on.
 fn apply_cut(
     text: String,
     enabled: bool,

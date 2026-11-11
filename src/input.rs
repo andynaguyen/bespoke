@@ -68,9 +68,10 @@ mod macos {
     /// held. Including Command is important: non-Latin layouts commonly map
     /// Cmd shortcuts to their ANSI equivalents, while standard Dvorak does not.
     ///
-    /// TIS APIs must run on the main thread. Bespoke's paste path already enters
-    /// through `AppHandle::with_ui` before reaching this function.
+    /// TIS APIs must run on the main thread.
     fn resolve_command_v_keycode() -> Result<u16, String> {
+        objc2::MainThreadMarker::new()
+            .ok_or("the keyboard layout can only be read on the main thread")?;
         // SAFETY: This function is called on the macOS main thread. The returned
         // source follows the Create Rule and is released by InputSource::drop.
         let source = InputSource(unsafe { TISCopyCurrentKeyboardLayoutInputSource() });
@@ -158,11 +159,7 @@ pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
     enigo.location().ok()
 }
 
-/// How long the modifier stays held after the V click before being released.
-/// Most applications read the modifier from the V event's flags and need no
-/// hold at all, but applications that poll global keyboard state when handling
-/// the key need the modifier to still be down.
-const PASTE_HOLD_MS: u64 = 100;
+const MODIFIER_HOLD_FOR_APPS_THAT_POLL_KEYS_MS: u64 = 100;
 
 pub fn send_paste_ctrl_v(enigo: &mut Enigo) -> Result<(), String> {
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
@@ -174,7 +171,9 @@ pub fn send_paste_ctrl_v(enigo: &mut Enigo) -> Result<(), String> {
         .key(v_key_code, enigo::Direction::Click)
         .map_err(|e| format!("Failed to click V key: {}", e))?;
 
-    std::thread::sleep(std::time::Duration::from_millis(PASTE_HOLD_MS));
+    std::thread::sleep(std::time::Duration::from_millis(
+        MODIFIER_HOLD_FOR_APPS_THAT_POLL_KEYS_MS,
+    ));
 
     enigo
         .key(modifier_key, enigo::Direction::Release)

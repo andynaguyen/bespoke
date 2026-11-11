@@ -64,8 +64,6 @@ pub fn registers_globally(id: &str) -> bool {
     id != "cancel" && id != crate::annotate::CANCEL_BINDING
 }
 
-/// Whether `id` gets a global shortcut under `settings`: the post-process
-/// binding registers only while post-processing is on.
 fn registers_with(id: &str, settings: &settings::AppSettings) -> bool {
     registers_globally(id)
         && (id != "transcribe_with_post_process" || settings.post_process_enabled)

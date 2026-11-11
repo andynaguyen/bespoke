@@ -23,7 +23,14 @@ pub fn is_laptop() -> Result<bool, String> {
         .arg("-g")
         .arg("batt")
         .output()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to execute pmset: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "pmset command failed with status: {}",
+            output.status
+        ));
+    }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -34,8 +41,6 @@ pub fn is_laptop() -> Result<bool, String> {
 mod tests {
     use super::*;
 
-    // Smoke tests: a typo in the command or a bad `ioreg` argument makes
-    // these fail, and clamshell microphone selection would fall back silently.
     #[test]
     fn ioreg_runs_with_our_arguments() {
         assert!(is_clamshell().is_ok());

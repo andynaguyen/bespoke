@@ -32,7 +32,6 @@ pub fn get_secure_input_status(app: AppHandle) -> SecureInputStatus {
     imp::status(&app)
 }
 
-/// How long the debug page's keyboard diagnostic listens.
 const DIAGNOSTIC_SECS: u32 = 10;
 
 pub async fn run_keyboard_diagnostic() -> Result<KeyboardDiagnosticReport, String> {

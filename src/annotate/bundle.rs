@@ -206,17 +206,24 @@ fn movie_keyframes_with_cache(
     })
 }
 
-/// Logs how long each stage of finishing a capture took. `at` holds the instants the whole
-/// finish started, selection started, and selection, decoding, cropping and rendering ended.
-fn log_finish_timings(timings: &StageTimings, at: [std::time::Instant; 6]) {
-    let [
+struct FinishInstants {
+    total_started: std::time::Instant,
+    started: std::time::Instant,
+    select_only_at: std::time::Instant,
+    selected_at: std::time::Instant,
+    annotated_at: std::time::Instant,
+    rendered_at: std::time::Instant,
+}
+
+fn log_finish_timings(timings: &StageTimings, at: FinishInstants) {
+    let FinishInstants {
         total_started,
         started,
         select_only_at,
         selected_at,
         annotated_at,
         rendered_at,
-    ] = at;
+    } = at;
     let finished = std::time::Instant::now();
     let ms = |from: std::time::Instant, to: std::time::Instant| (to - from).as_millis() as u64;
     let mut parts = Vec::with_capacity(10);
@@ -488,14 +495,14 @@ pub fn build_bundle_from_parts(
         std::fs::write(bundle_dir.join("summary.md"), summary.as_bytes())?;
         log_finish_timings(
             &extras.timings,
-            [
+            FinishInstants {
                 total_started,
                 started,
                 select_only_at,
                 selected_at,
                 annotated_at,
                 rendered_at,
-            ],
+            },
         );
         mark_transcript_pending(bundle_dir, &bundle);
         return Ok((bundle_dir.to_path_buf(), bundle, summary));
@@ -623,14 +630,14 @@ pub fn build_bundle_from_parts(
     })?;
     log_finish_timings(
         &extras.timings,
-        [
+        FinishInstants {
             total_started,
             started,
             select_only_at,
             selected_at,
             annotated_at,
             rendered_at,
-        ],
+        },
     );
 
     mark_transcript_pending(bundle_dir, &bundle);
