@@ -879,7 +879,7 @@ impl ShortcutAction for TranscribeAction {
                                     }
 
                                     match utils::paste(final_text, ah_clone.clone(), submit) {
-                                        Ok(true) => {
+                                        Ok(utils::PasteOutcome::Pasted) => {
                                             debug!(
                                                 "Text pasted successfully in {:?}",
                                                 paste_time.elapsed()
@@ -890,8 +890,9 @@ impl ShortcutAction for TranscribeAction {
                                                 cx,
                                             );
                                         }
-                                        // Paste is off, so there's nothing to confirm.
-                                        Ok(false) => crate::ui::overlay::hide(cx),
+                                        Ok(utils::PasteOutcome::PasteOff) => {
+                                            crate::ui::overlay::hide(cx)
+                                        }
                                         Err(e) => {
                                             error!("Failed to paste transcription: {}", e);
                                             let _ = ah_clone.emit("paste-error", ());

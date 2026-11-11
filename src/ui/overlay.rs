@@ -28,10 +28,14 @@ pub enum OverlayState {
     Streaming,
     Transcribing,
     Processing,
-    /// The text landed. Shows a check for a moment.
     Done,
-    /// The paste failed. Stays until dismissed or `FAILED_HOLD` passes.
     PasteFailed,
+}
+
+impl OverlayState {
+    pub fn is_paste_result(self) -> bool {
+        matches!(self, Self::Done | Self::PasteFailed)
+    }
 }
 
 const COMPACT_AREA: (f32, f32) = (320., BASE_H);
@@ -213,8 +217,7 @@ fn close_window(cx: &mut App) {
 
 pub fn show(state: OverlayState, position: OverlayPosition, cx: &mut App) {
     let view = overlay_view(cx);
-    let result = matches!(state, OverlayState::Done | OverlayState::PasteFailed);
-    // A result shows in the window it follows, so the live text's window isn't reopened.
+    let result = state.is_paste_result();
     let current = cx
         .try_global::<Overlay>()
         .and_then(|o| o.window.as_ref())
@@ -228,9 +231,7 @@ pub fn show(state: OverlayState, position: OverlayPosition, cx: &mut App) {
     view.update(cx, |overlay, cx| overlay.show(state, position, cx));
 }
 
-/// Shows a result, then hides the overlay after a while unless a newer session took it.
 pub fn show_result(state: OverlayState, position: OverlayPosition, cx: &mut App) {
-    // Annotate's capsule sits in the same spot.
     if crate::annotate::capsule::is_showing() {
         hide(cx);
         return;
@@ -280,15 +281,10 @@ pub fn hide(cx: &mut App) {
     .detach();
 }
 
-/// Hides a paste result, so it doesn't sit under Annotate's capsule.
 pub fn dismiss_result(cx: &mut App) {
     let showing_result = existing_view(cx).is_some_and(|view| {
         let overlay = view.read(cx);
-        overlay.visible
-            && matches!(
-                overlay.state,
-                OverlayState::Done | OverlayState::PasteFailed
-            )
+        overlay.visible && overlay.state.is_paste_result()
     });
     if showing_result {
         hide(cx);
@@ -491,10 +487,7 @@ impl RecordingOverlay {
 
     fn show(&mut self, state: OverlayState, position: OverlayPosition, cx: &mut Context<Self>) {
         let streaming = state == OverlayState::Streaming;
-        let result = matches!(state, OverlayState::Done | OverlayState::PasteFailed);
-        let switched = streaming != (self.state == OverlayState::Streaming);
-        // A result morphs out of whatever showed before it.
-        if !self.visible || streaming || (switched && !result) {
+        if !self.morphs_into(state) {
             self.snap = true;
         }
         if matches!(state, OverlayState::Recording | OverlayState::Streaming) {
@@ -622,18 +615,27 @@ impl RecordingOverlay {
         }
     }
 
-    fn has_text(&self) -> bool {
-        !self.text.committed.is_empty() || !self.text.tentative.is_empty()
+    fn morphs_into(&self, state: OverlayState) -> bool {
+        let streaming = state == OverlayState::Streaming;
+        let switched = streaming != (self.state == OverlayState::Streaming);
+        self.visible && !streaming && (state.is_paste_result() || !switched)
     }
 
-    fn cancel_button(&self, c: &Colors) -> impl IntoElement {
-        // Stopping a recording unregisters Esc, so the hint shows only while it cancels.
+    fn esc_cancels(&self) -> bool {
         let listening = match self.state {
             OverlayState::Recording => true,
             OverlayState::Streaming => self.phase != StreamPhase::Working,
             _ => false,
         };
-        let escape = self.cancel_is_escape && listening;
+        self.cancel_is_escape && listening
+    }
+
+    fn has_text(&self) -> bool {
+        !self.text.committed.is_empty() || !self.text.tentative.is_empty()
+    }
+
+    fn cancel_button(&self, c: &Colors) -> impl IntoElement {
+        let escape = self.esc_cancels();
         capsule::chip("overlay-cancel", ChipKind::Plain, c)
             .on_click(|_, _, _| {
                 let app = AppHandle::global().clone();
@@ -678,15 +680,14 @@ impl RecordingOverlay {
                         .when(rtl, |el| el.flex_row_reverse())
                         .child(capsule::divider(c))
                         .child(self.cancel_button(c)),
-                    width_tracker(cx.entity().downgrade(), |this: &mut Self| {
-                        &mut this.fold.measured
-                    }),
+                    cx.entity().downgrade(),
+                    |this: &mut Self| &mut this.fold,
                 ),
             )
     }
 
     fn listening_row(&self, show_timer: bool, c: &Colors, cx: &Context<Self>) -> impl IntoElement {
-        let lead = capsule::lead()
+        let lead = capsule::status_row()
             .child(capsule::live_dot(self.capture_ready, c))
             .child(capsule::meter(&self.smoothed, self.capture_ready, c));
         let timer = show_timer.then(|| {
@@ -701,7 +702,7 @@ impl RecordingOverlay {
     }
 
     fn working_row(&self, label: SharedString, c: &Colors, cx: &Context<Self>) -> impl IntoElement {
-        let lead = capsule::lead()
+        let lead = capsule::status_row()
             .child(capsule::spinner(c))
             .child(self.measured_label(label, |this| &mut this.label_w, c, cx));
         self.base_row(lead, None, c, cx)
@@ -731,10 +732,10 @@ impl RecordingOverlay {
             .items_center()
             .when(rtl, |el| el.flex_row_reverse());
         if self.state == OverlayState::Done {
-            return row.child(capsule::lead().child(capsule::done_mark(c)));
+            return row.child(capsule::status_row().child(capsule::done_mark(c)));
         }
         row.child(
-            capsule::lead()
+            capsule::status_row()
                 .flex_1()
                 .min_w_0()
                 .child(capsule::warn_icon(c))
@@ -913,8 +914,7 @@ impl RecordingOverlay {
             _ => REST_W,
         };
         self.width.set(width, snap);
-        if matches!(self.state, OverlayState::Done | OverlayState::PasteFailed) {
-            // The buttons are still folding closed, so their width stays until they finish.
+        if self.state.is_paste_result() {
             return self
                 .card(self.fold.width(), c, cx)
                 .flex_col()

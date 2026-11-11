@@ -18,7 +18,7 @@ use crate::i18n::t;
 use crate::settings::{OverlayPosition, get_settings};
 use crate::ui::capsule::{self, ChipKind, Colors, Fold};
 use crate::ui::clay::keycap;
-use crate::ui::components::{icon, width_tracker};
+use crate::ui::components::icon;
 use crate::ui::event_bus::event_bus;
 use crate::ui::platform::capsule::{self as native, CapsuleWindow};
 use crate::ui::theme::{Alpha, mix};
@@ -91,7 +91,6 @@ pub fn dev_preview(kind: &str, cx: &mut App) {
 
 static SHOWING: AtomicBool = AtomicBool::new(false);
 
-/// Whether Annotate's capsule is on screen.
 pub fn is_showing() -> bool {
     SHOWING.load(Ordering::SeqCst)
 }
@@ -235,6 +234,10 @@ impl AnnotateCapsule {
         }
     }
 
+    fn chips_showing(&self) -> bool {
+        matches!(self.pres(), Pres::Recording { chips: true, .. })
+    }
+
     fn pres(&self) -> &Pres {
         self.snapshot.as_ref().map_or(&Pres::Hidden, |s| &s.pres)
     }
@@ -250,7 +253,6 @@ impl AnnotateCapsule {
                 let hidden = snapshot.pres == Pres::Hidden;
                 let was_recording = matches!(self.pres(), Pres::Recording { .. });
                 match snapshot.pres {
-                    // The mode chips take the buttons' place for their first seconds.
                     Pres::Recording { chips: true, .. } => self.fold.close(true),
                     Pres::Recording { .. } if !was_recording => {
                         self.levels = [0.; capsule::METER_BARS];
@@ -353,9 +355,7 @@ impl AnnotateCapsule {
         self.state
             .hovered
             .store(inside || self.paste_press.is_some(), Ordering::SeqCst);
-        // The chips stand in for the buttons, so the fold waits until they close.
-        let chips = matches!(self.pres(), Pres::Recording { chips: true, .. });
-        if !chips
+        if !self.chips_showing()
             && self
                 .fold
                 .tick(Instant::now(), inside, crate::ui::platform::reduce_motion())
@@ -499,7 +499,7 @@ impl AnnotateCapsule {
                 chips,
                 stroke_count,
             } => {
-                let lead = capsule::lead()
+                let lead = capsule::status_row()
                     .child(capsule::live_dot(true, c))
                     .child(capsule::meter(&self.levels, true, c))
                     .child(capsule::clock(snapshot.clock.clone(), c))
@@ -578,9 +578,6 @@ impl AnnotateCapsule {
                             c,
                         )),
                     );
-                let tracker = width_tracker(cx.entity().downgrade(), |this: &mut Self| {
-                    &mut this.fold.measured
-                });
                 vec![
                     div()
                         .flex_none()
@@ -588,18 +585,22 @@ impl AnnotateCapsule {
                         .items_center()
                         .when(rtl, |el| el.flex_row_reverse())
                         .child(lead)
-                        .child(self.fold.element(buttons, tracker))
+                        .child(self.fold.element(
+                            buttons,
+                            cx.entity().downgrade(),
+                            |this: &mut Self| &mut this.fold,
+                        ))
                         .into_any_element(),
                 ]
             }
             Pres::Processing => vec![
-                capsule::lead()
+                capsule::status_row()
                     .child(capsule::spinner(c))
                     .child(capsule::label(t("annotate.capsule.processing"), c))
                     .into_any_element(),
             ],
             Pres::Completed { copied } => vec![
-                capsule::lead()
+                capsule::status_row()
                     .child(capsule::done_mark(c))
                     .child(capsule::label(
                         if copied {
@@ -638,7 +639,7 @@ impl AnnotateCapsule {
                 close(self, PillAction::DismissCompleted, cx),
             ],
             Pres::Failed => vec![
-                capsule::lead()
+                capsule::status_row()
                     .child(capsule::warn_icon(c))
                     .child(capsule::label(t("annotate.capsule.failed"), c))
                     .into_any_element(),

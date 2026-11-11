@@ -189,9 +189,7 @@ fn wait_for_end(stopped: &mpsc::Receiver<()>) -> Waited {
     }
 }
 
-/// A microphone on `channel` that feeds the capsule's meter. It has its own event and
-/// throttle, so a dictation running at the same time doesn't mix into its levels.
-fn new_microphone(channel: Option<u16>) -> Microphone {
+fn metered_microphone(channel: Option<u16>) -> Microphone {
     let microphone = Microphone::new().with_selected_channel(channel);
     let Some(app) = AppHandle::try_global().cloned() else {
         return microphone;
@@ -210,7 +208,7 @@ fn new_microphone(channel: Option<u16>) -> Microphone {
 /// Opens `preferred`, or the system default when there is none or it won't open.
 fn open(preferred: Option<(String, cpal::Device)>, channel: Option<u16>) -> Result<Microphone> {
     if let Some((name, device)) = preferred {
-        let mut microphone = new_microphone(channel);
+        let mut microphone = metered_microphone(channel);
         match microphone.open(Some(device)) {
             Ok(()) => {
                 annotate_log(format!("Microphone: {name}"));
@@ -221,7 +219,7 @@ fn open(preferred: Option<(String, cpal::Device)>, channel: Option<u16>) -> Resu
             )),
         }
     }
-    let mut microphone = new_microphone(channel);
+    let mut microphone = metered_microphone(channel);
     microphone
         .open(None)
         .map_err(|e| anyhow!("Could not open the default microphone: {e}"))?;

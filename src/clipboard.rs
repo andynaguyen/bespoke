@@ -121,9 +121,16 @@ fn should_send_auto_submit(auto_submit: bool, paste_method: PasteMethod) -> bool
     auto_submit && paste_method != PasteMethod::None
 }
 
-/// Pastes `text` into the front app. Returns `Ok(false)` when paste is turned off, so nothing
-/// went to the app.
-pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<bool, String> {
+pub enum PasteOutcome {
+    Pasted,
+    PasteOff,
+}
+
+pub fn paste(
+    text: String,
+    app_handle: AppHandle,
+    force_submit: bool,
+) -> Result<PasteOutcome, String> {
     let settings = get_settings(&app_handle);
     let auto_submit = settings.auto_submit || force_submit;
     let paste_method = settings.paste_method;
@@ -171,7 +178,7 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
                         if type_trailing_space {
                             send_trailing_space(&app_handle);
                         }
-                        return Ok(true);
+                        return Ok(PasteOutcome::Pasted);
                     }
                     Err(e) => {
                         log::warn!("Reliable paste unavailable ({e}); falling back to legacy paste")
@@ -198,7 +205,11 @@ pub fn paste(text: String, app_handle: AppHandle, force_submit: bool) -> Result<
         write_text_to_clipboard(&app_handle, &text)?;
     }
 
-    Ok(paste_method != PasteMethod::None)
+    Ok(if paste_method == PasteMethod::None {
+        PasteOutcome::PasteOff
+    } else {
+        PasteOutcome::Pasted
+    })
 }
 
 #[cfg(test)]

@@ -245,7 +245,7 @@ pub struct Coordinator {
     native_pill: Option<crate::annotate::capsule_link::NativePill>,
     island_phase: IslandPhase,
     reveal: crate::annotate::hold::Reveal,
-    finished_pointer: Option<Option<[f32; 2]>>,
+    pointer_at_result: Option<Option<[f32; 2]>>,
     reduced_motion: bool,
     last_elapsed_ms: u64,
     selectable_windows: Vec<TargetInfo>,
@@ -276,7 +276,7 @@ impl Coordinator {
             native_pill: None,
             island_phase: IslandPhase::Hidden,
             reveal: crate::annotate::hold::Reveal::default(),
-            finished_pointer: None,
+            pointer_at_result: None,
             reduced_motion: false,
             last_elapsed_ms: 0,
             selectable_windows: Vec::new(),
@@ -1064,15 +1064,14 @@ impl Coordinator {
             _ => None,
         };
         if let Some((finished_at, stay_ms)) = finished {
-            // A pointer left where Finish was clicked isn't reading the capsule.
-            let moved = *self.finished_pointer.get_or_insert(pointer) != pointer;
-            if hovered && moved {
+            let moved_since_result = *self.pointer_at_result.get_or_insert(pointer) != pointer;
+            if hovered && moved_since_result {
                 *finished_at = Instant::now();
             } else if finished_at.elapsed() >= Duration::from_millis(stay_ms) {
                 self.set_island_phase(IslandPhase::Dismissing);
             }
         } else {
-            self.finished_pointer = None;
+            self.pointer_at_result = None;
         }
 
         if let IslandPhase::Selecting { mode } = self.island_phase {

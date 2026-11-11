@@ -3,10 +3,11 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     Animation, AnimationExt, App, Bounds, Div, FontFeatures, FontWeight, Hsla, Pixels,
-    SharedString, Stateful, div, prelude::*, px,
+    SharedString, Stateful, WeakEntity, div, prelude::*, px,
 };
 
 use super::clay::Clay;
+use super::components::width_tracker;
 use super::glass::{GlassSpec, GlassStyle, glass_with};
 use super::platform::capsule as native;
 use super::theme::{Alpha, palette, shadow};
@@ -29,8 +30,7 @@ pub const DONE: f32 = 16.;
 pub const WARN_ICON: f32 = 13.;
 pub const LEAD_PAD: f32 = 8.;
 pub const LEAD_GAP: f32 = 7.;
-/// The mic reports more bands than the meter has bars, and speech sits in the low ones.
-const METER_BANDS: [usize; METER_BARS] = [0, 2, 4, 6, 8];
+const SPEECH_BANDS: [usize; METER_BARS] = [0, 2, 4, 6, 8];
 
 const FOLD_AFTER_START: Duration = Duration::from_millis(3_500);
 const FOLD_LINGER: Duration = Duration::from_millis(1_200);
@@ -61,7 +61,6 @@ pub fn ease(t: f32) -> f32 {
     cubic_bezier(0.25, 0.1, 0.25, 1., t)
 }
 
-/// A value that eases to its target over `duration`.
 #[derive(Clone, Copy)]
 pub struct Tween {
     from: f32,
@@ -112,15 +111,11 @@ impl Tween {
     }
 }
 
-/// Decides when a capsule shows its buttons: for the first seconds of a recording and while
-/// the pointer is on the capsule, plus a short linger. The capsule measures the buttons, so
-/// they can open and close at any width.
 pub struct Fold {
     open_until: Option<Instant>,
     open: bool,
     progress: Tween,
-    /// The buttons' natural width. `components::width_tracker` writes it.
-    pub measured: Pixels,
+    measured: Pixels,
 }
 
 impl Fold {
@@ -133,7 +128,6 @@ impl Fold {
         }
     }
 
-    /// Opens the buttons for the first seconds of a recording.
     pub fn start(&mut self, now: Instant) {
         self.open_until = Some(now + FOLD_AFTER_START);
         self.open = true;
@@ -146,7 +140,6 @@ impl Fold {
         self.progress.set(0., snap);
     }
 
-    /// Advances the fold on each pointer poll. Returns true when the capsule must redraw.
     pub fn tick(&mut self, now: Instant, hovered: bool, snap: bool) -> bool {
         if hovered {
             let linger = now + FOLD_LINGER;
@@ -168,18 +161,17 @@ impl Fold {
         self.progress.running()
     }
 
-    /// How wide the buttons are right now, for a capsule that sets its own width.
     pub fn width(&self) -> Pixels {
         self.measured * self.progress.value()
     }
 
-    /// Wraps the buttons so they fold to nothing. `tracker` is a `width_tracker` on
-    /// `measured`.
-    pub fn element(
+    pub fn element<V: 'static>(
         &self,
         buttons: impl IntoElement,
-        tracker: impl IntoElement,
+        owner: WeakEntity<V>,
+        fold: fn(&mut V) -> &mut Fold,
     ) -> impl IntoElement {
+        let tracker = width_tracker(owner, move |this: &mut V| &mut fold(this).measured);
         div()
             .flex_none()
             .flex()
@@ -289,27 +281,24 @@ pub fn live_dot(ready: bool, c: &Colors) -> impl IntoElement {
         .when(!ready, |el| el.rounded_full().bg(c.text.a(0.3)))
 }
 
-/// Whether `pointer` is on `card`, which is in `window`'s coordinates.
 pub fn pointer_on(
     window: &native::CapsuleWindow,
     card: Bounds<Pixels>,
-    pointer: [f64; 2],
+    screen_point: [f64; 2],
 ) -> Option<bool> {
     let [x, y, _, _] = window.frame()?;
     Some(card.contains(&gpui::point(
-        px((pointer[0] - x) as f32),
-        px((pointer[1] - y) as f32),
+        px((screen_point[0] - x) as f32),
+        px((screen_point[1] - y) as f32),
     )))
 }
 
-/// Eases `smoothed` toward the mic's latest `levels`.
 pub fn smooth_levels(smoothed: &mut [f32; METER_BARS], levels: &[f32]) {
-    for (level, band) in smoothed.iter_mut().zip(METER_BANDS) {
+    for (level, band) in smoothed.iter_mut().zip(SPEECH_BANDS) {
         *level = *level * 0.7 + levels.get(band).copied().unwrap_or(0.) * 0.3;
     }
 }
 
-/// The mic meter. Bars stay flat and dim until the mic is `ready`.
 pub fn meter(levels: &[f32; METER_BARS], ready: bool, c: &Colors) -> impl IntoElement {
     let color = c.text.a(if ready { 0.6 } else { 0.3 });
     div()
@@ -333,8 +322,7 @@ pub fn meter(levels: &[f32; METER_BARS], ready: bool, c: &Colors) -> impl IntoEl
         }))
 }
 
-/// The row that opens every form: a status mark, then its readouts.
-pub fn lead() -> Div {
+pub fn status_row() -> Div {
     div()
         .flex_none()
         .flex()
