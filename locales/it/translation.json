@@ -210,17 +210,7 @@
           "reset": "Errore nella reinizializzazione della scorciatoia al valore originale",
           "updateBinding": "Errore nell'aggiornamento della scorciatoia"
         },
-        "pressKeysOrMouse": "Premi dei tasti o un pulsante del mouse...",
-        "mouseButtons": {
-          "mouseleft": "Mouse sinistro",
-          "mouseright": "Mouse destro",
-          "mousemiddle": "Mouse centrale",
-          "mousex1": "Mouse 4",
-          "mousex2": "Mouse 5",
-          "mouse6": "Mouse 6",
-          "mouse7": "Mouse 7",
-          "mouse8": "Mouse 8"
-        }
+        "pressKeysOrMouse": "Premi dei tasti o un pulsante del mouse..."
       },
       "language": {
         "title": "Lingua",

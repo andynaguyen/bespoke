@@ -192,17 +192,7 @@
           "reset": "Sneltoets terugzetten naar standaardwaarde mislukt",
           "updateBinding": "Bijwerken van sneltoets mislukt"
         },
-        "pressKeysOrMouse": "Druk op toetsen of een muisknop...",
-        "mouseButtons": {
-          "mouseleft": "Linkermuisknop",
-          "mouseright": "Rechtermuisknop",
-          "mousemiddle": "Middelste muisknop",
-          "mousex1": "Muisknop 4",
-          "mousex2": "Muisknop 5",
-          "mouse6": "Muisknop 6",
-          "mouse7": "Muisknop 7",
-          "mouse8": "Muisknop 8"
-        }
+        "pressKeysOrMouse": "Druk op toetsen of een muisknop..."
       },
       "language": {
         "title": "Taal",

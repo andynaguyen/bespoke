@@ -210,17 +210,7 @@
           "reset": "ショートカットを元の値にリセットできませんでした",
           "updateBinding": "ショートカットの更新に失敗しました"
         },
-        "pressKeysOrMouse": "キーまたはマウスボタンを押してください…",
-        "mouseButtons": {
-          "mouseleft": "マウス左",
-          "mouseright": "マウス右",
-          "mousemiddle": "マウス中央",
-          "mousex1": "マウス4",
-          "mousex2": "マウス5",
-          "mouse6": "マウス6",
-          "mouse7": "マウス7",
-          "mouse8": "マウス8"
-        }
+        "pressKeysOrMouse": "キーまたはマウスボタンを押してください…"
       },
       "language": {
         "title": "言語",

@@ -210,17 +210,7 @@
           "reset": "Échec de la réinitialisation du raccourci à sa valeur d'origine",
           "updateBinding": "Échec de la mise à jour du raccourci"
         },
-        "pressKeysOrMouse": "Appuyez sur des touches ou un bouton de souris...",
-        "mouseButtons": {
-          "mouseleft": "Bouton gauche",
-          "mouseright": "Bouton droit",
-          "mousemiddle": "Bouton central",
-          "mousex1": "Souris 4",
-          "mousex2": "Souris 5",
-          "mouse6": "Souris 6",
-          "mouse7": "Souris 7",
-          "mouse8": "Souris 8"
-        }
+        "pressKeysOrMouse": "Appuyez sur des touches ou un bouton de souris..."
       },
       "language": {
         "title": "Langue",

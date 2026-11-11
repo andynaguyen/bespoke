@@ -210,17 +210,7 @@
           "reset": "Tastenkürzel konnte nicht auf Originalwert zurückgesetzt werden",
           "updateBinding": "Tastenkürzel konnte nicht aktualisiert werden"
         },
-        "pressKeysOrMouse": "Tasten oder eine Maustaste drücken...",
-        "mouseButtons": {
-          "mouseleft": "Linke Maustaste",
-          "mouseright": "Rechte Maustaste",
-          "mousemiddle": "Mittlere Maustaste",
-          "mousex1": "Maustaste 4",
-          "mousex2": "Maustaste 5",
-          "mouse6": "Maustaste 6",
-          "mouse7": "Maustaste 7",
-          "mouse8": "Maustaste 8"
-        }
+        "pressKeysOrMouse": "Tasten oder eine Maustaste drücken..."
       },
       "language": {
         "title": "Sprache",

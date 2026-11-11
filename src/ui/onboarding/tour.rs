@@ -232,37 +232,6 @@ impl CoachPreview {
     }
 }
 
-/// One keycap per key of a stored binding like `option+space`.
-pub fn key_labels(binding: &str) -> Vec<String> {
-    binding
-        .split('+')
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .map(key_label)
-        .collect()
-}
-
-fn key_label(part: &str) -> String {
-    let name = part
-        .strip_suffix("_left")
-        .or_else(|| part.strip_suffix("_right"))
-        .unwrap_or(part);
-    match name {
-        "option" | "alt" => "⌥".into(),
-        "shift" => "⇧".into(),
-        "command" | "cmd" | "super" | "meta" => "⌘".into(),
-        "control" | "ctrl" => "⌃".into(),
-        "fn" => "fn".into(),
-        "space" => "Space".into(),
-        other => {
-            let mut chars = other.chars();
-            chars.next().map_or_else(String::new, |first| {
-                first.to_uppercase().chain(chars).collect()
-            })
-        }
-    }
-}
-
 /// `CGEventFlags` bits for the modifier a keycap shows, or `None` for any other key.
 pub fn modifier_mask(label: &str) -> Option<u64> {
     match label {
@@ -462,13 +431,6 @@ mod tests {
                 detail: PreviewDetail::Plain
             }
         );
-    }
-
-    #[test]
-    fn labels_each_key() {
-        assert_eq!(key_labels("option+space"), ["⌥", "Space"]);
-        assert_eq!(key_labels("option+shift+s"), ["⌥", "⇧", "S"]);
-        assert_eq!(key_labels("command_left+f5"), ["⌘", "F5"]);
     }
 
     #[test]

@@ -210,17 +210,7 @@
           "reset": "Không thể đặt lại phím tắt về giá trị gốc",
           "updateBinding": "Không thể cập nhật phím tắt"
         },
-        "pressKeysOrMouse": "Nhấn phím hoặc nút chuột...",
-        "mouseButtons": {
-          "mouseleft": "Chuột trái",
-          "mouseright": "Chuột phải",
-          "mousemiddle": "Chuột giữa",
-          "mousex1": "Chuột 4",
-          "mousex2": "Chuột 5",
-          "mouse6": "Chuột 6",
-          "mouse7": "Chuột 7",
-          "mouse8": "Chuột 8"
-        }
+        "pressKeysOrMouse": "Nhấn phím hoặc nút chuột..."
       },
       "language": {
         "title": "Ngôn ngữ",

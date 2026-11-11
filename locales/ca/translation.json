@@ -192,17 +192,7 @@
           "reset": "No s'ha pogut restablir la drecera al valor original",
           "updateBinding": "No s'ha pogut actualitzar la drecera"
         },
-        "pressKeysOrMouse": "Premeu tecles o un botó del ratolí...",
-        "mouseButtons": {
-          "mouseleft": "Botó esquerre",
-          "mouseright": "Botó dret",
-          "mousemiddle": "Botó central",
-          "mousex1": "Ratolí 4",
-          "mousex2": "Ratolí 5",
-          "mouse6": "Ratolí 6",
-          "mouse7": "Ratolí 7",
-          "mouse8": "Ratolí 8"
-        }
+        "pressKeysOrMouse": "Premeu tecles o un botó del ratolí..."
       },
       "language": {
         "title": "Llengua",

@@ -1,15 +1,14 @@
-use crate::i18n::t_or;
-
-fn mouse_label(key: &str) -> Option<&'static str> {
+/// The short name every UI shows for a mouse button in a binding: `m1` (left) to `m8`.
+pub fn mouse_button_label(key: &str) -> Option<&'static str> {
     Some(match key {
-        "mouseleft" => "Left Mouse",
-        "mouseright" => "Right Mouse",
-        "mousemiddle" => "Middle Mouse",
-        "mousex1" => "Mouse 4",
-        "mousex2" => "Mouse 5",
-        "mouse6" => "Mouse 6",
-        "mouse7" => "Mouse 7",
-        "mouse8" => "Mouse 8",
+        "mouseleft" | "mouse1" => "m1",
+        "mouseright" | "mouse2" => "m2",
+        "mousemiddle" | "mouse3" => "m3",
+        "mousex1" | "mouse4" => "m4",
+        "mousex2" | "mouse5" => "m5",
+        "mouse6" => "m6",
+        "mouse7" => "m7",
+        "mouse8" => "m8",
         _ => return None,
     })
 }
@@ -27,12 +26,8 @@ fn compound_label(key: &str) -> Option<&'static str> {
 }
 
 fn capitalize_key(key: &str) -> String {
-    if let Some(label) = mouse_label(key) {
-        return t_or(
-            &format!("settings.general.shortcut.mouseButtons.{key}"),
-            label,
-        )
-        .to_string();
+    if let Some(label) = mouse_button_label(key) {
+        return label.into();
     }
     if key == "fn" {
         return "fn".into();
@@ -69,6 +64,40 @@ fn format_key_part(part: &str) -> String {
     }
 }
 
+/// One keycap per key of a stored binding like `option+space`, with modifiers as glyphs.
+pub fn key_labels(binding: &str) -> Vec<String> {
+    binding
+        .split('+')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(key_label)
+        .collect()
+}
+
+fn key_label(part: &str) -> String {
+    let name = part
+        .strip_suffix("_left")
+        .or_else(|| part.strip_suffix("_right"))
+        .unwrap_or(part);
+    if let Some(label) = mouse_button_label(name) {
+        return label.into();
+    }
+    match name {
+        "option" | "alt" => "⌥".into(),
+        "shift" => "⇧".into(),
+        "command" | "cmd" | "super" | "meta" => "⌘".into(),
+        "control" | "ctrl" => "⌃".into(),
+        "fn" => "fn".into(),
+        "space" => "Space".into(),
+        other => {
+            let mut chars = other.chars();
+            chars.next().map_or_else(String::new, |first| {
+                first.to_uppercase().chain(chars).collect()
+            })
+        }
+    }
+}
+
 pub fn format_key_combination(combination: &str) -> String {
     if combination.is_empty() {
         return String::new();
@@ -87,9 +116,10 @@ mod tests {
     #[test]
     fn formats_like_keyboard_ts() {
         assert_eq!(format_key_combination("scrolllock"), "Scroll Lock");
+        assert_eq!(format_key_combination("ctrl+mouseleft"), "Ctrl + m1");
         assert_eq!(
-            format_key_combination("ctrl+mouseleft"),
-            "Ctrl + Left Mouse"
+            format_key_combination("option_left+mouse8"),
+            "Left Option + m8"
         );
         assert_eq!(
             format_key_combination("option_left+shift+space"),
@@ -98,5 +128,13 @@ mod tests {
         assert_eq!(format_key_combination("f5"), "F5");
         assert_eq!(format_key_combination("numpad 5"), "Numpad 5");
         assert_eq!(format_key_combination("esc"), "Esc");
+    }
+
+    #[test]
+    fn labels_each_key() {
+        assert_eq!(key_labels("option+space"), ["⌥", "Space"]);
+        assert_eq!(key_labels("option+shift+s"), ["⌥", "⇧", "S"]);
+        assert_eq!(key_labels("command_left+f5"), ["⌘", "F5"]);
+        assert_eq!(key_labels("option_left+mousex2"), ["⌥", "m5"]);
     }
 }

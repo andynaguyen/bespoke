@@ -192,17 +192,7 @@
           "reset": "शॉर्टकट को पहले जैसा रीसेट नहीं किया जा सका",
           "updateBinding": "शॉर्टकट अपडेट नहीं हो सका"
         },
-        "pressKeysOrMouse": "कुंजियां या कोई माउस बटन दबाएं...",
-        "mouseButtons": {
-          "mouseleft": "बायां माउस",
-          "mouseright": "दायां माउस",
-          "mousemiddle": "बीच का माउस",
-          "mousex1": "माउस 4",
-          "mousex2": "माउस 5",
-          "mouse6": "माउस 6",
-          "mouse7": "माउस 7",
-          "mouse8": "माउस 8"
-        }
+        "pressKeysOrMouse": "कुंजियां या कोई माउस बटन दबाएं..."
       },
       "language": {
         "title": "भाषा",

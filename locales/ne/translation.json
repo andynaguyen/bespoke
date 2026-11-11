@@ -192,17 +192,7 @@
           "reset": "सर्टकटलाई मूल मानमा रिसेट गर्न सकिएन",
           "updateBinding": "सर्टकट अपडेट गर्न सकिएन"
         },
-        "pressKeysOrMouse": "कि वा माउस बटन थिच्नुहोस्...",
-        "mouseButtons": {
-          "mouseleft": "माउस बायाँ",
-          "mouseright": "माउस दायाँ",
-          "mousemiddle": "माउस बीच",
-          "mousex1": "माउस 4",
-          "mousex2": "माउस 5",
-          "mouse6": "माउस 6",
-          "mouse7": "माउस 7",
-          "mouse8": "माउस 8"
-        }
+        "pressKeysOrMouse": "कि वा माउस बटन थिच्नुहोस्..."
       },
       "language": {
         "title": "भाषा",

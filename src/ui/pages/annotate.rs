@@ -90,7 +90,7 @@ impl AnnotatePage {
 }
 
 /// How the empty captures page names one of Annotate's shortcuts: Scrawl's short label (⌥⇧S)
-/// for a key combination, or Bespoke's label (Left Option + Mouse 8) for anything else, so it
+/// for a key combination, or Bespoke's label (Left Option + m8) for anything else, so it
 /// matches the binding the shortcut row shows.
 pub(super) fn shortcut_label(
     settings: &AppSettings,

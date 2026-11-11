@@ -192,17 +192,7 @@
           "reset": "단축키를 원래 값으로 재설정하는데 실패했습니다",
           "updateBinding": "단축키를 업데이트하지 못했습니다"
         },
-        "pressKeysOrMouse": "키 또는 마우스 버튼을 누르세요...",
-        "mouseButtons": {
-          "mouseleft": "마우스 왼쪽",
-          "mouseright": "마우스 오른쪽",
-          "mousemiddle": "마우스 가운데",
-          "mousex1": "마우스 4",
-          "mousex2": "마우스 5",
-          "mouse6": "마우스 6",
-          "mouse7": "마우스 7",
-          "mouse8": "마우스 8"
-        }
+        "pressKeysOrMouse": "키 또는 마우스 버튼을 누르세요..."
       },
       "language": {
         "title": "언어",

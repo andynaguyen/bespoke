@@ -192,17 +192,7 @@
           "reset": "איפוס קיצור הדרך לערך המקורי נכשל",
           "updateBinding": "עדכון קיצור הדרך נכשל"
         },
-        "pressKeysOrMouse": "לחץ על מקשים או על לחצן עכבר...",
-        "mouseButtons": {
-          "mouseleft": "לחצן שמאלי",
-          "mouseright": "לחצן ימני",
-          "mousemiddle": "לחצן אמצעי",
-          "mousex1": "עכבר 4",
-          "mousex2": "עכבר 5",
-          "mouse6": "עכבר 6",
-          "mouse7": "עכבר 7",
-          "mouse8": "עכבר 8"
-        }
+        "pressKeysOrMouse": "לחץ על מקשים או על לחצן עכבר..."
       },
       "language": {
         "title": "שפה",

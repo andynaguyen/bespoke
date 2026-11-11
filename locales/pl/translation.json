@@ -210,17 +210,7 @@
           "reset": "Nie udało się zresetować skrótu do wartości domyślnej",
           "updateBinding": "Nie udało się zaktualizować skrótu"
         },
-        "pressKeysOrMouse": "Naciśnij klawisze lub przycisk myszy...",
-        "mouseButtons": {
-          "mouseleft": "Lewy przycisk myszy",
-          "mouseright": "Prawy przycisk myszy",
-          "mousemiddle": "Środkowy przycisk myszy",
-          "mousex1": "Mysz 4",
-          "mousex2": "Mysz 5",
-          "mouse6": "Mysz 6",
-          "mouse7": "Mysz 7",
-          "mouse8": "Mysz 8"
-        }
+        "pressKeysOrMouse": "Naciśnij klawisze lub przycisk myszy..."
       },
       "language": {
         "title": "Język",

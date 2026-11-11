@@ -68,7 +68,7 @@ fn binding(id: &str, cx: &App) -> Vec<String> {
     SettingsStore::get(cx)
         .bindings
         .get(id)
-        .map(|binding| tour::key_labels(&binding.current_binding))
+        .map(|binding| crate::ui::keyboard::key_labels(&binding.current_binding))
         .unwrap_or_default()
 }
 

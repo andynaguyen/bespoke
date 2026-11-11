@@ -192,17 +192,7 @@
           "reset": "Kunne ikke nulstille genvej til oprindelig indstilling",
           "updateBinding": "Kunne ikke opdatere genvej"
         },
-        "pressKeysOrMouse": "Tryk på taster eller en museknap...",
-        "mouseButtons": {
-          "mouseleft": "Venstre museknap",
-          "mouseright": "Højre museknap",
-          "mousemiddle": "Midterste museknap",
-          "mousex1": "Mus 4",
-          "mousex2": "Mus 5",
-          "mouse6": "Mus 6",
-          "mouse7": "Mus 7",
-          "mouse8": "Mus 8"
-        }
+        "pressKeysOrMouse": "Tryk på taster eller en museknap..."
       },
       "language": {
         "title": "Sprog",

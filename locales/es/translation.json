@@ -210,17 +210,7 @@
           "reset": "Error al restablecer el atajo al valor original",
           "updateBinding": "Error al actualizar el atajo"
         },
-        "pressKeysOrMouse": "Pulsa teclas o un botón del ratón...",
-        "mouseButtons": {
-          "mouseleft": "Botón izquierdo",
-          "mouseright": "Botón derecho",
-          "mousemiddle": "Botón central",
-          "mousex1": "Ratón 4",
-          "mousex2": "Ratón 5",
-          "mouse6": "Ratón 6",
-          "mouse7": "Ratón 7",
-          "mouse8": "Ratón 8"
-        }
+        "pressKeysOrMouse": "Pulsa teclas o un botón del ratón..."
       },
       "language": {
         "title": "Idioma",

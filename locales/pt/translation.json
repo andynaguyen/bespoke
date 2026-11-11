@@ -192,17 +192,7 @@
           "reset": "Falha ao redefinir atalho para o valor original",
           "updateBinding": "Falha ao atualizar atalho"
         },
-        "pressKeysOrMouse": "Pressione teclas ou um botão do mouse...",
-        "mouseButtons": {
-          "mouseleft": "Botão esquerdo",
-          "mouseright": "Botão direito",
-          "mousemiddle": "Botão do meio",
-          "mousex1": "Mouse 4",
-          "mousex2": "Mouse 5",
-          "mouse6": "Mouse 6",
-          "mouse7": "Mouse 7",
-          "mouse8": "Mouse 8"
-        }
+        "pressKeysOrMouse": "Pressione teclas ou um botão do mouse..."
       },
       "language": {
         "title": "Idioma",

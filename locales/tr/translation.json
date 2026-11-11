@@ -210,17 +210,7 @@
           "reset": "Kısayol orijinal değerine sıfırlanamadı",
           "updateBinding": "Kısayol güncellenemedi"
         },
-        "pressKeysOrMouse": "Tuşlara veya bir fare düğmesine basın...",
-        "mouseButtons": {
-          "mouseleft": "Sol Fare",
-          "mouseright": "Sağ Fare",
-          "mousemiddle": "Orta Fare",
-          "mousex1": "Fare 4",
-          "mousex2": "Fare 5",
-          "mouse6": "Fare 6",
-          "mouse7": "Fare 7",
-          "mouse8": "Fare 8"
-        }
+        "pressKeysOrMouse": "Tuşlara veya bir fare düğmesine basın..."
       },
       "language": {
         "title": "Dil",

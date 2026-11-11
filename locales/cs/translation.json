@@ -210,17 +210,7 @@
           "reset": "Nepodařilo se vrátit zkratku na původní hodnotu",
           "updateBinding": "Nepodařilo se aktualizovat zkratku"
         },
-        "pressKeysOrMouse": "Stiskněte klávesy nebo tlačítko myši...",
-        "mouseButtons": {
-          "mouseleft": "Levé tlačítko",
-          "mouseright": "Pravé tlačítko",
-          "mousemiddle": "Prostřední tlačítko",
-          "mousex1": "Myš 4",
-          "mousex2": "Myš 5",
-          "mouse6": "Myš 6",
-          "mouse7": "Myš 7",
-          "mouse8": "Myš 8"
-        }
+        "pressKeysOrMouse": "Stiskněte klávesy nebo tlačítko myši..."
       },
       "language": {
         "title": "Jazyk",

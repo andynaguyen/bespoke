@@ -210,17 +210,7 @@
           "reset": "无法将快捷键重置为原始值",
           "updateBinding": "更新快捷键失败"
         },
-        "pressKeysOrMouse": "请按下按键或鼠标按钮...",
-        "mouseButtons": {
-          "mouseleft": "鼠标左键",
-          "mouseright": "鼠标右键",
-          "mousemiddle": "鼠标中键",
-          "mousex1": "鼠标 4",
-          "mousex2": "鼠标 5",
-          "mouse6": "鼠标 6",
-          "mouse7": "鼠标 7",
-          "mouse8": "鼠标 8"
-        }
+        "pressKeysOrMouse": "请按下按键或鼠标按钮..."
       },
       "language": {
         "title": "语言",

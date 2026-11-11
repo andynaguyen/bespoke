@@ -192,17 +192,7 @@
           "reset": "無法將快捷鍵重設為原始值",
           "updateBinding": "更新快捷鍵失敗"
         },
-        "pressKeysOrMouse": "請按下按鍵或滑鼠按鈕...",
-        "mouseButtons": {
-          "mouseleft": "滑鼠左鍵",
-          "mouseright": "滑鼠右鍵",
-          "mousemiddle": "滑鼠中鍵",
-          "mousex1": "滑鼠 4",
-          "mousex2": "滑鼠 5",
-          "mouse6": "滑鼠 6",
-          "mouse7": "滑鼠 7",
-          "mouse8": "滑鼠 8"
-        }
+        "pressKeysOrMouse": "請按下按鍵或滑鼠按鈕..."
       },
       "language": {
         "title": "語言",

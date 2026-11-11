@@ -192,17 +192,7 @@
           "reset": "Misslyckades med att återställa kortkommando till ursprungsvärdet",
           "updateBinding": "Misslyckades med att uppdatera kortkommando"
         },
-        "pressKeysOrMouse": "Tryck på tangenter eller en musknapp...",
-        "mouseButtons": {
-          "mouseleft": "Vänster musknapp",
-          "mouseright": "Höger musknapp",
-          "mousemiddle": "Mittenknapp",
-          "mousex1": "Musknapp 4",
-          "mousex2": "Musknapp 5",
-          "mouse6": "Musknapp 6",
-          "mouse7": "Musknapp 7",
-          "mouse8": "Musknapp 8"
-        }
+        "pressKeysOrMouse": "Tryck på tangenter eller en musknapp..."
       },
       "language": {
         "title": "Språk",

@@ -220,7 +220,7 @@ fn shortcuts(settings: &AppSettings) -> Shortcuts {
             || ShortcutConfig {
                 key_code: u32::MAX,
                 carbon_modifiers: 0,
-                label: binding.current_binding.clone(),
+                label: crate::ui::keyboard::key_labels(&binding.current_binding).concat(),
             },
         )
     };
