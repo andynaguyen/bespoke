@@ -2008,7 +2008,7 @@ pub fn start(shortcuts: (ShortcutConfig, ShortcutConfig), cx: &mut App) {
                 if loop_coord.read(cx).switcher.is_held() {
                     loop_coord.update(cx, |coord, cx| coord.tick_switcher(cx));
                 } else if loop_coord.read(cx).telemetry.take_escape()
-                    && loop_coord.read(cx).is_selecting()
+                    && (loop_coord.read(cx).is_selecting() || loop_coord.read(cx).is_recording())
                 {
                     loop_coord.update(cx, |coord, cx| coord.cancel_recording(cx));
                 }

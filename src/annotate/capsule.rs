@@ -173,6 +173,7 @@ pub struct AnnotateCapsule {
     paste_press: Option<[f64; 2]>,
     poll: Option<Task<()>>,
     fold: Fold,
+    chips_fold: Fold,
     levels: [f32; capsule::METER_BARS],
     at_top: bool,
     _subscription: Subscription,
@@ -222,6 +223,7 @@ impl AnnotateCapsule {
             paste_press: None,
             poll: None,
             fold: Fold::new(),
+            chips_fold: Fold::new(),
             levels: [0.; capsule::METER_BARS],
             at_top: false,
             _subscription: subscription,
@@ -253,10 +255,15 @@ impl AnnotateCapsule {
                         self.levels = [0.; capsule::METER_BARS];
                         self.fold.start(now);
                     }
+                    let snap = crate::ui::platform::reduce_motion();
                     if chips {
+                        if !had_chips {
+                            self.chips_fold.start(now);
+                        }
                         self.fold.cover();
                     } else if had_chips {
-                        self.fold.uncover(now, crate::ui::platform::reduce_motion());
+                        self.chips_fold.close(snap);
+                        self.fold.uncover(now, snap);
                     }
                 }
                 #[cfg(debug_assertions)]
@@ -514,18 +521,25 @@ impl AnnotateCapsule {
                                 .child(stroke_count.to_string()),
                         )
                     });
-                if chips {
-                    return vec![
-                        lead.into_any_element(),
-                        capsule::divider(c).into_any_element(),
-                        self.modes(Some(SelectionMode::Screen), true, c, cx)
-                            .into_any_element(),
-                        capsule::divider(c).into_any_element(),
-                        close(self, PillAction::Cancel, cx),
-                    ];
-                }
-                let can_undo = stroke_count > 0;
                 let rtl = crate::i18n::is_rtl();
+                let mode_chips = (chips || self.chips_fold.running()).then(|| {
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(2.))
+                        .when(rtl, |el| el.flex_row_reverse())
+                        .child(capsule::divider(c))
+                        .child(self.modes(Some(SelectionMode::Screen), true, c, cx))
+                        .child(capsule::divider(c))
+                        .child(close(self, PillAction::Cancel, cx))
+                });
+                let mode_chips = mode_chips.map(|chips| {
+                    self.chips_fold
+                        .element(chips, cx.entity().downgrade(), |this: &mut Self| {
+                            &mut this.chips_fold
+                        })
+                });
+                let can_undo = stroke_count > 0;
                 let buttons = div()
                     .flex()
                     .items_center()
@@ -582,6 +596,7 @@ impl AnnotateCapsule {
                         .items_center()
                         .when(rtl, |el| el.flex_row_reverse())
                         .child(lead)
+                        .children(mode_chips)
                         .child(self.fold.element(
                             buttons,
                             cx.entity().downgrade(),
@@ -648,7 +663,7 @@ impl AnnotateCapsule {
 
 impl Render for AnnotateCapsule {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.fold.running() {
+        if self.fold.running() || self.chips_fold.running() {
             window.request_animation_frame();
         }
         let at_top = self.at_top;
