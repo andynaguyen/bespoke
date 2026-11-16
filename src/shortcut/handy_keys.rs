@@ -7,26 +7,104 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use crate::settings::{self, ShortcutBinding, get_settings};
 
 use super::handler::handle_shortcut_event;
 
+const MANAGER_REPLY_TIMEOUT: Duration = Duration::from_secs(2);
+
+enum RequestError {
+    Failed(String),
+    StillQueued,
+    ManagerStopped,
+}
+
+impl std::fmt::Display for RequestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Failed(reason) => f.write_str(reason),
+            Self::StillQueued => f.write_str("Shortcut manager did not answer in time"),
+            Self::ManagerStopped => f.write_str("Shortcut manager is not running"),
+        }
+    }
+}
+
+type Reply = Result<(), String>;
+
 enum ManagerCommand {
     Register {
         binding_id: String,
         hotkey_string: String,
-        response: Sender<Result<(), String>>,
+        response: Sender<Reply>,
     },
     Unregister {
         binding_id: String,
-        response: Sender<Result<(), String>>,
+        response: Sender<Reply>,
     },
     Shutdown,
 }
 
+struct ManagerQueue {
+    commands: Mutex<Sender<ManagerCommand>>,
+    overdue_reply: Mutex<Option<Receiver<Reply>>>,
+}
+
+impl ManagerQueue {
+    fn new(commands: Sender<ManagerCommand>) -> Self {
+        Self {
+            commands: Mutex::new(commands),
+            overdue_reply: Mutex::new(None),
+        }
+    }
+
+    /// Queues a command and waits up to `patience` for the manager's reply. While the manager
+    /// owes a reply from an earlier timeout, the command is queued without a wait, so a stuck
+    /// manager costs its callers one `patience` however many commands they send.
+    fn request(
+        &self,
+        patience: Duration,
+        command: impl FnOnce(Sender<Reply>) -> ManagerCommand,
+    ) -> Result<(), RequestError> {
+        let (tx, rx) = mpsc::channel();
+        self.commands
+            .lock()
+            .map_err(|_| RequestError::Failed("Failed to lock the manager's commands".into()))?
+            .send(command(tx))
+            .map_err(|_| RequestError::ManagerStopped)?;
+
+        if self.manager_owes_a_reply() {
+            return Err(RequestError::StillQueued);
+        }
+        match rx.recv_timeout(patience) {
+            Ok(reply) => reply.map_err(RequestError::Failed),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if let Ok(mut overdue) = self.overdue_reply.lock() {
+                    *overdue = Some(rx);
+                }
+                Err(RequestError::StillQueued)
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(RequestError::ManagerStopped),
+        }
+    }
+
+    fn manager_owes_a_reply(&self) -> bool {
+        let Ok(mut overdue) = self.overdue_reply.lock() else {
+            return false;
+        };
+        let owes = overdue
+            .as_ref()
+            .is_some_and(|reply| matches!(reply.try_recv(), Err(mpsc::TryRecvError::Empty)));
+        if !owes {
+            *overdue = None;
+        }
+        owes
+    }
+}
+
 pub struct HandyKeysState {
-    command_sender: Mutex<Sender<ManagerCommand>>,
+    manager: ManagerQueue,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
     recording_listener: Mutex<Option<KeyboardListener>>,
     recording_running: Arc<AtomicBool>,
@@ -55,7 +133,7 @@ impl HandyKeysState {
             .map_err(|_| "Shortcut manager stopped during initialization".to_string())??;
 
         Ok(Self {
-            command_sender: Mutex::new(cmd_tx),
+            manager: ManagerQueue::new(cmd_tx),
             thread_handle: Mutex::new(Some(thread_handle)),
             recording_listener: Mutex::new(None),
             recording_running: Arc::new(AtomicBool::new(false)),
@@ -101,7 +179,7 @@ impl HandyKeysState {
                         hotkey_string,
                         response,
                     } => {
-                        let result = Self::do_register(
+                        let result = Self::do_replace_registration(
                             &manager,
                             &mut binding_to_hotkey,
                             &mut hotkey_to_binding,
@@ -138,7 +216,7 @@ impl HandyKeysState {
         info!("handy-keys manager thread stopped");
     }
 
-    fn do_register(
+    fn do_replace_registration(
         manager: &HotkeyManager,
         binding_to_hotkey: &mut HashMap<String, HotkeyId>,
         hotkey_to_binding: &mut HashMap<HotkeyId, (String, String)>,
@@ -148,6 +226,8 @@ impl HandyKeysState {
         let hotkey: Hotkey = hotkey_string
             .parse()
             .map_err(|e| format!("Failed to parse hotkey '{}': {}", hotkey_string, e))?;
+
+        Self::do_unregister(manager, binding_to_hotkey, hotkey_to_binding, binding_id)?;
 
         let id = manager
             .register(hotkey)
@@ -180,34 +260,24 @@ impl HandyKeysState {
     }
 
     pub fn register(&self, binding: &ShortcutBinding) -> Result<(), String> {
-        let (tx, rx) = mpsc::channel();
-        self.command_sender
-            .lock()
-            .map_err(|_| "Failed to lock command_sender")?
-            .send(ManagerCommand::Register {
+        self.manager
+            .request(MANAGER_REPLY_TIMEOUT, |response| ManagerCommand::Register {
                 binding_id: binding.id.clone(),
                 hotkey_string: binding.current_binding.clone(),
-                response: tx,
+                response,
             })
-            .map_err(|_| "Failed to send register command")?;
-
-        rx.recv()
-            .map_err(|_| "Failed to receive register response")?
+            .map_err(|e| e.to_string())
     }
 
     pub fn unregister(&self, binding: &ShortcutBinding) -> Result<(), String> {
-        let (tx, rx) = mpsc::channel();
-        self.command_sender
-            .lock()
-            .map_err(|_| "Failed to lock command_sender")?
-            .send(ManagerCommand::Unregister {
-                binding_id: binding.id.clone(),
-                response: tx,
+        self.manager
+            .request(MANAGER_REPLY_TIMEOUT, |response| {
+                ManagerCommand::Unregister {
+                    binding_id: binding.id.clone(),
+                    response,
+                }
             })
-            .map_err(|_| "Failed to send unregister command")?;
-
-        rx.recv()
-            .map_err(|_| "Failed to receive unregister response")?
+            .map_err(|e| e.to_string())
     }
 
     pub fn start_recording(&self, app: &AppHandle) -> Result<(), String> {
@@ -290,12 +360,13 @@ impl HandyKeysState {
     pub fn stop_recording(&self) -> Result<(), String> {
         self.recording_running.store(false, Ordering::SeqCst);
 
-        {
-            let mut recording = self
-                .recording_listener
-                .lock()
-                .map_err(|_| "Failed to lock recording_listener")?;
-            *recording = None;
+        let listener = self
+            .recording_listener
+            .lock()
+            .map_err(|_| "Failed to lock recording_listener")?
+            .take();
+        if let Some(listener) = listener {
+            join_in_background(listener);
         }
 
         debug!("Stopped handy-keys recording mode");
@@ -307,7 +378,7 @@ impl Drop for HandyKeysState {
     fn drop(&mut self) {
         self.recording_running.store(false, Ordering::SeqCst);
 
-        if let Ok(sender) = self.command_sender.lock() {
+        if let Ok(sender) = self.manager.commands.lock() {
             let _ = sender.send(ManagerCommand::Shutdown);
         }
 
@@ -317,6 +388,10 @@ impl Drop for HandyKeysState {
             let _ = h.join();
         }
     }
+}
+
+fn join_in_background(listener: KeyboardListener) {
+    thread::spawn(move || drop(listener));
 }
 
 fn modifiers_to_strings(modifiers: Modifiers) -> Vec<String> {
@@ -464,7 +539,67 @@ pub fn stop_handy_keys_recording(app: AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Hotkey, is_mouse_shortcut, validate_shortcut};
+    use super::{
+        Hotkey, ManagerCommand, ManagerQueue, Reply, RequestError, is_mouse_shortcut,
+        validate_shortcut,
+    };
+    use std::sync::mpsc::{self, Receiver, Sender};
+    use std::time::{Duration, Instant};
+
+    const LONGER_THAN_THE_TEST: Duration = Duration::from_secs(30);
+
+    fn unregister(queue: &ManagerQueue, patience: Duration) -> Result<(), RequestError> {
+        queue.request(patience, |response| ManagerCommand::Unregister {
+            binding_id: "transcribe".into(),
+            response,
+        })
+    }
+
+    fn next_reply_sender(commands: &Receiver<ManagerCommand>) -> Sender<Reply> {
+        match commands.try_recv() {
+            Ok(ManagerCommand::Unregister { response, .. }) => response,
+            _ => panic!("expected a queued unregister"),
+        }
+    }
+
+    #[test]
+    fn a_stuck_manager_costs_one_timeout_for_any_number_of_commands() {
+        let (commands, stuck_manager) = mpsc::channel();
+        let queue = ManagerQueue::new(commands);
+
+        let first = unregister(&queue, Duration::from_millis(20));
+        assert!(matches!(first, Err(RequestError::StillQueued)));
+
+        let started = Instant::now();
+        for _ in 0..3 {
+            let later = unregister(&queue, LONGER_THAN_THE_TEST);
+            assert!(matches!(later, Err(RequestError::StillQueued)));
+        }
+        assert!(started.elapsed() < LONGER_THAN_THE_TEST / 2);
+
+        assert_eq!(stuck_manager.try_iter().count(), 4);
+    }
+
+    #[test]
+    fn callers_wait_again_once_the_manager_answers_the_overdue_command() {
+        let (commands, manager) = mpsc::channel();
+        let queue = ManagerQueue::new(commands);
+
+        let overdue = unregister(&queue, Duration::from_millis(20));
+        assert!(matches!(overdue, Err(RequestError::StillQueued)));
+        next_reply_sender(&manager).send(Ok(())).unwrap();
+
+        let answering = std::thread::spawn(move || {
+            let reply = match manager.recv() {
+                Ok(ManagerCommand::Unregister { response, .. }) => response,
+                _ => panic!("expected a queued unregister"),
+            };
+            reply.send(Err("taken".to_string())).unwrap();
+        });
+        let waited_for = unregister(&queue, LONGER_THAN_THE_TEST);
+        assert!(matches!(waited_for, Err(RequestError::Failed(reason)) if reason == "taken"));
+        answering.join().unwrap();
+    }
 
     #[test]
     fn extended_mouse_shortcuts_use_native_button_names() {
