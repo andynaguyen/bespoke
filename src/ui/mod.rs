@@ -78,6 +78,7 @@ pub fn init(ui_messages: async_channel::Receiver<UiMessage>, settings: &AppSetti
     cx.set_global(MainWindowSlot::default());
 
     platform::prevent_panels_from_taking_focus();
+    platform::prevent_key_status_deadlock();
 
     cx.on_action(|_: &Quit, cx| cx.quit());
     cx.on_action(|_: &HideApp, cx| cx.hide());

@@ -25,9 +25,10 @@ pub fn reduce_motion() -> bool {
 }
 
 pub use imp::{
-    CursorScreen, accessibility_granted, launch_as_accessory, microphone_authorization,
-    microphone_granted, prevent_panels_from_taking_focus, request_accessibility,
-    request_microphone, set_activation_policy_regular, set_app_appearance, set_window_menu_title,
+    CursorScreen, accessibility_granted, app_is_active, launch_as_accessory,
+    microphone_authorization, microphone_granted, prevent_key_status_deadlock,
+    prevent_panels_from_taking_focus, request_accessibility, request_microphone,
+    set_activation_policy_regular, set_app_appearance, set_window_menu_title,
 };
 
 pub use imp::capsule;
@@ -229,6 +230,9 @@ mod imp {
                 }
             }
 
+            /// Orders the window in above `parent`, as its child. `key` also gives it the keys,
+            /// when Bespoke is the active app. A panel made key in an inactive app deadlocks
+            /// GPUI (`prevent_panels_from_taking_focus`), so until then it only comes forward.
             pub fn show_attached(
                 &self,
                 parent: &CapsuleWindow,
@@ -253,10 +257,24 @@ mod imp {
                         if !parent.isVisible() {
                             return;
                         }
-                        if key {
+                        if key && super::app_is_active() {
                             window.makeKeyAndOrderFront(None);
                         } else {
                             window.orderFront(None);
+                        }
+                    })
+                    .detach();
+            }
+
+            /// Takes the keys from `parent`, when `parent` still holds them on the next
+            /// main-thread turn. Another panel that took them first, like Annotate's picker,
+            /// keeps them.
+            pub fn take_keys_from(&self, parent: &CapsuleWindow, cx: &gpui::App) {
+                let (window, parent) = (self.0.clone(), parent.0.clone());
+                cx.foreground_executor()
+                    .spawn(async move {
+                        if parent.isKeyWindow() {
+                            window.makeKeyAndOrderFront(None);
                         }
                     })
                     .detach();
@@ -333,6 +351,11 @@ mod imp {
         }
     }
 
+    /// Whether Bespoke is the active app. False off the main thread.
+    pub fn app_is_active() -> bool {
+        MainThreadMarker::new().is_some_and(|mtm| NSApplication::sharedApplication(mtm).isActive())
+    }
+
     pub fn set_activation_policy_regular(regular: bool) {
         let Some(mtm) = MainThreadMarker::new() else {
             return;
@@ -374,14 +397,24 @@ mod imp {
         identifier.is_some_and(|id| id.to_string() == OVERLAY_IDENTIFIER)
     }
 
-    /// GPUI's popup panel class answers YES to `canBecomeKeyWindow`, so a
-    /// click on the overlay would take keyboard focus from the app the user
-    /// is dictating into. The class method is swapped for one that answers NO
-    /// for the overlay. Other popups keep GPUI's answer: Annotate's target
-    /// picker needs the keys.
+    /// GPUI's popup panel class answers YES to `canBecomeKeyWindow`. The class
+    /// method is swapped for one that answers NO in two cases.
+    ///
+    /// The overlay never takes the keys: a click on it would take keyboard
+    /// focus from the app the user is dictating into.
+    ///
+    /// No panel takes the keys while Bespoke is inactive. GPUI's panels are
+    /// nonactivating, so a click on one in an inactive app makes it key without
+    /// activating the app. Cocoa then sends the main window a spurious
+    /// `windowDidBecomeKey`, and GPUI answers it with `resignKeyWindow` while
+    /// it holds that window's lock. The resign notification takes the same
+    /// lock, and the main thread never returns.
+    ///
+    /// Other panels keep GPUI's answer in an active app: a dialog and
+    /// Annotate's target picker need the keys.
     pub fn prevent_panels_from_taking_focus() {
         extern "C" fn can_become_key(this: &AnyObject, sel: Sel) -> Bool {
-            if is_overlay(this) {
+            if is_overlay(this) || !app_is_active() {
                 return Bool::NO;
             }
             let Some(original) = PANEL_CAN_BECOME_KEY.get() else {
@@ -394,7 +427,7 @@ mod imp {
             original(this, sel)
         }
         let Some(class) = AnyClass::get(c"GPUIPanel") else {
-            log::warn!("GPUIPanel class not found; overlay may take focus when clicked");
+            log::warn!("GPUIPanel class not found; panels may take focus when clicked");
             return;
         };
         let sel = sel!(canBecomeKeyWindow);
@@ -414,6 +447,77 @@ mod imp {
                 >(can_become_key),
                 c"c@:".as_ptr(),
             );
+        }
+    }
+
+    type DidBecomeKey = extern "C" fn(&AnyObject, Sel, *mut AnyObject);
+    static WINDOW_DID_BECOME_KEY: std::sync::OnceLock<objc2::runtime::Imp> =
+        std::sync::OnceLock::new();
+    static PANEL_DID_BECOME_KEY: std::sync::OnceLock<objc2::runtime::Imp> =
+        std::sync::OnceLock::new();
+
+    /// Keeps a spurious `windowDidBecomeKey` from deadlocking the main thread.
+    /// Cocoa sends one to the previous key window when a panel becomes key in
+    /// an inactive app. GPUI answers it with `resignKeyWindow` while it holds
+    /// the window's lock, and the resign notification that call sends takes the
+    /// same lock. The wrappers send `resignKeyWindow` first, with no lock held,
+    /// so GPUI's handler only runs for a window that is key.
+    pub fn prevent_key_status_deadlock() {
+        fn did_become_key(
+            gpui: &std::sync::OnceLock<objc2::runtime::Imp>,
+            this: &AnyObject,
+            sel: Sel,
+            notification: *mut AnyObject,
+        ) {
+            // SAFETY: `this` is a GPUI window, an NSWindow. `isKeyWindow` returns
+            // a BOOL and `resignKeyWindow` takes no arguments.
+            let is_key: bool = unsafe { msg_send![this, isKeyWindow] };
+            if !is_key {
+                let _: () = unsafe { msg_send![this, resignKeyWindow] };
+                return;
+            }
+            let Some(gpui) = gpui.get() else {
+                return;
+            };
+            // SAFETY: `gpui` is GPUI's `void (id, SEL, id)` implementation of
+            // the same selector.
+            let gpui: DidBecomeKey = unsafe { std::mem::transmute(*gpui) };
+            gpui(this, sel, notification)
+        }
+        extern "C" fn window_did_become_key(this: &AnyObject, sel: Sel, note: *mut AnyObject) {
+            did_become_key(&WINDOW_DID_BECOME_KEY, this, sel, note)
+        }
+        extern "C" fn panel_did_become_key(this: &AnyObject, sel: Sel, note: *mut AnyObject) {
+            did_become_key(&PANEL_DID_BECOME_KEY, this, sel, note)
+        }
+        let wrappers: [(_, _, DidBecomeKey); 2] = [
+            (c"GPUIWindow", &WINDOW_DID_BECOME_KEY, window_did_become_key),
+            (c"GPUIPanel", &PANEL_DID_BECOME_KEY, panel_did_become_key),
+        ];
+        let sel = sel!(windowDidBecomeKey:);
+        for (name, gpui, wrapper) in wrappers {
+            let Some(class) = AnyClass::get(name) else {
+                log::warn!("{name:?} class not found; a panel's focus may hang the app");
+                continue;
+            };
+            // SAFETY: looks up and replaces an existing `void (id, SEL, id)`
+            // method with one of the same signature.
+            unsafe {
+                let method = objc2::ffi::class_getInstanceMethod(class, sel);
+                let Some(original) = objc2::ffi::method_getImplementation(method) else {
+                    log::warn!("{name:?} has no windowDidBecomeKey:; left as it is");
+                    continue;
+                };
+                if gpui.set(original).is_err() {
+                    continue;
+                }
+                objc2::ffi::class_replaceMethod(
+                    class as *const AnyClass as *mut AnyClass,
+                    sel,
+                    std::mem::transmute::<DidBecomeKey, unsafe extern "C-unwind" fn()>(wrapper),
+                    c"v@:@".as_ptr(),
+                );
+            }
         }
     }
 

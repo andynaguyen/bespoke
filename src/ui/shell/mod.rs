@@ -125,6 +125,8 @@ impl MainWindow {
             crate::ui::theme::system_appearance_changed(window, cx);
         })
         .detach();
+        cx.observe_window_activation(window, Self::hand_keys_to_open_dialog)
+            .detach();
 
         let step = initial_onboarding_step(cx);
         #[cfg(debug_assertions)]
@@ -394,6 +396,13 @@ impl MainWindow {
     /// Whether the app shows, rather than onboarding or its preview, so a dialog can go over it.
     pub fn shows_app(&self) -> bool {
         self.step == OnboardingStep::Done && self.preview.is_none()
+    }
+
+    fn hand_keys_to_open_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let dialog = self.dialog.as_ref().and_then(|d| d.window.as_ref());
+        if let Some(dialog) = dialog.filter(|_| window.is_window_active()) {
+            dialog.take_keys_from_host(cx);
+        }
     }
 
     /// Hands keys back to the open dialog's window.

@@ -411,9 +411,16 @@ impl Render for DialogHost {
                 crate::ui::components::set_keyboard_modality(true, window, cx)
             })
             .capture_any_mouse_down(|_, window, cx| {
+                activate_app_from_nonactivating_panel(cx);
                 crate::ui::components::set_keyboard_modality(false, window, cx)
             })
             .child(self.view.clone())
+    }
+}
+
+fn activate_app_from_nonactivating_panel(cx: &mut App) {
+    if !super::platform::app_is_active() {
+        cx.activate(true);
     }
 }
 
@@ -474,9 +481,15 @@ impl DialogWindow {
     }
 
     /// Makes the dialog the key window again, after something brought the main window forward
-    /// over it as key.
+    /// over it as key. In an inactive app it only comes forward, and the main window hands it
+    /// the keys when Bespoke becomes active (`MainWindow::hand_keys_to_open_dialog`).
     pub fn focus(&self, cx: &App) {
         self.native.show_attached(&self.parent, 1., true, cx);
+    }
+
+    /// Takes the keys from the main window, when it holds them.
+    pub fn take_keys_from_host(&self, cx: &App) {
+        self.native.take_keys_from(&self.parent, cx);
     }
 
     pub fn sync(&self, host: Bounds<Pixels>, cx: &App) {
