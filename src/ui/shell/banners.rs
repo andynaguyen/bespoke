@@ -72,6 +72,8 @@ impl Render for AccessibilityBanner {
                     .gap_2()
                     .child(
                         div()
+                            .flex_1()
+                            .min_w_0()
                             .text_px(13.)
                             .font_weight(FontWeight::MEDIUM)
                             .child(t("accessibility.permissionsDescription")),
@@ -79,6 +81,7 @@ impl Render for AccessibilityBanner {
                     .child(
                         div()
                             .id("accessibility-open-settings")
+                            .flex_none()
                             .h(px(28.))
                             .px(px(12.))
                             .text_px(12.5)
