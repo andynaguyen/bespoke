@@ -1,4 +1,6 @@
-use gpui::{AnyElement, App, FontWeight, SharedString, Window, div, prelude::*, px, rems};
+use gpui::{
+    AnyElement, App, Div, FontWeight, Hsla, SharedString, Window, div, prelude::*, px, rems,
+};
 
 use super::RowDirection;
 use super::Typography;
@@ -96,6 +98,22 @@ impl RenderOnce for SettingContainer {
     }
 }
 
+/// Wraps each of `children` to span the card's width, with a `line` between each pair, the way
+/// a settings card stacks its rows.
+pub fn divided_rows(
+    children: impl IntoIterator<Item = AnyElement>,
+    line: Hsla,
+) -> impl Iterator<Item = Div> {
+    children.into_iter().enumerate().map(move |(index, child)| {
+        div()
+            .w_full()
+            .flex()
+            .flex_col()
+            .when(index > 0, |el| el.border_t(px(1.)).border_color(line))
+            .child(child)
+    })
+}
+
 #[derive(IntoElement, Default)]
 pub struct SettingsGroup {
     title: Option<SharedString>,
@@ -143,19 +161,7 @@ impl RenderOnce for SettingsGroup {
                     .border_1()
                     .border_color(p.line)
                     .rounded(crate::ui::theme::radius::CARD)
-                    .children(
-                        self.children
-                            .into_iter()
-                            .enumerate()
-                            .map(move |(index, child)| {
-                                div()
-                                    .w_full()
-                                    .flex()
-                                    .flex_col()
-                                    .when(index > 0, |el| el.border_t(px(1.)).border_color(p.line))
-                                    .child(child)
-                            }),
-                    ),
+                    .children(divided_rows(self.children, p.line)),
             )
     }
 }

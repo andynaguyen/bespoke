@@ -20,7 +20,7 @@ pub use focus::{
 pub use icon::icon;
 pub use misc::*;
 pub use segmented::SegmentedControl;
-pub use setting::{SettingContainer, SettingLayout, SettingsGroup};
+pub use setting::{SettingContainer, SettingLayout, SettingsGroup, divided_rows};
 pub use slider::Slider;
 pub use text_field::{TextArea, TextField};
 pub use toggle::ToggleSwitchRow;

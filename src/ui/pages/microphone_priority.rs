@@ -1,13 +1,17 @@
+use std::cell::Cell;
+use std::rc::{Rc, Weak};
+
 use gpui::{
-    AnyElement, App, Context, CursorStyle, FontWeight, SharedString, Window, div, prelude::*, px,
-    rems,
+    AnyElement, App, Context, CursorStyle, FontWeight, Global, Pixels, SharedString, Window,
+    canvas, div, prelude::*, px, rems,
 };
 
 use crate::i18n::t;
 use crate::managers::audio::first_connected;
 use crate::settings::AppSettings;
 use crate::ui::components::{
-    Dropdown, DropdownOption, KeyboardFocus, RowDirection, SettingContainer, Typography, icon,
+    Dropdown, DropdownOption, KeyboardFocus, RowDirection, SettingContainer, Typography,
+    divided_rows, icon,
 };
 use crate::ui::stores::SettingsStore;
 use crate::ui::theme::{Alpha, palette};
@@ -17,32 +21,58 @@ const GRIP_SIZE: f32 = 14.;
 const NUMBER_SIZE: f32 = 20.;
 const REMOVE_SIZE: f32 = 24.;
 
-#[derive(Clone)]
-struct DraggedMicrophone {
+struct Reorder {
     from: usize,
-    name: SharedString,
+    to: Cell<usize>,
+    measured_row_width: Cell<Pixels>,
 }
 
-struct DragPreview(SharedString);
+#[derive(Clone)]
+struct DraggedMicrophone {
+    name: SharedString,
+    status: Status,
+    reorder: Rc<Reorder>,
+}
+
+struct ActiveReorder(Weak<Reorder>);
+
+impl Global for ActiveReorder {}
+
+fn active_reorder(cx: &App) -> Option<Rc<Reorder>> {
+    if !cx.has_active_drag() {
+        return None;
+    }
+    cx.try_global::<ActiveReorder>()
+        .and_then(|active| active.0.upgrade())
+}
+
+struct DragPreview {
+    name: SharedString,
+    status: Status,
+    reorder: Weak<Reorder>,
+}
 
 impl Render for DragPreview {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = palette(cx);
-        div()
-            .flex()
-            .row_dir()
-            .items_center()
-            .gap_2()
-            .px(px(10.))
-            .py(px(6.))
+        let Some(reorder) = self.reorder.upgrade() else {
+            return div();
+        };
+        row_frame()
+            .w(reorder.measured_row_width.get())
             .rounded(px(8.))
-            .bg(p.background)
+            .bg(p.clay)
             .border_1()
             .border_color(p.accent.a(0.6))
             .shadow_lg()
-            .text_px(13.)
-            .child(icon("mic").size(px(15.)).text_color(p.mid_gray))
-            .child(self.0.clone())
+            .text_color(p.text)
+            .children(row_content(
+                reorder.to.get(),
+                self.name.clone(),
+                self.status,
+                cx,
+            ))
+            .child(div().w(px(REMOVE_SIZE)).flex_none())
     }
 }
 
@@ -58,18 +88,53 @@ pub fn rows(s: &AppSettings, cx: &App) -> Vec<AnyElement> {
     let priority = &s.microphone_priority;
     let in_use = first_connected(priority, &connected);
 
-    let mut rows = vec![header(priority, &connected, cx)];
-    for (index, name) in priority.iter().enumerate() {
+    let mut order: Vec<usize> = (0..priority.len()).collect();
+    let lifted = active_reorder(cx)
+        .map(|reorder| (reorder.from, reorder.to.get()))
+        .filter(|(from, _)| *from < order.len());
+    if let Some((from, to)) = lifted {
+        let item = order.remove(from);
+        order.insert(to.min(order.len()), item);
+    }
+
+    let mut rows = Vec::new();
+    for (slot, &index) in order.iter().enumerate() {
+        if lifted.is_some_and(|(from, _)| from == index) {
+            rows.push(placeholder_row(slot, cx));
+            continue;
+        }
+        let name = &priority[index];
         let status = match () {
             _ if !loaded => Status::Unknown,
             _ if in_use == Some(name.as_str()) => Status::InUse,
             _ if connected.contains(&name.as_str()) => Status::Connected,
             _ => Status::Disconnected,
         };
-        rows.push(microphone_row(index, name.clone().into(), status, cx));
+        rows.push(microphone_row(index, slot, name.clone().into(), status, cx));
     }
-    rows.push(system_default_row(loaded && in_use.is_none(), cx));
-    rows
+    let last = priority.len().saturating_sub(1);
+    rows.push(system_default_row(last, loaded && in_use.is_none(), cx));
+    vec![header(priority, &connected, cx), drop_zone(rows, cx)]
+}
+
+fn drop_zone(rows: Vec<AnyElement>, cx: &App) -> AnyElement {
+    let p = palette(cx);
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .on_drag_move::<DraggedMicrophone>(|event, window, cx| {
+            cx.set_active_drag_cursor_style(CursorStyle::ClosedHand, window);
+            if !event.bounds.contains(&event.event.position) {
+                let reorder = &event.drag(cx).reorder;
+                reorder.to.set(reorder.from);
+            }
+        })
+        .on_drop(|dragged: &DraggedMicrophone, _, cx| {
+            move_to(dragged.reorder.from, dragged.reorder.to.get(), cx)
+        })
+        .children(divided_rows(rows, p.line))
+        .into_any_element()
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -134,79 +199,116 @@ fn header(priority: &[String], connected: &[&str], cx: &App) -> AnyElement {
         .into_any_element()
 }
 
-fn microphone_row(index: usize, name: SharedString, status: Status, cx: &App) -> AnyElement {
-    let p = palette(cx);
-    let dim = status == Status::Disconnected;
+fn microphone_row(
+    saved_index: usize,
+    shown_slot: usize,
+    name: SharedString,
+    status: Status,
+    cx: &App,
+) -> AnyElement {
+    let reorder = Rc::new(Reorder {
+        from: saved_index,
+        to: Cell::new(saved_index),
+        measured_row_width: Cell::new(px(0.)),
+    });
+    let measured = reorder.clone();
     let dragged = DraggedMicrophone {
-        from: index,
         name: name.clone(),
+        status,
+        reorder,
     };
-    row_frame()
-        .id(("microphone", index))
+    track_slot(row_frame().id(("microphone", saved_index)), shown_slot)
+        .relative()
         .cursor(CursorStyle::OpenHand)
         .on_drag(dragged, |dragged, _, _, cx| {
-            cx.new(|_| DragPreview(dragged.name.clone()))
+            cx.set_global(ActiveReorder(Rc::downgrade(&dragged.reorder)));
+            let preview = DragPreview {
+                name: dragged.name.clone(),
+                status: dragged.status,
+                reorder: Rc::downgrade(&dragged.reorder),
+            };
+            cx.new(|_| preview)
         })
-        .drag_over::<DraggedMicrophone>(move |style, dragged, _, cx| {
-            if dragged.from == index {
-                style
-            } else {
-                style.bg(palette(cx).accent.a(0.08))
-            }
-        })
-        .on_drop(move |dragged: &DraggedMicrophone, _, cx| move_to(dragged.from, index, cx))
         .child(
-            icon("grip-vertical")
-                .size(px(GRIP_SIZE))
-                .flex_none()
-                .text_color(p.mid_gray),
+            canvas(
+                move |bounds, _, _| measured.measured_row_width.set(bounds.size.width),
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .size_full(),
         )
-        .child(number(index + 1, cx))
-        .child(
-            icon("mic")
-                .size(px(15.))
-                .flex_none()
-                .text_color(p.mid_gray.a(if dim { 0.5 } else { 1. })),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .truncate()
-                .text_px(13.)
-                .when(dim, |el| el.text_color(p.text.a(0.45)))
-                .child(name.clone()),
-        )
-        .children(match status {
-            Status::InUse => Some(pill(
-                t("settings.sound.microphone.priority.inUse"),
-                true,
-                cx,
-            )),
-            Status::Disconnected => Some(pill(
-                t("settings.sound.microphone.priority.notConnected"),
-                false,
-                cx,
-            )),
-            Status::Unknown | Status::Connected => None,
-        })
-        .child(remove_button(index, name, cx))
+        .children(row_content(shown_slot, name.clone(), status, cx))
+        .child(remove_button(saved_index, name, cx))
         .into_any_element()
 }
 
-fn system_default_row(in_use: bool, cx: &App) -> AnyElement {
+fn placeholder_row(slot: usize, cx: &App) -> AnyElement {
+    let p = palette(cx);
+    track_slot(row_frame().id(("microphone-slot", slot)), slot)
+        .child(
+            div()
+                .flex_1()
+                .h(px(30.))
+                .rounded(px(8.))
+                .bg(p.accent.a(0.08))
+                .border_1()
+                .border_color(p.accent.a(0.35)),
+        )
+        .into_any_element()
+}
+
+fn track_slot<E: InteractiveElement>(row: E, slot: usize) -> E {
+    row.on_drag_move::<DraggedMicrophone>(move |event, _, cx| {
+        if event.bounds.contains(&event.event.position) {
+            event.drag(cx).reorder.to.set(slot);
+        }
+    })
+}
+
+fn row_content(slot: usize, name: SharedString, status: Status, cx: &App) -> Vec<AnyElement> {
+    let p = palette(cx);
+    let dim = status == Status::Disconnected;
+    let mut content = vec![
+        icon("grip-vertical")
+            .size(px(GRIP_SIZE))
+            .flex_none()
+            .text_color(p.mid_gray)
+            .into_any_element(),
+        number(slot + 1, cx),
+        icon("mic")
+            .size(px(15.))
+            .flex_none()
+            .text_color(p.mid_gray.a(if dim { 0.5 } else { 1. }))
+            .into_any_element(),
+        div()
+            .flex_1()
+            .min_w_0()
+            .truncate()
+            .text_px(13.)
+            .when(dim, |el| el.text_color(p.text.a(0.45)))
+            .child(name)
+            .into_any_element(),
+    ];
+    content.extend(match status {
+        Status::InUse => Some(pill(
+            t("settings.sound.microphone.priority.inUse"),
+            true,
+            cx,
+        )),
+        Status::Disconnected => Some(pill(
+            t("settings.sound.microphone.priority.notConnected"),
+            false,
+            cx,
+        )),
+        Status::Unknown | Status::Connected => None,
+    });
+    content
+}
+
+fn system_default_row(last: usize, in_use: bool, cx: &App) -> AnyElement {
     let p = palette(cx);
     let gap = |width: f32| div().w(px(width)).flex_none();
-    row_frame()
-        .id("microphone-system-default")
-        .drag_over::<DraggedMicrophone>(|style, _, _, cx| style.bg(palette(cx).accent.a(0.08)))
-        .on_drop(|dragged: &DraggedMicrophone, _, cx| {
-            let last = SettingsStore::get(cx)
-                .microphone_priority
-                .len()
-                .saturating_sub(1);
-            move_to(dragged.from, last, cx);
-        })
+    track_slot(row_frame().id("microphone-system-default"), last)
         .child(gap(GRIP_SIZE))
         .child(gap(NUMBER_SIZE))
         .child(

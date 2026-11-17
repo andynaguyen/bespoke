@@ -5,7 +5,8 @@ use std::cell::Cell;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use gpui::{AnyWindowHandle, App, AsyncApp};
+use gpui::{AnyWindowHandle, App, AsyncApp, Pixels, Point, point, px};
+use objc2_app_kit::NSEventType;
 
 thread_local! {
     static CAPTURE_OVERLAY: Cell<bool> = const { Cell::new(false) };
@@ -65,7 +66,8 @@ pub fn start(cx: &mut App) {
     cx.spawn(async move |cx| {
         wait(cx, 1500).await;
         for page in pages {
-            let (rest, key) = page.split_once('!').unwrap_or((page.as_str(), ""));
+            let (rest, drag) = page.split_once('~').unwrap_or((page.as_str(), ""));
+            let (rest, key) = rest.split_once('!').unwrap_or((rest, ""));
             let (target, tabs) = rest.split_once('#').unwrap_or((rest, ""));
             let _ = cx.update(|cx| navigate(target, cx));
             // A locked or covered screen stops GPUI's display link, so draw
@@ -88,9 +90,22 @@ pub fn start(cx: &mut App) {
                     force_draw(cx);
                 }
             }
-            let path = dir.join(format!("{}.png", page.replace([':', '@', '#', '!'], "-")));
+            let mut held = None;
+            if !drag.is_empty() {
+                match parse_drag(drag) {
+                    Some((from, to)) => held = drag_mouse(from, to, cx).await,
+                    None => log::warn!("snapshot: drag {drag} isn't x:y>x:y"),
+                }
+            }
+            let path = dir.join(format!(
+                "{}.png",
+                page.replace([':', '@', '#', '!', '~', '>'], "-")
+            ));
             let saved = cx.update(|cx| capture(&path, cx)).unwrap_or(false);
             log::info!("snapshot {} -> {} ({})", page, path.display(), saved);
+            if let Some(held) = held {
+                cancel_drag_and_release(held, cx).await;
+            }
         }
         let _ = cx.update(|cx| cx.quit());
     })
@@ -205,6 +220,115 @@ fn press_key(key: &str, cx: &mut App) {
     });
 }
 
+fn parse_drag(drag: &str) -> Option<(Point<Pixels>, Point<Pixels>)> {
+    let point = |text: &str| {
+        let (x, y) = text.split_once(':')?;
+        Some(point(px(x.parse().ok()?), px(y.parse().ok()?)))
+    };
+    let (from, to) = drag.split_once('>')?;
+    Some((point(from)?, point(to)?))
+}
+
+struct HeldDrag {
+    view: usize,
+    at: Point<Pixels>,
+}
+
+async fn drag_mouse(from: Point<Pixels>, to: Point<Pixels>, cx: &mut AsyncApp) -> Option<HeldDrag> {
+    let view = cx
+        .update(|cx| key_window(cx).and_then(|h| ns_view(h, cx)))
+        .ok()
+        .flatten()?;
+    send_mouse(view, NSEventType::MouseMoved, from);
+    wait(cx, 100).await;
+    force_draw(cx);
+    send_mouse(view, NSEventType::LeftMouseDown, from);
+    wait(cx, 100).await;
+    for step in 1..=8 {
+        send_mouse(
+            view,
+            NSEventType::LeftMouseDragged,
+            from + (to - from) * (step as f32 / 8.),
+        );
+        wait(cx, 30).await;
+        force_draw(cx);
+    }
+    for _ in 0..2 {
+        wait(cx, 200).await;
+        force_draw(cx);
+    }
+    Some(HeldDrag { view, at: to })
+}
+
+/// Letting go of the button stops GPUI repeating the last move, so later pages start clean.
+async fn cancel_drag_and_release(held: HeldDrag, cx: &mut AsyncApp) {
+    let _ = cx.update(|cx| {
+        if let Some(handle) = key_window(cx) {
+            let _ = handle.update(cx, |_, window, cx| cx.stop_active_drag(window));
+        }
+    });
+    send_mouse(held.view, NSEventType::LeftMouseUp, held.at);
+    wait(cx, 100).await;
+    force_draw(cx);
+}
+
+fn ns_view(handle: AnyWindowHandle, cx: &mut App) -> Option<usize> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    handle
+        .update(cx, |_, window, _| {
+            let raw = HasWindowHandle::window_handle(window).ok()?;
+            match raw.as_raw() {
+                RawWindowHandle::AppKit(raw) => Some(raw.ns_view.as_ptr() as usize),
+                _ => None,
+            }
+        })
+        .ok()
+        .flatten()
+}
+
+/// GPUI's `Window::dispatch_event` returns a type it keeps private. The caller must not
+/// hold the app: GPUI drops an event that arrives while the app is borrowed.
+fn send_mouse(view: usize, kind: NSEventType, position: Point<Pixels>) {
+    use objc2::msg_send;
+    use objc2::runtime::{AnyClass, AnyObject};
+    use objc2_foundation::{NSPoint, NSRect};
+
+    let Some(class) = AnyClass::get(c"NSEvent") else {
+        return;
+    };
+    let view = view as *mut AnyObject;
+    // SAFETY: `view` is GPUI's live content view, and every selector here is a documented
+    // NSView, NSWindow or NSEvent method called with its declared argument types.
+    unsafe {
+        let window: *mut AnyObject = msg_send![view, window];
+        if window.is_null() {
+            return;
+        }
+        let bounds: NSRect = msg_send![view, bounds];
+        let location = NSPoint::new(
+            f32::from(position.x) as f64,
+            bounds.size.height - f32::from(position.y) as f64,
+        );
+        let number: isize = msg_send![window, windowNumber];
+        let event: *mut AnyObject = msg_send![
+            class,
+            mouseEventWithType: kind,
+            location: location,
+            modifierFlags: 0usize,
+            timestamp: 0f64,
+            windowNumber: number,
+            context: std::ptr::null_mut::<AnyObject>(),
+            eventNumber: 0isize,
+            clickCount: 1isize,
+            pressure: 1f32
+        ];
+        if !event.is_null() {
+            let _: () = msg_send![window, sendEvent: event];
+        }
+    }
+}
+
 fn press_tab(count: usize, cx: &mut App) {
     let Some(handle) = key_window(cx) else {
         return;
@@ -218,8 +342,6 @@ fn press_tab(count: usize, cx: &mut App) {
 }
 
 fn force_draw(cx: &mut AsyncApp) {
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
     // An open dialog is its own window, which draws on its own schedule, so it gets drawn too.
     let views: Vec<usize> = cx
         .update(|cx| {
@@ -227,18 +349,7 @@ fn force_draw(cx: &mut AsyncApp) {
             handles.extend(key_window(cx).filter(|handle| !handles.contains(handle)));
             handles
                 .into_iter()
-                .filter_map(|handle| {
-                    handle
-                        .update(cx, |_, window, _| {
-                            let raw = HasWindowHandle::window_handle(window).ok()?;
-                            match raw.as_raw() {
-                                RawWindowHandle::AppKit(raw) => Some(raw.ns_view.as_ptr() as usize),
-                                _ => None,
-                            }
-                        })
-                        .ok()
-                        .flatten()
-                })
+                .filter_map(|handle| ns_view(handle, cx))
                 .collect()
         })
         .unwrap_or_default();
