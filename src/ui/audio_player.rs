@@ -6,11 +6,11 @@ use std::time::Duration;
 
 use gpui::{
     App, Bounds, DispatchPhase, ElementId, Entity, MouseButton, MouseMoveEvent, MouseUpEvent,
-    Pixels, SharedString, canvas, div, prelude::*, px, rems,
+    Pixels, SharedString, canvas, div, prelude::*, px,
 };
 
 use crate::annotate::model::format_clock;
-use crate::ui::components::{KeyboardFocus, Typography, icon};
+use crate::ui::components::{KeyboardFocus, RowDirection, Typography, icon};
 use crate::ui::theme::{Alpha, palette};
 
 struct Playback {
@@ -29,6 +29,44 @@ pub fn wav_duration(path: &Path) -> Option<Duration> {
     Some(Duration::from_secs_f64(
         reader.duration() as f64 / spec.sample_rate as f64,
     ))
+}
+
+pub const BARS: usize = 49;
+const PLAY_GLYPH_OPTICAL_OFFSET: f32 = 1.5;
+
+fn perceived_level(relative_rms: f32) -> f32 {
+    relative_rms.sqrt()
+}
+
+/// The recording's loudness in `buckets` equal slices, each from 0.0 to 1.0, scaled so the
+/// loudest slice is 1.0. Reads every sample, so run it off the main thread.
+pub fn wav_peaks(path: &Path, buckets: usize) -> Option<Vec<f32>> {
+    let mut reader = hound::WavReader::open(path).ok()?;
+    let spec = reader.spec();
+    let samples: Vec<f32> = match (spec.sample_format, spec.bits_per_sample) {
+        (hound::SampleFormat::Float, _) => reader.samples::<f32>().filter_map(Result::ok).collect(),
+        (hound::SampleFormat::Int, bits) => {
+            let scale = (1_i64 << (bits.clamp(1, 32) - 1)) as f32;
+            reader
+                .samples::<i32>()
+                .filter_map(Result::ok)
+                .map(|v| v as f32 / scale)
+                .collect()
+        }
+    };
+    if samples.is_empty() || buckets == 0 {
+        return None;
+    }
+    let per = samples.len().div_ceil(buckets);
+    let rms: Vec<f32> = samples
+        .chunks(per)
+        .map(|chunk| (chunk.iter().map(|v| v * v).sum::<f32>() / chunk.len() as f32).sqrt())
+        .collect();
+    let loudest = rms.iter().copied().fold(0., f32::max);
+    if loudest <= f32::EPSILON {
+        return Some(vec![0.; rms.len()]);
+    }
+    Some(rms.iter().map(|v| perceived_level(v / loudest)).collect())
 }
 
 fn open(path: &Path, from: Duration) -> Result<Playback, String> {
@@ -93,6 +131,10 @@ pub fn play(path: &Path, from: Duration) {
     });
 }
 
+pub fn stop() {
+    PLAYBACK.with(|p| *p.borrow_mut() = None);
+}
+
 pub fn pause(path: &Path) {
     PLAYBACK.with(|p| {
         if let Some(current) = p.borrow().as_ref().filter(|p| p.path == path) {
@@ -117,9 +159,22 @@ pub fn seek(path: &Path, to: Duration) {
 #[derive(Default)]
 pub struct PlayerState {
     pub duration: Option<Duration>,
+    pub peaks: Option<Vec<f32>>,
     pub offset: Duration,
     track: Bounds<Pixels>,
     drag: Option<Duration>,
+}
+
+fn finish_drag(state: &Entity<PlayerState>, path: Option<&Path>, cx: &mut App) {
+    state.update(cx, |s, cx| {
+        if let Some(to) = s.drag.take() {
+            if let Some(path) = path {
+                seek(path, to);
+            }
+            s.offset = to;
+            cx.notify();
+        }
+    });
 }
 
 fn time_at(x: Pixels, track: Bounds<Pixels>, duration: Duration) -> Duration {
@@ -157,17 +212,32 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
     let drag_state = state.clone();
     let drag_path = path.clone();
 
+    let peaks = state.read(cx).peaks.clone();
+    let bars = peaks.as_ref().map_or(BARS, Vec::len).max(1);
+    let shown = if playing || !elapsed.is_zero() {
+        elapsed
+    } else {
+        duration
+    };
+
     div()
         .flex()
+        .row_dir()
         .items_center()
-        .gap_3()
+        .gap(px(10.))
         .child(
             div()
                 .id((id.clone(), SharedString::from("play")))
-                .flex_shrink_0()
+                .flex_none()
+                .size(px(30.))
+                .rounded_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(p.accent)
+                .text_color(p.accent_contrast)
                 .cursor_pointer()
-                .text_color(p.text.a(0.8))
-                .hover(|s| s.text_color(p.text))
+                .hover(|s| s.bg(p.accent.a(0.85)))
                 .keyboard_focus(cx)
                 .on_click(move |_, _, cx| {
                     let Some(path) = toggle_path.clone().or_else(|| resolve(cx)) else {
@@ -204,129 +274,94 @@ pub fn audio_player<I: Into<ElementId>, R: Fn(&mut App) -> Option<PathBuf> + 'st
                     } else {
                         "play-filled"
                     })
-                    .size(px(16.)),
+                    .size(px(12.))
+                    .when(!playing, |el| el.ml(px(PLAY_GLYPH_OPTICAL_OFFSET))),
                 ),
         )
         .child(
             div()
-                .xs_text()
-                .text_color(p.text.a(0.5))
-                .min_w(px(30.))
-                .child(format_clock(elapsed.as_millis() as u64)),
-        )
-        .child(
-            div()
+                .id((id.clone(), SharedString::from("seek")))
+                .relative()
                 .flex_1()
+                .min_w_0()
+                .h(px(28.))
                 .flex()
+                .flex_row()
                 .items_center()
-                .gap_2()
-                .child(
+                .justify_between()
+                .cursor_pointer()
+                .on_mouse_down(MouseButton::Left, move |event, _, cx| {
+                    let (track, duration) = {
+                        let s = seek_state.read(cx);
+                        (s.track, s.duration)
+                    };
+                    let Some(duration) = duration else {
+                        return;
+                    };
+                    let to = time_at(event.position.x, track, duration);
+                    seek_state.update(cx, |s, cx| {
+                        s.drag = Some(to);
+                        cx.notify();
+                    });
+                })
+                .children((0..bars).map(|i| {
+                    let level = peaks.as_ref().and_then(|p| p.get(i)).copied().unwrap_or(0.);
+                    let played = (i as f32 + 0.5) / bars as f32 <= progress;
                     div()
-                        .id((id.clone(), SharedString::from("seek")))
-                        .relative()
-                        .flex_1()
-                        .h(px(16.))
-                        .flex()
-                        .items_center()
-                        .cursor_pointer()
-                        .on_mouse_down(MouseButton::Left, move |event, _, cx| {
-                            let (track, duration) = {
-                                let s = seek_state.read(cx);
-                                (s.track, s.duration)
-                            };
-                            let Some(duration) = duration else {
-                                return;
-                            };
-                            let to = time_at(event.position.x, track, duration);
-                            seek_state.update(cx, |s, cx| {
-                                s.drag = Some(to);
-                                cx.notify();
+                        .flex_none()
+                        .w(px(2.))
+                        .h(px(3. + 25. * level))
+                        .rounded_full()
+                        .bg(if played { p.accent } else { p.mid_gray.a(0.45) })
+                }))
+                .child(
+                    canvas(
+                        move |bounds, _, cx| {
+                            bounds_state.update(cx, |s, _| s.track = bounds);
+                        },
+                        move |_, _, window, _| {
+                            // Listen on every paint, not only mid-drag: a trackpad tap can send
+                            // down and up within one frame, before a drag-only listener exists.
+                            let move_state = drag_state.clone();
+                            let move_path = drag_path.clone();
+                            window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                                if phase != DispatchPhase::Bubble
+                                    || move_state.read(cx).drag.is_none()
+                                {
+                                    return;
+                                }
+                                if event.pressed_button != Some(MouseButton::Left) {
+                                    finish_drag(&move_state, move_path.as_deref(), cx);
+                                    return;
+                                }
+                                move_state.update(cx, |s, cx| {
+                                    let duration = s.duration.unwrap_or_default();
+                                    s.drag = Some(time_at(event.position.x, s.track, duration));
+                                    cx.notify();
+                                });
                             });
-                        })
-                        .child(
-                            div()
-                                .w_full()
-                                .h(rems(0.25))
-                                .rounded_full()
-                                .overflow_hidden()
-                                .flex()
-                                .bg(p.mid_gray.a(0.3))
-                                .child(div().h_full().w(gpui::relative(progress)).bg(p.accent)),
-                        )
-                        .child(
-                            div()
-                                .absolute()
-                                .top_0()
-                                .left(
-                                    (bounds_track_width(&state, cx) - px(16.)).max(px(0.))
-                                        * progress,
-                                )
-                                .size(px(16.))
-                                .rounded_full()
-                                .bg(gpui::white())
-                                .shadow(vec![
-                                    crate::ui::theme::shadow(0., 0., 0., 1., 0.12),
-                                    crate::ui::theme::shadow(0., 1., 3., 0., 0.2),
-                                ]),
-                        )
-                        .child(
-                            canvas(
-                                move |bounds, _, cx| {
-                                    bounds_state.update(cx, |s, _| s.track = bounds);
-                                },
-                                move |_, _, window, cx| {
-                                    if drag_state.read(cx).drag.is_none() {
-                                        return;
-                                    }
-                                    let move_state = drag_state.clone();
-                                    window.on_mouse_event(
-                                        move |event: &MouseMoveEvent, phase, _, cx| {
-                                            if phase != DispatchPhase::Bubble {
-                                                return;
-                                            }
-                                            move_state.update(cx, |s, cx| {
-                                                let duration = s.duration.unwrap_or_default();
-                                                s.drag = Some(time_at(
-                                                    event.position.x,
-                                                    s.track,
-                                                    duration,
-                                                ));
-                                                cx.notify();
-                                            });
-                                        },
-                                    );
-                                    let up_state = drag_state.clone();
-                                    let up_path = drag_path.clone();
-                                    window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
-                                        if phase != DispatchPhase::Bubble {
-                                            return;
-                                        }
-                                        up_state.update(cx, |s, cx| {
-                                            if let Some(to) = s.drag.take() {
-                                                if let Some(path) = &up_path {
-                                                    seek(path, to);
-                                                }
-                                                s.offset = to;
-                                            }
-                                            cx.notify();
-                                        });
-                                    });
-                                },
-                            )
-                            .absolute()
-                            .size_full(),
-                        ),
-                )
-                .child(
-                    div()
-                        .xs_text()
-                        .text_color(p.text.a(0.5))
-                        .min_w(px(30.))
-                        .child(format_clock(duration.as_millis() as u64)),
+                            let up_state = drag_state.clone();
+                            let up_path = drag_path.clone();
+                            window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
+                                if phase == DispatchPhase::Bubble {
+                                    finish_drag(&up_state, up_path.as_deref(), cx);
+                                }
+                            });
+                        },
+                    )
+                    .absolute()
+                    .size_full(),
                 ),
         )
-}
-
-fn bounds_track_width(state: &Entity<PlayerState>, cx: &App) -> Pixels {
-    state.read(cx).track.size.width
+        .child(
+            div()
+                .flex_none()
+                .min_w(px(30.))
+                .flex()
+                .row_dir()
+                .justify_flex_end()
+                .xs_text()
+                .text_color(p.text.a(0.55))
+                .child(format_clock(shown.as_millis() as u64)),
+        )
 }

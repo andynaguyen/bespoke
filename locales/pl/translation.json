@@ -556,21 +556,16 @@
       "loading": "Wczytywanie historii...",
       "empty": "Brak transkrypcji. Rozpocznij nagrywanie, aby zbudować historię!",
       "copyError": "Nie udało się skopiować transkrypcji do schowka.",
-      "save": "Zapisz transkrypcję",
-      "unsave": "Usuń z zapisanych",
       "delete": "Usuń wpis",
       "retranscribe": "Transkrybuj ponownie",
       "retranscribeError": "Nie udało się ponownie transkrybować. Spróbuj ponownie.",
       "transcribing": "Transkrybuję...",
-      "transcriptionFailed": "Transkrypcja nie powiodła się. Możesz transkrybować ponownie za pomocą ikony ponowienia.",
+      "transcriptionFailed": "Transkrypcja nie powiodła się",
       "transcript": "Transkrypcja",
-      "details": "Szczegóły",
-      "recorded": "Nagrano",
       "wordCount": "Słowa",
+      "duration": "Czas trwania",
       "postProcessed": "Po postprocessingu",
-      "prompt": "Prompt",
-      "copy": "Kopiuj",
-      "copied": "Skopiowano"
+      "copy": "Kopiuj"
     },
     "debug": {
       "logDirectory": {

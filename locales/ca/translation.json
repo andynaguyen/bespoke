@@ -553,21 +553,16 @@
       "loading": "S'està carregant l'historial...",
       "empty": "Encara no hi ha transcripcions. Comenceu a enregistrar per crear l'historial!",
       "copyError": "No s'ha pogut copiar la transcripció al porta-retalls.",
-      "save": "Desa la transcripció",
-      "unsave": "Treu de les desades",
       "delete": "Suprimeix l'entrada",
       "retranscribe": "Torneu a transcriure",
       "retranscribeError": "No s'ha pogut tornar a transcriure. Torneu-ho a provar.",
       "transcribing": "S'està transcrivint...",
-      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent.",
+      "transcriptionFailed": "La transcripció ha fallat",
       "transcript": "Transcripció",
-      "details": "Detalls",
-      "recorded": "Enregistrat",
       "wordCount": "Paraules",
+      "duration": "Durada",
       "postProcessed": "Postprocessat",
-      "prompt": "Indicació",
-      "copy": "Copia",
-      "copied": "Copiat"
+      "copy": "Copia"
     },
     "debug": {
       "logDirectory": {

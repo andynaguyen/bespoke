@@ -553,21 +553,16 @@
       "loading": "Caricamento cronologia...",
       "empty": "Non ci sono ancora trascrizioni. Comincia a registrare per costruire la tua cronologia!",
       "copyError": "Impossibile copiare la trascrizione negli appunti.",
-      "save": "Salva la trascrizione",
-      "unsave": "Rimuovi dai salvataggi",
       "delete": "Elimina elemento",
       "retranscribe": "Ri-trascrivere",
       "retranscribeError": "Impossibile ri-trascrivere. Riprova.",
       "transcribing": "Trascrizione in corso...",
-      "transcriptionFailed": "Trascrizione fallita. Puoi ri-trascrivere usando l'icona di ripetizione.",
+      "transcriptionFailed": "Trascrizione non riuscita",
       "transcript": "Trascrizione",
-      "details": "Dettagli",
-      "recorded": "Registrata",
       "wordCount": "Parole",
+      "duration": "Durata",
       "postProcessed": "Post-elaborata",
-      "prompt": "Prompt",
-      "copy": "Copia",
-      "copied": "Copiata"
+      "copy": "Copia"
     },
     "debug": {
       "logDirectory": {

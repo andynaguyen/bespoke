@@ -551,21 +551,16 @@
       "loading": "Laddar historik...",
       "empty": "Inga transkriptioner ännu. Börja spela in för att bygga upp din historik!",
       "copyError": "Det gick inte att kopiera transkriptionen till urklipp.",
-      "save": "Spara transkription",
-      "unsave": "Ta bort från sparade",
       "delete": "Ta bort post",
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
-      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök.",
+      "transcriptionFailed": "Transkriptionen misslyckades",
       "transcript": "Transkription",
-      "details": "Detaljer",
-      "recorded": "Inspelad",
       "wordCount": "Ord",
+      "duration": "Längd",
       "postProcessed": "Efterbearbetad",
-      "prompt": "Prompt",
-      "copy": "Kopiera",
-      "copied": "Kopierad"
+      "copy": "Kopiera"
     },
     "debug": {
       "logDirectory": {

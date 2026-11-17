@@ -545,21 +545,16 @@
       "loading": "...جاري تحميل السجل",
       "empty": "!لا يوجد تفريغ صوتي بعد. ابدأ التسجيل لبناء سجلك",
       "copyError": "تعذر نسخ التفريغ إلى الحافظة.",
-      "save": "حفظ التفريغ",
-      "unsave": "إزالة من المحفوظات",
       "delete": "حذف الإدخال",
-      "retranscribe": "إعادة النسخ",
-      "retranscribeError": "فشلت إعادة النسخ. يرجى المحاولة مرة أخرى.",
-      "transcribing": "جارٍ النسخ...",
-      "transcriptionFailed": "فشل النسخ. يمكنك إعادة النسخ باستخدام أيقونة إعادة المحاولة.",
+      "retranscribe": "إعادة التفريغ",
+      "retranscribeError": "فشلت إعادة التفريغ. يرجى المحاولة مرة أخرى.",
+      "transcribing": "جارٍ التفريغ...",
+      "transcriptionFailed": "فشل التفريغ النصي",
       "transcript": "النص المفرغ",
-      "details": "التفاصيل",
-      "recorded": "تاريخ التسجيل",
       "wordCount": "الكلمات",
+      "duration": "المدة",
       "postProcessed": "بعد المعالجة اللاحقة",
-      "prompt": "الموجّه",
-      "copy": "نسخ",
-      "copied": "تم النسخ"
+      "copy": "نسخ"
     },
     "debug": {
       "logDirectory": {

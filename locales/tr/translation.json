@@ -551,21 +551,16 @@
       "loading": "Geçmiş yükleniyor...",
       "empty": "Henüz transkripsiyon yok. Geçmişinizi oluşturmak için kayda başlayın!",
       "copyError": "Transkripsiyon panoya kopyalanamadı.",
-      "save": "Transkripsiyonu kaydet",
-      "unsave": "Kaydedilenlerden kaldır",
       "delete": "Kaydı sil",
       "retranscribe": "Yeniden transkribe et",
       "retranscribeError": "Yeniden transkripsiyon başarısız oldu. Lütfen tekrar deneyin.",
       "transcribing": "Transkribe ediliyor...",
-      "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar transkribe edebilirsiniz.",
+      "transcriptionFailed": "Transkripsiyon başarısız oldu",
       "transcript": "Transkript",
-      "details": "Ayrıntılar",
-      "recorded": "Kaydedilme",
       "wordCount": "Kelime",
+      "duration": "Süre",
       "postProcessed": "Son işlemden geçti",
-      "prompt": "Prompt",
-      "copy": "Kopyala",
-      "copied": "Kopyalandı"
+      "copy": "Kopyala"
     },
     "debug": {
       "logDirectory": {

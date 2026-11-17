@@ -46,7 +46,32 @@ fn migrations() -> Migrations<'static> {
         );",
         ),
         M::up("ALTER TABLE usage_stats ADD COLUMN bundle_id TEXT;"),
+        M::up_with_hook(
+            "ALTER TABLE transcription_history ADD COLUMN app_name TEXT;
+             ALTER TABLE transcription_history ADD COLUMN bundle_id TEXT;
+             CREATE INDEX idx_usage_stats_timestamp ON usage_stats(timestamp);",
+            backfill_history_apps,
+        ),
+        M::up("ALTER TABLE transcription_history DROP COLUMN saved;"),
     ])
+}
+
+const USAGE_RECORDED_SECONDS_BEFORE_ENTRY: i64 = 1;
+
+fn backfill_history_apps(tx: &Transaction) -> HookResult {
+    tx.execute(
+        "UPDATE transcription_history AS h
+         SET (app_name, bundle_id) = (
+             SELECT u.app_name, u.bundle_id FROM usage_stats AS u
+             WHERE u.timestamp BETWEEN h.timestamp - ?1 AND h.timestamp
+               AND (u.app_name IS NOT NULL OR u.bundle_id IS NOT NULL)
+             ORDER BY u.timestamp DESC
+             LIMIT 1
+         )
+         WHERE h.transcription_text != ''",
+        params![USAGE_RECORDED_SECONDS_BEFORE_ENTRY],
+    )?;
+    Ok(())
 }
 
 fn backfill_usage_stats(tx: &Transaction) -> HookResult {
@@ -70,7 +95,8 @@ fn backfill_usage_stats(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
-fn count_words(text: &str) -> i64 {
+/// Words in `text`, counting each CJK character as a word, the way Stats counts them.
+pub(crate) fn count_words(text: &str) -> i64 {
     let mut count = 0;
     let mut in_word = false;
     for c in text.chars() {
@@ -172,12 +198,14 @@ pub struct HistoryEntry {
     pub id: i64,
     pub file_name: String,
     pub timestamp: i64,
-    pub saved: bool,
     pub title: String,
     pub transcription_text: String,
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
     pub post_process_requested: bool,
+    /// The app in front when the dictation finished, where its text pasted.
+    pub app_name: Option<String>,
+    pub bundle_id: Option<String>,
 }
 
 pub struct HistoryManager {
@@ -298,12 +326,13 @@ impl HistoryManager {
             id: row.get("id")?,
             file_name: row.get("file_name")?,
             timestamp: row.get("timestamp")?,
-            saved: row.get("saved")?,
             title: row.get("title")?,
             transcription_text: row.get("transcription_text")?,
             post_processed_text: row.get("post_processed_text")?,
             post_process_prompt: row.get("post_process_prompt")?,
             post_process_requested: row.get("post_process_requested")?,
+            app_name: row.get("app_name")?,
+            bundle_id: row.get("bundle_id")?,
         })
     }
 
@@ -318,6 +347,7 @@ impl HistoryManager {
         post_process_requested: bool,
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
+        app: &PasteTarget,
     ) -> Result<HistoryEntry> {
         let timestamp = Utc::now().timestamp();
         let title = format_timestamp_title(timestamp);
@@ -327,22 +357,24 @@ impl HistoryManager {
             "INSERT INTO transcription_history (
                 file_name,
                 timestamp,
-                saved,
                 title,
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                post_process_requested,
+                app_name,
+                bundle_id
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 &file_name,
                 timestamp,
-                false,
                 &title,
                 &transcription_text,
                 &post_processed_text,
                 &post_process_prompt,
                 post_process_requested,
+                &app.name,
+                &app.bundle_id,
             ],
         )?;
 
@@ -350,12 +382,13 @@ impl HistoryManager {
             id: conn.last_insert_rowid(),
             file_name,
             timestamp,
-            saved: false,
             title,
             transcription_text,
             post_processed_text,
             post_process_prompt,
             post_process_requested,
+            app_name: app.name.clone(),
+            bundle_id: app.bundle_id.clone(),
         };
 
         debug!("Saved history entry with id {}", entry.id);
@@ -401,7 +434,7 @@ impl HistoryManager {
 
         let entry = conn
             .query_row(
-                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                "SELECT id, file_name, timestamp, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, bundle_id
                  FROM transcription_history WHERE id = ?1",
                 params![id],
                 Self::map_history_entry,
@@ -464,9 +497,8 @@ impl HistoryManager {
     fn cleanup_by_count(&self, limit: usize) -> Result<()> {
         let conn = self.get_connection()?;
 
-        let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 ORDER BY timestamp DESC"
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT id, file_name FROM transcription_history ORDER BY timestamp DESC")?;
 
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
@@ -503,9 +535,8 @@ impl HistoryManager {
             _ => unreachable!("Should not reach here"),
         };
 
-        let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND timestamp < ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id, file_name FROM transcription_history WHERE timestamp < ?1")?;
 
         let rows = stmt.query_map(params![cutoff_timestamp], |row| {
             Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
@@ -540,7 +571,7 @@ impl HistoryManager {
         let mut entries: Vec<HistoryEntry> = match cursor {
             Some(cursor_id) => {
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, bundle_id
                      FROM transcription_history
                      WHERE id < ?1
                      ORDER BY id DESC
@@ -552,7 +583,7 @@ impl HistoryManager {
             }
             None => {
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, bundle_id
                      FROM transcription_history
                      ORDER BY id DESC
                      LIMIT ?1",
@@ -582,12 +613,13 @@ impl HistoryManager {
                 id,
                 file_name,
                 timestamp,
-                saved,
                 title,
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name,
+                bundle_id
              FROM transcription_history
              WHERE transcription_text != ''
              ORDER BY timestamp DESC
@@ -777,27 +809,6 @@ impl HistoryManager {
         Ok(days)
     }
 
-    pub async fn toggle_saved_status(&self, id: i64) -> Result<()> {
-        let conn = self.get_connection()?;
-
-        let current_saved: bool = conn.query_row(
-            "SELECT saved FROM transcription_history WHERE id = ?1",
-            params![id],
-            |row| row.get("saved"),
-        )?;
-
-        let new_saved = !current_saved;
-
-        conn.execute(
-            "UPDATE transcription_history SET saved = ?1 WHERE id = ?2",
-            params![new_saved, id],
-        )?;
-
-        debug!("Toggled saved status for entry {}: {}", id, new_saved);
-
-        Ok(())
-    }
-
     pub fn get_audio_file_path(&self, file_name: &str) -> PathBuf {
         self.recordings_dir.join(file_name)
     }
@@ -809,12 +820,13 @@ impl HistoryManager {
                 id,
                 file_name,
                 timestamp,
-                saved,
                 title,
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name,
+                bundle_id
              FROM transcription_history
              WHERE id = ?1",
         )?;
@@ -862,21 +874,10 @@ mod tests {
     use rusqlite::{Connection, params};
 
     fn setup_conn() -> Connection {
-        let conn = Connection::open_in_memory().expect("open in-memory db");
-        conn.execute_batch(
-            "CREATE TABLE transcription_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_name TEXT NOT NULL,
-                timestamp INTEGER NOT NULL,
-                saved BOOLEAN NOT NULL DEFAULT 0,
-                title TEXT NOT NULL,
-                transcription_text TEXT NOT NULL,
-                post_processed_text TEXT,
-                post_process_prompt TEXT,
-                post_process_requested BOOLEAN NOT NULL DEFAULT 0
-            );",
-        )
-        .expect("create transcription_history table");
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        migrations()
+            .to_latest(&mut conn)
+            .expect("migrate to latest");
         conn
     }
 
@@ -885,17 +886,15 @@ mod tests {
             "INSERT INTO transcription_history (
                 file_name,
                 timestamp,
-                saved,
                 title,
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
                 post_process_requested
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 format!("bespoke-{}.wav", timestamp),
                 timestamp,
-                false,
                 format!("Recording {}", timestamp),
                 text,
                 post_processed,
@@ -935,6 +934,85 @@ mod tests {
         assert_eq!(sum(|d| d.transcriptions), 2);
         assert_eq!(sum(|d| d.timed_words), 4);
         assert_eq!(sum(|d| d.duration_ms), 2_000);
+    }
+
+    #[test]
+    fn history_app_migration_copies_the_app_from_usage_recorded_with_each_entry() {
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        let migrations = migrations();
+        migrations.to_version(&mut conn, 8).expect("migrate to v8");
+        let slack = PasteTarget {
+            name: Some("Slack".to_string()),
+            bundle_id: Some("com.tinyspeck.slackmacgap".to_string()),
+        };
+        let codex = PasteTarget {
+            name: Some("Codex".to_string()),
+            bundle_id: None,
+        };
+        HistoryManager::record_usage_with_conn(&conn, 100, "one two", 1_000, Some(&slack))
+            .expect("record usage");
+        insert_entry(&conn, 100, "one two", None);
+        HistoryManager::record_usage_with_conn(&conn, 199, "three four", 1_000, Some(&codex))
+            .expect("record usage");
+        insert_entry(&conn, 200, "three four", None);
+        insert_entry(&conn, 201, "", None);
+        HistoryManager::record_usage_with_conn(&conn, 298, "five", 1_000, Some(&slack))
+            .expect("record usage");
+        insert_entry(&conn, 300, "five", None);
+        migrations.to_latest(&mut conn).expect("migrate to latest");
+
+        let apps = conn
+            .prepare("SELECT app_name, bundle_id FROM transcription_history ORDER BY id")
+            .expect("prepare")
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                ))
+            })
+            .expect("query")
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .expect("rows");
+        assert_eq!(
+            apps,
+            vec![
+                (slack.name.clone(), slack.bundle_id.clone()),
+                (codex.name.clone(), None),
+                (None, None),
+                (None, None),
+            ]
+        );
+    }
+
+    #[test]
+    fn dropping_the_saved_column_keeps_starred_entries() {
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        let migrations = migrations();
+        migrations.to_version(&mut conn, 9).expect("migrate to v9");
+        conn.execute(
+            "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text)
+             VALUES ('starred.wav', 100, 1, 'Starred', 'keep me')",
+            [],
+        )
+        .expect("insert starred entry");
+        migrations.to_latest(&mut conn).expect("migrate to latest");
+
+        let text: String = conn
+            .query_row(
+                "SELECT transcription_text FROM transcription_history WHERE file_name = 'starred.wav'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("starred entry survives");
+        assert_eq!(text, "keep me");
+        let has_saved: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('transcription_history') WHERE name = 'saved'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("read columns");
+        assert!(!has_saved);
     }
 
     #[test]

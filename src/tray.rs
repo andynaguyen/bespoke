@@ -642,12 +642,13 @@ mod tests {
             id: 1,
             file_name: "bespoke-1.wav".to_string(),
             timestamp: 0,
-            saved: false,
             title: "Recording".to_string(),
             transcription_text: transcription.to_string(),
             post_processed_text: post_processed.map(|text| text.to_string()),
             post_process_prompt: None,
             post_process_requested: false,
+            app_name: None,
+            bundle_id: None,
         }
     }
 

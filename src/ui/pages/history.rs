@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use gpui::{
-    Animation, AnimationExt, AnyElement, App, Context, Entity, FontWeight, ScrollHandle,
-    SharedString, Subscription, Task, Window, canvas, div, prelude::*, px, relative,
+    Animation, AnimationExt, AnyElement, Context, Entity, FontWeight, ScrollHandle, SharedString,
+    Subscription, Task, Window, canvas, div, prelude::*, px, relative,
 };
 use gpui_component::scroll::ScrollableElement;
 
@@ -16,8 +16,7 @@ use crate::managers::history::{HistoryEntry, HistoryManager, HistoryUpdatePayloa
 use crate::managers::transcription::TranscriptionManager;
 use crate::ui::audio_player::{self, PlayerState, audio_player};
 use crate::ui::components::{
-    Button, ButtonVariant, FocusVisible, KeyboardFocus, RowDirection, Tooltip, Typography,
-    focus_handle_for, icon,
+    Button, ButtonSize, ButtonVariant, KeyboardFocus, RowDirection, Typography, icon,
 };
 use crate::ui::dates;
 use crate::ui::event_bus::event_bus;
@@ -28,16 +27,23 @@ use crate::ui::toast;
 const PAGE_SIZE: usize = 30;
 const INSPECTOR_WIDTH: f32 = 300.;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum CopyKind {
+    Pasted,
+    Raw,
+}
+
 pub struct HistoryPage {
     entries: Vec<HistoryEntry>,
     loading: bool,
     loading_more: bool,
     has_more: bool,
     selected: Option<i64>,
+    last_inspected: Option<i64>,
     list_scroll: ScrollHandle,
     inspector_scroll: ScrollHandle,
     players: HashMap<i64, Entity<PlayerState>>,
-    copied: HashSet<i64>,
+    copied: HashSet<(i64, CopyKind)>,
     retrying: HashSet<i64>,
     ticker: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -67,6 +73,7 @@ impl HistoryPage {
             loading_more: false,
             has_more: true,
             selected: None,
+            last_inspected: None,
             list_scroll: ScrollHandle::new(),
             inspector_scroll: ScrollHandle::new(),
             players: HashMap::new(),
@@ -125,57 +132,45 @@ impl HistoryPage {
         cx.notify();
     }
 
-    fn copy(&mut self, id: i64, cx: &mut Context<Self>) {
+    fn copy(&mut self, id: i64, kind: CopyKind, cx: &mut Context<Self>) {
         let Some(entry) = self.entries.iter().find(|e| e.id == id) else {
             return;
         };
-        if entry.transcription_text.trim().is_empty() {
+        let text = match kind {
+            CopyKind::Raw => entry.transcription_text.trim(),
+            CopyKind::Pasted => pasted_text(entry),
+        }
+        .to_string();
+        if text.is_empty() {
             return;
         }
-        if AppHandle::global()
-            .clipboard()
-            .write_text(&entry.transcription_text)
-            .is_err()
-        {
+        if AppHandle::global().clipboard().write_text(&text).is_err() {
             toast::error(t("settings.history.copyError"), cx);
             return;
         }
-        self.copied.insert(id);
+        self.copied.insert((id, kind));
         cx.notify();
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(Duration::from_secs(2)).await;
             let _ = this.update(cx, |this, cx| {
-                this.copied.remove(&id);
+                this.copied.remove(&(id, kind));
                 cx.notify();
             });
         })
         .detach();
     }
 
-    fn toggle_saved(&mut self, id: i64, cx: &mut Context<Self>) {
-        let Some(entry) = self.entries.iter_mut().find(|e| e.id == id) else {
-            return;
-        };
-        let original = entry.saved;
-        entry.saved = !original;
+    fn select(&mut self, id: Option<i64>, cx: &mut Context<Self>) {
+        self.selected = id;
         cx.notify();
-        cx.spawn(async move |this, cx| {
-            let result =
-                crate::runtime::run(async move { manager().toggle_saved_status(id).await }).await;
-            if result.is_err() {
-                let _ = this.update(cx, |this, cx| {
-                    if let Some(entry) = this.entries.iter_mut().find(|e| e.id == id) {
-                        entry.saved = original;
-                    }
-                    cx.notify();
-                });
-            }
-        })
-        .detach();
     }
 
     fn delete(&mut self, id: i64, cx: &mut Context<Self>) {
-        self.entries.retain(|e| e.id != id);
+        let Some(index) = self.entries.iter().position(|e| e.id == id) else {
+            return;
+        };
+        self.entries.remove(index);
+        self.select(neighbor_of_removed(&self.entries, index), cx);
         self.players.remove(&id);
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -212,10 +207,36 @@ impl HistoryPage {
         .detach();
     }
 
-    fn player_state(&mut self, id: i64, cx: &mut Context<Self>) -> Entity<PlayerState> {
+    fn player_state(
+        &mut self,
+        id: i64,
+        path: &std::path::Path,
+        cx: &mut Context<Self>,
+    ) -> Entity<PlayerState> {
         self.players
             .entry(id)
-            .or_insert_with(|| cx.new(|_| PlayerState::default()))
+            .or_insert_with(|| {
+                let duration = audio_player::wav_duration(path);
+                let state = cx.new(|_| {
+                    let mut state = PlayerState::default();
+                    state.duration = duration;
+                    state
+                });
+                let path = path.to_path_buf();
+                let loading = state.downgrade();
+                cx.spawn(async move |_, cx| {
+                    let peaks = cx
+                        .background_executor()
+                        .spawn(async move { audio_player::wav_peaks(&path, audio_player::BARS) })
+                        .await;
+                    let _ = loading.update(cx, |state, cx| {
+                        state.peaks = peaks;
+                        cx.notify();
+                    });
+                })
+                .detach();
+                state
+            })
             .clone()
     }
 
@@ -242,42 +263,66 @@ impl HistoryPage {
         if self.loading || self.has_inspector() {
             return toolbar;
         }
-        actions(false)
-            .into_iter()
-            .fold(toolbar, |toolbar, action| toolbar.action(action))
+        toolbar.action(open_folder_action())
     }
 
     fn has_inspector(&self) -> bool {
         !self.loading && !self.entries.is_empty()
     }
 
+    fn inspected_entry(&self) -> Option<HistoryEntry> {
+        self.has_inspector()
+            .then(|| self.selected_entry().cloned())
+            .flatten()
+    }
+
     pub fn inspector(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        if !self.has_inspector() {
-            return None;
+        let entry = self.inspected_entry();
+        let inspected = entry.as_ref().map(|e| e.id);
+        if self.last_inspected != inspected {
+            self.last_inspected = inspected;
+            audio_player::stop();
+            self.inspector_scroll
+                .set_offset(gpui::point(px(0.), px(0.)));
         }
-        let actions = actions(true);
-        let details = self
-            .selected_entry()
-            .cloned()
-            .map(|entry| self.render_inspector(&entry, cx).into_any_element());
+        let entry = entry?;
+        let actions = self.entry_actions(&entry, cx);
+        let player = self.render_player(&entry, cx).into_any_element();
+        let details = self.render_inspector(&entry, cx).into_any_element();
         Some(crate::ui::shell::inspector(
             "history-inspector",
             INSPECTOR_WIDTH,
             actions,
             div()
-                .relative()
                 .size_full()
+                .flex()
+                .flex_col()
                 .child(
                     div()
-                        .id("history-inspector")
-                        .size_full()
-                        .overflow_y_scroll()
-                        .track_scroll(&self.inspector_scroll)
+                        .flex_none()
                         .px_4()
-                        .py(px(16.))
-                        .children(details),
+                        .pt(px(4.))
+                        .pb(px(10.))
+                        .child(player),
                 )
-                .vertical_scrollbar(&self.inspector_scroll),
+                .child(
+                    div()
+                        .relative()
+                        .flex_1()
+                        .min_h_0()
+                        .child(
+                            div()
+                                .id("history-inspector")
+                                .size_full()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.inspector_scroll)
+                                .px_4()
+                                .pt(px(6.))
+                                .pb(px(16.))
+                                .child(details),
+                        )
+                        .vertical_scrollbar(&self.inspector_scroll),
+                ),
         ))
     }
 
@@ -300,7 +345,7 @@ impl HistoryPage {
             .single()
             .map(dates::time_label)
             .unwrap_or_default();
-        let text = entry.transcription_text.trim();
+        let text = pasted_text(entry);
         let (text, failed) = if self.retrying.contains(&id) {
             (t("settings.history.transcribing"), true)
         } else if text.is_empty() {
@@ -332,10 +377,7 @@ impl HistoryPage {
                     .hover(|s| s.bg(p.card))
             })
             .keyboard_focus(cx)
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.selected = Some(id);
-                cx.notify();
-            }))
+            .on_click(cx.listener(move |this, _, _, cx| this.select(Some(id), cx)))
             .child(
                 div()
                     .w(px(64.))
@@ -356,16 +398,92 @@ impl HistoryPage {
                     .text_color(if failed { p.mid_gray } else { p.text.a(0.85) })
                     .child(text),
             )
-            .when(entry.saved, |el| {
-                el.child(
-                    icon("star-filled")
-                        .size(px(12.))
-                        .mt(px(3.))
-                        .flex_none()
-                        .text_color(p.accent),
-                )
-            })
             .into_any_element()
+    }
+
+    fn entry_actions(&self, entry: &HistoryEntry, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let id = entry.id;
+        let retrying = self.retrying.contains(&id);
+        let has_text = !entry.transcription_text.trim().is_empty();
+        let mut row = vec![
+            icon_action(
+                SharedString::from(format!("delete-{id}")),
+                "trash-2",
+                t("settings.history.delete"),
+                false,
+            )
+            .disabled(retrying)
+            .on_click(cx.listener(move |this, _, _, cx| this.delete(id, cx)))
+            .into_any_element(),
+        ];
+        let file = manager().get_audio_file_path(&entry.file_name);
+        row.push(
+            icon_action(
+                SharedString::from(format!("reveal-{id}")),
+                "folder-open",
+                t("annotate.library.showInFinder"),
+                false,
+            )
+            .on_click(move |_, _, _| {
+                if let Err(e) = std::process::Command::new("/usr/bin/open")
+                    .arg("-R")
+                    .arg(&file)
+                    .spawn()
+                {
+                    log::error!("Failed to reveal {}: {e}", file.display());
+                }
+            })
+            .into_any_element(),
+        );
+        let main = if has_text {
+            row.push(
+                icon_action(
+                    SharedString::from(format!("retry-{id}")),
+                    "rotate-ccw",
+                    t("settings.history.retranscribe"),
+                    retrying,
+                )
+                .disabled(retrying)
+                .on_click(cx.listener(move |this, _, _, cx| this.retry(id, cx)))
+                .into_any_element(),
+            );
+            let copied = self.copied.contains(&(id, CopyKind::Pasted));
+            Button::new(SharedString::from(format!("copy-{id}")))
+                .child(icon(if copied { "check" } else { "copy" }).size(px(13.)))
+                .child(t("settings.history.copy"))
+                .on_click(cx.listener(move |this, _, _, cx| this.copy(id, CopyKind::Pasted, cx)))
+        } else {
+            Button::new(SharedString::from(format!("retry-{id}")))
+                .child(spinning("rotate-ccw", 13., format!("retry-{id}"), retrying))
+                .child(t("settings.history.retranscribe"))
+                .on_click(cx.listener(move |this, _, _, cx| this.retry(id, cx)))
+        };
+        row.push(
+            main.gap(px(5.))
+                .disabled(retrying)
+                .when(retrying, |el| el.variant(ButtonVariant::Secondary))
+                .into_any_element(),
+        );
+        row
+    }
+
+    fn render_player(&mut self, entry: &HistoryEntry, cx: &mut Context<Self>) -> impl IntoElement {
+        let id = entry.id;
+        let path: PathBuf = manager().get_audio_file_path(&entry.file_name);
+        if audio_player::is_playing(&path) {
+            self.ensure_ticker(cx);
+        } else {
+            self.ticker = None;
+        }
+        let state = self.player_state(id, &path, cx);
+        let file_name = entry.file_name.clone();
+        audio_player(
+            SharedString::from(format!("player-{id}")),
+            Some(path),
+            state,
+            move |_| Some(manager().get_audio_file_path(&file_name)),
+            cx,
+        )
     }
 
     fn render_inspector(
@@ -375,35 +493,20 @@ impl HistoryPage {
     ) -> impl IntoElement {
         let p = palette(cx);
         let id = entry.id;
-        let has_text = !entry.transcription_text.trim().is_empty();
         let retrying = self.retrying.contains(&id);
-        let recorded = Local.timestamp_opt(entry.timestamp, 0).single();
-        let path: PathBuf = manager().get_audio_file_path(&entry.file_name);
-        if audio_player::is_playing(&path) {
-            self.ensure_ticker(cx);
-        }
-        let player_state = self.player_state(id, cx);
-        let file_name = entry.file_name.clone();
-        let player = audio_player(
-            SharedString::from(format!("player-{id}")),
-            Some(path),
-            player_state,
-            move |_| Some(manager().get_audio_file_path(&file_name)),
-            cx,
-        );
+        let transcript = entry.transcription_text.trim();
+        let post_processed = post_processed_text(entry);
+        let duration = self
+            .players
+            .get(&id)
+            .and_then(|state| state.read(cx).duration);
 
-        let quote = div()
-            .p_3()
-            .rounded(px(8.))
-            .bg(p.card)
-            .border_1()
-            .border_color(p.line)
-            .text_px(13.)
-            .line_height(relative(1.45))
+        let lead = div()
+            .text_px(15.)
+            .line_height(relative(1.5))
             .whitespace_normal();
-        let quote = if retrying {
-            quote
-                .child(t("settings.history.transcribing"))
+        let lead = if retrying {
+            lead.child(t("settings.history.transcribing"))
                 .with_animation(
                     SharedString::from(format!("retry-pulse-{id}")),
                     gpui::Animation::new(Duration::from_secs(3)).repeat(),
@@ -413,211 +516,263 @@ impl HistoryPage {
                     },
                 )
                 .into_any_element()
-        } else if has_text {
-            quote
-                .child(format!(
-                    "\u{201c}{}\u{201d}",
-                    entry.transcription_text.trim()
-                ))
-                .into_any_element()
-        } else {
-            quote
+        } else if transcript.is_empty() {
+            lead.text_px(13.)
                 .text_color(p.mid_gray)
                 .child(t("settings.history.transcriptionFailed"))
                 .into_any_element()
+        } else {
+            lead.text_color(p.text)
+                .child(SharedString::from(pasted_text(entry).to_string()))
+                .into_any_element()
         };
 
-        let focus = FocusVisible::ring(cx);
-        let handles: HashMap<&'static str, gpui::FocusHandle> = ["save", "retry", "delete"]
-            .into_iter()
-            .map(|name| {
-                let key = SharedString::from(format!("{name}-{id}"));
-                (name, focus_handle_for(key.into(), cx))
+        let when = Local
+            .timestamp_opt(entry.timestamp, 0)
+            .single()
+            .map(|recorded| {
+                format!(
+                    "{}, {}",
+                    capitalize(&dates::short_day_label(recorded.date_naive())),
+                    dates::time_label(recorded)
+                )
             })
-            .collect();
-        let icon_button = |name: &'static str,
-                           glyph: &'static str,
-                           title: SharedString,
-                           active: bool,
-                           disabled: bool,
-                           spin: bool| {
-            let button = div()
-                .id(SharedString::from(format!("{name}-{id}")))
-                .size(px(28.))
-                .rounded(px(7.))
-                .border_1()
-                .border_color(p.line)
-                .bg(p.card)
-                .flex()
-                .row_dir()
-                .items_center()
-                .justify_center();
-            let button = if disabled {
-                button.text_color(p.text.a(0.2)).cursor_not_allowed()
-            } else {
-                focus
-                    .apply_with(button, handles[name].clone())
-                    .cursor_pointer()
-                    // GPUI keeps one hover style per element, so each branch
-                    // sets the whole thing.
-                    .when(active, |el| {
-                        el.text_color(p.accent).hover(|s| s.bg(p.mid_gray.a(0.15)))
-                    })
-                    .when(!active, |el| {
-                        el.text_color(p.text.a(0.6))
-                            .hover(|s| s.bg(p.mid_gray.a(0.15)).text_color(p.text))
-                    })
-            };
-            button
-                .tooltip(move |_, cx| Tooltip::text(title.clone(), cx))
-                .child(if spin {
-                    icon(glyph)
-                        .size(px(14.))
-                        .with_animation(
-                            SharedString::from(format!("{name}-spin-{id}")),
-                            Animation::new(Duration::from_secs(1)).repeat(),
-                            |icon, delta| icon.rotate(gpui::percentage(-delta)),
-                        )
-                        .into_any_element()
-                } else {
-                    icon(glyph).size(px(14.)).into_any_element()
-                })
-        };
-
-        let copied = self.copied.contains(&id);
-        let actions = div()
+            .unwrap_or_default();
+        let bundle_id = entry.bundle_id.clone().filter(|id| !id.is_empty());
+        let app = entry
+            .app_name
+            .clone()
+            .or_else(|| bundle_id.clone())
+            .filter(|app| !app.is_empty());
+        let header = div()
+            .mb(px(14.))
             .flex()
             .row_dir()
             .items_center()
-            .gap_2()
+            .gap(px(10.))
+            .when_some(app.clone(), |el, app| {
+                // macOS icons carry a transparent margin, so a 36pt icon centered in a 30pt box
+                // lines its visible edge up with the play button above, in either direction.
+                el.child(
+                    div()
+                        .flex_none()
+                        .size(px(30.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(crate::ui::app_icons::app_icon(
+                            bundle_id.as_deref(),
+                            &app,
+                            px(36.),
+                            cx,
+                        )),
+                )
+            })
             .child(
-                Button::new(SharedString::from(format!("copy-{id}")))
-                    .gap(px(5.))
-                    .disabled(!has_text || retrying)
-                    .child(icon(if copied { "check" } else { "copy" }).size(px(13.)))
-                    .child(if copied {
-                        t("settings.history.copied")
-                    } else {
-                        t("settings.history.copy")
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .when_some(app, |el, app| {
+                        el.child(
+                            div()
+                                .text_px(13.)
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .truncate()
+                                .child(app),
+                        )
                     })
-                    .on_click(cx.listener(move |this, _, _, cx| this.copy(id, cx))),
-            )
-            .child(
-                icon_button(
-                    "save",
-                    if entry.saved { "star-filled" } else { "star" },
-                    if entry.saved {
-                        t("settings.history.unsave")
-                    } else {
-                        t("settings.history.save")
-                    },
-                    entry.saved,
-                    retrying,
-                    false,
-                )
-                .when(!retrying, |el| {
-                    el.on_click(cx.listener(move |this, _, _, cx| this.toggle_saved(id, cx)))
-                }),
-            )
-            .child(
-                icon_button(
-                    "retry",
-                    "rotate-ccw",
-                    t("settings.history.retranscribe"),
-                    false,
-                    retrying,
-                    retrying,
-                )
-                .when(!retrying, |el| {
-                    el.on_click(cx.listener(move |this, _, _, cx| this.retry(id, cx)))
-                }),
-            )
-            .child(
-                icon_button(
-                    "delete",
-                    "trash-2",
-                    t("settings.history.delete"),
-                    false,
-                    retrying,
-                    false,
-                )
-                .when(!retrying, |el| {
-                    el.on_click(cx.listener(move |this, _, _, cx| {
-                        this.selected = None;
-                        this.delete(id, cx)
-                    }))
-                }),
+                    .child(
+                        div()
+                            .text_px(12.)
+                            .text_color(p.mid_gray)
+                            .truncate()
+                            .child(when),
+                    ),
             );
 
-        let words = entry.transcription_text.split_whitespace().count();
         let mut details: Vec<(SharedString, SharedString)> = Vec::new();
-        if let Some(recorded) = recorded {
+        if let Some(duration) = duration {
             details.push((
-                t("settings.history.recorded"),
-                format!(
-                    "{}, {}",
-                    capitalize(&dates::day_label(recorded.date_naive())),
-                    dates::time_label(recorded)
-                )
-                .into(),
+                t("settings.history.duration"),
+                crate::annotate::model::format_clock(duration.as_millis() as u64).into(),
             ));
         }
-        details.push((
-            t("settings.history.wordCount"),
-            crate::ui::format::number(words as i64).into(),
-        ));
-        if let Some(prompt) = entry.post_process_prompt.clone().filter(|p| !p.is_empty()) {
-            details.push((t("settings.history.prompt"), prompt.into()));
+        let words = crate::managers::history::count_words(pasted_text(entry));
+        if words > 0 {
+            details.push((
+                t("settings.history.wordCount"),
+                crate::ui::format::number(words).into(),
+            ));
         }
 
+        let pill = post_processed.filter(|_| !retrying).map(|_| {
+            div().flex().row_dir().mb(px(10.)).child(
+                div()
+                    .min_w_0()
+                    .h(px(22.))
+                    .px(px(8.))
+                    .flex()
+                    .row_dir()
+                    .items_center()
+                    .gap(px(5.))
+                    .rounded_full()
+                    .bg(p.accent.a(0.12))
+                    .text_color(accent_text(&p))
+                    .text_px(11.5)
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(icon("sparkles").size(px(11.)).flex_none())
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .child(t("settings.history.postProcessed")),
+                    ),
+            )
+        });
+
+        let raw_copied = self.copied.contains(&(id, CopyKind::Raw));
+        let card = || {
+            div()
+                .rounded(px(10.))
+                .bg(p.card)
+                .border_1()
+                .border_color(p.line)
+        };
+        let rows = details.len();
         div()
             .flex()
             .flex_col()
-            .child(heading(t("settings.history.transcript"), cx))
-            .child(quote)
-            .child(div().mt_3().child(player))
-            .child(div().mt_3().child(actions))
-            .when_some(
-                entry
-                    .post_processed_text
-                    .clone()
-                    .filter(|text| !text.trim().is_empty() && has_text),
-                |el, text| {
+            .child(header)
+            .children(pill)
+            .child(lead)
+            .when(
+                post_processed.is_some_and(|text| text != transcript) && !retrying,
+                |el| {
                     el.child(
-                        div()
-                            .mt_5()
-                            .child(heading(t("settings.history.postProcessed"), cx)),
-                    )
-                    .child(
-                        div()
-                            .text_px(12.5)
-                            .line_height(relative(1.45))
-                            .text_color(p.text.a(0.75))
-                            .child(text),
+                        card()
+                            .mt(px(14.))
+                            .px(px(10.))
+                            .py(px(8.))
+                            .child(
+                                div()
+                                    .mb(px(1.))
+                                    .flex()
+                                    .row_dir()
+                                    .items_center()
+                                    .justify_between()
+                                    .child(
+                                        div()
+                                            .text_px(11.)
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(p.mid_gray)
+                                            .child(t("settings.history.transcript")),
+                                    )
+                                    .child(
+                                        Button::new(SharedString::from(format!("copy-raw-{id}")))
+                                            .variant(ButtonVariant::Ghost)
+                                            .size(ButtonSize::Sm)
+                                            .title(t("settings.history.copy"))
+                                            .size_6()
+                                            .px(px(0.))
+                                            .pb(px(0.))
+                                            .text_color(p.mid_gray)
+                                            .child(
+                                                icon(if raw_copied { "check" } else { "copy" })
+                                                    .size(px(12.)),
+                                            )
+                                            .on_click(cx.listener(move |this, _, _, cx| {
+                                                this.copy(id, CopyKind::Raw, cx)
+                                            })),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .text_px(13.)
+                                    .line_height(relative(1.45))
+                                    .text_color(p.text.a(0.7))
+                                    .child(SharedString::from(transcript.to_string())),
+                            ),
                     )
                 },
             )
-            .child(
-                div()
-                    .mt_5()
-                    .child(heading(t("settings.history.details"), cx)),
+            .when(rows > 0, |el| {
+                el.child(card().mt(px(18.)).flex().flex_col().text_px(12.5).children(
+                    details.into_iter().enumerate().map(|(i, (label, value))| {
+                        div()
+                            .h(px(30.))
+                            .px(px(10.))
+                            .flex()
+                            .row_dir()
+                            .items_center()
+                            .gap(px(10.))
+                            .when(i + 1 < rows, |el| el.border_b_1().border_color(p.line))
+                            .child(div().flex_none().text_color(p.mid_gray).child(label))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .flex()
+                                    .row_dir()
+                                    .justify_flex_end()
+                                    .child(div().min_w_0().truncate().child(value)),
+                            )
+                    }),
+                ))
+            })
+    }
+}
+
+fn post_processed_text(entry: &HistoryEntry) -> Option<&str> {
+    entry
+        .post_processed_text
+        .as_deref()
+        .map(str::trim)
+        .filter(|text| !text.is_empty() && !entry.transcription_text.trim().is_empty())
+}
+
+fn pasted_text(entry: &HistoryEntry) -> &str {
+    post_processed_text(entry).unwrap_or(entry.transcription_text.trim())
+}
+
+fn neighbor_of_removed(entries: &[HistoryEntry], removed_index: usize) -> Option<i64> {
+    entries
+        .get(removed_index)
+        .or_else(|| removed_index.checked_sub(1).and_then(|i| entries.get(i)))
+        .map(|e| e.id)
+}
+
+fn accent_text(p: &crate::ui::theme::Palette) -> gpui::Hsla {
+    if p.is_dark {
+        crate::ui::theme::mix(p.accent, p.text, 0.45)
+    } else {
+        p.accent
+    }
+}
+
+fn icon_action(id: SharedString, glyph: &'static str, title: SharedString, spin: bool) -> Button {
+    let key = id.clone();
+    Button::new(id)
+        .variant(ButtonVariant::Secondary)
+        .title(title)
+        .w(CONTROL_HEIGHT)
+        .px(px(0.))
+        .child(spinning(glyph, 14., key, spin))
+}
+
+fn spinning(name: &'static str, size: f32, key: impl std::fmt::Display, spin: bool) -> AnyElement {
+    let glyph = icon(name).size(px(size));
+    if spin {
+        glyph
+            .with_animation(
+                SharedString::from(format!("{key}-spin")),
+                Animation::new(Duration::from_secs(1)).repeat(),
+                |icon, delta| icon.rotate(gpui::percentage(-delta)),
             )
-            .child(div().flex().flex_col().gap(px(6.)).text_px(12.5).children(
-                details.into_iter().map(|(label, value)| {
-                    div()
-                        .flex()
-                        .row_dir()
-                        .gap(px(10.))
-                        .child(
-                            div()
-                                .w(px(84.))
-                                .flex_none()
-                                .text_color(p.mid_gray)
-                                .child(label),
-                        )
-                        .child(div().flex_1().min_w_0().child(value))
-                }),
-            ))
+            .into_any_element()
+    } else {
+        glyph.into_any_element()
     }
 }
 
@@ -629,34 +784,26 @@ fn capitalize(label: &str) -> String {
     }
 }
 
-fn heading(label: SharedString, cx: &App) -> impl IntoElement {
-    div()
-        .mb_2()
-        .text_px(11.)
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_color(palette(cx).mid_gray)
-        .child(label)
+fn open_folder_action() -> AnyElement {
+    let folder = t("settings.history.openFolder");
+    Button::new("open-recordings")
+        .variant(ButtonVariant::Secondary)
+        .gap(px(5.))
+        .title(folder.clone())
+        .child(icon("folder-open").size(px(13.)))
+        .child(folder)
+        .on_click(|_, _, _| {
+            if let Err(e) = crate::commands::open_recordings_folder(AppHandle::global().clone()) {
+                log::error!("Failed to open recordings folder: {e}");
+            }
+        })
+        .into_any_element()
 }
 
-/// The toolbar's actions, or the inspector's top row when `compact`.
-fn actions(compact: bool) -> Vec<AnyElement> {
-    let folder = t("settings.history.openFolder");
-    vec![
-        Button::new("open-recordings")
-            .variant(ButtonVariant::Secondary)
-            .gap(px(5.))
-            .title(folder.clone())
-            .when(compact, |el| el.w(CONTROL_HEIGHT).px(px(0.)))
-            .child(icon("folder-open").size(px(13.)))
-            .when(!compact, |el| el.child(folder))
-            .on_click(|_, _, _| {
-                if let Err(e) = crate::commands::open_recordings_folder(AppHandle::global().clone())
-                {
-                    log::error!("Failed to open recordings folder: {e}");
-                }
-            })
-            .into_any_element(),
-    ]
+impl Drop for HistoryPage {
+    fn drop(&mut self) {
+        audio_player::stop();
+    }
 }
 
 impl Render for HistoryPage {

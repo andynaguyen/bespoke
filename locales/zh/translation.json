@@ -550,21 +550,16 @@
       "loading": "加载历史记录中...",
       "empty": "还没有转录记录。开始录制以建立您的历史记录！",
       "copyError": "无法将转录复制到剪贴板。",
-      "save": "保存转录",
-      "unsave": "从已保存中移除",
       "delete": "删除条目",
       "retranscribe": "重新转录",
       "retranscribeError": "重新转录失败。请重试。",
       "transcribing": "转录中...",
-      "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。",
+      "transcriptionFailed": "转录失败",
       "transcript": "转录文本",
-      "details": "详细信息",
-      "recorded": "录制时间",
       "wordCount": "字数",
+      "duration": "时长",
       "postProcessed": "已后处理",
-      "prompt": "提示词",
-      "copy": "复制",
-      "copied": "已复制"
+      "copy": "复制"
     },
     "debug": {
       "logDirectory": {

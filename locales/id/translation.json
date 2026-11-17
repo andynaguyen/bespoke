@@ -550,21 +550,16 @@
       "loading": "Memuat riwayat...",
       "empty": "Belum ada transkripsi. Mulai merekam untuk mengisi riwayat Anda!",
       "copyError": "Gagal menyalin transkripsi ke papan klip.",
-      "save": "Simpan transkripsi",
-      "unsave": "Hapus dari daftar tersimpan",
       "delete": "Hapus entri",
       "retranscribe": "Transkripsikan ulang",
       "retranscribeError": "Gagal mentranskripsikan ulang. Silakan coba lagi.",
       "transcribing": "Mentranskripsikan...",
-      "transcriptionFailed": "Transkripsi gagal. Anda dapat mentranskripsikan ulang menggunakan ikon coba lagi.",
+      "transcriptionFailed": "Transkripsi Gagal",
       "transcript": "Transkrip",
-      "details": "Detail",
-      "recorded": "Direkam",
       "wordCount": "Kata",
+      "duration": "Durasi",
       "postProcessed": "Pascaproses",
-      "prompt": "Prompt",
-      "copy": "Salin",
-      "copied": "Disalin"
+      "copy": "Salin"
     },
     "debug": {
       "logDirectory": {

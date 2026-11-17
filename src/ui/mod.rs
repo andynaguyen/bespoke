@@ -1,3 +1,4 @@
+pub mod app_icons;
 pub mod assets;
 pub mod audio_player;
 pub mod capsule;

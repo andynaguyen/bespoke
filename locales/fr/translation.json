@@ -553,21 +553,16 @@
       "loading": "Chargement de l'historique...",
       "empty": "Pas encore de transcriptions. Commencez à enregistrer pour créer votre historique !",
       "copyError": "Impossible de copier la transcription dans le presse-papiers.",
-      "save": "Enregistrer la transcription",
-      "unsave": "Retirer des favoris",
       "delete": "Supprimer l'entrée",
       "retranscribe": "Re-transcrire",
       "retranscribeError": "Impossible de re-transcrire. Veuillez réessayer.",
       "transcribing": "Transcription en cours...",
-      "transcriptionFailed": "La transcription a échoué. Vous pouvez re-transcrire en utilisant l'icône de réessai.",
+      "transcriptionFailed": "Échec de la transcription",
       "transcript": "Transcription",
-      "details": "Détails",
-      "recorded": "Enregistré",
       "wordCount": "Mots",
+      "duration": "Durée",
       "postProcessed": "Post-traité",
-      "prompt": "Prompt",
-      "copy": "Copier",
-      "copied": "Copié"
+      "copy": "Copier"
     },
     "debug": {
       "logDirectory": {

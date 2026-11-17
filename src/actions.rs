@@ -842,11 +842,10 @@ impl ShortcutAction for TranscribeAction {
                             let duration_ms = (sample_count as u64 * 1000
                                 / crate::audio_toolkit::constants::WHISPER_SAMPLE_RATE as u64)
                                 as i64;
-                            if let Err(err) = hm.record_usage(
-                                &transcription,
-                                duration_ms,
-                                Some(&crate::managers::history::PasteTarget::frontmost()),
-                            ) {
+                            let app = crate::managers::history::PasteTarget::frontmost();
+                            if let Err(err) =
+                                hm.record_usage(&transcription, duration_ms, Some(&app))
+                            {
                                 error!("Failed to record usage stats: {}", err);
                             }
 
@@ -857,6 +856,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    &app,
                                 )
                             {
                                 error!("Failed to save history entry: {}", err);
@@ -926,6 +926,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     None,
                                     None,
+                                    &crate::managers::history::PasteTarget::frontmost(),
                                 )
                             {
                                 error!("Failed to save failed history entry: {}", save_err);

@@ -553,21 +553,16 @@
       "loading": "Carregando histórico...",
       "empty": "Nenhuma transcrição ainda. Comece a gravar para construir seu histórico!",
       "copyError": "Não foi possível copiar a transcrição para a área de transferência.",
-      "save": "Salvar transcrição",
-      "unsave": "Remover dos salvos",
       "delete": "Excluir entrada",
       "retranscribe": "Re-transcrever",
       "retranscribeError": "Falha ao re-transcrever. Por favor, tente novamente.",
       "transcribing": "Transcrevendo...",
-      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente.",
+      "transcriptionFailed": "Falha na transcrição",
       "transcript": "Transcrição",
-      "details": "Detalhes",
-      "recorded": "Gravado",
       "wordCount": "Palavras",
+      "duration": "Duração",
       "postProcessed": "Pós-processado",
-      "prompt": "Prompt",
-      "copy": "Copiar",
-      "copied": "Copiado"
+      "copy": "Copiar"
     },
     "debug": {
       "logDirectory": {

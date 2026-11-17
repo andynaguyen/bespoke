@@ -68,53 +68,39 @@ fn relative_day(days_ago: i64) -> Option<&'static str> {
 }
 
 pub fn day_label(date: NaiveDate) -> String {
+    day_label_with(date, false)
+}
+
+/// `day_label` with an abbreviated month and no weekday, for a value in a narrow column.
+pub fn short_day_label(date: NaiveDate) -> String {
+    day_label_with(date, true)
+}
+
+fn day_label_with(date: NaiveDate, short: bool) -> String {
     let today = Local::now().date_naive();
     if let Some(word) = relative_day((today - date).num_days()) {
         return word.to_string();
     }
     let same_year = date.year() == today.year();
-    let pattern = match crate::i18n::language() {
-        "en" => {
-            if same_year {
-                "%A, %B %-d"
-            } else {
-                "%A, %B %-d, %Y"
-            }
-        }
-        "de" | "da" => {
-            if same_year {
-                "%A, %-d. %B"
-            } else {
-                "%A, %-d. %B %Y"
-            }
-        }
-        "zh" | "zh-TW" | "ja" => {
-            if same_year {
-                "%-m月%-d日%A"
-            } else {
-                "%Y年%-m月%-d日%A"
-            }
-        }
-        "ko" => {
-            if same_year {
-                "%-m월 %-d일 %A"
-            } else {
-                "%Y년 %-m월 %-d일 %A"
-            }
-        }
-        _ => {
-            if same_year {
-                "%A %-d %B"
-            } else {
-                "%A %-d %B %Y"
-            }
-        }
+    let (this_year, other_year) = match (crate::i18n::language(), short) {
+        ("en", false) => ("%A, %B %-d", "%A, %B %-d, %Y"),
+        ("en", true) => ("%b %-d", "%b %-d, %Y"),
+        ("de" | "da", false) => ("%A, %-d. %B", "%A, %-d. %B %Y"),
+        ("de" | "da", true) => ("%-d. %b", "%-d. %b %Y"),
+        ("zh" | "zh-TW" | "ja", false) => ("%-m月%-d日%A", "%Y年%-m月%-d日%A"),
+        ("zh" | "zh-TW" | "ja", true) => ("%-m月%-d日", "%Y年%-m月%-d日"),
+        ("ko", false) => ("%-m월 %-d일 %A", "%Y년 %-m월 %-d일 %A"),
+        ("ko", true) => ("%-m월 %-d일", "%Y년 %-m월 %-d일"),
+        (_, false) => ("%A %-d %B", "%A %-d %B %Y"),
+        (_, true) => ("%-d %b", "%-d %b %Y"),
     };
+    let pattern = if same_year { this_year } else { other_year };
     date.format_localized(pattern, locale()).to_string()
 }
 
 fn uses_twelve_hour() -> bool {
-    matches!(crate::i18n::language(), "en" | "hi" | "ko" | "ar")
+    // Not Arabic: chrono's ar_SA has empty AM and PM strings, so `%p` would print nothing.
+    matches!(crate::i18n::language(), "en" | "hi" | "ko")
 }
 
 pub fn time_label(time: DateTime<Local>) -> String {

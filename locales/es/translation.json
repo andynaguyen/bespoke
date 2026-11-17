@@ -553,21 +553,16 @@
       "loading": "Cargando historial...",
       "empty": "Aún no hay transcripciones. ¡Comienza a grabar para crear tu historial!",
       "copyError": "No se pudo copiar la transcripción al portapapeles.",
-      "save": "Guardar transcripción",
-      "unsave": "Eliminar de guardados",
       "delete": "Eliminar entrada",
       "retranscribe": "Re-transcribir",
       "retranscribeError": "No se pudo re-transcribir. Por favor, inténtalo de nuevo.",
       "transcribing": "Transcribiendo...",
-      "transcriptionFailed": "La transcripción falló. Puedes re-transcribir usando el icono de reintentar.",
+      "transcriptionFailed": "Error de transcripción",
       "transcript": "Transcripción",
-      "details": "Detalles",
-      "recorded": "Grabado",
       "wordCount": "Palabras",
+      "duration": "Duración",
       "postProcessed": "Post procesado",
-      "prompt": "Prompt",
-      "copy": "Copiar",
-      "copied": "Copiado"
+      "copy": "Copiar"
     },
     "debug": {
       "logDirectory": {

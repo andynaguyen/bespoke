@@ -550,21 +550,16 @@
       "loading": "Đang tải lịch sử...",
       "empty": "Chưa có bản ghi nào. Bắt đầu ghi âm để xây dựng lịch sử của bạn!",
       "copyError": "Không thể sao chép bản ghi vào bộ nhớ tạm.",
-      "save": "Lưu bản ghi",
-      "unsave": "Xóa khỏi đã lưu",
       "delete": "Xóa mục",
       "retranscribe": "Phiên âm lại",
       "retranscribeError": "Không thể phiên âm lại. Vui lòng thử lại.",
       "transcribing": "Đang phiên âm...",
-      "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại.",
+      "transcriptionFailed": "Phiên âm thất bại",
       "transcript": "Bản chép lời",
-      "details": "Chi tiết",
-      "recorded": "Thời điểm ghi",
       "wordCount": "Số từ",
+      "duration": "Thời lượng",
       "postProcessed": "Đã xử lý sau",
-      "prompt": "Prompt",
-      "copy": "Sao chép",
-      "copied": "Đã sao chép"
+      "copy": "Sao chép"
     },
     "debug": {
       "logDirectory": {

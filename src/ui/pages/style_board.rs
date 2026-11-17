@@ -1,10 +1,8 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::collections::HashSet;
 
 use gpui::{
-    AnyElement, App, Bounds, Context, Entity, FontWeight, Global, Image, ImageFormat, Pixels,
-    SharedString, Subscription, WeakEntity, Window, canvas, div, img, prelude::*, px, relative,
-    rems,
+    AnyElement, App, Bounds, Context, Entity, FontWeight, Pixels, SharedString, Subscription,
+    WeakEntity, Window, canvas, div, prelude::*, px, relative, rems,
 };
 use gpui_component::input::{InputEvent, InputState};
 
@@ -30,7 +28,6 @@ const STYLES: [WritingStyle; 3] = [
 ];
 const MIN_WIDTH_FOR_COLUMNS: f32 = 520.;
 const SHELF_MAX_HEIGHT: f32 = 196.;
-const ICON_PIXELS: f64 = 64.;
 const REMOVE: &str = "remove";
 
 fn set_default_style(style: WritingStyle, cx: &mut App) {
@@ -165,55 +162,6 @@ impl Dragged {
     }
 }
 
-#[derive(Clone)]
-enum Icon {
-    Loading,
-    Missing,
-    Loaded(Arc<Image>),
-}
-
-#[derive(Default)]
-struct AppIcons(HashMap<String, Icon>);
-
-impl Global for AppIcons {}
-
-fn request_icons(ids: Vec<String>, cx: &mut App) {
-    let icons = cx.default_global::<AppIcons>();
-    let ids: Vec<String> = ids
-        .into_iter()
-        .filter(|id| !icons.0.contains_key(id))
-        .collect();
-    if ids.is_empty() {
-        return;
-    }
-    for id in &ids {
-        icons.0.insert(id.clone(), Icon::Loading);
-    }
-    let task = cx.background_executor().spawn(async move {
-        ids.into_iter()
-            .map(|id| {
-                let png = crate::apps::icon_png(&id, ICON_PIXELS);
-                (id, png)
-            })
-            .collect::<Vec<_>>()
-    });
-    cx.spawn(async move |cx| {
-        let loaded = task.await;
-        let _ = cx.update(|cx| {
-            let icons = cx.default_global::<AppIcons>();
-            for (id, png) in loaded {
-                let icon = match png {
-                    Some(png) => Icon::Loaded(Arc::new(Image::from_bytes(ImageFormat::Png, png))),
-                    None => Icon::Missing,
-                };
-                icons.0.insert(id, icon);
-            }
-            cx.refresh_windows();
-        });
-    })
-    .detach();
-}
-
 fn app_icon(dragged: &Dragged, size: Pixels, cx: &App) -> AnyElement {
     let p = palette(cx);
     let Some(bundle_id) = dragged.bundle_id() else {
@@ -232,33 +180,7 @@ fn app_icon(dragged: &Dragged, size: Pixels, cx: &App) -> AnyElement {
             )
             .into_any_element();
     };
-    let icon = cx
-        .try_global::<AppIcons>()
-        .and_then(|icons| icons.0.get(bundle_id).cloned())
-        .unwrap_or(Icon::Loading);
-    match icon {
-        Icon::Loaded(image) => img(image).size(size).flex_none().into_any_element(),
-        Icon::Loading | Icon::Missing => div()
-            .size(size)
-            .flex_none()
-            .rounded(size * 0.25)
-            .bg(p.mid_gray.a(0.25))
-            .flex()
-            .items_center()
-            .justify_center()
-            .text_size(size * 0.5)
-            .font_weight(FontWeight::SEMIBOLD)
-            .text_color(p.text.a(0.7))
-            .child(
-                dragged
-                    .label()
-                    .chars()
-                    .next()
-                    .map(|c| c.to_uppercase().to_string())
-                    .unwrap_or_default(),
-            )
-            .into_any_element(),
-    }
+    crate::ui::app_icons::app_icon(Some(bundle_id), &dragged.label(), size, cx)
 }
 
 struct DragPreview(Dragged);
@@ -737,20 +659,6 @@ impl StyleBoard {
             })
             .into_any_element()
     }
-
-    fn visible_icon_ids(&self, cx: &App) -> Vec<String> {
-        let rules = &self.store.read(cx).settings.app_styles;
-        let ruled: HashSet<&str> = rules.iter().map(|rule| rule.bundle_id.as_str()).collect();
-        rules
-            .iter()
-            .map(|rule| rule.bundle_id.clone())
-            .chain(
-                self.shelf_apps(&ruled, cx)
-                    .into_iter()
-                    .map(|app| app.bundle_id),
-            )
-            .collect()
-    }
 }
 
 impl Render for StyleBoard {
@@ -775,13 +683,6 @@ impl Render for StyleBoard {
             None => hover_card::hide(cx),
         });
         let entity = cx.entity().downgrade();
-        let ids = self.visible_icon_ids(cx);
-        let missing = cx
-            .try_global::<AppIcons>()
-            .is_none_or(|icons| ids.iter().any(|id| !icons.0.contains_key(id)));
-        if missing {
-            cx.defer(move |cx| request_icons(ids, cx));
-        }
         let columns: Vec<AnyElement> = STYLES
             .iter()
             .map(|style| self.column(*style, wide, &entity, cx))

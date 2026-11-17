@@ -681,21 +681,16 @@
       "loading": "Loading history...",
       "empty": "No transcriptions yet. Start recording to build your history!",
       "copyError": "Failed to copy transcription to clipboard.",
-      "save": "Save transcription",
-      "unsave": "Remove from saved",
       "delete": "Delete entry",
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
-      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon.",
+      "transcriptionFailed": "Transcription failed",
       "transcript": "Transcript",
-      "details": "Details",
-      "recorded": "Recorded",
       "wordCount": "Words",
+      "duration": "Duration",
       "postProcessed": "Post-processed",
-      "prompt": "Prompt",
-      "copy": "Copy",
-      "copied": "Copied"
+      "copy": "Copy"
     },
     "debug": {
       "logDirectory": {

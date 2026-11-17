@@ -556,21 +556,16 @@
       "loading": "Načítám historii...",
       "empty": "Zatím žádné přepisy. Začněte nahrávat a vytvořte si historii!",
       "copyError": "Přepis se nepodařilo zkopírovat do schránky.",
-      "save": "Uložit přepis",
-      "unsave": "Odebrat z uložených",
       "delete": "Smazat záznam",
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
-      "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování.",
+      "transcriptionFailed": "Přepis selhal",
       "transcript": "Přepis",
-      "details": "Podrobnosti",
-      "recorded": "Nahráno",
       "wordCount": "Slova",
+      "duration": "Délka",
       "postProcessed": "Následně zpracováno",
-      "prompt": "Prompt",
-      "copy": "Kopírovat",
-      "copied": "Zkopírováno"
+      "copy": "Kopírovat"
     },
     "debug": {
       "logDirectory": {

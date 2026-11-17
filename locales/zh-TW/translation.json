@@ -550,21 +550,16 @@
       "loading": "載入歷史紀錄中...",
       "empty": "還沒有轉錄紀錄。開始錄製以建立您的歷史紀錄！",
       "copyError": "無法將轉錄複製到剪貼簿。",
-      "save": "儲存轉錄",
-      "unsave": "從已儲存中移除",
       "delete": "刪除條目",
       "retranscribe": "重新轉錄",
       "retranscribeError": "重新轉錄失敗，請重試。",
       "transcribing": "轉錄中...",
-      "transcriptionFailed": "轉錄失敗。您可以使用重試圖示重新轉錄。",
+      "transcriptionFailed": "轉錄失敗",
       "transcript": "轉錄文字",
-      "details": "詳細資訊",
-      "recorded": "錄製時間",
       "wordCount": "字數",
+      "duration": "長度",
       "postProcessed": "已後處理",
-      "prompt": "提示詞",
-      "copy": "複製",
-      "copied": "已複製"
+      "copy": "複製"
     },
     "debug": {
       "logDirectory": {

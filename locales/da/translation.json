@@ -551,21 +551,16 @@
       "loading": "Indlæser historik...",
       "empty": "Ingen transskriptioner endnu. Start optagelse for at opbygge din historik!",
       "copyError": "Kunne ikke kopiere transskriptionen til udklipsholderen.",
-      "save": "Gem transskription",
-      "unsave": "Fjern fra gemte",
       "delete": "Slet post",
       "retranscribe": "Transskribér igen",
       "retranscribeError": "Kunne ikke transskribere igen. Prøv igen.",
       "transcribing": "Transskriberer...",
-      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet.",
+      "transcriptionFailed": "Transskription mislykkedes",
       "transcript": "Transskription",
-      "details": "Detaljer",
-      "recorded": "Optaget",
       "wordCount": "Ord",
+      "duration": "Varighed",
       "postProcessed": "Efterbehandlet",
-      "prompt": "Prompt",
-      "copy": "Kopiér",
-      "copied": "Kopieret"
+      "copy": "Kopiér"
     },
     "debug": {
       "logDirectory": {

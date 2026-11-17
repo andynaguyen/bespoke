@@ -551,21 +551,16 @@
       "loading": "Verlauf wird geladen...",
       "empty": "Noch keine Transkriptionen. Starte eine Aufnahme, um deinen Verlauf aufzubauen!",
       "copyError": "Transkription konnte nicht in die Zwischenablage kopiert werden.",
-      "save": "Transkription speichern",
-      "unsave": "Aus Gespeicherten entfernen",
       "delete": "Eintrag löschen",
       "retranscribe": "Erneut transkribieren",
       "retranscribeError": "Erneute Transkription fehlgeschlagen. Bitte versuche es erneut.",
       "transcribing": "Transkribiere...",
-      "transcriptionFailed": "Transkription fehlgeschlagen. Du kannst über das Wiederholen-Symbol erneut transkribieren.",
+      "transcriptionFailed": "Transkription fehlgeschlagen",
       "transcript": "Transkript",
-      "details": "Details",
-      "recorded": "Aufgenommen",
       "wordCount": "Wörter",
+      "duration": "Dauer",
       "postProcessed": "Nachbearbeitet",
-      "prompt": "Prompt",
-      "copy": "Kopieren",
-      "copied": "Kopiert"
+      "copy": "Kopieren"
     },
     "debug": {
       "logDirectory": {
