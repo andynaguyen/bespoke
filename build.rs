@@ -35,9 +35,12 @@ fn build_annotate_helper() {
     let plist = helper_dir.join("Info.plist");
     println!("cargo:rerun-if-changed={}", plist.display());
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
+    // OUT_DIR is `<profile>/build/bespoke-<hash>/out` through Cargo 1.99 and
+    // `<profile>/build/bespoke/<hash>/out` from 1.100, so find `build` by name.
     let profile_dir = out_dir
         .ancestors()
-        .nth(3)
+        .find(|dir| dir.file_name().is_some_and(|name| name == "build"))
+        .and_then(Path::parent)
         .expect("Unexpected OUT_DIR layout");
     let arch = match std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
         Ok("x86_64") => "x86_64",
